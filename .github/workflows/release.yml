@@ -1,0 +1,44 @@
+name: Build/release
+
+on: workflow_dispatch
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+jobs:
+  release:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, windows-latest]
+        node-version: [17]
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v3
+
+      - name: Install PNPM <3
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build
+        run: pnpm postinstall
+
+      - if: matrix.os == 'ubuntu-20.04'
+        name: Build Linux
+        run: pnpm release:linux
+      - if: matrix.os == 'ubuntu-20.04'
+        name: Build Mac (On Linux)
+        run: pnpm release:mac
+      - if: matrix.os == 'windows-latest'
+        name: Build Windows
+        run: pnpm release:win
