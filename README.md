@@ -1,12 +1,16 @@
 # NeuzOS
 
-![alt text](resources/icon.png "NeuzOS")
+An Electron WebView based Multi Client for Flyff Universe with Svelte and TypeScript.
 
-An Electron WebView based Multi Client for Flyff Universe with Svelte and TypeScript
+<img src="resources/icon.png" alt="neuzos logo" width="100"/>
+
+#### Join our discord if you need help : https://discord.gg/k3EY7Z6MMP
+
 ## Features
 - Multi Session Management with Unique Session for Each Character
 - Layout System To Launch your sessions in any layout you see fit
 - Ctrl + Tab for Fast Swapping Between Layouts
+- Right Click on a Layout Tab to Close, Restart a Session
 - Light Mode / Dark Mode Themes
 
 ## Download Pre-compiled Binaries
