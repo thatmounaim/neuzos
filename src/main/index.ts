@@ -59,9 +59,14 @@ function createWindow(): void {
     })
   })
 
-  ipcMain.on('clearCache', async function (_, sid: string) {
+  ipcMain.on('clearData', async function (_, sid: string) {
     const sess = session.fromPartition('persist:' + sid)
     await sess.clearStorageData()
+  })
+
+  ipcMain.on('clearCache', async function (_, sid: string) {
+    const sess = session.fromPartition('persist:' + sid)
+    await sess.clearCache()
   })
 
   ipcMain.on('popSession', async function (_, sid: string) {

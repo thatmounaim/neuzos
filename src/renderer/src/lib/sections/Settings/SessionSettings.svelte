@@ -1,6 +1,6 @@
 <script lang="ts">
   import Button from '$lib/components/ui/button/button.svelte'
-  import { ChevronsUpDown, HardDrive, Plus, Save, Trash } from 'lucide-svelte'
+  import { ChevronsUpDown, FileX, HardDrive, Plus, Save, Trash } from 'lucide-svelte'
   import { Input } from '$lib/components/ui/input'
   import * as Command from '$lib/components/ui/command'
   import * as Popover from '$lib/components/ui/popover'
@@ -15,9 +15,13 @@
 
   function saveSessions() {
     deletingSessions.forEach((sid) => {
-      clearCache(sid)
+      clearData(sid)
     })
     localStorage.setItem('sessions', JSON.stringify(sessions))
+  }
+
+  function clearData(sid: string) {
+    window.electron.ipcRenderer.send('clearData', sid)
   }
 
   function clearCache(sid: string) {
@@ -174,6 +178,30 @@
             <div class="flex gap-2 items-center">
               <AlertDialog.Root>
                 <AlertDialog.Trigger asChild let:builder>
+                  <Button builders={[builder]} variant="outline"><FileX class="h-5" /></Button>
+                </AlertDialog.Trigger>
+                <AlertDialog.Content>
+                  <AlertDialog.Header>
+                    <AlertDialog.Title>Clear "{session.name}" session's cache.</AlertDialog.Title>
+                    <AlertDialog.Description>
+                      This action will clear the cache for <b>"{session.name}"</b> even
+                      witout saving your changes later on.<br>
+
+                      Your session data will still be saved
+                    </AlertDialog.Description>
+                  </AlertDialog.Header>
+                  <AlertDialog.Footer>
+                    <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+                    <AlertDialog.Action
+                      on:click={() => {
+                        clearCache(session.id)
+                      }}>Clear Cache</AlertDialog.Action
+                    >
+                  </AlertDialog.Footer>
+                </AlertDialog.Content>
+              </AlertDialog.Root>
+              <AlertDialog.Root>
+                <AlertDialog.Trigger asChild let:builder>
                   <Button builders={[builder]} variant="outline"><HardDrive class="h-5" /></Button>
                 </AlertDialog.Trigger>
                 <AlertDialog.Content>
@@ -188,7 +216,7 @@
                     <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
                     <AlertDialog.Action
                       on:click={() => {
-                        clearCache(session.id)
+                        clearData(session.id)
                       }}>Clear Data</AlertDialog.Action
                     >
                   </AlertDialog.Footer>
