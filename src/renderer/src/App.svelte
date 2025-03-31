@@ -6,17 +6,18 @@
   import { logme } from './debug'
   import * as Resizable from '$lib/components/ui/resizable'
   import NeuzClient from '$lib/sections/NeuzClient.svelte'
+  import BrowserComponent from '$lib/overlays/BrowserComponent.svelte'
 
   let sessions: NeuzSession[] = []
   let layouts: NeuzLayout[] = []
   let activeLayout: string = ''
   let activeLayouts: NeuzLayout[] = []
   let activeLayoutsOrder: string[] = []
-  let lastActiveLayout : string = ''
+  let lastActiveLayout: string = ''
   function onRefresh() {
     logme('onRefresh')
     sessions = JSON.parse(localStorage.getItem('sessions') ?? '[]')
-    layouts = JSON.parse(localStorage.getItem('layouts') ?? '[]') 
+    layouts = JSON.parse(localStorage.getItem('layouts') ?? '[]')
     activeLayouts = []
     activeLayout = ''
     activeLayoutsOrder = []
@@ -24,14 +25,23 @@
 
   function changeTab(switchToLayout: string) {
     lastActiveLayout = activeLayout
-    activeLayout = switchToLayout
-    activeLayouts.find((lay) => {
-      lay.id == activeLayout
-    })?.rows[0]?.cells[0]?.clientRef?.focous()
+    if (switchToLayout.startsWith('neuzos.internal.')) {
+      activeLayout = switchToLayout
+    } else {
+      activeLayout = switchToLayout
+      activeLayouts
+        .find((lay) => {
+          lay.id == activeLayout
+        })
+        ?.rows[0]?.cells[0]?.clientRef?.focous()
+    }
   }
 
   onMount(() => {
     onRefresh()
+    {
+      /*@ts-ignore*/
+    }
     window.electron.ipcRenderer.on('doTabbing', function () {
       if (lastActiveLayout == '') return
       changeTab(lastActiveLayout)
@@ -41,8 +51,17 @@
 
 <ModeWatcher />
 <div class="w-full h-full overflow-hidden flex flex-col">
-  <Navbar {changeTab} {onRefresh} bind:activeLayoutsOrder bind:sessions bind:layouts bind:activeLayout bind:activeLayouts />
+  <Navbar
+    {changeTab}
+    {onRefresh}
+    bind:activeLayoutsOrder
+    bind:sessions
+    bind:layouts
+    bind:activeLayout
+    bind:activeLayouts
+  />
   <section class="w-full flex-1 relative">
+    <BrowserComponent open={activeLayout == 'neuzos.internal.browser'}/>
     {#each activeLayouts as layout}
       <div
         class="h-full w-full left-0 top-0 absolute bg-background {layout.id == activeLayout
@@ -56,7 +75,7 @@
                 <Resizable.PaneGroup direction="horizontal">
                   {#each row.cells as cell, cellIndex}
                     {#if sessions.find((s) => s.id == cell.sessionId)}
-                      <Resizable.Pane >
+                      <Resizable.Pane>
                         <NeuzClient
                           bind:this={cell.clientRef}
                           session={sessions.find((s) => {

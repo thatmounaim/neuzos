@@ -5,6 +5,7 @@
     ExternalLink,
     Eye,
     EyeOff,
+    Globe,
     Play,
     Plus,
     RefreshCcw,
@@ -34,7 +35,7 @@
   let promptReload: boolean = false
   let visible: boolean = true
 
-  const onOverlayClose = () => {
+  const onSettingsClose = () => {
     logme('onOverlayClose')
     openOverlay = null
     const savedSessions = localStorage.getItem('sessions') ?? '[]'
@@ -130,6 +131,7 @@
                       variant="outline"
                       class="flex items-center gap-2 justify-between"
                       on:click={() => {
+                        {/*@ts-ignore*/}
                         window.electron.ipcRenderer.send('popSession', session.id)
                       }}
                     >
@@ -148,6 +150,16 @@
           <Dialog.Footer></Dialog.Footer>
         </Dialog.Content>
       </Dialog.Root>
+      <Button
+      size="icon"
+      variant="outline"
+      on:click={() => {
+        changeTab('neuzos.internal.browser')
+      }}
+       disabled={activeLayout == 'neuzos.internal.browser'}
+    >
+      <Globe />
+    </Button>
       {#each activeLayoutsOrdered as av, index}
         <ContextMenu.Root>
           <ContextMenu.Trigger>
@@ -279,6 +291,7 @@
                     <Separator />
                     <ContextMenu.Item
                       on:click={() => {
+                        {/*@ts-ignore*/}
                         window.electron.ipcRenderer.send('popSession', cell.sessionId)
                       }}><ExternalLink class="h-4" /> Pop Session Out</ContextMenu.Item
                     >
@@ -296,8 +309,7 @@
       </Button>
     </div>
   </nav>
-
-  <SettingsOverlay open={openOverlay == 'settings'} onClose={onOverlayClose} />
+  <SettingsOverlay open={openOverlay == 'settings'} onClose={onSettingsClose} />
   {#if promptReload}
     <AlertDialog.Root
       open

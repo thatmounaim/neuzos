@@ -21,10 +21,12 @@
   }
 
   function clearData(sid: string) {
+    {/*@ts-ignore*/}
     window.electron.ipcRenderer.send('clearData', sid)
   }
 
   function clearCache(sid: string) {
+    {/*@ts-ignore*/}
     window.electron.ipcRenderer.send('clearCache', sid)
   }
 
