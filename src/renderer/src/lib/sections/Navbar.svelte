@@ -97,7 +97,11 @@
               <Button
                 on:click={() => {
                   const newLay = JSON.parse(JSON.stringify(layout))
+                  let isFirst = false
                   activeLayouts.push(newLay)
+                  if(activeLayouts.length == 1) {
+                    activeLayout = newLay.id
+                  }
                   layout.active = true
                   activeLayouts = activeLayouts
                   activeLayoutsOrder.push(layout.id)
@@ -113,7 +117,7 @@
       {#each activeLayoutsOrdered as av, index}
         <ContextMenu.Root>
           <ContextMenu.Trigger>
-            <Button disabled={activeLayout == av.id} on:click={() => changeTab(av.id)}>
+            <Button variant="outline" disabled={activeLayout == av.id} on:click={() => changeTab(av.id)}>
               {av.label}
             </Button>
           </ContextMenu.Trigger>
@@ -163,6 +167,9 @@
                   activeLayoutsOrder = activeLayoutsOrder
                 })
                 activeLayouts = activeLayouts
+                if(activeLayouts.length == 1) {
+                    activeLayout = activeLayouts[0].id
+                  }
 
                 layouts = layouts.map((lay) => {
                   logme('Active false', lay)
@@ -173,7 +180,31 @@
             >
               <div class="flex items-center gap-2"><X class="h-4" /> Close</div></ContextMenu.Item
             >
-            <Separator />
+
+            <Separator class="my-1"/>
+            <ContextMenu.Item
+            on:click={() => {
+              av.rows.forEach((r) => {
+                r.cells.forEach((c) => {
+                  c.clientRef?.stopClient()
+                })
+              })
+            }}
+          >
+            <div class="flex items-center gap-2"><Square class="h-4" /> Stop All</div></ContextMenu.Item
+          >
+          <ContextMenu.Item
+          on:click={() => {
+            av.rows.forEach((r) => {
+              r.cells.forEach((c) => {
+                c.clientRef?.starClient()
+              })
+            })
+          }}
+        >
+          <div class="flex items-center gap-2"><Play class="h-4" /> Start All</div></ContextMenu.Item
+        >
+          <Separator class="my-1"/>
             {#each av.rows as row}
               {#each row.cells as cell}
                 <ContextMenu.Sub>

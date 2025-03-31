@@ -8,15 +8,15 @@
   import { FlyffJobs, getJobName, type NeuzSession } from '../../../characterutils'
   import Separator from '$lib/components/ui/separator/separator.svelte'
   import * as Table from '$lib/components/ui/table'
-  import * as Select from "$lib/components/ui/select";
-
+  import * as Select from '$lib/components/ui/select'
+  import * as AlertDialog from '$lib/components/ui/alert-dialog'
   let sessions: NeuzSession[] = []
-  let deletingSessions : string[] = []
+  let deletingSessions: string[] = []
 
   function saveSessions() {
-    deletingSessions.forEach(sid => {
-        clearCache(sid)
-    });
+    deletingSessions.forEach((sid) => {
+      clearCache(sid)
+    })
     localStorage.setItem('sessions', JSON.stringify(sessions))
   }
 
@@ -91,6 +91,7 @@
     </Popover.Root>
     <Input class="w-auto" bind:value={newName} placeholder="Character Name" />
     <Button
+      variant="outline"
       on:click={() => {
         if (jobValue == '' || newName == '') {
           alert('Please select a job and a name for your session')
@@ -111,9 +112,9 @@
       <span>Add Session</span>
     </Button>
     <div class="flex-1"></div>
-    <Button on:click={saveSessions} class="flex gap-2 items-center">
-        Save Changes
-        <Save class="h-5" />
+    <Button variant="outline" on:click={saveSessions} class="flex gap-2 items-center border-2">
+      Save Changes
+      <Save class="h-5" />
     </Button>
   </div>
   <Separator class="my-2" />
@@ -129,55 +130,91 @@
       </Table.Row>
     </Table.Header>
     <Table.Body>
-      {#each sessions as session}
+      {#each sessions as session, index}
         <Table.Row>
           <Table.Cell>
-            <div  class="flex gap-2 items-center">
+            <div class="flex gap-2 items-center">
               <!-- svelte-ignore a11y-missing-attribute -->
               <img src="jobs/{session.jobId}.png" />
 
-              <Select.Root selected={{value: session.jobId , label: getJobName(session.jobId)}}  onSelectedChange={(v) => {
-                session.jobId = v.value;
-              }}>
+              <Select.Root
+                selected={{ value: session.jobId, label: getJobName(session.jobId) }}
+                onSelectedChange={(v) => {
+                  session.jobId = v.value
+                }}
+              >
                 <Select.Trigger class="w-[180px]">
                   <Select.Value placeholder="Job" />
                 </Select.Trigger>
                 <Select.Content>
-                    {#each FlyffJobs as job}
-                  <Select.Item value="{job.id}" class="flex gap-2">
-                    <!-- svelte-ignore a11y-missing-attribute -->
-                    <img src="jobs/{job.id}.png" />
-                    {job.label}</Select.Item>
-                {/each}
-
+                  {#each FlyffJobs as job}
+                    <Select.Item value={job.id} class="flex gap-2">
+                      <!-- svelte-ignore a11y-missing-attribute -->
+                      <img src="jobs/{job.id}.png" />
+                      {job.label}</Select.Item
+                    >
+                  {/each}
                 </Select.Content>
               </Select.Root>
             </div>
-            </Table.Cell
-          >
-          <Table.Cell class="w-full">{session.name}</Table.Cell>
-          <Table.Cell>{session.id}</Table.Cell>
+          </Table.Cell>
+          <Table.Cell class="w-full">
+            <Input
+              bind:value={session.name}
+              on:change={(e) => {
+                if (e.target.value == '') {
+                  session.name = 'Unamed Session'
+                }
+              }}
+            />
+          </Table.Cell>
+          <Table.Cell class="text-xs">{session.id}</Table.Cell>
           <Table.Cell>
-            <div  class="flex gap-2 items-center">
-            <Button
-              class="gap-2"
-              size="sm"
-              on:click={() => {
-                clearCache(session.id)
-              }}
-            >
-              <HardDrive class="h-5" />
-              Clear Data
-            </Button>
-            <Button
-              class="gap-2"
-              size="sm"
-              on:click={() => {
-                deleteSession(session.id)
-              }}
-            >
-              <Trash class="h-5" />
-            </Button>
+            <div class="flex gap-2 items-center">
+              <AlertDialog.Root>
+                <AlertDialog.Trigger asChild let:builder>
+                  <Button builders={[builder]} variant="outline"><HardDrive class="h-5" /></Button>
+                </AlertDialog.Trigger>
+                <AlertDialog.Content>
+                  <AlertDialog.Header>
+                    <AlertDialog.Title>Clear "{session.name}" session's data.</AlertDialog.Title>
+                    <AlertDialog.Description>
+                      This action will still clear any session data for <b>"{session.name}"</b> even
+                      witout saving your changes later on.
+                    </AlertDialog.Description>
+                  </AlertDialog.Header>
+                  <AlertDialog.Footer>
+                    <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+                    <AlertDialog.Action
+                      on:click={() => {
+                        clearCache(session.id)
+                      }}>Clear Data</AlertDialog.Action
+                    >
+                  </AlertDialog.Footer>
+                </AlertDialog.Content>
+              </AlertDialog.Root>
+              <AlertDialog.Root>
+                <AlertDialog.Trigger asChild let:builder>
+                  <Button builders={[builder]} variant="outline"><Trash class="h-5" /></Button>
+                </AlertDialog.Trigger>
+                <AlertDialog.Content>
+                  <AlertDialog.Header>
+                    <AlertDialog.Title>Delete session "{session.name}" ?</AlertDialog.Title>
+                    <AlertDialog.Description>
+                      This action will still clear any session data for <b>"{session.name}"</b> even
+                      witout saving your changes later on.
+                    </AlertDialog.Description>
+                  </AlertDialog.Header>
+                  <AlertDialog.Footer>
+                    <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+                    <AlertDialog.Action
+                      on:click={() => {
+                        deleteSession(session.id)
+                      }}>Delete</AlertDialog.Action
+                    >
+                  </AlertDialog.Footer>
+                </AlertDialog.Content>
+              </AlertDialog.Root>
             </div>
           </Table.Cell>
         </Table.Row>

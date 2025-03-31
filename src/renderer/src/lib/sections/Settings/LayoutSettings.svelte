@@ -8,6 +8,7 @@
   import Input from '$lib/components/ui/input/input.svelte'
   import * as Dialog from '$lib/components/ui/dialog'
   import { buttonVariants } from '$lib/components/ui/button'
+  import { logme } from '../../../debug'
   let sessions: NeuzSession[] = []
 
   function getSession(sid) {
@@ -43,6 +44,7 @@
     <div class="flex items-center gap-2 w-auto px-2">
       <Input class="w-auto" bind:value={newName} placeholder="Layout Name" />
       <Button
+       variant="outline"
         on:click={() => {
           if (newName == '') {
             alert('Please select a name for your layout')
@@ -62,7 +64,7 @@
         <span>Add Layout</span>
       </Button>
       <div class="flex-1"></div>
-      <Button on:click={saveLayouts} class="flex gap-2 items-center">
+      <Button  variant="outline" on:click={saveLayouts} class="flex gap-2 items-center border-2">
         Save Changes
         <Save class="h-5" />
       </Button>
@@ -74,9 +76,14 @@
         <Card.Root>
           <Card.Header>
             <Card.Title class="flex">
-              <span>{layout.label}</span>
+              <Input class="w-auto" bind:value={layout.label} on:change={(e) => {
+               if(e.target.value == ''){
+                layout.label = 'Unamed Layout'
+               }
+              }} placeholder="Layout Name" />
               <div class="flex-1"></div>
               <Button
+               variant="outline"
                 size="icon"
                 on:click={(e) => {
                   layouts.splice(layIndex, 1)
@@ -111,7 +118,7 @@
                                 layouts = layouts
                               }}
                             >
-                             <Button class="w-full">{session.name}</Button> 
+                             <Button  variant="outline" class="w-full">{session.name}</Button> 
                             </Dialog.Close>
                           {/each}
                         </div>
@@ -120,17 +127,19 @@
                   {/each}
                   <div class="flex-1"></div>
                   <Button
+                  variant="outline"
                     size="sm"
                     on:click={() => {
 
-                      const popped = layouts[layIndex].rows[rowIndex].cells.pop()
-                      if(!popped){
+                      layouts[layIndex].rows[rowIndex].cells.pop()
+                      if(layouts[layIndex].rows[rowIndex].cells.length == 0){
                         layouts[layIndex].rows.splice(rowIndex,1)
                       }
                       layouts = layouts
                     }}><Minus class="h-5" /></Button
                   >
                   <Button
+                   variant="outline"
                     size="sm"
                     on:click={() => {
                       layouts[layIndex].rows[rowIndex].cells.push({
@@ -143,6 +152,7 @@
               {/each}
               <Separator class="my-2" />
               <Button
+               variant="outline"
                 size="sm"
                 on:click={() => {
                   layouts[layIndex].rows.push({

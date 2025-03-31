@@ -61,8 +61,8 @@
         bind:this={webview}
         class="w-full h-full flex items-center flex-col gap-2 justify-center"
       >
-        <img src="logofull.png" alt="Flyff Universe Logo" class="h-1/4" />
-        <Button on:click={starClient}>Start Session - {session.name}</Button>
+        <img src="logofull.png" alt="Flyff Universe Logo" class="w-1/2 max-w-32" />
+        <Button variant="outline" on:click={starClient}>Start Session - {session.name}</Button>
       </div>
     {/if}
   {/if}

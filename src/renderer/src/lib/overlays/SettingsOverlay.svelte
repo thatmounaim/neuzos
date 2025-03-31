@@ -25,7 +25,9 @@
   <Dialog.Content class="h-[80%] max-w-[90%] flex flex-col">
     <Dialog.Header>
       <Dialog.Title>NeuzOS Settings</Dialog.Title>
-      <Dialog.Description>Setup your sessions and layouts</Dialog.Description>
+      <Dialog.Description
+        ><b> Remember to Save your changes before changing tabs </b>
+      </Dialog.Description>
     </Dialog.Header>
     <div class="h-full w-full flex-1 overflow-hidden">
       <Tabs.Root bind:value={currentTab} class="h-full">
