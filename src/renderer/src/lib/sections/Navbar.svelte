@@ -109,7 +109,11 @@
                     <Button
                       variant="outline"
                       on:click={() => {
-                        const newLay = JSON.parse(JSON.stringify(layout))
+                        const newLay = {
+                            id: layout.id,
+                            label: layout.label,
+                            rows: layout.rows
+                          }
                         activeLayouts.push(newLay)
                         if (activeLayouts.length == 1) {
                           activeLayout = newLay.id
@@ -272,11 +276,11 @@
                   <ContextMenu.SubContent class="w-48">
                     <ContextMenu.Item
                       on:click={() => {
-                        cell.clientRef.isStarted()
-                          ? cell.clientRef.stopClient()
-                          : cell.clientRef.starClient()
+                        cell.clientRef?.isStarted()
+                          ? cell.clientRef?.stopClient()
+                          : cell.clientRef?.starClient()
                       }}
-                      >{#if cell.clientRef.isStarted()}
+                      >{#if cell.clientRef?.isStarted()}
                         <Square class="h-4" />Stop
                       {:else}
                         <Play class="h-4" />Start
@@ -284,8 +288,8 @@
                     >
                     <ContextMenu.Item
                       on:click={() => {
-                        cell.clientRef.stopClient()
-                        setTimeout(cell.clientRef.starClient, 500)
+                        cell.clientRef?.stopClient()
+                        setTimeout(cell.clientRef?.starClient, 500)
                       }}><RefreshCcw class="h-4" /> Restart</ContextMenu.Item
                     >
                     <Separator />

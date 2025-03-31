@@ -6,6 +6,7 @@
 
   const dispatch = createEventDispatcher()
   export let session: NeuzSession
+  export let forceClose: boolean = false
   let partition: string = ''
   let started: boolean = false
   let webview: WebviewTag | HTMLElement
@@ -39,17 +40,19 @@
       setTimeout(() => client.focus(), 100)
     }
   }
+
+  $: isReallyStarted = forceClose ? started = false : started
 </script>
 
 <!-- svelte-ignore a11y-no-static-element-interactions -->
 <div
   class="w-full h-full"
   on:mouseenter={() => {
-   focous()
+    focous()
   }}
 >
   {#if partition != ''}
-    {#if started}
+    {#if isReallyStarted}
       <webview
         bind:this={webview}
         class="w-full h-full"

@@ -64,7 +64,6 @@
     <BrowserComponent open={activeLayout == 'neuzos.internal.browser'} />
     {#each layouts as layout}
     {#key layout.id}
-      {#if activeLayoutsOrder.includes(layout.id)}
         <div
           class="h-full w-full left-0 top-0 absolute bg-background {layout.id == activeLayout
             ? 'z-[50]'
@@ -79,6 +78,7 @@
                       {#if sessions.find((s) => s.id == cell.sessionId)}
                         <Resizable.Pane>
                           <NeuzClient
+                          forceClose={!activeLayoutsOrder.includes(layout.id)}
                             bind:this={cell.clientRef}
                             session={sessions.find((s) => {
                               return s.id == cell.sessionId
@@ -99,7 +99,6 @@
             {/each}
           </Resizable.PaneGroup>
         </div>
-        {/if}
       {/key}
     {/each}
   </section>
