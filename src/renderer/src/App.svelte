@@ -61,42 +61,44 @@
     bind:activeLayouts
   />
   <section class="w-full flex-1 relative">
-    <BrowserComponent open={activeLayout == 'neuzos.internal.browser'}/>
+    <BrowserComponent open={activeLayout == 'neuzos.internal.browser'} />
     {#each activeLayouts as layout}
-      <div
-        class="h-full w-full left-0 top-0 absolute bg-background {layout.id == activeLayout
-          ? 'z-[50]'
-          : 'z-[0] hidden'} overflow-hidden"
-      >
-        <Resizable.PaneGroup direction="vertical" class="h-full w-full">
-          {#each layout.rows as row, rowIndex}
-            {#if row.cells.length > 0}
-              <Resizable.Pane>
-                <Resizable.PaneGroup direction="horizontal">
-                  {#each row.cells as cell, cellIndex}
-                    {#if sessions.find((s) => s.id == cell.sessionId)}
-                      <Resizable.Pane>
-                        <NeuzClient
-                          bind:this={cell.clientRef}
-                          session={sessions.find((s) => {
-                            return s.id == cell.sessionId
-                          })}
-                        />
-                      </Resizable.Pane>
-                      {#if cellIndex < row.cells.length - 1}
-                        <Resizable.Handle />
+      {#key layout.id}
+        <div
+          class="h-full w-full left-0 top-0 absolute bg-background {layout.id == activeLayout
+            ? 'z-[50]'
+            : 'z-[0] hidden'} overflow-hidden"
+        >
+          <Resizable.PaneGroup direction="vertical" class="h-full w-full">
+            {#each layout.rows as row, rowIndex}
+              {#if row.cells.length > 0}
+                <Resizable.Pane>
+                  <Resizable.PaneGroup direction="horizontal">
+                    {#each row.cells as cell, cellIndex}
+                      {#if sessions.find((s) => s.id == cell.sessionId)}
+                        <Resizable.Pane>
+                          <NeuzClient
+                            bind:this={cell.clientRef}
+                            session={sessions.find((s) => {
+                              return s.id == cell.sessionId
+                            })}
+                          />
+                        </Resizable.Pane>
+                        {#if cellIndex < row.cells.length - 1}
+                          <Resizable.Handle />
+                        {/if}
                       {/if}
-                    {/if}
-                  {/each}
-                </Resizable.PaneGroup>
-              </Resizable.Pane>
-              {#if rowIndex < layout.rows.length - 1}
-                <Resizable.Handle />
+                    {/each}
+                  </Resizable.PaneGroup>
+                </Resizable.Pane>
+                {#if rowIndex < layout.rows.length - 1}
+                  <Resizable.Handle />
+                {/if}
               {/if}
-            {/if}
-          {/each}
-        </Resizable.PaneGroup>
-      </div>
+            {/each}
+          </Resizable.PaneGroup>
+        </div>
+      {/key}
     {/each}
   </section>
 </div>
