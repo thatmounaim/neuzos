@@ -62,8 +62,9 @@
   />
   <section class="w-full flex-1 relative">
     <BrowserComponent open={activeLayout == 'neuzos.internal.browser'} />
-    {#each activeLayouts as layout}
-      {#key layout.id}
+    {#each layouts as layout}
+    {#key layout.id}
+      {#if activeLayoutsOrder.includes(layout.id)}
         <div
           class="h-full w-full left-0 top-0 absolute bg-background {layout.id == activeLayout
             ? 'z-[50]'
@@ -98,6 +99,7 @@
             {/each}
           </Resizable.PaneGroup>
         </div>
+        {/if}
       {/key}
     {/each}
   </section>
