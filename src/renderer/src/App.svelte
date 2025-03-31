@@ -47,7 +47,7 @@
       <div
         class="h-full w-full left-0 top-0 absolute bg-background {layout.id == activeLayout
           ? 'z-[50]'
-          : 'z-[0]'} overflow-hidden"
+          : 'z-[0] hidden'} overflow-hidden"
       >
         <Resizable.PaneGroup direction="vertical" class="h-full w-full">
           {#each layout.rows as row, rowIndex}
