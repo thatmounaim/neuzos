@@ -8,6 +8,7 @@ An Electron WebView based Multi Client for Flyff Universe with Svelte and TypeSc
 
 ## Features
 - Multi Session Management with Unique Session for Each Character
+- Clear Data / Clear Cache per Session
 - Layout System To Launch your sessions in any layout you see fit
 - Launch a Session in Its own dedicated window
 - Ctrl + Tab for Fast Swapping Between Layouts
@@ -15,6 +16,12 @@ An Electron WebView based Multi Client for Flyff Universe with Svelte and TypeSc
     - Stop / Start all session in layout
     - Chose session submenu to Close, Restart or Pop a Session in Its Own Window.
 - Light Mode / Dark Mode Themes
+- Integrated Browser Tab
+    - Default Homepage : DuckDuckGo
+    - Community Shortcuts for The Browser
+        - Flyffipedia
+        - Flyffulator
+        - SiegeStats
 
 ## Download Pre-compiled Binaries
 
