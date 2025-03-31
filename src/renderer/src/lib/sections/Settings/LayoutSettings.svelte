@@ -8,7 +8,6 @@
   import Input from '$lib/components/ui/input/input.svelte'
   import * as Dialog from '$lib/components/ui/dialog'
   import { buttonVariants } from '$lib/components/ui/button'
-  import { logme } from '../../../debug'
   let sessions: NeuzSession[] = []
 
   function getSession(sid) {
@@ -77,6 +76,7 @@
           <Card.Header>
             <Card.Title class="flex">
               <Input class="w-auto" bind:value={layout.label} on:change={(e) => {
+                {/* @ts-ignore */}
                if(e.target.value == ''){
                 layout.label = 'Unamed Layout'
                }

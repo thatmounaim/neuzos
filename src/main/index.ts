@@ -63,6 +63,33 @@ function createWindow(): void {
     const sess = session.fromPartition('persist:' + sid)
     await sess.clearStorageData()
   })
+
+  ipcMain.on('popSession', async function (_, sid: string) {
+    const sessionWindow = new BrowserWindow({
+      width: 1024,
+      height: 800,
+      show: false,
+      autoHideMenuBar: true,
+      ...(process.platform === 'linux' ? { icon } : {}),
+      webPreferences: {
+        contextIsolation: true,
+        sandbox: false,
+        partition: 'persist:' + sid
+      }
+    })
+    sessionWindow.setMenuBarVisibility(false)
+    sessionWindow.on('ready-to-show', () => {
+      sessionWindow.show()
+    })
+    
+    sessionWindow.webContents.setWindowOpenHandler((details) => {
+      shell.openExternal(details.url)
+      return { action: 'deny' }
+    })
+
+    sessionWindow.loadURL('https://universe.flyff.com/play')
+
+  })
 }
 
 // This method will be called when Electron has finished

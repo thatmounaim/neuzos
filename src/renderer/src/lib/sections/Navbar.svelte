@@ -2,6 +2,7 @@
   import {
     ChevronLeft,
     ChevronRight,
+    ExternalLink,
     Eye,
     EyeOff,
     Play,
@@ -19,6 +20,7 @@
   import * as Dialog from '$lib/components/ui/dialog'
   import * as ContextMenu from '$lib/components/ui/context-menu'
   import Separator from '$lib/components/ui/separator/separator.svelte'
+  import * as Tabs from '$lib/components/ui/tabs'
 
   export let onRefresh: () => unknown
   export let changeTab: (s: string) => unknown
@@ -89,27 +91,59 @@
         <Dialog.Trigger class={buttonVariants({ variant: 'outline' })}><Plus /></Dialog.Trigger>
         <Dialog.Content class="sm:max-w-[425px]">
           <Dialog.Header>
-            <Dialog.Title>Use Layout</Dialog.Title>
-            <Dialog.Description>Select a layout to use</Dialog.Description>
+            <Dialog.Title>Chose a Layout / Session</Dialog.Title>
+            <Dialog.Description
+              >Select a layout to use or a session to pop in a window</Dialog.Description
+            >
           </Dialog.Header>
-          <div class="flex gap-2 flex-col">
-            {#each layouts as layout}
-              <Button
-                on:click={() => {
-                  const newLay = JSON.parse(JSON.stringify(layout))
-                  let isFirst = false
-                  activeLayouts.push(newLay)
-                  if(activeLayouts.length == 1) {
-                    activeLayout = newLay.id
-                  }
-                  layout.active = true
-                  activeLayouts = activeLayouts
-                  activeLayoutsOrder.push(layout.id)
-                  activeLayoutsOrder = activeLayoutsOrder
-                }}
-                disabled={layout.active}>{layout.label}</Button
-              >
-            {/each}
+          <div class="flex gap-2 flex-col w-full">
+            <Tabs.Root value="layouts" class="">
+              <Tabs.List class="grid w-full grid-cols-2">
+                <Tabs.Trigger value="layouts">Layouts</Tabs.Trigger>
+                <Tabs.Trigger value="sessions">Sessions</Tabs.Trigger>
+              </Tabs.List>
+              <Tabs.Content value="layouts">
+                <div class="flex gap-2 flex-col">
+                  {#each layouts as layout}
+                    <Button
+                      variant="outline"
+                      on:click={() => {
+                        const newLay = JSON.parse(JSON.stringify(layout))
+                        activeLayouts.push(newLay)
+                        if (activeLayouts.length == 1) {
+                          activeLayout = newLay.id
+                        }
+                        layout.active = true
+                        activeLayouts = activeLayouts
+                        activeLayoutsOrder.push(layout.id)
+                        activeLayoutsOrder = activeLayoutsOrder
+                      }}
+                      disabled={layout.active}>{layout.label}</Button
+                    >
+                  {/each}
+                </div>
+              </Tabs.Content>
+              <Tabs.Content value="sessions">
+                <div class="grid gap-2 grid-cols-2 w-full">
+                  {#each sessions as session}
+                    <Button
+                      variant="outline"
+                      class="flex items-center gap-2 justify-between"
+                      on:click={() => {
+                        window.electron.ipcRenderer.send('popSession', session.id)
+                      }}
+                    >
+                      <div class="flex items-center justify-start gap-2 flex-1">
+                        <!-- svelte-ignore a11y-missing-attribute -->
+                        <img src="jobs/{session.jobId}.png" class="h-4 w-4" />
+                        <span>{session.name}</span>
+                      </div>
+                      <ExternalLink class="h-4" />
+                    </Button>
+                  {/each}
+                </div>
+              </Tabs.Content>
+            </Tabs.Root>
           </div>
           <Dialog.Footer></Dialog.Footer>
         </Dialog.Content>
@@ -117,7 +151,11 @@
       {#each activeLayoutsOrdered as av, index}
         <ContextMenu.Root>
           <ContextMenu.Trigger>
-            <Button variant="outline" disabled={activeLayout == av.id} on:click={() => changeTab(av.id)}>
+            <Button
+              variant="outline"
+              disabled={activeLayout == av.id}
+              on:click={() => changeTab(av.id)}
+            >
               {av.label}
             </Button>
           </ContextMenu.Trigger>
@@ -167,9 +205,9 @@
                   activeLayoutsOrder = activeLayoutsOrder
                 })
                 activeLayouts = activeLayouts
-                if(activeLayouts.length == 1) {
-                    activeLayout = activeLayouts[0].id
-                  }
+                if (activeLayouts.length == 1) {
+                  activeLayout = activeLayouts[0].id
+                }
 
                 layouts = layouts.map((lay) => {
                   logme('Active false', lay)
@@ -181,30 +219,34 @@
               <div class="flex items-center gap-2"><X class="h-4" /> Close</div></ContextMenu.Item
             >
 
-            <Separator class="my-1"/>
+            <Separator class="my-1" />
             <ContextMenu.Item
-            on:click={() => {
-              av.rows.forEach((r) => {
-                r.cells.forEach((c) => {
-                  c.clientRef?.stopClient()
+              on:click={() => {
+                av.rows.forEach((r) => {
+                  r.cells.forEach((c) => {
+                    c.clientRef?.stopClient()
+                  })
                 })
-              })
-            }}
-          >
-            <div class="flex items-center gap-2"><Square class="h-4" /> Stop All</div></ContextMenu.Item
-          >
-          <ContextMenu.Item
-          on:click={() => {
-            av.rows.forEach((r) => {
-              r.cells.forEach((c) => {
-                c.clientRef?.starClient()
-              })
-            })
-          }}
-        >
-          <div class="flex items-center gap-2"><Play class="h-4" /> Start All</div></ContextMenu.Item
-        >
-          <Separator class="my-1"/>
+              }}
+            >
+              <div class="flex items-center gap-2">
+                <Square class="h-4" /> Stop All
+              </div></ContextMenu.Item
+            >
+            <ContextMenu.Item
+              on:click={() => {
+                av.rows.forEach((r) => {
+                  r.cells.forEach((c) => {
+                    c.clientRef?.starClient()
+                  })
+                })
+              }}
+            >
+              <div class="flex items-center gap-2">
+                <Play class="h-4" /> Start All
+              </div></ContextMenu.Item
+            >
+            <Separator class="my-1" />
             {#each av.rows as row}
               {#each row.cells as cell}
                 <ContextMenu.Sub>
@@ -233,6 +275,12 @@
                         cell.clientRef.stopClient()
                         setTimeout(cell.clientRef.starClient, 500)
                       }}><RefreshCcw class="h-4" /> Restart</ContextMenu.Item
+                    >
+                    <Separator />
+                    <ContextMenu.Item
+                      on:click={() => {
+                        window.electron.ipcRenderer.send('popSession', cell.sessionId)
+                      }}><ExternalLink class="h-4" /> Pop Session Out</ContextMenu.Item
                     >
                   </ContextMenu.SubContent>
                 </ContextMenu.Sub>

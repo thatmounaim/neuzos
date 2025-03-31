@@ -130,7 +130,7 @@
       </Table.Row>
     </Table.Header>
     <Table.Body>
-      {#each sessions as session, index}
+      {#each sessions as session}
         <Table.Row>
           <Table.Cell>
             <div class="flex gap-2 items-center">
@@ -162,6 +162,7 @@
             <Input
               bind:value={session.name}
               on:change={(e) => {
+                {/*@ts-ignore*/}
                 if (e.target.value == '') {
                   session.name = 'Unamed Session'
                 }
