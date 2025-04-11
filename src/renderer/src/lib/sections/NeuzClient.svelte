@@ -10,6 +10,7 @@
   let partition: string = ''
   let started: boolean = false
   let webview: WebviewTag | HTMLElement
+  let muted: boolean
   onMount(() => {
     partition = `persist:${session.id}`
     console.log(partition)
@@ -41,7 +42,22 @@
     }
   }
 
-  $: isReallyStarted = forceClose ? started = false : started
+  export const setAudioMuted = (mu: boolean) => {
+    try {
+      if (webview) {
+        ;(webview as WebviewTag)?.setAudioMuted(mu)
+        muted = (webview as WebviewTag)?.isAudioMuted() ?? false
+      }
+    } catch (e) {
+      console.log('Cant mute, maybe client not started')
+    }
+  }
+
+  export const isMuted = () => {
+    return muted
+  }
+
+  $: isReallyStarted = forceClose ? (started = false) : started
 </script>
 
 <!-- svelte-ignore a11y-no-static-element-interactions -->

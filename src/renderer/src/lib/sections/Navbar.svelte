@@ -11,6 +11,8 @@
     RefreshCcw,
     Settings,
     Square,
+    Volume2,
+    VolumeX,
     X
   } from 'lucide-svelte'
   import { Button, buttonVariants } from '$lib/components/ui/button/index.js'
@@ -110,10 +112,10 @@
                       variant="outline"
                       on:click={() => {
                         const newLay = {
-                            id: layout.id,
-                            label: layout.label,
-                            rows: layout.rows
-                          }
+                          id: layout.id,
+                          label: layout.label,
+                          rows: layout.rows
+                        }
                         activeLayouts.push(newLay)
                         if (activeLayouts.length == 1) {
                           activeLayout = newLay.id
@@ -135,7 +137,9 @@
                       variant="outline"
                       class="flex items-center gap-2 justify-between"
                       on:click={() => {
-                        {/*@ts-ignore*/}
+                        {
+                          /*@ts-ignore*/
+                        }
                         window.electron.ipcRenderer.send('popSession', session.id)
                       }}
                     >
@@ -155,15 +159,15 @@
         </Dialog.Content>
       </Dialog.Root>
       <Button
-      size="icon"
-      variant="outline"
-      on:click={() => {
-        changeTab('neuzos.internal.browser')
-      }}
-       disabled={activeLayout == 'neuzos.internal.browser'}
-    >
-      <Globe />
-    </Button>
+        size="icon"
+        variant="outline"
+        on:click={() => {
+          changeTab('neuzos.internal.browser')
+        }}
+        disabled={activeLayout == 'neuzos.internal.browser'}
+      >
+        <Globe />
+      </Button>
       {#each activeLayoutsOrdered as av, index}
         <ContextMenu.Root>
           <ContextMenu.Trigger>
@@ -234,7 +238,33 @@
             >
               <div class="flex items-center gap-2"><X class="h-4" /> Close</div></ContextMenu.Item
             >
-
+            <Separator class="my-1" />
+            <ContextMenu.Item
+              on:click={() => {
+                av.rows.forEach((r) => {
+                  r.cells.forEach((c) => {
+                    c.clientRef?.setAudioMuted(false)
+                  })
+                })
+              }}
+            >
+              <div class="flex items-center gap-2">
+                <Volume2 class="h-4" /> Unmute All
+              </div></ContextMenu.Item
+            >
+            <ContextMenu.Item
+              on:click={() => {
+                av.rows.forEach((r) => {
+                  r.cells.forEach((c) => {
+                    c.clientRef?.setAudioMuted(true)
+                  })
+                })
+              }}
+            >
+              <div class="flex items-center gap-2">
+                <VolumeX class="h-4" /> Mute All
+              </div></ContextMenu.Item
+            >
             <Separator class="my-1" />
             <ContextMenu.Item
               on:click={() => {
@@ -267,13 +297,31 @@
               {#each row.cells as cell}
                 <ContextMenu.Sub>
                   <ContextMenu.SubTrigger>
-                    <div class="flex items-center gap-2">
-                      <!-- svelte-ignore a11y-missing-attribute -->
-                      <img src="jobs/{sessions.find((s) => s.id == cell.sessionId)?.jobId}.png" />
-                      {sessions.find((s) => s.id == cell.sessionId)?.name}
+                    <div class="flex items-center gap-2 justify-between w-full">
+                      <div class="flex items-center gap-2">
+                        <!-- svelte-ignore a11y-missing-attribute -->
+                        <img src="jobs/{sessions.find((s) => s.id == cell.sessionId)?.jobId}.png" />
+                        {sessions.find((s) => s.id == cell.sessionId)?.name}
+                      </div>
+                      {#if cell.clientRef?.isMuted()}
+                        <VolumeX class="w-4 h-4" />
+                      {/if}
                     </div>
                   </ContextMenu.SubTrigger>
                   <ContextMenu.SubContent class="w-48">
+                    <ContextMenu.Item
+                      on:click={() => {
+                        cell.clientRef?.isMuted()
+                          ? cell.clientRef?.setAudioMuted(false)
+                          : cell.clientRef?.setAudioMuted(true)
+                      }}
+                      >{#if !cell.clientRef?.isMuted()}
+                        <VolumeX class="h-4" />Mute
+                      {:else}
+                        <Volume2 class="h-4" />Unmute
+                      {/if}</ContextMenu.Item
+                    >
+                    <Separator />
                     <ContextMenu.Item
                       on:click={() => {
                         cell.clientRef?.isStarted()
@@ -295,7 +343,9 @@
                     <Separator />
                     <ContextMenu.Item
                       on:click={() => {
-                        {/*@ts-ignore*/}
+                        {
+                          /*@ts-ignore*/
+                        }
                         window.electron.ipcRenderer.send('popSession', cell.sessionId)
                       }}><ExternalLink class="h-4" /> Pop Session Out</ContextMenu.Item
                     >
