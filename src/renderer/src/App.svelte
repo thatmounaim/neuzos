@@ -7,6 +7,8 @@
   import * as Resizable from '$lib/components/ui/resizable'
   import NeuzClient from '$lib/sections/NeuzClient.svelte'
   import BrowserComponent from '$lib/overlays/BrowserComponent.svelte'
+  import FloatingWindow from '$lib/widgets/FloatingWindow.svelte'
+  import WgInternalFcoinCalculator from '$lib/widgets/internal/WgInternalFcoinCalculator.svelte'
 
   let sessions: NeuzSession[] = []
   let layouts: NeuzLayout[] = []
@@ -14,6 +16,15 @@
   let activeLayouts: NeuzLayout[] = []
   let activeLayoutsOrder: string[] = []
   let lastActiveLayout: string = ''
+  let widgetContainer: HTMLElement
+  let widgets = {
+    internal_fcoin_calculator: {
+      title: 'FCoin Calculator',
+      icon: 'icons/perin.webp',
+      widget: WgInternalFcoinCalculator,
+      active: false
+    }
+  }
   function onRefresh() {
     logme('onRefresh')
     sessions = JSON.parse(localStorage.getItem('sessions') ?? '[]')
@@ -52,6 +63,10 @@
 <ModeWatcher />
 <div class="w-full h-full overflow-hidden flex flex-col">
   <Navbar
+  onWidgetUpdate={() => {
+    widgets = widgets
+  }}
+    {widgets}
     {changeTab}
     {onRefresh}
     bind:activeLayoutsOrder
@@ -60,10 +75,10 @@
     bind:activeLayout
     bind:activeLayouts
   />
-  <section class="w-full flex-1 relative">
+  <section class="w-full flex-1 relative" bind:this={widgetContainer}>
     <BrowserComponent open={activeLayout == 'neuzos.internal.browser'} />
     {#each layouts as layout}
-    {#key layout.id}
+      {#key layout.id}
         <div
           class="h-full w-full left-0 top-0 absolute bg-background {layout.id == activeLayout
             ? 'z-[50]'
@@ -78,7 +93,7 @@
                       {#if sessions.find((s) => s.id == cell.sessionId)}
                         <Resizable.Pane>
                           <NeuzClient
-                          forceClose={!activeLayoutsOrder.includes(layout.id)}
+                            forceClose={!activeLayoutsOrder.includes(layout.id)}
                             bind:this={cell.clientRef}
                             session={sessions.find((s) => {
                               return s.id == cell.sessionId
@@ -101,5 +116,15 @@
         </div>
       {/key}
     {/each}
+    {#if widgets.internal_fcoin_calculator.active}
+      <FloatingWindow
+        title={widgets.internal_fcoin_calculator.title}
+        icon={widgets.internal_fcoin_calculator.icon}
+        container={widgetContainer}
+        onClose={() => (widgets.internal_fcoin_calculator.active = false)}
+      >
+        <svelte:component this={widgets.internal_fcoin_calculator.widget} />
+      </FloatingWindow>
+    {/if}
   </section>
 </div>

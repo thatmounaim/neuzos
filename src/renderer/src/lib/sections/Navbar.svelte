@@ -8,6 +8,7 @@
     Globe,
     Play,
     Plus,
+    Puzzle,
     RefreshCcw,
     Settings,
     Square,
@@ -24,7 +25,7 @@
   import * as ContextMenu from '$lib/components/ui/context-menu'
   import Separator from '$lib/components/ui/separator/separator.svelte'
   import * as Tabs from '$lib/components/ui/tabs'
-
+  import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
   export let onRefresh: () => unknown
   export let changeTab: (s: string) => unknown
   export let sessions: NeuzSession[]
@@ -32,7 +33,8 @@
   export let activeLayout: string
   export let activeLayouts: NeuzLayout[]
   export let activeLayoutsOrder: string[]
-
+  export let widgets: any
+  export let onWidgetUpdate: () => unknown
   let openOverlay: string | null = null
   let promptReload: boolean = false
   let visible: boolean = true
@@ -358,6 +360,24 @@
       {/each}
     </div>
     <div class="flex items-center gap-2 p-2 px-2">
+      <DropdownMenu.Root>
+        <DropdownMenu.Trigger asChild let:builder>
+          <Button builders={[builder]} variant="outline"><Puzzle /></Button>
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Content class="w-56">
+          <DropdownMenu.Label>Widgets</DropdownMenu.Label>
+          <DropdownMenu.Separator />
+          <DropdownMenu.Item disabled={ widgets.internal_fcoin_calculator.active} on:click={() => {
+            widgets.internal_fcoin_calculator.active = true
+            onWidgetUpdate()
+          }}>
+            <!-- svelte-ignore a11y-missing-attribute -->
+            <img src={widgets.internal_fcoin_calculator.icon} class="mr-2 h-4 w-4" />
+            <span>{widgets.internal_fcoin_calculator.title}</span>
+          </DropdownMenu.Item>
+        </DropdownMenu.Content>
+      </DropdownMenu.Root>
+
       <Button size="icon" variant="outline" on:click={() => (visible = false)}>
         <Eye />
       </Button>
