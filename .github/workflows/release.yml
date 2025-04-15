@@ -33,10 +33,10 @@ jobs:
       - name: Build
         run: pnpm postinstall
 
-      - if: matrix.os == 'ubuntu-20.04'
+      - if: matrix.os == 'ubuntu-24.04'
         name: Build Linux
         run: pnpm release:linux
-      - if: matrix.os == 'ubuntu-20.04'
+      - if: matrix.os == 'ubuntu-24.04'
         name: Build Mac (On Linux)
         run: pnpm release:mac
       - if: matrix.os == 'windows-latest'
