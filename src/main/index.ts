@@ -1,13 +1,21 @@
-import { app, shell, BrowserWindow, globalShortcut, Menu, ipcMain, session } from 'electron'
+import { app, shell, BrowserWindow, globalShortcut, Menu, ipcMain, session, screen } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 
+
+
 function createWindow(): void {
+  const primaryDisplay = screen.getPrimaryDisplay()
+  const { width, height } = primaryDisplay.workAreaSize
+  const aspectRatio = width / height;
+
+  const windowWidth = aspectRatio >= 2 ? width / 2 : width - width / 12;
+  const windowHeight = height - height / 12
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: 1024,
-    height: 800,
+    width: Math.floor(windowWidth),
+    height: Math.floor(windowHeight),
     show: false,
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
@@ -70,9 +78,16 @@ function createWindow(): void {
   })
 
   ipcMain.on('popSession', async function (_, sid: string) {
+    const primaryDisplay = screen.getPrimaryDisplay()
+    const { width, height } = primaryDisplay.workAreaSize
+    const aspectRatio = width / height;
+
+    const windowWidth = aspectRatio >= 2 ? width / 2 : width - width / 12;
+    const windowHeight = height - height / 12
+
     const sessionWindow = new BrowserWindow({
-      width: 1024,
-      height: 800,
+      width: Math.floor(windowWidth),
+      height: Math.floor(windowHeight),
       show: false,
       autoHideMenuBar: true,
       ...(process.platform === 'linux' ? { icon } : {}),
@@ -86,7 +101,7 @@ function createWindow(): void {
     sessionWindow.on('ready-to-show', () => {
       sessionWindow.show()
     })
-    
+
     sessionWindow.webContents.setWindowOpenHandler((details) => {
       shell.openExternal(details.url)
       return { action: 'deny' }
