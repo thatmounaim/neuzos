@@ -51,8 +51,13 @@ function getJobName(jobId: string): string {
   if (job) return job.label
   return jobId
 }
+
+type CustomSessionSizeLocalStorageEntry = Record<string,{width: number, height:number}>
+
 export { FlyffJobIds, FlyffJobs, FlyffJobsDictionary, getJobName }
 export type {
   NeuzSession, FlyffJob,
   NeuzLayoutCell, NeuzLayoutRow, NeuzLayout
 }
+
+export type { CustomSessionSizeLocalStorageEntry }

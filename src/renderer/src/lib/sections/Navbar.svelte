@@ -25,7 +25,7 @@
   import * as ContextMenu from '$lib/components/ui/context-menu'
   import Separator from '$lib/components/ui/separator/separator.svelte'
   import * as Tabs from '$lib/components/ui/tabs'
-  import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
+  import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
   export let onRefresh: () => unknown
   export let changeTab: (s: string) => unknown
   export let sessions: NeuzSession[]
@@ -139,10 +139,14 @@
                       variant="outline"
                       class="flex items-center gap-2 justify-between"
                       on:click={() => {
+                        const customSessionWindowSizes = JSON.parse(
+                          localStorage.getItem('customSessionWindowSizes') ?? '{}'
+                        )
+                        const wSize = customSessionWindowSizes[session.id]
                         {
                           /*@ts-ignore*/
                         }
-                        window.electron.ipcRenderer.send('popSession', session.id)
+                        window.electron.ipcRenderer.send('popSession', session.id, wSize)
                       }}
                     >
                       <div class="flex items-center justify-start gap-2 flex-1">
@@ -367,10 +371,13 @@
         <DropdownMenu.Content class="w-56">
           <DropdownMenu.Label>Widgets</DropdownMenu.Label>
           <DropdownMenu.Separator />
-          <DropdownMenu.Item disabled={ widgets.internal_fcoin_calculator.active} on:click={() => {
-            widgets.internal_fcoin_calculator.active = true
-            onWidgetUpdate()
-          }}>
+          <DropdownMenu.Item
+            disabled={widgets.internal_fcoin_calculator.active}
+            on:click={() => {
+              widgets.internal_fcoin_calculator.active = true
+              onWidgetUpdate()
+            }}
+          >
             <!-- svelte-ignore a11y-missing-attribute -->
             <img src={widgets.internal_fcoin_calculator.icon} class="mr-2 h-4 w-4" />
             <span>{widgets.internal_fcoin_calculator.title}</span>

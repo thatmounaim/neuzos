@@ -2,7 +2,7 @@
   import { onMount } from 'svelte'
   import { ModeWatcher } from 'mode-watcher'
   import Navbar from '$lib/sections/Navbar.svelte'
-  import type { NeuzLayout, NeuzSession } from './characterutils'
+  import type { CustomSessionSizeLocalStorageEntry, NeuzLayout, NeuzSession } from './characterutils'
   import { logme } from './debug'
   import * as Resizable from '$lib/components/ui/resizable'
   import NeuzClient from '$lib/sections/NeuzClient.svelte'
@@ -48,6 +48,16 @@
     }
   }
 
+
+  function sessionWindowResize(sid: string, width: number, height: number){
+    let customSessionWindowSizes = JSON.parse(localStorage.getItem('customSessionWindowSizes') ?? '{}') as CustomSessionSizeLocalStorageEntry
+    customSessionWindowSizes[sid]= {
+      width,
+      height
+      }
+    localStorage.setItem('customSessionWindowSizes', JSON.stringify(customSessionWindowSizes))
+  }
+
   onMount(() => {
     onRefresh()
     {
@@ -57,6 +67,12 @@
       if (lastActiveLayout == '') return
       changeTab(lastActiveLayout)
     })
+
+    window.electron.ipcRenderer.on('resizedSession', function (_,sid : string,width: number,height: number) {
+      sessionWindowResize(sid,width,height)
+    })
+
+    console.log('IPC:', window.electron?.ipcRenderer);
   })
 </script>
 

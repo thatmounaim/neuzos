@@ -77,13 +77,18 @@ function createWindow(): void {
     await sess.clearCache()
   })
 
-  ipcMain.on('popSession', async function (_, sid: string) {
+  ipcMain.on('popSession', async function (_, sid: string, size?: {width: number, height: number}) {
     const primaryDisplay = screen.getPrimaryDisplay()
     const { width, height } = primaryDisplay.workAreaSize
     const aspectRatio = width / height;
 
-    const windowWidth = aspectRatio >= 2 ? width / 2 : width - width / 12;
-    const windowHeight = height - height / 12
+    let windowWidth = aspectRatio >= 2 ? width / 2 : width - width / 12;
+    let windowHeight = height - height / 12
+
+    if(size) {
+      windowWidth = size.width
+      windowHeight = size.height
+    }
 
     const sessionWindow = new BrowserWindow({
       width: Math.floor(windowWidth),
@@ -108,6 +113,10 @@ function createWindow(): void {
     })
 
     sessionWindow.loadURL('https://universe.flyff.com/play')
+    sessionWindow.on('resize', () => {
+      const [width, height] = sessionWindow.getSize();
+      mainWindow.webContents.send('resizedSession',sid, width, height)
+    })
 
   })
 }
