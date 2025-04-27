@@ -382,6 +382,17 @@
             <img src={widgets.internal_fcoin_calculator.icon} class="mr-2 h-4 w-4" />
             <span>{widgets.internal_fcoin_calculator.title}</span>
           </DropdownMenu.Item>
+          <DropdownMenu.Item
+            disabled={widgets.internal_pet_food_calculator.active}
+            on:click={() => {
+              widgets.internal_pet_food_calculator.active = true
+              onWidgetUpdate()
+            }}
+          >
+            <!-- svelte-ignore a11y-missing-attribute -->
+            <img src={widgets.internal_pet_food_calculator.icon} class="mr-2 h-4 w-4" />
+            <span>{widgets.internal_pet_food_calculator.title}</span>
+          </DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu.Root>
 

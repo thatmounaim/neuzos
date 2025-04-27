@@ -73,7 +73,7 @@ export let icon : string = 'favicon.png'
 </script>
 
 <div
-  class="bg-background shadow rounded-md overflow-hidden flex flex-col z-50 {minimized ? ' relative' : 'min-w-94 max-w-96'} border-accent border"
+  class="bg-background shadow rounded-md overflow-hidden flex flex-col z-50 {minimized ? ' relative' : 'min-w-[20rem] max-w-[32rem]'} border-accent border"
   style="position: absolute; left: {left}px; top: {top}px;"
 >
   <!-- svelte-ignore a11y-no-static-element-interactions -->

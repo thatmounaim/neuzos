@@ -9,6 +9,7 @@
   import BrowserComponent from '$lib/overlays/BrowserComponent.svelte'
   import FloatingWindow from '$lib/widgets/FloatingWindow.svelte'
   import WgInternalFcoinCalculator from '$lib/widgets/internal/WgInternalFcoinCalculator.svelte'
+  import WgInternalPetFoodCalculator from '$lib/widgets/internal/WgInternalPetFoodCalculator.svelte'
 
   let sessions: NeuzSession[] = []
   let layouts: NeuzLayout[] = []
@@ -22,6 +23,12 @@
       title: 'FCoin Calculator',
       icon: 'icons/perin.webp',
       widget: WgInternalFcoinCalculator,
+      active: false
+    },
+    internal_pet_food_calculator: {
+      title: 'Pet Candy Calculator',
+      icon: 'icons/pet_candy.png',
+      widget: WgInternalPetFoodCalculator,
       active: false
     }
   }
@@ -142,5 +149,15 @@
         <svelte:component this={widgets.internal_fcoin_calculator.widget} />
       </FloatingWindow>
     {/if}
+    {#if widgets.internal_pet_food_calculator.active}
+    <FloatingWindow
+      title={widgets.internal_pet_food_calculator.title}
+      icon={widgets.internal_pet_food_calculator.icon}
+      container={widgetContainer}
+      onClose={() => (widgets.internal_pet_food_calculator.active = false)}
+    >
+      <svelte:component this={widgets.internal_pet_food_calculator.widget} />
+    </FloatingWindow>
+  {/if}
   </section>
 </div>
