@@ -51,10 +51,15 @@
     } catch (e) {
       console.log('Cant mute, maybe client not started')
     }
+    dispatch('updated')
   }
 
   export const isMuted = () => {
     return muted
+  }
+
+  export const getWebview = () => {
+    return webview?.tagName === 'WEBVIEW' ? webview as WebviewTag : null
   }
 
   $: isReallyStarted = forceClose ? (started = false) : started
@@ -73,6 +78,7 @@
         bind:this={webview}
         class="w-full h-full"
         src="https://universe.flyff.com/play"
+        on:load={() => dispatch('updated')}
         {partition}
       ></webview>
     {:else}

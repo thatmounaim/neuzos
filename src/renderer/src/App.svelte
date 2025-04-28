@@ -61,7 +61,7 @@
     customSessionWindowSizes[sid]= {
       width,
       height
-      }
+    }
     localStorage.setItem('customSessionWindowSizes', JSON.stringify(customSessionWindowSizes))
   }
 
@@ -78,17 +78,15 @@
     window.electron.ipcRenderer.on('resizedSession', function (_,sid : string,width: number,height: number) {
       sessionWindowResize(sid,width,height)
     })
-
-    console.log('IPC:', window.electron?.ipcRenderer);
   })
 </script>
 
 <ModeWatcher />
 <div class="w-full h-full overflow-hidden flex flex-col">
   <Navbar
-  onWidgetUpdate={() => {
-    widgets = widgets
-  }}
+    onWidgetUpdate={() => {
+      widgets = widgets
+    }}
     {widgets}
     {changeTab}
     {onRefresh}
@@ -121,6 +119,10 @@
                             session={sessions.find((s) => {
                               return s.id == cell.sessionId
                             })}
+                            on:updated={() => {
+                              cell.running = cell.clientRef.isStarted()
+                              activeLayouts = activeLayouts
+                            }}
                           />
                         </Resizable.Pane>
                         {#if cellIndex < row.cells.length - 1}
@@ -150,14 +152,14 @@
       </FloatingWindow>
     {/if}
     {#if widgets.internal_pet_food_calculator.active}
-    <FloatingWindow
-      title={widgets.internal_pet_food_calculator.title}
-      icon={widgets.internal_pet_food_calculator.icon}
-      container={widgetContainer}
-      onClose={() => (widgets.internal_pet_food_calculator.active = false)}
-    >
-      <svelte:component this={widgets.internal_pet_food_calculator.widget} />
-    </FloatingWindow>
-  {/if}
+      <FloatingWindow
+        title={widgets.internal_pet_food_calculator.title}
+        icon={widgets.internal_pet_food_calculator.icon}
+        container={widgetContainer}
+        onClose={() => (widgets.internal_pet_food_calculator.active = false)}
+      >
+        <svelte:component this={widgets.internal_pet_food_calculator.widget} />
+      </FloatingWindow>
+    {/if}
   </section>
 </div>
