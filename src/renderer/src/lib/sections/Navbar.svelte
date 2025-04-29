@@ -35,6 +35,7 @@
   export let activeLayoutsOrder: string[]
   export let widgets: any
   export let onWidgetUpdate: () => unknown
+  export let browserEnabled: boolean
   let openOverlay: string | null = null
   let promptReload: boolean = false
   let visible: boolean = true
@@ -67,6 +68,8 @@
       }) ?? []
     )
     logme('currentLayous', currentLayous)
+
+    browserEnabled = parseInt(localStorage.getItem('browserEnabled') ?? '0') == 1
 
     if (currentSession != savedSessions || currentLayous != savedLayouts) {
       promptReload = true
@@ -164,16 +167,18 @@
           <Dialog.Footer></Dialog.Footer>
         </Dialog.Content>
       </Dialog.Root>
-      <Button
-        size="icon"
-        variant="outline"
-        on:click={() => {
-          changeTab('neuzos.internal.browser')
-        }}
-        disabled={activeLayout == 'neuzos.internal.browser'}
-      >
-        <Globe />
-      </Button>
+      {#if browserEnabled}
+        <Button
+          size="icon"
+          variant="outline"
+          on:click={() => {
+            changeTab('neuzos.internal.browser')
+          }}
+          disabled={activeLayout == 'neuzos.internal.browser'}
+        >
+          <Globe />
+        </Button>
+      {/if}
       {#each activeLayoutsOrdered as av, index}
         <ContextMenu.Root>
           <ContextMenu.Trigger>

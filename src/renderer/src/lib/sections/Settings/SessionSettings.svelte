@@ -1,6 +1,15 @@
 <script lang="ts">
   import Button from '$lib/components/ui/button/button.svelte'
-  import { ChevronsUpDown, FileX, HardDrive, Plus, Save, Trash } from 'lucide-svelte'
+  import {
+    ChevronDown,
+    ChevronsUpDown,
+    ChevronUp,
+    FileX,
+    HardDrive,
+    Plus,
+    Save,
+    Trash
+  } from 'lucide-svelte'
   import { Input } from '$lib/components/ui/input'
   import * as Command from '$lib/components/ui/command'
   import * as Popover from '$lib/components/ui/popover'
@@ -21,12 +30,16 @@
   }
 
   function clearData(sid: string) {
-    {/*@ts-ignore*/}
+    {
+      /*@ts-ignore*/
+    }
     window.electron.ipcRenderer.send('clearData', sid)
   }
 
   function clearCache(sid: string) {
-    {/*@ts-ignore*/}
+    {
+      /*@ts-ignore*/
+    }
     window.electron.ipcRenderer.send('clearCache', sid)
   }
 
@@ -129,6 +142,7 @@
     <Table.Caption>A list of your flyff universe sessions.</Table.Caption>
     <Table.Header>
       <Table.Row>
+        <Table.Head class=""></Table.Head>
         <Table.Head class="w-[100px]">Job</Table.Head>
         <Table.Head class="w-full">Name</Table.Head>
         <Table.Head>Session ID</Table.Head>
@@ -136,8 +150,32 @@
       </Table.Row>
     </Table.Header>
     <Table.Body>
-      {#each sessions as session}
+      {#each sessions as session, sidx}
         <Table.Row>
+          <Table.Cell>
+            <div class="flex flex-col gap-2">
+              <Button on:click={() => {
+                let curSess = JSON.parse(JSON.stringify(session))
+                let repSess = JSON.parse(JSON.stringify(sessions[sidx-1]))
+                sessions[sidx] = repSess
+                sessions[sidx-1] = curSess
+                sessions = sessions
+
+              }} disabled={sidx <= 0} variant="outline" class="p-1 w-6 h-6"
+                ><ChevronUp class="w-4 h-4"></ChevronUp></Button
+              >
+              <Button on:click={() => {
+                let curSess = JSON.parse(JSON.stringify(session))
+                let repSess = JSON.parse(JSON.stringify(sessions[sidx+1]))
+                sessions[sidx] = repSess
+                sessions[sidx+1] = curSess
+                sessions = sessions
+              }}
+              disabled={sidx > sessions.length - 2} variant="outline" class="p-1 w-6 h-6"
+                ><ChevronDown class="w-4 h-4"></ChevronDown></Button
+              >
+            </div>
+          </Table.Cell>
           <Table.Cell>
             <div class="flex gap-2 items-center">
               <!-- svelte-ignore a11y-missing-attribute -->
@@ -186,8 +224,8 @@
                   <AlertDialog.Header>
                     <AlertDialog.Title>Clear "{session.name}" session's cache.</AlertDialog.Title>
                     <AlertDialog.Description>
-                      This action will clear the cache for <b>"{session.name}"</b> even
-                      witout saving your changes later on.<br>
+                      This action will clear the cache for <b>"{session.name}"</b> even witout
+                      saving your changes later on.<br />
 
                       Your session data will still be saved
                     </AlertDialog.Description>

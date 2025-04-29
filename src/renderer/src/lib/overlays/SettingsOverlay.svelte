@@ -34,6 +34,7 @@
         <Tabs.List class="w-full flex justify-start">
           <Tabs.Trigger value="sessions">Flyff Sessions</Tabs.Trigger>
           <Tabs.Trigger value="layouts">Layouts</Tabs.Trigger>
+          <Tabs.Trigger value="general">General Settings</Tabs.Trigger>
           <div class="flex-1"></div>
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild let:builder>
@@ -64,6 +65,11 @@
         <Tabs.Content class="overflow-scroll h-full" value="layouts">
           {#if currentTab == 'layouts'}
             <LayoutSettings />
+          {/if}
+        </Tabs.Content>
+        <Tabs.Content class="overflow-scroll h-full" value="general">
+          {#if currentTab == 'general'}
+            <GeneralSettings />
           {/if}
         </Tabs.Content>
       </Tabs.Root>

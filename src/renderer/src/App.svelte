@@ -11,6 +11,7 @@
   import WgInternalFcoinCalculator from '$lib/widgets/internal/WgInternalFcoinCalculator.svelte'
   import WgInternalPetFoodCalculator from '$lib/widgets/internal/WgInternalPetFoodCalculator.svelte'
 
+  let browserEnabled : boolean = true
   let sessions: NeuzSession[] = []
   let layouts: NeuzLayout[] = []
   let activeLayout: string = ''
@@ -78,6 +79,9 @@
     window.electron.ipcRenderer.on('resizedSession', function (_,sid : string,width: number,height: number) {
       sessionWindowResize(sid,width,height)
     })
+
+    browserEnabled = parseInt(localStorage.getItem('browserEnabled') ?? '0') == 1
+    localStorage.setItem('browserEnabled', browserEnabled ? '1' : '0')
   })
 </script>
 
@@ -95,9 +99,12 @@
     bind:layouts
     bind:activeLayout
     bind:activeLayouts
+    bind:browserEnabled
   />
   <section class="w-full flex-1 relative" bind:this={widgetContainer}>
+    {#if browserEnabled}
     <BrowserComponent open={activeLayout == 'neuzos.internal.browser'} />
+    {/if}
     {#each layouts as layout}
       {#key layout.id}
         <div
