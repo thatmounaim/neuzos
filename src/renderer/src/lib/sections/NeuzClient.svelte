@@ -38,7 +38,7 @@
     const cNodes = webview.shadowRoot.getRootNode().childNodes
     const client = cNodes[cNodes.length - 1] as HTMLElement
     if (client) {
-      setTimeout(() => client.focus(), 100)
+      setTimeout(() => client.focus(), 1)
     }
   }
 
