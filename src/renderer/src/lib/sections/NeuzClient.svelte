@@ -11,6 +11,8 @@
   let started: boolean = false
   let webview: WebviewTag | HTMLElement
   let muted: boolean
+  export let autofocusEnabled: boolean
+
   onMount(() => {
     partition = `persist:${session.id}`
     console.log(partition)
@@ -31,6 +33,7 @@
   }
 
   export const focous = () => {
+    if (!autofocusEnabled) return
     if (!webview.shadowRoot) {
       webview.focus()
       return
@@ -59,7 +62,7 @@
   }
 
   export const getWebview = () => {
-    return webview?.tagName === 'WEBVIEW' ? webview as WebviewTag : null
+    return webview?.tagName === 'WEBVIEW' ? (webview as WebviewTag) : null
   }
 
   $: isReallyStarted = forceClose ? (started = false) : started

@@ -16,6 +16,7 @@
   import WgInternalPetFoodCalculator from '$lib/widgets/internal/WgInternalPetFoodCalculator.svelte'
 
   let browserEnabled: boolean = true
+  let autofocusEnabled: boolean = true
   let sessions: NeuzSession[] = []
   let layouts: NeuzLayout[] = []
   let activeLayout: string = ''
@@ -99,6 +100,9 @@
 
     browserEnabled = parseInt(localStorage.getItem('browserEnabled') ?? '1') == 1
     localStorage.setItem('browserEnabled', browserEnabled ? '1' : '0')
+
+    autofocusEnabled = parseInt(localStorage.getItem('autofocusEnabled') ?? '1') == 1
+    localStorage.setItem('autofocusEnabled', autofocusEnabled ? '1' : '0')
   })
 </script>
 
@@ -117,6 +121,7 @@
     bind:activeLayout
     bind:activeLayouts
     bind:browserEnabled
+    bind:autofocusEnabled
   />
   <section class="w-full flex-1 relative" bind:this={widgetContainer}>
     {#if browserEnabled}
@@ -138,6 +143,7 @@
                       {#if sessions.find((s) => s.id == cell.sessionId)}
                         <Resizable.Pane>
                           <NeuzClient
+                            bind:autofocusEnabled
                             forceClose={!activeLayoutsOrder.includes(layout.id)}
                             bind:this={cell.clientRef}
                             session={sessions.find((s) => {
@@ -165,6 +171,7 @@
           {#if (layout.floating ?? []).length > 0}
             {#each layout.floating as floating}
               <FloatingWindow
+                identifier="floatingSessions.{layout.id}.{floating.sessionId}"
                 initialWidth={400}
                 initialHeight={500}
                 minimizable={false}
@@ -178,6 +185,7 @@
                 }}
               >
                 <NeuzClient
+                  bind:autofocusEnabled
                   forceClose={!activeLayoutsOrder.includes(layout.id)}
                   bind:this={floating.clientRef}
                   session={sessions.find((s) => {
@@ -196,6 +204,7 @@
     {/each}
     {#if widgets.internal_fcoin_calculator.active}
       <FloatingWindow
+        identifier="widgets.internal_fcoin_calculator"
         title={widgets.internal_fcoin_calculator.title}
         icon={widgets.internal_fcoin_calculator.icon}
         container={widgetContainer}
@@ -207,6 +216,7 @@
     {/if}
     {#if widgets.internal_pet_food_calculator.active}
       <FloatingWindow
+        identifier="widgets.internal_pet_food_calculator"
         title={widgets.internal_pet_food_calculator.title}
         icon={widgets.internal_pet_food_calculator.icon}
         container={widgetContainer}

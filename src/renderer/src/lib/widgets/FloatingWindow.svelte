@@ -22,6 +22,7 @@
   export let minimizable: boolean = true
   export let initialWidth: number = 400
   export let initialHeight: number = 400
+  export let identifier: string
 
   let minimized: boolean = false
 
@@ -41,6 +42,43 @@
   let initialLeft = 0
   let initialTop = 0
 
+  const STORAGE_KEY_SIZE = () => `floating_windows_size.${identifier}`
+  const STORAGE_KEY_POS = () => `floating_windows_pos.${identifier}`
+
+  function saveWindowState() {
+    localStorage.setItem(STORAGE_KEY_POS(), JSON.stringify({ left, top }))
+    if (!resizable) return
+    localStorage.setItem(STORAGE_KEY_SIZE(), JSON.stringify({ width, height }))
+  }
+
+  function loadWindowState() {
+    const dataSize = localStorage.getItem(STORAGE_KEY_SIZE())
+    if (dataSize) {
+      try {
+        const parsed = JSON.parse(dataSize)
+        if (parsed) {
+          width = parsed.width ?? width
+          height = parsed.height ?? height
+        }
+      } catch (e) {
+        console.error('Failed to parse window state', e)
+      }
+    }
+
+    const dataPos = localStorage.getItem(STORAGE_KEY_POS())
+    if (dataPos) {
+      try {
+        const parsed = JSON.parse(dataPos)
+        if (parsed) {
+          left = parsed.left ?? left
+          top = parsed.top ?? top
+        }
+      } catch (e) {
+        console.error('Failed to parse window state', e)
+      }
+    }
+  }
+
   onMount(() => {
     setTimeout(() => {
       if (container) {
@@ -50,8 +88,10 @@
         left = containerW * x_offset
         top = containerH * y_offset
 
-        width = initialWidth == -1 ? null : initialWidth
-        height = initialHeight == -1 ? null : initialHeight
+        width = initialWidth === -1 ? null : initialWidth
+        height = initialHeight === -1 ? null : initialHeight
+
+        loadWindowState()
 
         observer = new ResizeObserver(() => {
           containerW = container.offsetWidth
@@ -87,22 +127,35 @@
     dragging = false
     window.removeEventListener('mousemove', onMouseMove)
     window.removeEventListener('mouseup', onMouseUp)
+    saveWindowState()
   }
 
   function increaseWidth() {
-    if (width !== null) width += 20
+    if (width !== null) {
+      width += 20
+      saveWindowState()
+    }
   }
 
   function decreaseWidth() {
-    if (width !== null) width = Math.max(100, width - 20)
+    if (width !== null) {
+      width = Math.max(100, width - 20)
+      saveWindowState()
+    }
   }
 
   function increaseHeight() {
-    if (height !== null) height += 20
+    if (height !== null) {
+      height += 20
+      saveWindowState()
+    }
   }
 
   function decreaseHeight() {
-    if (height !== null) height = Math.max(200, height - 20)
+    if (height !== null) {
+      height = Math.max(200, height - 20)
+      saveWindowState()
+    }
   }
 </script>
 
@@ -123,17 +176,17 @@
     class="cursor-grab gap-4 active:cursor-grabbing p-1 px-3 select-none border-b border-accent flex items-center justify-between bg-accent/50"
     on:mousedown={onMouseDown}
   >
-  {#if resizable}
-  <div class="flex items-center gap-1">
-    <ChevronsLeftRight class="w-4 h-4" />
-    <Button variant="outline" size="sm" class="w-4 h-4 p-0" on:click={decreaseWidth}
-      ><Minus class="w-3 h-3" /></Button
-    >
-    <Button variant="outline" size="sm" class="w-4 h-4 p-0" on:click={increaseWidth}
-      ><Plus class="w-3 h-3" /></Button
-    >
-  </div>
-  {/if}
+    {#if resizable}
+      <div class="flex items-center gap-1">
+        <ChevronsLeftRight class="w-4 h-4" />
+        <Button variant="outline" size="sm" class="w-4 h-4 p-0" on:click={decreaseWidth}>
+          <Minus class="w-3 h-3" />
+        </Button>
+        <Button variant="outline" size="sm" class="w-4 h-4 p-0" on:click={increaseWidth}>
+          <Plus class="w-3 h-3" />
+        </Button>
+      </div>
+    {/if}
     <div class="flex gap-2 items-center">
       <img
         class="w-4 h-4 contain-content select-none pointer-events-none"
@@ -144,30 +197,30 @@
     </div>
     <div class="flex gap-2 items-center">
       {#if resizable}
-      <div class="flex items-center gap-1">
-        <ChevronsUpDown class="w-4 h-4" />
-        <Button variant="outline" size="sm" class="w-4 h-4 p-0" on:click={decreaseHeight}
-          ><Minus class="w-3 h-3" /></Button
-        >
-        <Button variant="outline" size="sm" class="w-4 h-4 p-0" on:click={increaseHeight}
-          ><Plus class="w-3 h-3" /></Button
-        >
-      </div>
-    {/if}
+        <div class="flex items-center gap-1">
+          <ChevronsUpDown class="w-4 h-4" />
+          <Button variant="outline" size="sm" class="w-4 h-4 p-0" on:click={decreaseHeight}>
+            <Minus class="w-3 h-3" />
+          </Button>
+          <Button variant="outline" size="sm" class="w-4 h-4 p-0" on:click={increaseHeight}>
+            <Plus class="w-3 h-3" />
+          </Button>
+        </div>
+      {/if}
       {#if minimized}
         {#if minimizable}
-          <Button class="h-4 w-4 p-0" variant="ghost" size="sm" on:click={() => (minimized = false)}>
+          <Button
+            class="h-4 w-4 p-0"
+            variant="ghost"
+            size="sm"
+            on:click={() => (minimized = false)}
+          >
             <Maximize class="w-4 h-4" />
           </Button>
         {/if}
       {:else}
         {#if minimizable}
-          <Button
-            class="p-0 w-5 h-5"
-            variant="ghost"
-            size="sm"
-            on:click={() => (minimized = true)}
-          >
+          <Button class="p-0 w-5 h-5" variant="ghost" size="sm" on:click={() => (minimized = true)}>
             <Minimize class="w-4 h-4" />
           </Button>
         {/if}
@@ -190,7 +243,6 @@
     <div
       on:mousedown={onMouseDown}
       class="cursor-grab active:cursor-grabbing flex justify-between items-end p-1 gap-1 text-xs text-foreground bg-accent/50 border-t border-accent"
-    >
-    </div>
+    />
   {/if}
 </div>

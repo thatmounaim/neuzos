@@ -36,6 +36,8 @@
   export let widgets: any
   export let onWidgetUpdate: () => unknown
   export let browserEnabled: boolean
+  export let autofocusEnabled: boolean
+
   let openOverlay: string | null = null
   let promptReload: boolean = false
   let visible: boolean = true
@@ -73,8 +75,8 @@
       }) ?? []
     )
     logme('currentLayous', currentLayous)
-
     browserEnabled = parseInt(localStorage.getItem('browserEnabled') ?? '1') == 1
+    autofocusEnabled = parseInt(localStorage.getItem('autofocusEnabled') ?? '1') == 1
 
     if (currentSession != savedSessions || currentLayous != savedLayouts) {
       promptReload = true
@@ -302,7 +304,6 @@
                 av.floating?.forEach((c) => {
                   c.clientRef?.stopClient()
                 })
-
               }}
             >
               <div class="flex items-center gap-2">
