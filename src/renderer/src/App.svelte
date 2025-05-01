@@ -2,7 +2,11 @@
   import { onMount } from 'svelte'
   import { ModeWatcher } from 'mode-watcher'
   import Navbar from '$lib/sections/Navbar.svelte'
-  import type { CustomSessionSizeLocalStorageEntry, NeuzLayout, NeuzSession } from './characterutils'
+  import type {
+    CustomSessionSizeLocalStorageEntry,
+    NeuzLayout,
+    NeuzSession
+  } from './characterutils'
   import { logme } from './debug'
   import * as Resizable from '$lib/components/ui/resizable'
   import NeuzClient from '$lib/sections/NeuzClient.svelte'
@@ -11,7 +15,7 @@
   import WgInternalFcoinCalculator from '$lib/widgets/internal/WgInternalFcoinCalculator.svelte'
   import WgInternalPetFoodCalculator from '$lib/widgets/internal/WgInternalPetFoodCalculator.svelte'
 
-  let browserEnabled : boolean = true
+  let browserEnabled: boolean = true
   let sessions: NeuzSession[] = []
   let layouts: NeuzLayout[] = []
   let activeLayout: string = ''
@@ -24,19 +28,28 @@
       title: 'FCoin Calculator',
       icon: 'icons/perin.webp',
       widget: WgInternalFcoinCalculator,
-      active: false
+      active: false,
+      windowProps: {
+        initialWidth: -1,
+        initialHeight: -1
+      }
     },
     internal_pet_food_calculator: {
       title: 'Pet Candy Calculator',
       icon: 'icons/pet_candy.png',
       widget: WgInternalPetFoodCalculator,
-      active: false
+      active: false,
+      windowProps: {
+        initialWidth: -1,
+        initialHeight: -1
+      }
     }
   }
   function onRefresh() {
     logme('onRefresh')
     sessions = JSON.parse(localStorage.getItem('sessions') ?? '[]')
     layouts = JSON.parse(localStorage.getItem('layouts') ?? '[]')
+    logme('App.LoadedLayouts', layouts)
     activeLayouts = []
     activeLayout = ''
     activeLayoutsOrder = []
@@ -56,10 +69,11 @@
     }
   }
 
-
-  function sessionWindowResize(sid: string, width: number, height: number){
-    let customSessionWindowSizes = JSON.parse(localStorage.getItem('customSessionWindowSizes') ?? '{}') as CustomSessionSizeLocalStorageEntry
-    customSessionWindowSizes[sid]= {
+  function sessionWindowResize(sid: string, width: number, height: number) {
+    let customSessionWindowSizes = JSON.parse(
+      localStorage.getItem('customSessionWindowSizes') ?? '{}'
+    ) as CustomSessionSizeLocalStorageEntry
+    customSessionWindowSizes[sid] = {
       width,
       height
     }
@@ -76,11 +90,14 @@
       changeTab(lastActiveLayout)
     })
 
-    window.electron.ipcRenderer.on('resizedSession', function (_,sid : string,width: number,height: number) {
-      sessionWindowResize(sid,width,height)
-    })
+    window.electron.ipcRenderer.on(
+      'resizedSession',
+      function (_, sid: string, width: number, height: number) {
+        sessionWindowResize(sid, width, height)
+      }
+    )
 
-    browserEnabled = parseInt(localStorage.getItem('browserEnabled') ?? '0') == 1
+    browserEnabled = parseInt(localStorage.getItem('browserEnabled') ?? '1') == 1
     localStorage.setItem('browserEnabled', browserEnabled ? '1' : '0')
   })
 </script>
@@ -103,7 +120,7 @@
   />
   <section class="w-full flex-1 relative" bind:this={widgetContainer}>
     {#if browserEnabled}
-    <BrowserComponent open={activeLayout == 'neuzos.internal.browser'} />
+      <BrowserComponent open={activeLayout == 'neuzos.internal.browser'} />
     {/if}
     {#each layouts as layout}
       {#key layout.id}
@@ -145,6 +162,35 @@
               {/if}
             {/each}
           </Resizable.PaneGroup>
+          {#if (layout.floating ?? []).length > 0}
+            {#each layout.floating as floating}
+              <FloatingWindow
+                initialWidth={400}
+                initialHeight={500}
+                minimizable={false}
+                resizable
+                quitable={false}
+                title={sessions.find((s) => s.id == floating.sessionId).name}
+                icon="jobs/{sessions.find((s) => s.id == floating.sessionId).jobId}.png"
+                container={widgetContainer}
+                onClose={() => {
+                  floating.clientRef?.stopClient()
+                }}
+              >
+                <NeuzClient
+                  forceClose={!activeLayoutsOrder.includes(layout.id)}
+                  bind:this={floating.clientRef}
+                  session={sessions.find((s) => {
+                    return s.id == floating.sessionId
+                  })}
+                  on:updated={() => {
+                    floating.running = floating.clientRef.isStarted()
+                    activeLayouts = activeLayouts
+                  }}
+                />
+              </FloatingWindow>
+            {/each}
+          {/if}
         </div>
       {/key}
     {/each}
@@ -154,6 +200,7 @@
         icon={widgets.internal_fcoin_calculator.icon}
         container={widgetContainer}
         onClose={() => (widgets.internal_fcoin_calculator.active = false)}
+        {...widgets.internal_fcoin_calculator.windowProps}
       >
         <svelte:component this={widgets.internal_fcoin_calculator.widget} />
       </FloatingWindow>
@@ -164,6 +211,7 @@
         icon={widgets.internal_pet_food_calculator.icon}
         container={widgetContainer}
         onClose={() => (widgets.internal_pet_food_calculator.active = false)}
+        {...widgets.internal_pet_food_calculator.windowProps}
       >
         <svelte:component this={widgets.internal_pet_food_calculator.widget} />
       </FloatingWindow>

@@ -8,6 +8,7 @@
   import Input from '$lib/components/ui/input/input.svelte'
   import * as Dialog from '$lib/components/ui/dialog'
   import { buttonVariants } from '$lib/components/ui/button'
+  import { logme } from '../../../debug'
   let sessions: NeuzSession[] = []
 
   function getSession(sid) {
@@ -26,6 +27,17 @@
   let layouts: NeuzLayout[] = []
 
   function saveLayouts() {
+    logme('SaveLayouts', layouts)
+    layouts = layouts.map((lay) => {
+      let newLay = {
+        id: lay.id,
+        label: lay.label,
+        floating: lay.floating ?? [],
+        rows: lay.rows
+      }
+      return newLay
+    })
+    logme('AfterSave', layouts)
     localStorage.setItem('layouts', JSON.stringify(layouts))
   }
 
@@ -43,7 +55,7 @@
     <div class="flex items-center gap-2 w-auto px-2">
       <Input class="w-auto" bind:value={newName} placeholder="Layout Name" />
       <Button
-       variant="outline"
+        variant="outline"
         on:click={() => {
           if (newName == '') {
             alert('Please select a name for your layout')
@@ -63,7 +75,7 @@
         <span>Add Layout</span>
       </Button>
       <div class="flex-1"></div>
-      <Button  variant="outline" on:click={saveLayouts} class="flex gap-2 items-center border-2">
+      <Button variant="outline" on:click={saveLayouts} class="flex gap-2 items-center border-2">
         Save Changes
         <Save class="h-5" />
       </Button>
@@ -75,15 +87,20 @@
         <Card.Root>
           <Card.Header>
             <Card.Title class="flex">
-              <Input class="w-auto" bind:value={layout.label} on:change={(e) => {
-                {/* @ts-ignore */}
-               if(e.target.value == ''){
-                layout.label = 'Unamed Layout'
-               }
-              }} placeholder="Layout Name" />
+              <Input
+                class="w-auto"
+                bind:value={layout.label}
+                on:change={(e) => {
+                  {/* @ts-ignore */}
+                  if (e.target.value == '') {
+                    layout.label = 'Unamed Layout'
+                  }
+                }}
+                placeholder="Layout Name"
+              />
               <div class="flex-1"></div>
               <Button
-               variant="outline"
+                variant="outline"
                 size="icon"
                 on:click={(e) => {
                   layouts.splice(layIndex, 1)
@@ -118,7 +135,7 @@
                                 layouts = layouts
                               }}
                             >
-                             <Button  variant="outline" class="w-full">{session.name}</Button> 
+                              <Button variant="outline" class="w-full">{session.name}</Button>
                             </Dialog.Close>
                           {/each}
                         </div>
@@ -127,19 +144,18 @@
                   {/each}
                   <div class="flex-1"></div>
                   <Button
-                  variant="outline"
+                    variant="outline"
                     size="sm"
                     on:click={() => {
-
                       layouts[layIndex].rows[rowIndex].cells.pop()
-                      if(layouts[layIndex].rows[rowIndex].cells.length == 0){
-                        layouts[layIndex].rows.splice(rowIndex,1)
+                      if (layouts[layIndex].rows[rowIndex].cells.length == 0) {
+                        layouts[layIndex].rows.splice(rowIndex, 1)
                       }
                       layouts = layouts
                     }}><Minus class="h-5" /></Button
                   >
                   <Button
-                   variant="outline"
+                    variant="outline"
                     size="sm"
                     on:click={() => {
                       layouts[layIndex].rows[rowIndex].cells.push({
@@ -152,19 +168,76 @@
               {/each}
               <Separator class="my-2" />
               <Button
-               variant="outline"
+                variant="outline"
                 size="sm"
                 on:click={() => {
                   layouts[layIndex].rows.push({
                     cells: [
-                        {
-                            sessionId: ''
-                        }
+                      {
+                        sessionId: ''
+                      }
                     ]
                   })
                   layouts = layouts
                 }}><Plus class="h-5" /> Add Row</Button
               >
+            </div>
+            <div class="flex flex-col gap-2">
+              <Separator class="my-4" />
+              <h2 class="text-lg">Floating Sessions</h2>
+              <div class="flex items-center gap-2">
+                {#each layout.floating ?? [] as cell, cellIndex}
+                  <Dialog.Root>
+                    <Dialog.Trigger class={buttonVariants({ variant: 'outline' })}
+                      >{getSession(cell.sessionId)?.name ?? '[Chose Session]'}</Dialog.Trigger
+                    >
+                    <Dialog.Content class="sm:max-w-[425px] h-[400px] py-4">
+                      <Dialog.Header>
+                        <Dialog.Title>Chose a session</Dialog.Title>
+                      </Dialog.Header>
+                      <div class="flex flex-col h-full overflow-y-auto gap-1 px-4">
+                        {#each sessions as session}
+                          <Dialog.Close
+                            on:click={() => {
+                              layouts[layIndex].floating[cellIndex] = {
+                                sessionId: session.id
+                              }
+                              layouts = layouts
+                            }}
+                          >
+                            <Button variant="outline" class="w-full">{session.name}</Button>
+                          </Dialog.Close>
+                        {/each}
+                      </div>
+                    </Dialog.Content>
+                  </Dialog.Root>
+                {/each}
+                <div class="flex-1"></div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  on:click={() => {
+                    if (!layout.floating) {
+                      layouts[layIndex].floating = []
+                    }
+                    layouts[layIndex].floating.pop()
+                    layouts = layouts
+                  }}><Minus class="h-5" /></Button
+                >
+                <Button
+                  variant="outline"
+                  size="sm"
+                  on:click={() => {
+                    if (!layout.floating) {
+                      layouts[layIndex].floating = []
+                    }
+                    layouts[layIndex].floating.push({
+                      sessionId: ''
+                    })
+                    layouts = layouts
+                  }}><Plus class="h-5" /></Button
+                >
+              </div>
             </div>
           </Card.Content>
           <Card.Footer></Card.Footer>

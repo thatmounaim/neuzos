@@ -55,6 +55,11 @@
         return {
           id: lay.id,
           label: lay.label,
+          floating: (lay.floating ?? []).map((ll) => {
+            return {
+              sessionId: ll.sessionId
+            }
+          }),
           rows: lay.rows.map((row) => {
             return {
               cells: row.cells.map((cell) => {
@@ -69,7 +74,7 @@
     )
     logme('currentLayous', currentLayous)
 
-    browserEnabled = parseInt(localStorage.getItem('browserEnabled') ?? '0') == 1
+    browserEnabled = parseInt(localStorage.getItem('browserEnabled') ?? '1') == 1
 
     if (currentSession != savedSessions || currentLayous != savedLayouts) {
       promptReload = true
@@ -119,6 +124,7 @@
                         const newLay = {
                           id: layout.id,
                           label: layout.label,
+                          floating: layout.floating ?? [],
                           rows: layout.rows
                         }
                         activeLayouts.push(newLay)
@@ -257,6 +263,10 @@
                     c.clientRef?.setAudioMuted(false)
                   })
                 })
+
+                av.floating?.forEach((c) => {
+                  c.clientRef?.setAudioMuted(false)
+                })
               }}
             >
               <div class="flex items-center gap-2">
@@ -269,6 +279,10 @@
                   r.cells.forEach((c) => {
                     c.clientRef?.setAudioMuted(true)
                   })
+                })
+
+                av.floating?.forEach((c) => {
+                  c.clientRef?.setAudioMuted(true)
                 })
               }}
             >
@@ -284,6 +298,11 @@
                     c.clientRef?.stopClient()
                   })
                 })
+
+                av.floating?.forEach((c) => {
+                  c.clientRef?.stopClient()
+                })
+
               }}
             >
               <div class="flex items-center gap-2">
@@ -297,6 +316,10 @@
                     c.clientRef?.starClient()
                   })
                 })
+
+                av.floating?.forEach((c) => {
+                  c.clientRef?.starClient()
+                })
               }}
             >
               <div class="flex items-center gap-2">
@@ -304,6 +327,7 @@
               </div></ContextMenu.Item
             >
             <Separator class="my-1" />
+            <ContextMenu.Label>Layout Session</ContextMenu.Label>
             {#each av.rows as row}
               {#each row.cells as cell}
                 <ContextMenu.Sub>
@@ -364,6 +388,68 @@
                 </ContextMenu.Sub>
               {/each}
             {/each}
+            {#if (av.floating ?? []).length > 0}
+              <Separator class="my-1" />
+              <ContextMenu.Label>Floating Session</ContextMenu.Label>
+              {#each av.floating ?? [] as cell}
+                <ContextMenu.Sub>
+                  <ContextMenu.SubTrigger>
+                    <div class="flex items-center gap-2 justify-between w-full">
+                      <div class="flex items-center gap-2">
+                        <!-- svelte-ignore a11y-missing-attribute -->
+                        <img src="jobs/{sessions.find((s) => s.id == cell.sessionId)?.jobId}.png" />
+                        {sessions.find((s) => s.id == cell.sessionId)?.name}
+                      </div>
+                      {#if cell.clientRef?.isMuted()}
+                        <VolumeX class="w-4 h-4" />
+                      {/if}
+                    </div>
+                  </ContextMenu.SubTrigger>
+                  <ContextMenu.SubContent class="w-48">
+                    <ContextMenu.Item
+                      on:click={() => {
+                        cell.clientRef?.isMuted()
+                          ? cell.clientRef?.setAudioMuted(false)
+                          : cell.clientRef?.setAudioMuted(true)
+                      }}
+                      >{#if !cell.clientRef?.isMuted()}
+                        <VolumeX class="h-4" />Mute
+                      {:else}
+                        <Volume2 class="h-4" />Unmute
+                      {/if}</ContextMenu.Item
+                    >
+                    <Separator />
+                    <ContextMenu.Item
+                      on:click={() => {
+                        cell.clientRef?.isStarted()
+                          ? cell.clientRef?.stopClient()
+                          : cell.clientRef?.starClient()
+                      }}
+                      >{#if cell.clientRef?.isStarted()}
+                        <Square class="h-4" />Stop
+                      {:else}
+                        <Play class="h-4" />Start
+                      {/if}</ContextMenu.Item
+                    >
+                    <ContextMenu.Item
+                      on:click={() => {
+                        cell.clientRef?.stopClient()
+                        setTimeout(cell.clientRef?.starClient, 500)
+                      }}><RefreshCcw class="h-4" /> Restart</ContextMenu.Item
+                    >
+                    <Separator />
+                    <ContextMenu.Item
+                      on:click={() => {
+                        {
+                          /*@ts-ignore*/
+                        }
+                        window.electron.ipcRenderer.send('popSession', cell.sessionId)
+                      }}><ExternalLink class="h-4" /> Pop Session Out</ContextMenu.Item
+                    >
+                  </ContextMenu.SubContent>
+                </ContextMenu.Sub>
+              {/each}
+            {/if}
           </ContextMenu.Content>
         </ContextMenu.Root>
       {/each}

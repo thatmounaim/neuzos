@@ -25,6 +25,7 @@ type NeuzLayout = {
   id: string
   label: string
   rows: NeuzLayoutRow[]
+  floating?: NeuzLayoutCell[]
   active?: boolean
 }
 
