@@ -17,6 +17,7 @@ function createWindow(): void {
     width: Math.floor(windowWidth),
     height: Math.floor(windowHeight),
     show: false,
+    frame: false,
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
@@ -66,6 +67,22 @@ function createWindow(): void {
       console.log('Shortcut Disabled')
     })
   })
+
+  ipcMain.on('window-minimize', () => {
+    mainWindow.minimize();
+  });
+
+  ipcMain.on('window-maximize', () => {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+    } else {
+      mainWindow.maximize();
+    }
+  });
+
+  ipcMain.on('window-close', () => {
+    mainWindow.close();
+  });
 
   ipcMain.on('clearData', async function (_, sid: string) {
     const sess = session.fromPartition('persist:' + sid)

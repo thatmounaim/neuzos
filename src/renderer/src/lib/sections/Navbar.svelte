@@ -6,6 +6,8 @@
     Eye,
     EyeOff,
     Globe,
+    Maximize,
+    Minus,
     Play,
     Plus,
     Puzzle,
@@ -26,6 +28,7 @@
   import Separator from '$lib/components/ui/separator/separator.svelte'
   import * as Tabs from '$lib/components/ui/tabs'
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
+  import { cn } from '$lib/utils'
   export let onRefresh: () => unknown
   export let changeTab: (s: string) => unknown
   export let sessions: NeuzSession[]
@@ -91,19 +94,44 @@
 </script>
 
 {#if visible}
+  <div
+    id="titlebar"
+    class="gap-2   p-1 px-3 select-none border-b border-accent flex items-center justify-end bg-accent/50"
+
+  >
+  <div class="flex-1 cursor-grab active:cursor-grabbing h-full w-full"     style="-webkit-app-region: drag;"></div>
+    <Button size="sm" variant="outline" class="p-1 px-2 h-4"  on:click={() => {
+      window.electron.ipcRenderer.send('window-minimize')
+    }}>
+      <Minus class="w-3 h-3" />
+    </Button>
+    <Button size="sm" variant="outline" class="p-1 px-2 h-4"  on:click={() => {
+      window.electron.ipcRenderer.send('window-maximize')
+    }}>
+      <Maximize class="w-3 h-3" />
+    </Button>
+    <Button variant="outline" on:click={() => {
+      window.electron.ipcRenderer.send('window-close')
+    }} size="sm" class="p-1 px-2 h-4">
+      <X class="w-3 h-3" />
+    </Button>
+  </div>
   <nav class="w-full flex items-center justify-between">
     <div class="flex items-center gap-2 p-2 px-2">
       <Button
-        size="icon"
+        size="sm"
+        class="p-1 px-2"
         variant="outline"
         on:click={() => {
           openOverlay = 'settings'
         }}
       >
-        <Settings />
+        <Settings class="w-4 h-4" />
       </Button>
       <Dialog.Root>
-        <Dialog.Trigger class={buttonVariants({ variant: 'outline' })}><Plus /></Dialog.Trigger>
+        <Dialog.Trigger class={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'p-1 px-2')}
+          ><Plus class="w-4 h-4" /></Dialog.Trigger
+        >
         <Dialog.Content class="sm:max-w-[425px]">
           <Dialog.Header>
             <Dialog.Title>Chose a Layout / Session</Dialog.Title>
@@ -177,21 +205,24 @@
       </Dialog.Root>
       {#if browserEnabled}
         <Button
-          size="icon"
+          size="sm"
           variant="outline"
+          class="p-1 px-2"
           on:click={() => {
             changeTab('neuzos.internal.browser')
           }}
           disabled={activeLayout == 'neuzos.internal.browser'}
         >
-          <Globe />
+          <Globe class="w-4 h-4" />
         </Button>
       {/if}
+      <Separator orientation="vertical" />
       {#each activeLayoutsOrdered as av, index}
         <ContextMenu.Root>
           <ContextMenu.Trigger>
             <Button
               variant="outline"
+              size="sm"
               disabled={activeLayout == av.id}
               on:click={() => changeTab(av.id)}
             >
@@ -458,7 +489,9 @@
     <div class="flex items-center gap-2 p-2 px-2">
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild let:builder>
-          <Button builders={[builder]} variant="outline"><Puzzle /></Button>
+          <Button size="sm" builders={[builder]} variant="outline"
+            ><Puzzle class="w-4 h-4" /></Button
+          >
         </DropdownMenu.Trigger>
         <DropdownMenu.Content class="w-56">
           <DropdownMenu.Label>Widgets</DropdownMenu.Label>
@@ -488,8 +521,8 @@
         </DropdownMenu.Content>
       </DropdownMenu.Root>
 
-      <Button size="icon" variant="outline" on:click={() => (visible = false)}>
-        <Eye />
+      <Button size="sm" variant="outline" on:click={() => (visible = false)}>
+        <Eye class="w-4 h-4" />
       </Button>
     </div>
   </nav>
@@ -525,11 +558,11 @@
   {/if}
 {:else}
   <Button
-    class="fixed top-2 right-2 z-[100]"
-    size="icon"
+    class="fixed top-2 right-2 z-[100] h-6 w-6 p-1"
+    size="sm"
     variant="outline"
     on:click={() => (visible = true)}
   >
-    <EyeOff />
+    <EyeOff class="w-4 h-4" />
   </Button>
 {/if}
