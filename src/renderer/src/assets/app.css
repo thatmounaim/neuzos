@@ -59,6 +59,6 @@
     @apply w-full h-full;
   }
   body {
-    @apply bg-background text-foreground w-full h-full;
+    @apply bg-background text-foreground w-full h-full select-none;
   }
 }
