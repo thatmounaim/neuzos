@@ -113,6 +113,7 @@ function createWindow(): void {
     const sessionWindow = new BrowserWindow({
       width: Math.floor(windowWidth),
       height: Math.floor(windowHeight),
+      resizable: !zenMode,
       show: false,
       frame: !zenMode,
       autoHideMenuBar: true,
