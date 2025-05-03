@@ -40,6 +40,7 @@
   export let onWidgetUpdate: () => unknown
   export let browserEnabled: boolean
   export let autofocusEnabled: boolean
+  export let zenModeFull: boolean
 
   let openOverlay: string | null = null
   let promptReload: boolean = false
@@ -80,6 +81,7 @@
     logme('currentLayous', currentLayous)
     browserEnabled = parseInt(localStorage.getItem('browserEnabled') ?? '1') == 1
     autofocusEnabled = parseInt(localStorage.getItem('autofocusEnabled') ?? '1') == 1
+    zenModeFull = parseInt(localStorage.getItem('zenModeFull') ?? '0') == 1
 
     if (currentSession != savedSessions || currentLayous != savedLayouts) {
       promptReload = true
@@ -96,23 +98,40 @@
 {#if visible}
   <div
     id="titlebar"
-    class="gap-2   p-1 px-3 select-none border-b border-accent flex items-center justify-end bg-accent/50"
-
+    class="gap-2 p-1 px-3 select-none border-b border-accent flex items-center justify-end bg-accent/50"
   >
-  <div class="flex-1 cursor-grab active:cursor-grabbing h-full w-full"     style="-webkit-app-region: drag;"></div>
-    <Button size="sm" variant="outline" class="p-1 px-2 h-4"  on:click={() => {
-      window.electron.ipcRenderer.send('window-minimize')
-    }}>
+    <div
+      class="flex-1 cursor-grab active:cursor-grabbing h-full w-full"
+      style="-webkit-app-region: drag;"
+    ></div>
+    <Button
+      size="sm"
+      variant="outline"
+      class="p-1 px-2 h-4"
+      on:click={() => {
+        window.electron.ipcRenderer.send('window-minimize')
+      }}
+    >
       <Minus class="w-3 h-3" />
     </Button>
-    <Button size="sm" variant="outline" class="p-1 px-2 h-4"  on:click={() => {
-      window.electron.ipcRenderer.send('window-maximize')
-    }}>
+    <Button
+      size="sm"
+      variant="outline"
+      class="p-1 px-2 h-4"
+      on:click={() => {
+        window.electron.ipcRenderer.send('window-maximize')
+      }}
+    >
       <Maximize class="w-3 h-3" />
     </Button>
-    <Button variant="outline" on:click={() => {
-      window.electron.ipcRenderer.send('window-close')
-    }} size="sm" class="p-1 px-2 h-4">
+    <Button
+      variant="outline"
+      on:click={() => {
+        window.electron.ipcRenderer.send('window-close')
+      }}
+      size="sm"
+      class="p-1 px-2 h-4"
+    >
       <X class="w-3 h-3" />
     </Button>
   </div>
@@ -141,9 +160,10 @@
           </Dialog.Header>
           <div class="flex gap-2 flex-col w-full">
             <Tabs.Root value="layouts" class="">
-              <Tabs.List class="grid w-full grid-cols-2">
+              <Tabs.List class="grid w-full grid-cols-3">
                 <Tabs.Trigger value="layouts">Layouts</Tabs.Trigger>
                 <Tabs.Trigger value="sessions">Sessions</Tabs.Trigger>
+                <Tabs.Trigger value="zensessions">Zen Mode</Tabs.Trigger>
               </Tabs.List>
               <Tabs.Content value="layouts">
                 <div class="flex gap-2 flex-col">
@@ -186,6 +206,32 @@
                           /*@ts-ignore*/
                         }
                         window.electron.ipcRenderer.send('popSession', session.id, wSize)
+                      }}
+                    >
+                      <div class="flex items-center justify-start gap-2 flex-1">
+                        <!-- svelte-ignore a11y-missing-attribute -->
+                        <img src="jobs/{session.jobId}.png" class="h-4 w-4" />
+                        <span>{session.name}</span>
+                      </div>
+                      <ExternalLink class="h-4" />
+                    </Button>
+                  {/each}
+                </div>
+              </Tabs.Content>
+              <Tabs.Content value="zensessions">
+                <div class="grid gap-2 grid-cols-2 w-full">
+                  {#each sessions as session}
+                    <Button
+                      variant="outline"
+                      class="flex items-center gap-2 justify-between"
+                      on:click={() => {
+                        window.electron.ipcRenderer.send(
+                          'popSession',
+                          session.id,
+                          null,
+                          true,
+                          zenModeFull
+                        )
                       }}
                     >
                       <div class="flex items-center justify-start gap-2 flex-1">

@@ -3,7 +3,7 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 
-
+let focusedWindow : BrowserWindow | undefined
 
 function createWindow(): void {
   const primaryDisplay = screen.getPrimaryDisplay()
@@ -40,6 +40,10 @@ function createWindow(): void {
     mainWindow.show()
   })
 
+  mainWindow.on('focus', () => {
+    focusedWindow = mainWindow
+  })
+
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
@@ -60,7 +64,7 @@ function createWindow(): void {
     })
 
     globalShortcut.register('F11', () => {
-      mainWindow.setFullScreen(!mainWindow.isFullScreen())
+      focusedWindow?.setFullScreen(!mainWindow.isFullScreen())
     })
     // Prevent Accidental Exit on Windows
     globalShortcut.register('CommandOrControl+W', () => {
@@ -94,15 +98,14 @@ function createWindow(): void {
     await sess.clearCache()
   })
 
-  ipcMain.on('popSession', async function (_, sid: string, size?: {width: number, height: number}) {
+  ipcMain.on('popSession', async function (_, sid: string, size?: { width: number, height: number }, zenMode?: boolean, zenModeFull?: boolean) {
     const primaryDisplay = screen.getPrimaryDisplay()
     const { width, height } = primaryDisplay.workAreaSize
     const aspectRatio = width / height;
+    let windowWidth = zenMode ? width : (aspectRatio >= 2 ? width / 2 : width - width / 12);
+    let windowHeight = zenMode ? height : (height - height / 12)
 
-    let windowWidth = aspectRatio >= 2 ? width / 2 : width - width / 12;
-    let windowHeight = height - height / 12
-
-    if(size) {
+    if (size && !zenMode) {
       windowWidth = size.width
       windowHeight = size.height
     }
@@ -111,6 +114,7 @@ function createWindow(): void {
       width: Math.floor(windowWidth),
       height: Math.floor(windowHeight),
       show: false,
+      frame: !zenMode,
       autoHideMenuBar: true,
       ...(process.platform === 'linux' ? { icon } : {}),
       webPreferences: {
@@ -122,6 +126,15 @@ function createWindow(): void {
     sessionWindow.setMenuBarVisibility(false)
     sessionWindow.on('ready-to-show', () => {
       sessionWindow.show()
+      zenMode && zenModeFull && sessionWindow.setFullScreen(true)
+    })
+
+    zenMode && zenModeFull && sessionWindow.on('leave-full-screen', () => {
+      sessionWindow.setFullScreen(true)
+    })
+
+    zenMode && !zenModeFull && sessionWindow.on('enter-full-screen', () => {
+      sessionWindow.setFullScreen(false)
     })
 
     sessionWindow.webContents.setWindowOpenHandler((details) => {
@@ -130,9 +143,13 @@ function createWindow(): void {
     })
 
     sessionWindow.loadURL('https://universe.flyff.com/play')
-    sessionWindow.on('resize', () => {
+    !zenMode && sessionWindow.on('resize', () => {
       const [width, height] = sessionWindow.getSize();
-      mainWindow.webContents.send('resizedSession',sid, width, height)
+      mainWindow.webContents.send('resizedSession', sid, width, height)
+    })
+
+    sessionWindow.on('focus', () => {
+      focusedWindow = sessionWindow
     })
 
   })

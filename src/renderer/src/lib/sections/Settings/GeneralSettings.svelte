@@ -6,9 +6,12 @@
 
   let browserEnabled: boolean | null = null
   let autofocusEnabled: boolean | null = null
+  let zenModeFull: boolean | null = null
+
   onMount(() => {
     setBrowserEnabled(parseInt(localStorage.getItem('browserEnabled') ?? '0') == 1)
     setAutofocusEnabled(parseInt(localStorage.getItem('autofocusEnabled') ?? '0') == 1)
+    setZenModeFull(parseInt(localStorage.getItem('zenModeFull') ?? '0') == 1)
   })
 
   function setBrowserEnabled(newChecked: boolean | null) {
@@ -27,8 +30,18 @@
     return autofocusEnabled
   }
 
+  function setZenModeFull(newChecked: boolean | null) {
+    if (newChecked == null) return null
+
+    zenModeFull = newChecked
+    localStorage.setItem('zenModeFull', zenModeFull ? '1' : '0')
+    return zenModeFull
+  }
+
+
   $: browserEnabledEffect = setBrowserEnabled(browserEnabled)
   $: autofocusEnabledEffect = setAutofocusEnabled(autofocusEnabled)
+  $: zenModeFullEffect = setZenModeFull(zenModeFull)
 </script>
 
 <section class="py-4">
@@ -46,6 +59,14 @@
       id="autofocus-enabled"
       bind:checked={autofocusEnabled}
       data-getridofunused={autofocusEnabledEffect}
+    />
+  </div>
+  <div class="flex items-center space-x-2">
+    <Label for="browser-enabled">Zen Mode FullScreen</Label>
+    <Switch
+      id="autofocus-enabled"
+      bind:checked={zenModeFull}
+      data-getridofunused={zenModeFullEffect}
     />
   </div>
 </section>

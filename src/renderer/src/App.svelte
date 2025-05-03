@@ -17,6 +17,7 @@
 
   let browserEnabled: boolean = true
   let autofocusEnabled: boolean = true
+  let zenModeFull: boolean = false
   let sessions: NeuzSession[] = []
   let layouts: NeuzLayout[] = []
   let activeLayout: string = ''
@@ -103,6 +104,9 @@
 
     autofocusEnabled = parseInt(localStorage.getItem('autofocusEnabled') ?? '1') == 1
     localStorage.setItem('autofocusEnabled', autofocusEnabled ? '1' : '0')
+
+    zenModeFull = parseInt(localStorage.getItem('zenModeFull') ?? '0') == 1
+    localStorage.setItem('zenModeFull', zenModeFull ? '1' : '0')
   })
 </script>
 
@@ -122,6 +126,7 @@
     bind:activeLayouts
     bind:browserEnabled
     bind:autofocusEnabled
+    bind:zenModeFull
   />
   <section class="w-full flex-1 relative" bind:this={widgetContainer}>
     {#if browserEnabled}
