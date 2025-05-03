@@ -44,9 +44,9 @@
   $: zenModeFullEffect = setZenModeFull(zenModeFull)
 </script>
 
-<section class="py-4">
+<section class="py-4 flex flex-col gap-4 px-4">
   <div class="flex items-center space-x-2">
-    <Label for="browser-enabled">Browser Enabled</Label>
+    <Label for="browser-enabled" class="min-w-56">Browser {browserEnabled ? '[Enabled]' : '[Disabled]'}</Label>
     <Switch
       id="browser-enabled"
       bind:checked={browserEnabled}
@@ -54,7 +54,7 @@
     />
   </div>
   <div class="flex items-center space-x-2">
-    <Label for="browser-enabled">Auto Focus Enabled</Label>
+    <Label for="browser-enabled" class="min-w-56">Auto Focus {autofocusEnabled ? '[Enabled]' : '[Disabled]'}</Label>
     <Switch
       id="autofocus-enabled"
       bind:checked={autofocusEnabled}
@@ -62,7 +62,7 @@
     />
   </div>
   <div class="flex items-center space-x-2">
-    <Label for="browser-enabled">Zen Mode FullScreen</Label>
+    <Label for="browser-enabled" class="min-w-56">Zen Mode {zenModeFull ? '[Fullscreen]' : '[Windowed]'} </Label>
     <Switch
       id="autofocus-enabled"
       bind:checked={zenModeFull}
