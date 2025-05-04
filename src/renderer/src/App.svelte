@@ -54,7 +54,7 @@
       title: 'Flyffipedia - Wiki',
       icon: 'icons/flyffipedia.png',
       widget: WgInternalFlyffipedia,
-      active: true,
+      active: false,
       windowProps: {
         resizable: true,
         initialWidth: 390,
