@@ -6,6 +6,8 @@
     Eye,
     EyeOff,
     Globe,
+    Maximize,
+    Minus,
     Play,
     Plus,
     Puzzle,
@@ -26,6 +28,7 @@
   import Separator from '$lib/components/ui/separator/separator.svelte'
   import * as Tabs from '$lib/components/ui/tabs'
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
+  import { cn } from '$lib/utils'
   export let onRefresh: () => unknown
   export let changeTab: (s: string) => unknown
   export let sessions: NeuzSession[]
@@ -37,6 +40,7 @@
   export let onWidgetUpdate: () => unknown
   export let browserEnabled: boolean
   export let autofocusEnabled: boolean
+  export let zenModeFull: boolean
 
   let openOverlay: string | null = null
   let promptReload: boolean = false
@@ -77,6 +81,7 @@
     logme('currentLayous', currentLayous)
     browserEnabled = parseInt(localStorage.getItem('browserEnabled') ?? '1') == 1
     autofocusEnabled = parseInt(localStorage.getItem('autofocusEnabled') ?? '1') == 1
+    zenModeFull = parseInt(localStorage.getItem('zenModeFull') ?? '0') == 1
 
     if (currentSession != savedSessions || currentLayous != savedLayouts) {
       promptReload = true
@@ -91,19 +96,61 @@
 </script>
 
 {#if visible}
+  <div
+    id="titlebar"
+    class="gap-2 p-1 px-3 select-none border-b border-accent flex items-center justify-end bg-accent/50"
+  >
+    <div
+      class="flex-1 cursor-grab active:cursor-grabbing h-full w-full"
+      style="-webkit-app-region: drag;"
+    ></div>
+    <Button
+      size="sm"
+      variant="outline"
+      class="p-1 px-2 h-4"
+      on:click={() => {
+        window.electron.ipcRenderer.send('window-minimize')
+      }}
+    >
+      <Minus class="w-3 h-3" />
+    </Button>
+    <Button
+      size="sm"
+      variant="outline"
+      class="p-1 px-2 h-4"
+      on:click={() => {
+        window.electron.ipcRenderer.send('window-maximize')
+      }}
+    >
+      <Maximize class="w-3 h-3" />
+    </Button>
+    <Button
+      variant="outline"
+      on:click={() => {
+        window.electron.ipcRenderer.send('window-close')
+      }}
+      size="sm"
+      class="p-1 px-2 h-4"
+    >
+      <X class="w-3 h-3" />
+    </Button>
+  </div>
   <nav class="w-full flex items-center justify-between">
     <div class="flex items-center gap-2 p-2 px-2">
       <Button
-        size="icon"
+        size="sm"
+        class="p-1 px-2"
         variant="outline"
         on:click={() => {
           openOverlay = 'settings'
         }}
       >
-        <Settings />
+        <Settings class="w-4 h-4" />
       </Button>
       <Dialog.Root>
-        <Dialog.Trigger class={buttonVariants({ variant: 'outline' })}><Plus /></Dialog.Trigger>
+        <Dialog.Trigger class={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'p-1 px-2')}
+          ><Plus class="w-4 h-4" /></Dialog.Trigger
+        >
         <Dialog.Content class="sm:max-w-[425px]">
           <Dialog.Header>
             <Dialog.Title>Chose a Layout / Session</Dialog.Title>
@@ -113,9 +160,10 @@
           </Dialog.Header>
           <div class="flex gap-2 flex-col w-full">
             <Tabs.Root value="layouts" class="">
-              <Tabs.List class="grid w-full grid-cols-2">
+              <Tabs.List class="grid w-full grid-cols-3">
                 <Tabs.Trigger value="layouts">Layouts</Tabs.Trigger>
                 <Tabs.Trigger value="sessions">Sessions</Tabs.Trigger>
+                <Tabs.Trigger value="zensessions">Zen Mode</Tabs.Trigger>
               </Tabs.List>
               <Tabs.Content value="layouts">
                 <div class="flex gap-2 flex-col">
@@ -170,6 +218,32 @@
                   {/each}
                 </div>
               </Tabs.Content>
+              <Tabs.Content value="zensessions">
+                <div class="grid gap-2 grid-cols-2 w-full">
+                  {#each sessions as session}
+                    <Button
+                      variant="outline"
+                      class="flex items-center gap-2 justify-between"
+                      on:click={() => {
+                        window.electron.ipcRenderer.send(
+                          'popSession',
+                          session.id,
+                          null,
+                          true,
+                          zenModeFull
+                        )
+                      }}
+                    >
+                      <div class="flex items-center justify-start gap-2 flex-1">
+                        <!-- svelte-ignore a11y-missing-attribute -->
+                        <img src="jobs/{session.jobId}.png" class="h-4 w-4" />
+                        <span>{session.name}</span>
+                      </div>
+                      <ExternalLink class="h-4" />
+                    </Button>
+                  {/each}
+                </div>
+              </Tabs.Content>
             </Tabs.Root>
           </div>
           <Dialog.Footer></Dialog.Footer>
@@ -177,28 +251,31 @@
       </Dialog.Root>
       {#if browserEnabled}
         <Button
-          size="icon"
+          size="sm"
           variant="outline"
+          class="p-1 px-2"
           on:click={() => {
             changeTab('neuzos.internal.browser')
           }}
           disabled={activeLayout == 'neuzos.internal.browser'}
         >
-          <Globe />
+          <Globe class="w-4 h-4" />
         </Button>
       {/if}
+      <Separator orientation="vertical" />
       {#each activeLayoutsOrdered as av, index}
         <ContextMenu.Root>
           <ContextMenu.Trigger>
             <Button
               variant="outline"
+              size="sm"
               disabled={activeLayout == av.id}
               on:click={() => changeTab(av.id)}
             >
               {av.label}
             </Button>
           </ContextMenu.Trigger>
-          <ContextMenu.Content>
+          <ContextMenu.Content class="fixed">
             <ContextMenu.Item
               on:click={() => {
                 if (index > 0 && activeLayoutsOrder.length > 0) {
@@ -458,11 +535,24 @@
     <div class="flex items-center gap-2 p-2 px-2">
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild let:builder>
-          <Button builders={[builder]} variant="outline"><Puzzle /></Button>
+          <Button size="sm" builders={[builder]} variant="outline"
+            ><Puzzle class="w-4 h-4" /></Button
+          >
         </DropdownMenu.Trigger>
-        <DropdownMenu.Content class="w-56">
+        <DropdownMenu.Content class="w-56 fixed">
           <DropdownMenu.Label>Widgets</DropdownMenu.Label>
           <DropdownMenu.Separator />
+          <DropdownMenu.Item
+            disabled={widgets.internal_flyffipedia.active}
+            on:click={() => {
+              widgets.internal_flyffipedia.active = true
+              onWidgetUpdate()
+            }}
+          >
+            <!-- svelte-ignore a11y-missing-attribute -->
+            <img src={widgets.internal_flyffipedia.icon} class="mr-2 h-4 w-4" />
+            <span>{widgets.internal_flyffipedia.title}</span>
+          </DropdownMenu.Item>
           <DropdownMenu.Item
             disabled={widgets.internal_fcoin_calculator.active}
             on:click={() => {
@@ -488,8 +578,8 @@
         </DropdownMenu.Content>
       </DropdownMenu.Root>
 
-      <Button size="icon" variant="outline" on:click={() => (visible = false)}>
-        <Eye />
+      <Button size="sm" variant="outline" on:click={() => (visible = false)}>
+        <Eye class="w-4 h-4" />
       </Button>
     </div>
   </nav>
@@ -525,11 +615,11 @@
   {/if}
 {:else}
   <Button
-    class="fixed top-2 right-2 z-[100]"
-    size="icon"
+    class="fixed top-2 right-2 z-[100] h-6 w-6 p-1"
+    size="sm"
     variant="outline"
     on:click={() => (visible = true)}
   >
-    <EyeOff />
+    <EyeOff class="w-4 h-4" />
   </Button>
 {/if}
