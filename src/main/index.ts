@@ -3,8 +3,8 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 
-let focusedWindow : BrowserWindow | undefined
-
+let focusedWindow: BrowserWindow | undefined
+let exitCount: number = 0
 function createWindow(): void {
   const primaryDisplay = screen.getPrimaryDisplay()
   const { width, height } = primaryDisplay.workAreaSize
@@ -58,6 +58,21 @@ function createWindow(): void {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
 
+  mainWindow.on('close', (event) => {
+    if (exitCount < 2) {
+      event.preventDefault();
+      console.log('Prevented manual close');
+      exitCount++
+      setTimeout(() => {
+        exitCount--
+        exitCount = exitCount < 0 ? 0 : exitCount;
+      },2000)
+    } else {
+      exitCount = 0
+    }
+  });
+
+
   app.on('browser-window-focus', function () {
     globalShortcut.register('Control+Tab', () => {
       mainWindow.webContents.send('doTabbing')
@@ -66,10 +81,18 @@ function createWindow(): void {
     globalShortcut.register('F11', () => {
       focusedWindow?.setFullScreen(!mainWindow.isFullScreen())
     })
-    // Prevent Accidental Exit on Windows
-    globalShortcut.register('CommandOrControl+W', () => {
-      console.log('Shortcut Disabled')
+
+    globalShortcut.register('CommandOrControl+Alt+Y', () => {
+      focusedWindow?.close()
     })
+
+    globalShortcut.register('CommandOrControl+W', () => {
+      console.log('Ctrl+W pressed but blocked')
+    })
+
+    globalShortcut.register('Alt+F4', () => {
+      console.log('Alt+F4 pressed but blocked');
+    });
   })
 
   ipcMain.on('window-minimize', () => {
@@ -85,7 +108,8 @@ function createWindow(): void {
   });
 
   ipcMain.on('window-close', () => {
-    mainWindow.close();
+    globalShortcut.unregisterAll()
+    mainWindow.destroy();
   });
 
   ipcMain.on('clearData', async function (_, sid: string) {
@@ -153,6 +177,19 @@ function createWindow(): void {
       focusedWindow = sessionWindow
     })
 
+    sessionWindow.on('close', (event) => {
+      if (exitCount < 2) {
+        event.preventDefault();
+        console.log('Prevented manual close');
+        exitCount++
+        setTimeout(() => {
+          exitCount--
+          exitCount = exitCount < 0 ? 0 : exitCount;
+        },2000)
+      } else {
+        exitCount = 0
+      }
+    });
   })
 }
 

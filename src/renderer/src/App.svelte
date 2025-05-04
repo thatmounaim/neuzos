@@ -14,6 +14,9 @@
   import FloatingWindow from '$lib/widgets/FloatingWindow.svelte'
   import WgInternalFcoinCalculator from '$lib/widgets/internal/WgInternalFcoinCalculator.svelte'
   import WgInternalPetFoodCalculator from '$lib/widgets/internal/WgInternalPetFoodCalculator.svelte'
+  import * as Alert from '$lib/components/ui/alert'
+  import { AppWindow } from 'lucide-svelte'
+  import WgInternalFlyffipedia from '$lib/widgets/internal/WgInternalFlyffipedia.svelte'
 
   let loaded = false
   let browserEnabled: boolean = true
@@ -45,6 +48,17 @@
       windowProps: {
         initialWidth: -1,
         initialHeight: -1
+      }
+    },
+    internal_flyffipedia: {
+      title: 'Flyffipedia - Wiki',
+      icon: 'icons/flyffipedia.png',
+      widget: WgInternalFlyffipedia,
+      active: true,
+      windowProps: {
+        resizable: true,
+        initialWidth: 390,
+        initialHeight: 500
       }
     }
   }
@@ -156,6 +170,15 @@
     bind:zenModeFull
   />
   <section class="w-full flex-1 relative" bind:this={widgetContainer}>
+    {#if activeLayout == ''}
+      <div class="flex items-center justify-center h-full text-xl">
+        <Alert.Root class="max-w-lg">
+          <AppWindow class="h-4 w-4" />
+          <Alert.Title>Quiting App or Popped Sessions</Alert.Title>
+          <Alert.Description>Press [Ctrl or Cmd] + Alt + Y , 3 times in a row</Alert.Description>
+        </Alert.Root>
+      </div>
+    {/if}
     {#if browserEnabled}
       <BrowserComponent open={activeLayout == 'neuzos.internal.browser'} />
     {/if}
@@ -256,6 +279,18 @@
         {...widgets.internal_pet_food_calculator.windowProps}
       >
         <svelte:component this={widgets.internal_pet_food_calculator.widget} />
+      </FloatingWindow>
+    {/if}
+    {#if widgets.internal_flyffipedia.active}
+      <FloatingWindow
+        identifier="widgets.internal_flyffipedia"
+        title={widgets.internal_flyffipedia.title}
+        icon={widgets.internal_flyffipedia.icon}
+        container={widgetContainer}
+        onClose={() => (widgets.internal_flyffipedia.active = false)}
+        {...widgets.internal_flyffipedia.windowProps}
+      >
+        <svelte:component this={widgets.internal_flyffipedia.widget} />
       </FloatingWindow>
     {/if}
   </section>

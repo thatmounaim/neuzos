@@ -543,6 +543,17 @@
           <DropdownMenu.Label>Widgets</DropdownMenu.Label>
           <DropdownMenu.Separator />
           <DropdownMenu.Item
+            disabled={widgets.internal_flyffipedia.active}
+            on:click={() => {
+              widgets.internal_flyffipedia.active = true
+              onWidgetUpdate()
+            }}
+          >
+            <!-- svelte-ignore a11y-missing-attribute -->
+            <img src={widgets.internal_flyffipedia.icon} class="mr-2 h-4 w-4" />
+            <span>{widgets.internal_flyffipedia.title}</span>
+          </DropdownMenu.Item>
+          <DropdownMenu.Item
             disabled={widgets.internal_fcoin_calculator.active}
             on:click={() => {
               widgets.internal_fcoin_calculator.active = true
