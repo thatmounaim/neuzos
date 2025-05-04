@@ -15,6 +15,7 @@
   import WgInternalFcoinCalculator from '$lib/widgets/internal/WgInternalFcoinCalculator.svelte'
   import WgInternalPetFoodCalculator from '$lib/widgets/internal/WgInternalPetFoodCalculator.svelte'
 
+  let loaded = false
   let browserEnabled: boolean = true
   let autofocusEnabled: boolean = true
   let zenModeFull: boolean = false
@@ -107,7 +108,33 @@
 
     zenModeFull = parseInt(localStorage.getItem('zenModeFull') ?? '0') == 1
     localStorage.setItem('zenModeFull', zenModeFull ? '1' : '0')
+
+ activeLayoutsOrder = JSON.parse(localStorage.getItem('activeLayoutsOrder') ?? '[]') ?? []
+    const toRemoveLayouts = []
+    activeLayoutsOrder.forEach((lid) => {
+      const layout = layouts.find((l) => l.id == lid)
+      if(layout){
+        const newLay = {
+          id: layout.id,
+          label: layout.label,
+          floating: layout.floating ?? [],
+          rows: layout.rows
+        }
+
+        activeLayouts.push(newLay)
+        activeLayouts = activeLayouts
+      } else {
+        toRemoveLayouts.push(lid)
+      }
+    })
+
+    activeLayoutsOrder = activeLayoutsOrder.filter((lid) => {
+      return toRemoveLayouts.indexOf(lid) == -1
+    })
+    loaded = true
   })
+  /*@ts-ignore*/
+  $: activeLayoutsEffect = loaded && localStorage.setItem('activeLayoutsOrder', JSON.stringify(activeLayoutsOrder ?? '[]'))
 </script>
 
 <ModeWatcher />
