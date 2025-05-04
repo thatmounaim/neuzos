@@ -275,7 +275,7 @@
               {av.label}
             </Button>
           </ContextMenu.Trigger>
-          <ContextMenu.Content>
+          <ContextMenu.Content class="fixed">
             <ContextMenu.Item
               on:click={() => {
                 if (index > 0 && activeLayoutsOrder.length > 0) {
@@ -539,7 +539,7 @@
             ><Puzzle class="w-4 h-4" /></Button
           >
         </DropdownMenu.Trigger>
-        <DropdownMenu.Content class="w-56">
+        <DropdownMenu.Content class="w-56 fixed">
           <DropdownMenu.Label>Widgets</DropdownMenu.Label>
           <DropdownMenu.Separator />
           <DropdownMenu.Item
