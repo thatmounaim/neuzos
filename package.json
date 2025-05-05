@@ -1,7 +1,7 @@
 {
   "name": "neuzos",
   "productName": "NeuzOS",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "description": "Mutiple Session Launcher for Flyff Universe",
   "main": "./out/main/index.js",
   "author": {

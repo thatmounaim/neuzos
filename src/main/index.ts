@@ -143,6 +143,7 @@ function createWindow(): void {
       autoHideMenuBar: true,
       ...(process.platform === 'linux' ? { icon } : {}),
       webPreferences: {
+        backgroundThrottling: false,
         contextIsolation: true,
         sandbox: false,
         partition: 'persist:' + sid
