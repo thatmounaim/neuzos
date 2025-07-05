@@ -46,7 +46,16 @@
   onMount(() => {
     loaded = true
     sessions = JSON.parse(localStorage.getItem('sessions') || '[]')
-    layouts = JSON.parse(localStorage.getItem('layouts') || '[]')
+    const loadedLayouts = JSON.parse(localStorage.getItem('layouts') || '[]') as NeuzLayout[]
+    layouts = loadedLayouts.map((lay) => {
+      let newLay = {
+        id: lay.id,
+        label: lay.label,
+        floating: lay.floating ?? [],
+        rows: lay.rows
+      }
+      return newLay
+    })
   })
 </script>
 
@@ -67,7 +76,6 @@
             rows: []
           })
           layouts = layouts
-
           newName = ''
         }}
       >
@@ -102,11 +110,9 @@
               <Button
                 variant="outline"
                 size="icon"
-                on:click={(e) => {
+                on:click={() => {
                   layouts.splice(layIndex, 1)
-                  layouts = layouts ?? []
-                  e.preventDefault()
-                  e.stopPropagation()
+                  layouts = layouts          
                 }}><Trash class="h-5" /></Button
               >
             </Card.Title>

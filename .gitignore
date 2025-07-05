@@ -6,3 +6,4 @@ build
 .DS_Store
 *.log*
 src/renderer/src/lib/widgets/testing
+.idea

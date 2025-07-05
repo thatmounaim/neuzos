@@ -5,12 +5,14 @@ import icon from '../../resources/icon.png?asset'
 
 let focusedWindow: BrowserWindow | undefined
 let exitCount: number = 0
+const disableF11 = process.argv.includes('--disableFullScreenShortcut')
+
 function createWindow(): void {
   const primaryDisplay = screen.getPrimaryDisplay()
   const { width, height } = primaryDisplay.workAreaSize
-  const aspectRatio = width / height;
+  const aspectRatio = width / height
 
-  const windowWidth = aspectRatio >= 2 ? width / 2 : width - width / 12;
+  const windowWidth = aspectRatio >= 2 ? width / 2 : width - width / 12
   const windowHeight = height - height / 12
   // Create the browser window.
   const mainWindow = new BrowserWindow({
@@ -60,27 +62,28 @@ function createWindow(): void {
 
   mainWindow.on('close', (event) => {
     if (exitCount < 2) {
-      event.preventDefault();
-      console.log('Prevented manual close');
+      event.preventDefault()
+      console.log('Prevented manual close')
       exitCount++
       setTimeout(() => {
         exitCount--
-        exitCount = exitCount < 0 ? 0 : exitCount;
-      },2000)
+        exitCount = exitCount < 0 ? 0 : exitCount
+      }, 2000)
     } else {
       exitCount = 0
     }
-  });
-
+  })
 
   app.on('browser-window-focus', function () {
     globalShortcut.register('Control+Tab', () => {
       mainWindow.webContents.send('doTabbing')
     })
 
-    globalShortcut.register('F11', () => {
-      focusedWindow?.setFullScreen(!mainWindow.isFullScreen())
-    })
+    if (!disableF11) {
+      globalShortcut.register('F11', () => {
+        focusedWindow?.setFullScreen(!focusedWindow.isFullScreen())
+      })
+    }
 
     globalShortcut.register('CommandOrControl+Alt+Y', () => {
       focusedWindow?.close()
@@ -91,26 +94,26 @@ function createWindow(): void {
     })
 
     globalShortcut.register('Alt+F4', () => {
-      console.log('Alt+F4 pressed but blocked');
-    });
+      console.log('Alt+F4 pressed but blocked')
+    })
   })
 
   ipcMain.on('window-minimize', () => {
-    mainWindow.minimize();
-  });
+    mainWindow.minimize()
+  })
 
   ipcMain.on('window-maximize', () => {
     if (mainWindow.isMaximized()) {
-      mainWindow.unmaximize();
+      mainWindow.unmaximize()
     } else {
-      mainWindow.maximize();
+      mainWindow.maximize()
     }
-  });
+  })
 
   ipcMain.on('window-close', () => {
     globalShortcut.unregisterAll()
-    mainWindow.destroy();
-  });
+    mainWindow.destroy()
+  })
 
   ipcMain.on('clearData', async function (_, sid: string) {
     const sess = session.fromPartition('persist:' + sid)
@@ -122,76 +125,93 @@ function createWindow(): void {
     await sess.clearCache()
   })
 
-  ipcMain.on('popSession', async function (_, sid: string, size?: { width: number, height: number }, zenMode?: boolean, zenModeFull?: boolean) {
-    const primaryDisplay = screen.getPrimaryDisplay()
-    const { width, height } = primaryDisplay.workAreaSize
-    const aspectRatio = width / height;
-    let windowWidth = zenMode ? width : (aspectRatio >= 2 ? width / 2 : width - width / 12);
-    let windowHeight = zenMode ? height : (height - height / 12)
+  ipcMain.on(
+    'popSession',
+    async function (
+      _,
+      sid: string,
+      size?: {
+        width: number
+        height: number
+      },
+      zenMode?: boolean,
+      zenModeFull?: boolean
+    ) {
+      const primaryDisplay = screen.getPrimaryDisplay()
+      const { width, height } = primaryDisplay.workAreaSize
+      const aspectRatio = width / height
+      let windowWidth = zenMode ? width : aspectRatio >= 2 ? width / 2 : width - width / 12
+      let windowHeight = zenMode ? height : height - height / 12
 
-    if (size && !zenMode) {
-      windowWidth = size.width
-      windowHeight = size.height
+      if (size && !zenMode) {
+        windowWidth = size.width
+        windowHeight = size.height
+      }
+
+      const sessionWindow = new BrowserWindow({
+        width: Math.floor(windowWidth),
+        height: Math.floor(windowHeight),
+        resizable: !zenMode,
+        show: false,
+        frame: !zenMode,
+        autoHideMenuBar: true,
+        ...(process.platform === 'linux' ? { icon } : {}),
+        webPreferences: {
+          backgroundThrottling: false,
+          contextIsolation: true,
+          sandbox: false,
+          partition: 'persist:' + sid
+        }
+      })
+      sessionWindow.setMenuBarVisibility(false)
+      sessionWindow.on('ready-to-show', () => {
+        sessionWindow.show()
+        zenMode && zenModeFull && sessionWindow.setFullScreen(true)
+      })
+
+      zenMode &&
+        zenModeFull &&
+        sessionWindow.on('leave-full-screen', () => {
+          sessionWindow.setFullScreen(true)
+        })
+
+      zenMode &&
+        !zenModeFull &&
+        sessionWindow.on('enter-full-screen', () => {
+          sessionWindow.setFullScreen(false)
+        })
+
+      sessionWindow.webContents.setWindowOpenHandler((details) => {
+        shell.openExternal(details.url)
+        return { action: 'deny' }
+      })
+
+      sessionWindow.loadURL('https://universe.flyff.com/play')
+      !zenMode &&
+        sessionWindow.on('resize', () => {
+          const [width, height] = sessionWindow.getSize()
+          mainWindow.webContents.send('resizedSession', sid, width, height)
+        })
+
+      sessionWindow.on('focus', () => {
+        focusedWindow = sessionWindow
+      })
+
+      sessionWindow.on('close', (event) => {
+        if (exitCount < 2) {
+          event.preventDefault()
+          console.log('Prevented manual close')
+          exitCount++
+          setTimeout(() => {
+            exitCount--
+            exitCount = exitCount < 0 ? 0 : exitCount
+          }, 2000)
+        } else {
+          exitCount = 0
+        }
+      })
     }
-
-    const sessionWindow = new BrowserWindow({
-      width: Math.floor(windowWidth),
-      height: Math.floor(windowHeight),
-      resizable: !zenMode,
-      show: false,
-      frame: !zenMode,
-      autoHideMenuBar: true,
-      ...(process.platform === 'linux' ? { icon } : {}),
-      webPreferences: {
-        backgroundThrottling: false,
-        contextIsolation: true,
-        sandbox: false,
-        partition: 'persist:' + sid
-      }
-    })
-    sessionWindow.setMenuBarVisibility(false)
-    sessionWindow.on('ready-to-show', () => {
-      sessionWindow.show()
-      zenMode && zenModeFull && sessionWindow.setFullScreen(true)
-    })
-
-    zenMode && zenModeFull && sessionWindow.on('leave-full-screen', () => {
-      sessionWindow.setFullScreen(true)
-    })
-
-    zenMode && !zenModeFull && sessionWindow.on('enter-full-screen', () => {
-      sessionWindow.setFullScreen(false)
-    })
-
-    sessionWindow.webContents.setWindowOpenHandler((details) => {
-      shell.openExternal(details.url)
-      return { action: 'deny' }
-    })
-
-    sessionWindow.loadURL('https://universe.flyff.com/play')
-    !zenMode && sessionWindow.on('resize', () => {
-      const [width, height] = sessionWindow.getSize();
-      mainWindow.webContents.send('resizedSession', sid, width, height)
-    })
-
-    sessionWindow.on('focus', () => {
-      focusedWindow = sessionWindow
-    })
-
-    sessionWindow.on('close', (event) => {
-      if (exitCount < 2) {
-        event.preventDefault();
-        console.log('Prevented manual close');
-        exitCount++
-        setTimeout(() => {
-          exitCount--
-          exitCount = exitCount < 0 ? 0 : exitCount;
-        },2000)
-      } else {
-        exitCount = 0
-      }
-    });
-  })
+  )
 }
 
 // This method will be called when Electron has finished
