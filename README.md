@@ -28,6 +28,11 @@ An Electron WebView based Multi Client for Flyff Universe with Svelte and TypeSc
         - SiegeStats
 - Widgets:
     - FCoin Calculator
+
+### Video Tutorial (Thanks Shiraho)
+
+https://youtu.be/nu7v5rQQFcI
+
 ## Download Pre-compiled Binaries
 
 [View Latest Releases](https://github.com/thatmounaim/neuzos/releases)
