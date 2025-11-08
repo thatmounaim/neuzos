@@ -1,30 +1,82 @@
-import { app, shell, BrowserWindow, globalShortcut, Menu, ipcMain, session, screen } from 'electron'
-import { join } from 'path'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+import {app, shell, BrowserWindow, Menu, session, ipcMain, globalShortcut, screen} from 'electron'
+import {join} from 'path'
+import {electronApp, optimizer, is} from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import * as fs from "node:fs";
 
-let focusedWindow: BrowserWindow | undefined
-let exitCount: number = 0
-const disableF11 = process.argv.includes('--disableFullScreenShortcut')
+let mainWindow: BrowserWindow | null = null
+let settingsWindow: BrowserWindow | null = null
+let neuzosConfig: any = null
+const defaultNeuzosConfig = {
+  sessions: [],
+  layouts: [],
+}
+const configDirectoryPath = join(app.getPath('userData'), '/neuzos_config/')
 
-function createWindow(): void {
+if (!app.getPath('userData').includes('neuzos_config')) {
+  fs.mkdirSync(configDirectoryPath, {recursive: true});
+}
+
+function loadConfig(reload: boolean = false): Promise<any> {
+  return new Promise((resolve, reject) => {
+    if (neuzosConfig && !reload) {
+      resolve(neuzosConfig)
+    } else {
+      const configPath = join(configDirectoryPath, '/config.json')
+
+      // Check if file exists first
+      if (!fs.existsSync(configPath)) {
+        // Create default config.json
+        fs.writeFileSync(configPath, JSON.stringify(defaultNeuzosConfig, null, 2))
+        neuzosConfig = JSON.parse(JSON.stringify(defaultNeuzosConfig))
+        resolve(neuzosConfig)
+      } else {
+        // File exists, read it
+        try {
+          const conf = fs.readFileSync(configPath, 'utf8')
+          neuzosConfig = JSON.parse(conf)
+          resolve(neuzosConfig)
+        } catch (err) {
+          reject(err)
+        }
+      }
+    }
+  })
+}
+
+function saveConfig(conf: any) {
+  const configPath = join(configDirectoryPath, '/config.json')
+  fs.writeFileSync(configPath, JSON.stringify(conf, null, 2))
+}
+
+function createSettingsWindow(): void {
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    settingsWindow.focus()
+    return
+  }
+
   const primaryDisplay = screen.getPrimaryDisplay()
-  const { width, height } = primaryDisplay.workAreaSize
-  const aspectRatio = width / height
+  const toPixels = (units: number) => {
+    return Math.floor(units / primaryDisplay.scaleFactor)
+  }
 
-  const windowWidth = aspectRatio >= 2 ? width / 2 : width - width / 12
+  const {width, height} = primaryDisplay.workAreaSize
+  const aspectRatio = width / height;
+
+  const windowWidth = aspectRatio >= 2 ? width / 2 : width - width / 12;
   const windowHeight = height - height / 12
-  // Create the browser window.
-  const mainWindow = new BrowserWindow({
-    width: Math.floor(windowWidth),
-    height: Math.floor(windowHeight),
+
+  // Create smaller window for settings
+  settingsWindow = new BrowserWindow({
+    width: toPixels(windowWidth),
+    height: toPixels(windowHeight),
     show: false,
     frame: false,
     autoHideMenuBar: true,
-    ...(process.platform === 'linux' ? { icon } : {}),
+    ...(process.platform === 'linux' ? {icon} : {}),
     webPreferences: {
-      webviewTag: true,
-      contextIsolation: false,
+      zoomFactor: 1.0 / primaryDisplay.scaleFactor,
+      contextIsolation: true,
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
     }
@@ -34,206 +86,218 @@ function createWindow(): void {
   if (process.platform !== 'darwin') {
     Menu.setApplicationMenu(null)
   } else {
-    Menu.setApplicationMenu(Menu.buildFromTemplate([{ role: 'appMenu' }, { role: 'editMenu' }]))
+    Menu.setApplicationMenu(Menu.buildFromTemplate([{role: 'appMenu'}, {role: 'editMenu'}]))
+    settingsWindow.setMenuBarVisibility(false)
+  }
+
+  settingsWindow.on('ready-to-show', () => {
+    settingsWindow?.show()
+  })
+
+  settingsWindow.on('closed', () => {
+    settingsWindow = null
+  })
+
+  settingsWindow.webContents.setWindowOpenHandler((details) => {
+    shell.openExternal(details.url)
+    return {action: 'deny'}
+  })
+
+  // Load the remote URL for development or the local html file for production.
+  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+    settingsWindow.webContents.loadURL(process.env['ELECTRON_RENDERER_URL'] + '/settings.html')
+  } else {
+    settingsWindow.webContents.loadFile(join(__dirname, '../renderer/settings.html'))
+  }
+}
+
+function createMainWindow(): void {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.focus()
+    return
+  }
+  const primaryDisplay = screen.getPrimaryDisplay()
+  const toPixels = (units: number) => {
+    return Math.floor(units / primaryDisplay.scaleFactor)
+  }
+
+  const {width, height} = primaryDisplay.workAreaSize
+  const aspectRatio = width / height;
+
+  const windowWidth = aspectRatio >= 2 ? width / 2 : width - width / 12;
+  const windowHeight = height - height / 12
+  // Create the browser window.
+  mainWindow = new BrowserWindow({
+    width: toPixels(windowWidth),
+    height: toPixels(windowHeight),
+    show: false,
+    frame: false,
+    autoHideMenuBar: true,
+    ...(process.platform === 'linux' ? {icon} : {}),
+    webPreferences: {
+      zoomFactor: 1.0 / primaryDisplay.scaleFactor,
+      contextIsolation: true,
+      preload: join(__dirname, '../preload/index.js'),
+      sandbox: false,
+      webviewTag: true,
+    }
+  })
+
+  // Fix for MacOS Command Shortcuts
+  if (process.platform !== 'darwin') {
+    Menu.setApplicationMenu(null)
+  } else {
+    Menu.setApplicationMenu(Menu.buildFromTemplate([{role: 'appMenu'}, {role: 'editMenu'}]))
     mainWindow.setMenuBarVisibility(false)
   }
 
   mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
-  })
-
-  mainWindow.on('focus', () => {
-    focusedWindow = mainWindow
+    mainWindow?.show()
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
-    return { action: 'deny' }
+    return {action: 'deny'}
   })
 
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.webContents.openDevTools()
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+    mainWindow.webContents.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    mainWindow.webContents.loadFile(join(__dirname, '../renderer/index.html'))
   }
-
-  mainWindow.on('close', (event) => {
-    if (exitCount < 2) {
-      event.preventDefault()
-      console.log('Prevented manual close')
-      exitCount++
-      setTimeout(() => {
-        exitCount--
-        exitCount = exitCount < 0 ? 0 : exitCount
-      }, 2000)
-    } else {
-      exitCount = 0
-    }
-  })
-
-  app.on('browser-window-focus', function () {
-    globalShortcut.register('Control+Tab', () => {
-      mainWindow.webContents.send('doTabbing')
-    })
-
-    if (!disableF11) {
-      globalShortcut.register('F11', () => {
-        focusedWindow?.setFullScreen(!focusedWindow.isFullScreen())
-      })
-    }
-
-    globalShortcut.register('CommandOrControl+Alt+Y', () => {
-      focusedWindow?.close()
-    })
-
-    globalShortcut.register('CommandOrControl+W', () => {
-      console.log('Ctrl+W pressed but blocked')
-    })
-
-    globalShortcut.register('Alt+F4', () => {
-      console.log('Alt+F4 pressed but blocked')
-    })
-  })
-
-  ipcMain.on('window-minimize', () => {
-    mainWindow.minimize()
-  })
-
-  ipcMain.on('window-maximize', () => {
-    if (mainWindow.isMaximized()) {
-      mainWindow.unmaximize()
-    } else {
-      mainWindow.maximize()
-    }
-  })
-
-  ipcMain.on('window-close', () => {
-    globalShortcut.unregisterAll()
-    mainWindow.destroy()
-  })
-
-  ipcMain.on('clearData', async function (_, sid: string) {
-    const sess = session.fromPartition('persist:' + sid)
-    await sess.clearStorageData()
-  })
-
-  ipcMain.on('clearCache', async function (_, sid: string) {
-    const sess = session.fromPartition('persist:' + sid)
-    await sess.clearCache()
-  })
-
-  ipcMain.on(
-    'popSession',
-    async function (
-      _,
-      sid: string,
-      size?: {
-        width: number
-        height: number
-      },
-      zenMode?: boolean,
-      zenModeFull?: boolean
-    ) {
-      const primaryDisplay = screen.getPrimaryDisplay()
-      const { width, height } = primaryDisplay.workAreaSize
-      const aspectRatio = width / height
-      let windowWidth = zenMode ? width : aspectRatio >= 2 ? width / 2 : width - width / 12
-      let windowHeight = zenMode ? height : height - height / 12
-
-      if (size && !zenMode) {
-        windowWidth = size.width
-        windowHeight = size.height
-      }
-
-      const sessionWindow = new BrowserWindow({
-        width: Math.floor(windowWidth),
-        height: Math.floor(windowHeight),
-        resizable: !zenMode,
-        show: false,
-        frame: !zenMode,
-        autoHideMenuBar: true,
-        ...(process.platform === 'linux' ? { icon } : {}),
-        webPreferences: {
-          backgroundThrottling: false,
-          contextIsolation: true,
-          sandbox: false,
-          partition: 'persist:' + sid
-        }
-      })
-      sessionWindow.setMenuBarVisibility(false)
-      sessionWindow.on('ready-to-show', () => {
-        sessionWindow.show()
-        zenMode && zenModeFull && sessionWindow.setFullScreen(true)
-      })
-
-      zenMode &&
-        zenModeFull &&
-        sessionWindow.on('leave-full-screen', () => {
-          sessionWindow.setFullScreen(true)
-        })
-
-      zenMode &&
-        !zenModeFull &&
-        sessionWindow.on('enter-full-screen', () => {
-          sessionWindow.setFullScreen(false)
-        })
-
-      sessionWindow.webContents.setWindowOpenHandler((details) => {
-        shell.openExternal(details.url)
-        return { action: 'deny' }
-      })
-
-      sessionWindow.loadURL('https://universe.flyff.com/play')
-      !zenMode &&
-        sessionWindow.on('resize', () => {
-          const [width, height] = sessionWindow.getSize()
-          mainWindow.webContents.send('resizedSession', sid, width, height)
-        })
-
-      sessionWindow.on('focus', () => {
-        focusedWindow = sessionWindow
-      })
-
-      sessionWindow.on('close', (event) => {
-        if (exitCount < 2) {
-          event.preventDefault()
-          console.log('Prevented manual close')
-          exitCount++
-          setTimeout(() => {
-            exitCount--
-            exitCount = exitCount < 0 ? 0 : exitCount
-          }, 2000)
-        } else {
-          exitCount = 0
-        }
-      })
-    }
-  )
 }
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  try {
+    await loadConfig(true)
+  } catch (err) {
+    console.error('Failed to load config:', err)
+  }
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.neuzos')
-
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
-  // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  createWindow()
 
+  ipcMain.on('main_window.minimize', () => {
+    mainWindow?.minimize();
+  });
+
+  ipcMain.on('main_window.maximize', () => {
+    if (mainWindow?.isMaximized()) {
+      mainWindow?.unmaximize();
+    } else {
+      mainWindow?.maximize();
+    }
+  });
+
+  ipcMain.on('main_window.close', () => {
+    globalShortcut.unregisterAll()
+    mainWindow?.destroy();
+    mainWindow = null;
+  });
+
+  ipcMain.on('main_window.reload_config', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    win?.webContents.send("event.reload_config");
+  })
+
+
+  ipcMain.on('settings_window.open', (_) => {
+    createSettingsWindow()
+  })
+
+  ipcMain.on('settings_window.close', () => {
+    settingsWindow?.destroy()
+    settingsWindow = null
+  })
+
+  ipcMain.on('settings_window.minimize', () => {
+    settingsWindow?.minimize();
+  });
+
+  ipcMain.on('settings_window.minimize', () => {
+    if (settingsWindow?.isMaximized()) {
+      settingsWindow?.unmaximize();
+    } else {
+      settingsWindow?.maximize();
+    }
+  })
+
+
+  ipcMain.on("tabs.add", (event, layoutId: string) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    win?.webContents.send("event.layout_add", layoutId);
+  })
+
+  ipcMain.on("tabs.switch", (event, layoutId: string) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    win?.webContents.send("event.layout_switch", layoutId);
+  })
+
+  ipcMain.on("tabs.close_all", (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    win?.webContents.send("event.layout_close_all");
+  })
+
+  ipcMain.on("tabs.close", (event, layoutId: string) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    win?.webContents.send("event.layout_close", layoutId);
+  })
+
+  ipcMain.on("session.stop", (event, sessionId: string) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    win?.webContents.send("event.stop_session", sessionId);
+  })
+
+  ipcMain.on("session.start", (event, sessionId: string, layoutId: string) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    win?.webContents.send("event.start_session", sessionId, layoutId);
+  })
+
+  ipcMain.on('session.clear_storage', async function (event, sessionId: string) {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    win?.webContents.send("event.stop_session", sessionId);
+    const sess = session.fromPartition('persist:' + sessionId)
+    await sess.clearStorageData()
+  })
+
+  ipcMain.on('session.clear_cache', async function (event, sessionId: string) {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    win?.webContents.send("event.stop_session", sessionId);
+    const sess = session.fromPartition('persist:' + sessionId)
+    await sess.clearCache()
+  })
+
+  ipcMain.on('preferences.set_theme_mode', async function (_, themeMode: string) {
+    mainWindow?.webContents.send("event.theme_mode_changed", themeMode);
+  })
+
+  ipcMain.handle('config.load', async (_, force: boolean = false) => {
+    const conf = await loadConfig(force)
+    return conf
+  })
+
+  ipcMain.handle('config.save', async (_, config: any) => {
+    saveConfig(JSON.parse(config))
+    neuzosConfig = JSON.parse(config);
+    mainWindow?.webContents?.send("event.config_changed", config);
+  })
+
+
+  createMainWindow()
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (BrowserWindow.getAllWindows().length === 0) createMainWindow()
   })
 })
 
@@ -246,13 +310,6 @@ app.on('window-all-closed', () => {
   }
 })
 
-app.on('will-quit', () => {
-  globalShortcut.unregisterAll()
-})
 
-app.on('browser-window-blur', function () {
-  globalShortcut.unregisterAll()
-})
-
-// In this file you can include the rest of your app"s specific main process
+// In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.

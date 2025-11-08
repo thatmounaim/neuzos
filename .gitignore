@@ -1,9 +1,12 @@
 node_modules
 dist
 out
-build
-.vscode
 .DS_Store
+.eslintcache
+.idea
+.vscode
+build
+ref
 *.log*
 src/renderer/src/lib/widgets/testing
 .idea
