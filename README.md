@@ -1,10 +1,19 @@
 # NeuzOS
 
+[![Latest Releases](https://img.shields.io/static/v1?label=&message=Latest+Releases&color=2ea44f&style=for-the-badge&logo=electron&logoColor=fff)](https://github.com/thatmounaim/neuzos/releases)
+[![Community & Help - Join Discord](https://img.shields.io/static/v1?label=&message=Join+Discord+Community&color=2ea44f&style=for-the-badge&logo=discord&logoColor=fff)](https://discord.gg/k3EY7Z6MMP)
+[![Ko-Fi - Support NeuzOS](https://img.shields.io/static/v1?label=&message=Support+NeuzOS&color=2ea44f&style=for-the-badge&logo=ko-fi&logoColor=fff)](https://ko-fi.com/D1D21NY2ZD)
+
 An Electron WebView based Multi Client for Flyff Universe with Svelte and TypeScript.
 
 <img src="resources/icon.png" alt="neuzos logo" width="100"/>
 
-#### Join our discord if you need help : https://discord.gg/k3EY7Z6MMP
+**Note: A v2 is in Development that will adress many of the issues with the current one.**
+
+## How to Use
+
+[Shiraho's Youtube Video on NeuzOS](https://youtu.be/nu7v5rQQFcI)
+Thank you Shiraho for the Showcase
 
 ## Features
 - Multi Session Management with Unique Session for Each Character
@@ -28,6 +37,7 @@ An Electron WebView based Multi Client for Flyff Universe with Svelte and TypeSc
         - SiegeStats
 - Widgets:
     - FCoin Calculator
+
 ## Download Pre-compiled Binaries
 
 [View Latest Releases](https://github.com/thatmounaim/neuzos/releases)
@@ -58,7 +68,7 @@ $ pnpm build:mac
 $ pnpm build:linux
 ```
 
-## Dev Notes 
+## Dev Notes
 
 The base of the project was generate with [electron-vite](https://electron-vite.org/) using the Svelte Template
 
