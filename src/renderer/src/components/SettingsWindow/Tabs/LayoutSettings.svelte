@@ -10,46 +10,46 @@
     Save,
     Trash,
     Minus
-  } from '@lucide/svelte'
+  } from "@lucide/svelte";
 
-  import {Input} from '$lib/components/ui/input'
-  import * as Command from '$lib/components/ui/command'
-  import * as Popover from '$lib/components/ui/popover'
-  import {Separator} from '$lib/components/ui/separator'
-  import * as Table from '$lib/components/ui/table'
-  import * as Select from '$lib/components/ui/select'
-  import * as AlertDialog from '$lib/components/ui/alert-dialog'
-  import type {NeuzConfig} from "$lib/types";
-  import {getContext} from "svelte";
-  import {Button} from "$lib/components/ui/button";
-  import {neuzosBridge} from "$lib/core";
+  import { Input } from "$lib/components/ui/input";
+  import * as Command from "$lib/components/ui/command";
+  import * as Popover from "$lib/components/ui/popover";
+  import { Separator } from "$lib/components/ui/separator";
+  import * as Table from "$lib/components/ui/table";
+  import * as Select from "$lib/components/ui/select";
+  import * as AlertDialog from "$lib/components/ui/alert-dialog";
+  import type { NeuzConfig } from "$lib/types";
+  import { getContext } from "svelte";
+  import { Button } from "$lib/components/ui/button";
+  import { neuzosBridge } from "$lib/core";
 
   const layoutIcons: string[] = [
-    'neuzos_pang',
-    'neuz_hat',
-    'icn_browser',
-  ]
+    "neuzos_pang",
+    "misc/neuz_hat",
+    "misc/browser"
+  ];
 
-  const neuzosConfig = getContext<NeuzConfig>('neuzosConfig')
+  const neuzosConfig = getContext<NeuzConfig>("neuzosConfig");
 
   const addLayout = () => {
     neuzosConfig.layouts.push({
       id: Date.now().toString(),
-      label: 'Unnamed Layout',
+      label: "Unnamed Layout",
       icon: {
-        slug: 'neuzos_pang'
+        slug: "neuzos_pang"
       },
       rows: []
-    })
-  }
+    });
+  };
 
-  let dummy: any = null
+  let dummy: any = null;
 
   $effect(() => {
     if (dummy !== null) {
-      dummy = null
+      dummy = null;
     }
-  })
+  });
 
 </script>
 <Card.Root class="h-full  overflow-y-auto">
@@ -102,17 +102,17 @@
             <Table.Cell>
               <div class="flex items-center">
                 <Select.Root type="single" bind:value={layout.icon.slug}>
-                  <Select.Trigger size="xs" class="w-14 p-0 m-0 px-2 py-1">
+                  <Select.Trigger size="sm" class="w-14 p-0 m-0 px-2 py-2 h-6">
                     {#if layout.icon.slug}
-                      <img class="h-5 w-5" src="/icons/{layout.icon.slug}.png" alt=""/>
+                      <img class="w-5 h-5" src="/icons/{layout.icon.slug}.png" alt="" />
                     {:else}
-                      <img class="h-5 w-5" src="/icons/default.png" alt=""/>
+                      <img class="w-5 h-5" src="/icons/neuzos_pang.png" alt="" />
                     {/if}
                   </Select.Trigger>
                   <Select.Content class="w-16 max-h-64">
                     {#each layoutIcons as icon}
                       <Select.Item value={icon}>
-                        <img class="h-5 w-5" src="/icons/{icon}.png" alt=""/></Select.Item
+                        <img class="w-5 h-5" src="/icons/{icon}.png" alt="" /></Select.Item
                       >
                     {/each}
                   </Select.Content>
@@ -139,7 +139,7 @@
                       {@const session = neuzosConfig.sessions.find(s => s.id === sessionId)}
                       <div class="flex items-center gap-1">
                         <Button variant="outline" size="xs" class="text-xs">
-                          <img class="h-3 w-3" src="/icons/{session?.icon.slug}.png" alt=""/> {session?.label}
+                          <img class="h-4 w-4" src="/icons/{session?.icon.slug}.png" alt="" /> {session?.label}
                         </Button>
                       </div>
                     {/each}
@@ -162,14 +162,15 @@
                         </Select.Trigger>
                         <Select.Content class="w-16 max-h-64">
                           {#each neuzosConfig.sessions as session}
-                            {@const selectedInLayout = neuzosConfig.layouts.find(l => l.id === layout.id)?.rows.find(r => r.sessionIds.includes(session.id)) !== undefined }
+                            {@const
+                              selectedInLayout = neuzosConfig.layouts.find(l => l.id === layout.id)?.rows.find(r => r.sessionIds.includes(session.id)) !== undefined }
                             {#if !selectedInLayout}
-                            <Select.Item aria-checked={false} disabled={selectedInLayout} value={session.id}>
-                              <img class="h-5 w-5" src="/icons/{session.icon.slug}.png" alt=""/>
-                              {session.label}
-                            </Select.Item
-                            >
-                              {/if}
+                              <Select.Item aria-checked={false} disabled={selectedInLayout} value={session.id}>
+                                <img class="w-5 h-5" src="/icons/{session.icon.slug}.png" alt="" />
+                                {session.label}
+                              </Select.Item
+                              >
+                            {/if}
                           {/each}
                         </Select.Content>
                       </Select.Root>
@@ -188,7 +189,7 @@
                         sessionIds: []
                       })
                     }}>
-                  <Plus/>
+                  <Plus />
                   Add Row
                 </Button>
 

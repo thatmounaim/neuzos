@@ -24,28 +24,35 @@
   import {neuzosBridge} from "$lib/core";
 
   const sessionIcons: string[] = [
-    'job_vagrant',
-    'job_assist',
-    'job_ringmaster',
-    'job_seraph',
-    'job_billposter',
-    'job_forcemaster',
-    'job_acrobat',
-    'job_ranger',
-    'job_crackshooter',
-    'job_jester',
-    'job_harlequin',
-    'job_magician',
-    'job_psykeeper',
-    'job_mentalist',
-    'job_elementor',
-    'job_arcanist',
-    'job_mercenary',
-    'job_knight',
-    'job_templar',
-    'job_blade',
-    'job_slayer',
-    'icn_browser',
+    'misc/browser',
+    'jobs/vagrant',
+    'jobs/assist',
+    'jobs/ringmaster',
+    'jobs/seraph',
+    'jobs/billposter',
+    'jobs/forcemaster',
+    'jobs/acrobat',
+    'jobs/ranger',
+    'jobs/crackshooter',
+    'jobs/jester',
+    'jobs/harlequin',
+    'jobs/magician',
+    'jobs/psykeeper',
+    'jobs/mentalist',
+    'jobs/elementor',
+    'jobs/arcanist',
+    'jobs/mercenary',
+    'jobs/knight',
+    'jobs/templar',
+    'jobs/blade',
+    'jobs/slayer',
+    'levels/master_1',
+    'levels/master_2',
+    'levels/master_3',
+    'levels/master_4',
+    'levels/master_5',
+    'levels/master_6',
+    'levels/hero_1',
   ]
 
   const neuzosConfig = getContext<NeuzConfig>('neuzosConfig')
@@ -63,7 +70,7 @@
       id: Date.now().toString(),
       label: 'Unnamed Session',
       icon: {
-        slug: 'job_vagrant'
+        slug: 'jobs/vagrant'
       }
     })
   }
@@ -121,15 +128,15 @@
                 <Select.Root type="single" bind:value={session.icon.slug}>
                   <Select.Trigger size="xs" class="w-14 p-0 m-0 px-2 py-1">
                     {#if session.icon.slug}
-                      <img src="/icons/{session.icon.slug}.png" alt=""/>
+                      <img class="w-5 h-5" src="/icons/{session.icon.slug}.png" alt=""/>
                     {:else}
-                      <img src="/icons/default.png" alt=""/>
+                      <img class="w-5 h-5" src="/icons/neuzos_pang.png" alt=""/>
                     {/if}
                   </Select.Trigger>
                   <Select.Content class="w-16 max-h-64">
                     {#each sessionIcons as icon}
                       <Select.Item value={icon}>
-                        <img src="/icons/{icon}.png" alt=""/></Select.Item
+                        <img class="w-5 h-5" src="/icons/{icon}.png" alt=""/></Select.Item
                       >
                     {/each}
                   </Select.Content>
