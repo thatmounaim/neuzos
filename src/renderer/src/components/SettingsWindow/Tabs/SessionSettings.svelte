@@ -8,7 +8,9 @@
     HardDrive,
     Plus,
     Save,
-    Trash
+    Trash,
+    Globe,
+    PersonStanding
   } from '@lucide/svelte'
 
   import {Input} from '$lib/components/ui/input'
@@ -128,15 +130,15 @@
                 <Select.Root type="single" bind:value={session.icon.slug}>
                   <Select.Trigger size="xs" class="w-14 p-0 m-0 px-2 py-1">
                     {#if session.icon.slug}
-                      <img class="w-5 h-5" src="/icons/{session.icon.slug}.png" alt=""/>
+                      <img class="w-5 h-5" src="icons/{session.icon.slug}.png" alt=""/>
                     {:else}
-                      <img class="w-5 h-5" src="/icons/neuzos_pang.png" alt=""/>
+                      <img class="w-5 h-5" src="icons/neuzos_pang.png" alt=""/>
                     {/if}
                   </Select.Trigger>
                   <Select.Content class="w-16 max-h-64">
                     {#each sessionIcons as icon}
                       <Select.Item value={icon}>
-                        <img class="w-5 h-5" src="/icons/{icon}.png" alt=""/></Select.Item
+                        <img class="w-5 h-5" src="icons/{icon}.png" alt=""/></Select.Item
                       >
                     {/each}
                   </Select.Content>
@@ -156,13 +158,31 @@
               />
             </Table.Cell>
             <Table.Cell class="w-1/2">
-              {#if session.srcOverwrite}
-                <Input class="px-3 py-1 h-auto w-full" bind:value={session.srcOverwrite}/>
+              <div class="flex items-center gap-2">
+                {#if session.srcOverwrite}
+                  {#if !session.partitionOverwrite}
+                    <Button variant="outline" size="sm" onclick={() => {session.partitionOverwrite = 'browser'}}>
+                      <PersonStanding/>
+                    </Button>
+                  {:else}
+                    <Button variant="outline" size="sm" onclick={() => {delete(session.partitionOverwrite)}}>
+                      <Globe/>
+                    </Button>
+                  {/if}
+                  <Input class="px-3 py-1 h-auto w-full" bind:value={session.srcOverwrite} oninput={(e) => {
+                  if (e.target.value.length == 0 || e.target.value === ' ') {
+                    delete(session.srcOverwrite)
+                    delete(session.partitionOverwrite)
+                  }
+                }}/>
+
                 {:else}
-                <Button variant="outline" size="sm" onclick={() => {
+                  <Button variant="outline" size="sm" onclick={() => {
                   session.srcOverwrite = 'https://'
-                }}>Overwrite</Button>
-              {/if}
+                }}>Overwrite
+                  </Button>
+                {/if}
+              </div>
             </Table.Cell>
             <Table.Cell class="text-xs">{session.id}</Table.Cell>
             <Table.Cell>

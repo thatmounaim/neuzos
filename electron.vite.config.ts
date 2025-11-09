@@ -17,5 +17,13 @@ export default defineConfig({
         $lib: path.resolve("./src/renderer/src/lib"),
       },
     },
+    build: {
+      rollupOptions: {
+        input: {
+          index: path.resolve(__dirname, 'src/renderer/index.html'),
+          settings: path.resolve(__dirname, 'src/renderer/settings.html')
+        },
+      }
+    }
   }
 })

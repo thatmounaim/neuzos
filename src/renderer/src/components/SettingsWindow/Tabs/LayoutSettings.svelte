@@ -27,7 +27,11 @@
   const layoutIcons: string[] = [
     "neuzos_pang",
     "misc/neuz_hat",
-    "misc/browser"
+    "misc/browser",
+    "misc/pickup_pet_buff_1",
+    "misc/pickup_pet_buff_2",
+    "misc/pickup_pet_buff_3",
+    "misc/perin",
   ];
 
   const neuzosConfig = getContext<NeuzConfig>("neuzosConfig");
@@ -43,7 +47,7 @@
     });
   };
 
-  let dummy: any = null;
+  let dummy: any = $state(null);
 
   $effect(() => {
     if (dummy !== null) {
@@ -104,15 +108,15 @@
                 <Select.Root type="single" bind:value={layout.icon.slug}>
                   <Select.Trigger size="sm" class="w-14 p-0 m-0 px-2 py-2 h-6">
                     {#if layout.icon.slug}
-                      <img class="w-5 h-5" src="/icons/{layout.icon.slug}.png" alt="" />
+                      <img class="w-5 h-5" src="icons/{layout.icon.slug}.png" alt="" />
                     {:else}
-                      <img class="w-5 h-5" src="/icons/neuzos_pang.png" alt="" />
+                      <img class="w-5 h-5" src="icons/neuzos_pang.png" alt="" />
                     {/if}
                   </Select.Trigger>
                   <Select.Content class="w-16 max-h-64">
                     {#each layoutIcons as icon}
                       <Select.Item value={icon}>
-                        <img class="w-5 h-5" src="/icons/{icon}.png" alt="" /></Select.Item
+                        <img class="w-5 h-5" src="icons/{icon}.png" alt="" /></Select.Item
                       >
                     {/each}
                   </Select.Content>
@@ -139,7 +143,7 @@
                       {@const session = neuzosConfig.sessions.find(s => s.id === sessionId)}
                       <div class="flex items-center gap-1">
                         <Button variant="outline" size="xs" class="text-xs">
-                          <img class="h-4 w-4" src="/icons/{session?.icon.slug}.png" alt="" /> {session?.label}
+                          <img class="h-4 w-4" src="icons/{session?.icon.slug}.png" alt="" /> {session?.label}
                         </Button>
                       </div>
                     {/each}
@@ -166,7 +170,7 @@
                               selectedInLayout = neuzosConfig.layouts.find(l => l.id === layout.id)?.rows.find(r => r.sessionIds.includes(session.id)) !== undefined }
                             {#if !selectedInLayout}
                               <Select.Item aria-checked={false} disabled={selectedInLayout} value={session.id}>
-                                <img class="w-5 h-5" src="/icons/{session.icon.slug}.png" alt="" />
+                                <img class="w-5 h-5" src="icons/{session.icon.slug}.png" alt="" />
                                 {session.label}
                               </Select.Item
                               >

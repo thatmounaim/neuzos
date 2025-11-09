@@ -23,7 +23,11 @@
 
 
   onMount(() => {
-    partition = `persist:${session.id}`
+    if (session.partitionOverwrite) {
+      partition = `persist:${session.partitionOverwrite}`
+    } else {
+      partition = `persist:${session.id}`
+    }
     if (!Object.keys(mainWindowState.sessionsLayoutsRef).includes(session.id)) {
       mainWindowState.sessionsLayoutsRef[session.id] = {
         layouts: {}
@@ -113,7 +117,7 @@
         bind:this={webview}
         class="w-full h-full flex items-center flex-col gap-2 justify-center select-none"
       >
-        <img src="/flyffu-logo.png" alt="Flyff Universe Logo" class="w-1/2 max-w-32 pointer-events-none select-none"/>
+        <img src="flyffu-logo.png" alt="Flyff Universe Logo" class="w-1/2 max-w-32 pointer-events-none select-none"/>
         <Button variant="outline" onclick={() => neuzosBridge.sessions.start(session.id,layoutId)}>Start Session
           - {session.label}</Button>
       </div>

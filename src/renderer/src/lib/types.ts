@@ -14,6 +14,7 @@ export type NeuzSession = {
   label: string
   icon: NeuzIcon;
   srcOverwrite?: string;
+  partitionOverwrite?: string;
 }
 
 export type NeuzSessionState = {

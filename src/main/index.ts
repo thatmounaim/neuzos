@@ -6,6 +6,12 @@ import * as fs from "node:fs";
 
 let mainWindow: BrowserWindow | null = null
 let settingsWindow: BrowserWindow | null = null
+let focusedWindow: BrowserWindow | null = null;
+if(focusedWindow){
+  // Do nothing just making tslint happy
+}
+let exitCount: number = 0
+
 let neuzosConfig: any = null
 const defaultNeuzosConfig = {
   sessions: [],
@@ -142,6 +148,20 @@ function createMainWindow(): void {
       webviewTag: true,
     }
   })
+
+  mainWindow.on('close', (event) => {
+    if (exitCount < 2) {
+      event.preventDefault();
+      console.log('Prevented manual close');
+      exitCount++
+      setTimeout(() => {
+        exitCount--
+        exitCount = exitCount < 0 ? 0 : exitCount;
+      }, 2000)
+    } else {
+      exitCount = 0
+    }
+  });
 
   // Fix for MacOS Command Shortcuts
   if (process.platform !== 'darwin') {
@@ -308,6 +328,15 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
   }
+})
+
+app.on('browser-window-focus', (_, window) => {
+  focusedWindow = window;
+})
+
+app.on('browser-window-blur', (_) => {
+  focusedWindow = null;
+  globalShortcut.unregisterAll()
 })
 
 

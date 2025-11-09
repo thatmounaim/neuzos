@@ -19,7 +19,7 @@
     style="-webkit-app-region: drag;"
   >
     <div class="flex items-center gap-2">
-      <img src="/favicon.png" alt="NeuzOS Logo" class="size-6"/>
+      <img src="favicon.png" alt="NeuzOS Logo" class="size-6"/>
       <strong>NeuzOS Settings </strong>
     </div>
 

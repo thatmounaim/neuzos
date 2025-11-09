@@ -114,7 +114,7 @@
   class="gap-2 p-1 px-2 select-none border-b border-accent flex items-center justify-end bg-accent/50 min-h-8"
 >
   <div class="flex items-center gap-2">
-    <img src="/favicon.png" alt="NeuzOS Logo" class="size-6"/>
+    <img src="favicon.png" alt="NeuzOS Logo" class="size-6"/>
   </div>
   <Button disabled={mainWindowState.tabs.activeLayoutId === 'home'} size="icon-xs" variant="outline"
           onclick={switchToHome} class="cursor-pointer">
@@ -152,7 +152,7 @@
                 <Button variant="outline" size="sm" class="flex gap-2 justify-start items-center"
                         disabled={disabledAdd}
                         onclick={() => addLayout(layTab.id)}>
-                  <img class="w-6 h-6" src="/icons/{layTab.icon.slug}.png" alt=""/> {layTab.label}
+                  <img class="w-6 h-6" src="icons/{layTab.icon.slug}.png" alt=""/> {layTab.label}
                 </Button>
               {/each}
             </div>
