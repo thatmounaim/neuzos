@@ -109,7 +109,7 @@
                       <img class="h-5 w-5" src="/icons/default.png" alt=""/>
                     {/if}
                   </Select.Trigger>
-                  <Select.Content class="w-16">
+                  <Select.Content class="w-16 max-h-64">
                     {#each layoutIcons as icon}
                       <Select.Item value={icon}>
                         <img class="h-5 w-5" src="/icons/{icon}.png" alt=""/></Select.Item
@@ -160,7 +160,7 @@
                         }}>
                           <Plus class="size-3"></Plus>
                         </Select.Trigger>
-                        <Select.Content class="w-16">
+                        <Select.Content class="w-16 max-h-64">
                           {#each neuzosConfig.sessions as session}
                             {@const selectedInLayout = neuzosConfig.layouts.find(l => l.id === layout.id)?.rows.find(r => r.sessionIds.includes(session.id)) !== undefined }
                             {#if !selectedInLayout}

@@ -27,16 +27,24 @@
     'job_vagrant',
     'job_assist',
     'job_ringmaster',
+    'job_seraph',
     'job_billposter',
+    'job_forcemaster',
     'job_acrobat',
     'job_ranger',
+    'job_crackshooter',
     'job_jester',
+    'job_harlequin',
     'job_magician',
     'job_psykeeper',
+    'job_mentalist',
     'job_elementor',
+    'job_arcanist',
     'job_mercenary',
     'job_knight',
+    'job_templar',
     'job_blade',
+    'job_slayer',
     'icn_browser',
   ]
 
@@ -118,7 +126,7 @@
                       <img src="/icons/default.png" alt=""/>
                     {/if}
                   </Select.Trigger>
-                  <Select.Content class="w-16">
+                  <Select.Content class="w-16 max-h-64">
                     {#each sessionIcons as icon}
                       <Select.Item value={icon}>
                         <img src="/icons/{icon}.png" alt=""/></Select.Item
