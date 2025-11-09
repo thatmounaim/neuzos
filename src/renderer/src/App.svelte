@@ -71,6 +71,17 @@
     mainWindowState.tabs.layoutOrder = mainWindowState.tabs.layoutOrder.filter(id => id !== layoutId)
   })
 
+  electronApi.on('event.layout_swap', (_) => {
+    alert('layout_swap')
+    const activeLayoutId = mainWindowState.tabs.activeLayoutId
+    const previousLayoutId = mainWindowState.tabs.previousLayoutId
+    if (previousLayoutId) {
+      const newLayoutId = previousLayoutId
+      mainWindowState.tabs.previousLayoutId = activeLayoutId
+      mainWindowState.tabs.activeLayoutId = newLayoutId
+    }
+  })
+
   electronApi.on('event.stop_session', (_, sessionId: string) => {
     console.log("stop_session", sessionId)
     Object.keys(mainWindowState.sessionsLayoutsRef[sessionId]?.layouts).forEach(layoutId => {

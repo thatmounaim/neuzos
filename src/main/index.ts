@@ -4,12 +4,53 @@ import {electronApp, optimizer, is} from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import * as fs from "node:fs";
 
+// Performance Presets System
+const args = process.argv.slice(1)
+const hasUltraMode = args.includes('--ultra')
+const hasPerformanceMode = args.includes('--performance')
+const hasPotatoMode = args.includes('--potato')
+
+// ULTRA MODE - For high-end PCs (maximum performance)
+if (hasUltraMode) {
+  console.log('🚀 Ultra Performance Mode Enabled')
+  app.commandLine.appendSwitch('disable-gpu-vsync')
+  app.commandLine.appendSwitch('disable-frame-rate-limit')
+  app.commandLine.appendSwitch('enable-gpu-rasterization')
+  app.commandLine.appendSwitch('enable-zero-copy')
+  app.commandLine.appendSwitch('enable-webgl')
+  app.commandLine.appendSwitch('disable-software-rasterizer')
+  app.commandLine.appendSwitch('disable-background-timer-throttling')
+  app.commandLine.appendSwitch('disable-renderer-backgrounding')
+}
+// PERFORMANCE MODE - For decent PCs (balanced)
+else if (hasPerformanceMode) {
+  console.log('⚡ Performance Mode Enabled')
+  app.commandLine.appendSwitch('disable-gpu-vsync')
+  app.commandLine.appendSwitch('disable-frame-rate-limit')
+  app.commandLine.appendSwitch('enable-gpu-rasterization')
+  app.commandLine.appendSwitch('enable-zero-copy')
+}
+// POTATO MODE - For low-end PCs (stability focused)
+else if (hasPotatoMode) {
+  console.log('🥔 Potato Mode Enabled')
+  app.commandLine.appendSwitch('enable-gpu-rasterization')
+  app.commandLine.appendSwitch('disable-software-rasterizer')
+  app.commandLine.appendSwitch('disable-gpu-vsync')
+  app.commandLine.appendSwitch('disable-background-timer-throttling')
+  // Keep frame rate limit for stability
+}
+// DEFAULT MODE - Balanced for most users
+else {
+  console.log('🎮 Default Mode')
+  app.commandLine.appendSwitch('disable-gpu-vsync')
+  app.commandLine.appendSwitch('disable-frame-rate-limit')
+  app.commandLine.appendSwitch('enable-gpu-rasterization')
+  app.commandLine.appendSwitch('enable-zero-copy')
+}
+
 let mainWindow: BrowserWindow | null = null
 let settingsWindow: BrowserWindow | null = null
-let focusedWindow: BrowserWindow | null = null;
-if(focusedWindow){
-  // Do nothing just making tslint happy
-}
+
 let exitCount: number = 0
 
 let neuzosConfig: any = null
@@ -175,6 +216,10 @@ function createMainWindow(): void {
     mainWindow?.show()
   })
 
+  mainWindow.on('closed', () => {
+    mainWindow = null
+  })
+
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return {action: 'deny'}
@@ -205,7 +250,6 @@ app.whenReady().then(async () => {
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
   })
-
 
   ipcMain.on('main_window.minimize', () => {
     mainWindow?.minimize();
@@ -312,7 +356,6 @@ app.whenReady().then(async () => {
     mainWindow?.webContents?.send("event.config_changed", config);
   })
 
-
   createMainWindow()
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
@@ -330,12 +373,7 @@ app.on('window-all-closed', () => {
   }
 })
 
-app.on('browser-window-focus', (_, window) => {
-  focusedWindow = window;
-})
-
-app.on('browser-window-blur', (_) => {
-  focusedWindow = null;
+app.on('will-quit', () => {
   globalShortcut.unregisterAll()
 })
 
