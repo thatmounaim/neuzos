@@ -10,35 +10,43 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-24.04, windows-latest]
-        node-version: [17]
+        # Bun doesn't need an explicit node-version matrix, but we'll keep it for clarity
+        # or if the build steps rely on a specific Node environment being present.
+        # Bun ships its own runtime, but it is Node.js-compatible.
+        # We'll use a placeholder or remove it if not strictly necessary for the build commands.
+        # For simplicity and to match the original structure, we'll keep a version number.
+        node-version: [24]
 
     steps:
       - name: Check out Git repository
         uses: actions/checkout@v3
 
-      - name: Install PNPM <3
-        uses: pnpm/action-setup@v2
-        with:
-          version: 8
+      # --- Changes Start Here ---
 
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
+      - name: Setup Bun ⚙️
+        uses: oven-sh/setup-bun@v1 # Use the official Bun setup action
         with:
-          node-version: ${{ matrix.node-version }}
-          cache: "pnpm"
+          bun-version: latest # You can specify a version like '1.1.9' if needed
 
-      - name: Install dependencies
-        run: pnpm install
+      # The 'Use Node.js' and 'Install PNPM' steps are now redundant
+      # as Bun handles the runtime and package management.
+
+      - name: Install dependencies with Bun
+        run: bun install # Use 'bun install' instead of 'pnpm install'
 
       - name: Build
-        run: pnpm postinstall
+        run: bun run postinstall # Use 'bun run <script>' instead of 'pnpm <script>'
+
+      # --- Changes End Here ---
 
       - if: matrix.os == 'ubuntu-24.04'
         name: Build Linux
-        run: pnpm release:linux
+        run: bun run release:linux # Use 'bun run'
+
       - if: matrix.os == 'ubuntu-24.04'
         name: Build Mac (On Linux)
-        run: pnpm release:mac
+        run: bun run release:mac # Use 'bun run'
+
       - if: matrix.os == 'windows-latest'
         name: Build Windows
-        run: pnpm release:win
+        run: bun run release:win # Use 'bun run'
