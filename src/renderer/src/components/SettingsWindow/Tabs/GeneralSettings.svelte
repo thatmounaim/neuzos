@@ -35,9 +35,8 @@
             <Table.Cell>
               <Button variant="outline" size="sm" class="w-full" onclick={() => {
                 if (enabled) {
-                  neuzosConfig.chromium.commandLineSwitches = neuzosConfig.chromium.commandLineSwitches.filter((switchName) => {
-                    return switchName !== switchName;
-                  });
+                  const idx = neuzosConfig.chromium.commandLineSwitches.indexOf(switchName);
+                  neuzosConfig.chromium.commandLineSwitches.splice(idx, 1);
                 } else {
                   neuzosConfig.chromium.commandLineSwitches.push(switchName);
                 }
