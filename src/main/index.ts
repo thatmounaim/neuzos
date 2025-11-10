@@ -6,6 +6,7 @@ import * as fs from "node:fs";
 import {rimraf} from "rimraf";
 
 // Performance Presets System
+app.commandLine.appendSwitch('enable-features', 'GlobalShortcutsPortal')
 
 const allowedCommandLineSwitches = [
   // 🚀 Rendering / GPU Performance
@@ -238,6 +239,15 @@ function createMainWindow(): void {
     mainWindow = null;
   });
 
+  mainWindow.on('focus', () => {
+    globalShortcut.unregister("Control+Tab");
+    globalShortcut.register("Control+Tab", () => {
+      if (BrowserWindow.getFocusedWindow() == mainWindow) {
+        mainWindow?.webContents.send("event.layout_swap");
+      }
+    })
+  })
+
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url);
     return {action: "deny"};
@@ -263,15 +273,14 @@ function createMainWindow(): void {
       const spl = switchName.split("=");
       const swtch = spl[0]
       const value = spl[1] ?? true;
-      console.log("Appending switch:",swtch,value);
-      app.commandLine.appendSwitch(swtch,value);
+      console.log("Appending switch:", swtch, value);
+      app.commandLine.appendSwitch(swtch, value);
     });
   } catch (err) {
     console.error("Failed to load config:", err);
   }
 })().then(() => {
   app.whenReady().then(async () => {
-
     // Set app user model id for windows
     electronApp.setAppUserModelId("com.neuzos");
     // Default open or close DevTools by F12 in development
@@ -425,6 +434,12 @@ function createMainWindow(): void {
       app.quit();
     }
   });
+
+  app.on("browser-window-blur", () => {
+    if (BrowserWindow.getFocusedWindow() == mainWindow) {
+      globalShortcut.unregisterAll();
+    }
+  })
 
   app.on("will-quit", () => {
     globalShortcut.unregisterAll();
