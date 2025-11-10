@@ -54,6 +54,9 @@ export type MainWindowState = {
 }
 
 export type NeuzConfig = {
+  chromium: {
+    commandLineSwitches: string[]
+  }
   sessions: NeuzSession[]
   layouts: NeuzLayout[]
 }
