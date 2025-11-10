@@ -76,7 +76,6 @@
   })
 
   electronApi.on('event.layout_swap', (_) => {
-    alert('layout_swap')
     const activeLayoutId = mainWindowState.tabs.activeLayoutId
     const previousLayoutId = mainWindowState.tabs.previousLayoutId
     if (previousLayoutId) {
