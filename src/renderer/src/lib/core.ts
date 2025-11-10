@@ -62,6 +62,9 @@ export const neuzosBridge = {
     start: (sessionId: string, layoutId: string) => {
       electronApi?.send("session.start", sessionId, layoutId);
     },
+    restart: (sessionId: string, layoutId: string) => {
+      electronApi?.send("session.restart", sessionId, layoutId);
+    },
     clearCache: (sessionId: string) => {
       electronApi?.send("session.clear_cache", sessionId);
     },

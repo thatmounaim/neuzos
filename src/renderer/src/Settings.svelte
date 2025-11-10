@@ -24,7 +24,8 @@
     layouts: [],
     chromium: {
       commandLineSwitches: []
-    }
+    },
+    defaultLayouts: []
   });
 
   const electronApi = window.electron.ipcRenderer;
@@ -37,6 +38,7 @@
     neuzosConfig.sessions = conf.sessions;
     neuzosConfig.layouts = conf.layouts;
     neuzosConfig.chromium = conf.chromium;
+    neuzosConfig.defaultLayouts = conf.defaultLayouts;
   });
 
   const saveSettings = async () => {

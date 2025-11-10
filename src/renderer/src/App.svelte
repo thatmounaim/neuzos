@@ -1,9 +1,9 @@
 <script lang="ts">
   import {ModeWatcher} from "mode-watcher";
   import MainBar from "./components/MainWindow/MainBar.svelte";
-  import {onMount, setContext} from "svelte";
+  import {onMount, setContext, tick} from "svelte";
   import {neuzosBridge, initElectronApi} from "$lib/core";
-  import type {MainWindowState, NeuzConfig, NeuzLayout, NeuzSession} from "$lib/types";
+  import type {MainWindowState} from "$lib/types";
   import LayoutsDisplay from "./components/MainWindow/LayoutsDisplay.svelte";
   import SharedEvents from "./components/SharedEvents.svelte";
 
@@ -15,15 +15,14 @@
 
   initElectronApi(window.electron.ipcRenderer)
 
-  let neuzosConfig: NeuzConfig = $state({
-    sessions: [],
-    layouts: [],
-  })
-
   let mainWindowState: MainWindowState = $state({
     config: {
       sessions: [],
       layouts: [],
+      chromium: {
+        commandLineSwitches: [],
+      },
+      defaultLayouts: [],
       changed: false,
     },
     sessions: [],
@@ -53,22 +52,27 @@
     mainWindowState.tabs.activeLayoutId = layoutId
   })
 
-  electronApi.on('event.layout_close_all', (_) => {
-    mainWindowState.tabs.layoutsIds.forEach(layoutId => {
-      neuzosBridge.layouts.close(layoutId)
-    })
-    mainWindowState.tabs.previousLayoutId = null
-    mainWindowState.tabs.activeLayoutId = 'home'
-  })
-
-  electronApi.on('event.layout_close', (_, layoutId: string) => {
-    console.log("layout_close", layoutId)
+  const closeLayout = (layoutId: string) => {
     mainWindowState.tabs.layoutsIds = mainWindowState.tabs.layoutsIds.filter(id => id !== layoutId)
     if (mainWindowState.tabs.activeLayoutId === layoutId) {
       mainWindowState.tabs.activeLayoutId = mainWindowState.tabs.previousLayoutId ?? null
     }
-
     mainWindowState.tabs.layoutOrder = mainWindowState.tabs.layoutOrder.filter(id => id !== layoutId)
+  }
+
+  electronApi.on('event.layout_close_all', (_) => {
+    mainWindowState.tabs.previousLayoutId = null
+    mainWindowState.tabs.activeLayoutId = 'home'
+    mainWindowState.tabs.layoutsIds.forEach(layoutId => {
+      closeLayout(layoutId)
+    })
+
+  })
+
+
+  electronApi.on('event.layout_close', (_, layoutId: string) => {
+    console.log("layout_close", layoutId)
+    closeLayout(layoutId)
   })
 
   electronApi.on('event.layout_swap', (_) => {
@@ -106,13 +110,23 @@
     const newConfig = JSON.parse(cfg)
     mainWindowState.config.sessions = newConfig.sessions
     mainWindowState.config.layouts = newConfig.layouts
+    mainWindowState.config.defaultLayouts = newConfig.defaultLayouts
+    mainWindowState.config.chromium.commandLineSwitches = newConfig.chromium.commandLineSwitches
   })
 
-  electronApi.on('event.reload_config', (_) => {
+  const reloadNeuzos = () => {
+    setTimeout(() => {
+      mainWindowState.sessions = JSON.parse(JSON.stringify(mainWindowState.config.sessions))
+      mainWindowState.layouts = JSON.parse(JSON.stringify(mainWindowState.config.layouts))
+      mainWindowState.tabs.layoutsIds = JSON.parse(JSON.stringify(mainWindowState.config.defaultLayouts))
+      mainWindowState.tabs.layoutOrder = JSON.parse(JSON.stringify(mainWindowState.config.defaultLayouts))
+    }, 50)
+  }
+
+  electronApi.on('event.reload_config', async (_) => {
     neuzosBridge.layouts.closeAll()
     mainWindowState.config.changed = false
-    mainWindowState.sessions = JSON.parse(JSON.stringify(mainWindowState.config.sessions))
-    mainWindowState.layouts = JSON.parse(JSON.stringify(mainWindowState.config.layouts))
+    reloadNeuzos()
   })
 
   addEventListener('resize', () => {
@@ -121,11 +135,11 @@
 
   setContext('mainWindowState', mainWindowState)
 
+
   onMount(async () => {
     neuzosBridge.layouts.closeAll()
-    neuzosConfig = await electronApi.invoke('config.load', true)
-    mainWindowState.sessions = neuzosConfig.sessions
-    mainWindowState.layouts = neuzosConfig.layouts
+    mainWindowState.config = await electronApi.invoke('config.load', true)
+    reloadNeuzos()
   })
 </script>
 <ModeWatcher/>

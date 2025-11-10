@@ -10,8 +10,11 @@
     EyeOff,
     Plus,
     ExternalLink,
+    RefreshCcw,
     VolumeX,
     Volume,
+    Volume2,
+    VolumeOff,
     Square,
     Play,
     Sun,
@@ -64,6 +67,10 @@
     neuzosBridge.sessions.stop(sessionId)
   }
 
+  const restartSession = (layoutId: string, sessionId: string) => {
+    neuzosBridge.sessions.restart(sessionId, layoutId)
+  }
+
   const startSession = (layoutId: string, sessionId: string) => {
     neuzosBridge.sessions.start(sessionId, layoutId)
   }
@@ -79,6 +86,12 @@
   const muteAllSessions = (layoutId: string) => {
     for (const sessionId in mainWindowState.sessionsLayoutsRef) {
       mainWindowState.sessionsLayoutsRef[sessionId]?.layouts[layoutId]?.setAudioMuted(true)
+    }
+  }
+
+  const unmuteAllSessions = (layoutId: string) => {
+    for (const sessionId in mainWindowState.sessionsLayoutsRef) {
+      mainWindowState.sessionsLayoutsRef[sessionId]?.layouts[layoutId]?.setAudioMuted(false)
     }
   }
 
@@ -210,7 +223,7 @@
         <ContextMenu.Content>
           <div class="flex w-full items-center justify-between gap-2 flex-1">
             <ContextMenu.Item
-              class="{mainWindowState.tabs.layoutOrder.indexOf(layTab.id) > 0 ? 'opacity-100' : 'opacity-50'}"
+              class="border border-border/50  {mainWindowState.tabs.layoutOrder.indexOf(layTab.id) > 0 ? 'opacity-100' : 'opacity-50'}"
               onclick={() => {
               const index = mainWindowState.tabs.layoutOrder.indexOf(layTab.id)
               if (index > 0) {
@@ -224,7 +237,7 @@
               </div>
             </ContextMenu.Item
             >
-            <ContextMenu.Item
+            <ContextMenu.Item  class="border border-border/50"
               onclick={() => closeLayout(layTab.id)}
             >
               <div class="flex items-center gap-2">
@@ -233,7 +246,7 @@
             </ContextMenu.Item
             >
             <ContextMenu.Item
-              class={mainWindowState.tabs.layoutOrder.indexOf(layTab.id) < (mainWindowState.tabs.layoutOrder.length - 1) ? 'opacity-100' : 'opacity-50'}
+              class="border border-border/50 {mainWindowState.tabs.layoutOrder.indexOf(layTab.id) < (mainWindowState.tabs.layoutOrder.length - 1) ? 'opacity-100' : 'opacity-50'}"
               onclick={() => {
             const index = mainWindowState.tabs.layoutOrder.indexOf(layTab.id)
             if (index < mainWindowState.tabs.layoutOrder.length - 1) {
@@ -248,43 +261,35 @@
           </div>
 
           <ContextMenu.Separator/>
-          <ContextMenu.Sub>
-            <ContextMenu.SubTrigger>
-              <div class="flex items-center gap-2 justify-between w-full">
-                <div class="flex items-center gap-2">
-                  Mass Actions
-                </div>
-            </ContextMenu.SubTrigger>
-            <ContextMenu.SubContent class="w-48">
-              <ContextMenu.Item
-                onclick={() => muteAllSessions(layTab.id)}
-              >
-                <div class="flex items-center gap-2">
-                  <VolumeX class="h=4"/>
-                  Mute All
-                </div>
-              </ContextMenu.Item
-              >
-              <ContextMenu.Item
-                onclick={() => stopAllSessions(layTab.id)}
-              >
-                <div class="flex items-center gap-2">
-                  <Square class="h=4"/>
-                  Stop All
-                </div>
-              </ContextMenu.Item
-              >
-              <ContextMenu.Item
-                onclick={() => startAllSessions(layTab.id)}
-              >
-                <div class="flex items-center gap-2">
-                  <Play class="h=4"/>
-                  Start All
-                </div>
-              </ContextMenu.Item
-              >
-            </ContextMenu.SubContent>
-          </ContextMenu.Sub>
+          <ContextMenu.Label class="text-xs text-center">
+            Mass Actions
+          </ContextMenu.Label>
+          <ContextMenu.Separator class="mx-2"/>
+          <div class="flex items-center justify-between gap-2">
+            <ContextMenu.Item class={cn("flex-1 items-center justify-center")}
+                              onclick={() => unmuteAllSessions(layTab.id)}>
+              <Volume2 class="h=4"/>
+            </ContextMenu.Item
+            >
+            <ContextMenu.Item class={cn("flex-1 items-center justify-center")}
+                              onclick={() => muteAllSessions(layTab.id)}>
+              <VolumeOff class="h=4"/>
+            </ContextMenu.Item
+            >
+          </div>
+          <ContextMenu.Separator class="mx-2"/>
+          <div class="flex items-center justify-between gap-2">
+            <ContextMenu.Item class={cn("flex-1 items-center justify-center")}
+                              onclick={() => startAllSessions(layTab.id)}>
+              <Play class="h=4"/>
+            </ContextMenu.Item
+            >
+             <ContextMenu.Item class={cn("flex-1 items-center justify-center")}
+                              onclick={() => stopAllSessions(layTab.id)}>
+              <Square class="h=4"/>
+            </ContextMenu.Item
+            >
+          </div>
           <ContextMenu.Separator/>
           {#each layTab.rows as row,idx (idx)}
             {#each row.sessionIds as sessionId (sessionId)}
@@ -325,6 +330,13 @@
                         <Play class="h-4"/>
                         Start
                       {/if}
+                    </div>
+                  </ContextMenu.Item>
+                  <ContextMenu.Item
+                    onclick={() => restartSession(layoutId, sessionId)}>
+                    <div class="flex items-center gap-2">
+                      <RefreshCcw class="h-4"/>
+                      Restart
                     </div>
                   </ContextMenu.Item>
                 </ContextMenu.SubContent>

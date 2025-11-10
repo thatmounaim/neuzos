@@ -59,4 +59,5 @@ export type NeuzConfig = {
   }
   sessions: NeuzSession[]
   layouts: NeuzLayout[]
+  defaultLayouts: string[]
 }

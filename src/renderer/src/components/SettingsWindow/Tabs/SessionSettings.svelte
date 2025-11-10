@@ -81,6 +81,8 @@
     neuzosConfig.sessions = neuzosConfig.sessions.filter(s => s.id !== sessionId)
   }
 
+  let clearCacheOpenModal : string | null = $state(null)
+  let clearStorageOpenModal : string | null = $state(null)
 </script>
 <Card.Root class="h-full  overflow-y-auto">
   <Card.Content class="flex flex-col gap-4">
@@ -187,7 +189,9 @@
             <Table.Cell class="text-xs">{session.id}</Table.Cell>
             <Table.Cell>
               <div class="flex gap-2 items-center">
-                <AlertDialog.Root>
+                <AlertDialog.Root open={clearCacheOpenModal === session.id} onOpenChange={(open) => {
+                  clearCacheOpenModal = open ? session.id : null;
+                }}>
                   <AlertDialog.Trigger>
                     <Button variant="outline" size="xs">
                       <FileX class="h-4"/>
@@ -208,13 +212,16 @@
                       <AlertDialog.Action
                         onclick={() => {
                         clearCache(session.id)
+                        clearCacheOpenModal = null
                       }}>Clear Cache
                       </AlertDialog.Action
                       >
                     </AlertDialog.Footer>
                   </AlertDialog.Content>
                 </AlertDialog.Root>
-                <AlertDialog.Root>
+                <AlertDialog.Root open={clearStorageOpenModal === session.id} onOpenChange={(open) => {
+                  clearStorageOpenModal = open ? session.id : null;
+                }}>
                   <AlertDialog.Trigger>
                     <Button variant="outline" size="xs">
                       <HardDrive class="h-4"/>
@@ -233,6 +240,7 @@
                       <AlertDialog.Action
                         onclick={() => {
                         clearStorage(session.id)
+                        clearStorageOpenModal = null
                       }}>Clear Data
                       </AlertDialog.Action
                       >

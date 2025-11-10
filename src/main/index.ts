@@ -1,8 +1,9 @@
-import { app, shell, BrowserWindow, Menu, session, ipcMain, globalShortcut, screen } from "electron";
-import { join } from "path";
-import { electronApp, optimizer, is } from "@electron-toolkit/utils";
+import {app, shell, BrowserWindow, Menu, session, ipcMain, globalShortcut, screen} from "electron";
+import {join} from "path";
+import {electronApp, optimizer, is} from "@electron-toolkit/utils";
 import icon from "../../resources/icon.png?asset";
 import * as fs from "node:fs";
+import {rimraf} from "rimraf";
 
 // Performance Presets System
 
@@ -62,12 +63,13 @@ const defaultNeuzosConfig = {
     ]
   },
   sessions: [],
-  layouts: []
+  layouts: [],
+  defaultLayouts: [],
 };
 const configDirectoryPath = join(app.getPath("userData"), "/neuzos_config/");
 
 if (!app.getPath("userData").includes("neuzos_config")) {
-  fs.mkdirSync(configDirectoryPath, { recursive: true });
+  fs.mkdirSync(configDirectoryPath, {recursive: true});
 }
 
 
@@ -100,7 +102,7 @@ function loadConfig(reload: boolean = false): Promise<any> {
           const conf = fs.readFileSync(configPath, "utf8");
           neuzosConfig = JSON.parse(conf);
           console.log("Merging possible missing fields from default config");
-          neuzosConfig = { ...defaultNeuzosConfig, ...neuzosConfig };
+          neuzosConfig = {...defaultNeuzosConfig, ...neuzosConfig};
           saveConfig(neuzosConfig);
           resolve(neuzosConfig);
         } catch (err) {
@@ -123,7 +125,7 @@ function createSettingsWindow(): void {
     return Math.floor(units / primaryDisplay.scaleFactor);
   };
 
-  const { width, height } = primaryDisplay.workAreaSize;
+  const {width, height} = primaryDisplay.workAreaSize;
   const aspectRatio = width / height;
 
   const windowWidth = aspectRatio >= 2 ? width / 2 : width - width / 12;
@@ -136,7 +138,7 @@ function createSettingsWindow(): void {
     show: false,
     frame: false,
     autoHideMenuBar: true,
-    ...(process.platform === "linux" ? { icon } : {}),
+    ...(process.platform === "linux" ? {icon} : {}),
     webPreferences: {
       zoomFactor: 1.0 / primaryDisplay.scaleFactor,
       contextIsolation: true,
@@ -149,7 +151,7 @@ function createSettingsWindow(): void {
   if (process.platform !== "darwin") {
     Menu.setApplicationMenu(null);
   } else {
-    Menu.setApplicationMenu(Menu.buildFromTemplate([{ role: "appMenu" }, { role: "editMenu" }]));
+    Menu.setApplicationMenu(Menu.buildFromTemplate([{role: "appMenu"}, {role: "editMenu"}]));
     settingsWindow.setMenuBarVisibility(false);
   }
 
@@ -163,7 +165,7 @@ function createSettingsWindow(): void {
 
   settingsWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url);
-    return { action: "deny" };
+    return {action: "deny"};
   });
 
   // Load the remote URL for development or the local html file for production.
@@ -184,7 +186,7 @@ function createMainWindow(): void {
     return Math.floor(units / primaryDisplay.scaleFactor);
   };
 
-  const { width, height } = primaryDisplay.workAreaSize;
+  const {width, height} = primaryDisplay.workAreaSize;
   const aspectRatio = width / height;
 
   const windowWidth = aspectRatio >= 2 ? width / 2 : width - width / 12;
@@ -196,7 +198,7 @@ function createMainWindow(): void {
     show: false,
     frame: false,
     autoHideMenuBar: true,
-    ...(process.platform === "linux" ? { icon } : {}),
+    ...(process.platform === "linux" ? {icon} : {}),
     webPreferences: {
       zoomFactor: 1.0 / primaryDisplay.scaleFactor,
       contextIsolation: true,
@@ -224,7 +226,7 @@ function createMainWindow(): void {
   if (process.platform !== "darwin") {
     Menu.setApplicationMenu(null);
   } else {
-    Menu.setApplicationMenu(Menu.buildFromTemplate([{ role: "appMenu" }, { role: "editMenu" }]));
+    Menu.setApplicationMenu(Menu.buildFromTemplate([{role: "appMenu"}, {role: "editMenu"}]));
     mainWindow.setMenuBarVisibility(false);
   }
 
@@ -238,7 +240,7 @@ function createMainWindow(): void {
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url);
-    return { action: "deny" };
+    return {action: "deny"};
   });
 
   // HMR for renderer base on electron-vite cli.
@@ -258,7 +260,11 @@ function createMainWindow(): void {
     });
 
     neuzosConfig.chromium.commandLineSwitches.forEach((switchName) => {
-      app.commandLine.appendSwitch(switchName);
+      const spl = switchName.split("=");
+      const swtch = spl[0]
+      const value = spl[1] ?? true;
+      console.log("Appending switch:",swtch,value);
+      app.commandLine.appendSwitch(swtch,value);
     });
   } catch (err) {
     console.error("Failed to load config:", err);
@@ -350,21 +356,41 @@ function createMainWindow(): void {
       win?.webContents.send("event.start_session", sessionId, layoutId);
     });
 
-    ipcMain.on("session.clear_storage", async function(event, sessionId: string) {
+    ipcMain.on("session.restart", (event, sessionId: string, layoutId: string) => {
+      const win = BrowserWindow.fromWebContents(event.sender);
+      win?.webContents.send("event.stop_session", sessionId);
+      win?.webContents.send("event.start_session", sessionId, layoutId);
+    });
+
+    ipcMain.on("session.clear_storage", async function (event, sessionId: string) {
       const win = BrowserWindow.fromWebContents(event.sender);
       win?.webContents.send("event.stop_session", sessionId);
       const sess = session.fromPartition("persist:" + sessionId);
       await sess.clearStorageData();
+      // delete partition folder
+      try {
+        if (sessionId) {
+          const partitionFolderPath = join(app.getPath("userData"), "/Partitions", sessionId)
+          if (partitionFolderPath && partitionFolderPath.startsWith(app.getPath("userData"))) {
+            rimraf.sync(partitionFolderPath, {
+              maxRetries: 2
+            });
+          }
+        }
+
+      } catch (err) {
+        console.log("Partition folder not found");
+      }
     });
 
-    ipcMain.on("session.clear_cache", async function(event, sessionId: string) {
+    ipcMain.on("session.clear_cache", async function (event, sessionId: string) {
       const win = BrowserWindow.fromWebContents(event.sender);
       win?.webContents.send("event.stop_session", sessionId);
       const sess = session.fromPartition("persist:" + sessionId);
       await sess.clearCache();
     });
 
-    ipcMain.on("preferences.set_theme_mode", async function(_, themeMode: string) {
+    ipcMain.on("preferences.set_theme_mode", async function (_, themeMode: string) {
       mainWindow?.webContents.send("event.theme_mode_changed", themeMode);
     });
 
@@ -384,7 +410,7 @@ function createMainWindow(): void {
     });
 
     createMainWindow();
-    app.on("activate", function() {
+    app.on("activate", function () {
       // On macOS it's common to re-create a window in the app when the
       // dock icon is clicked and there are no other windows open.
       if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
