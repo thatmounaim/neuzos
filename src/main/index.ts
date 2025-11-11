@@ -1,12 +1,12 @@
-import {app, shell, BrowserWindow, Menu, session, ipcMain, globalShortcut, screen} from "electron";
-import {join} from "path";
-import {electronApp, optimizer, is} from "@electron-toolkit/utils";
+import { app, shell, BrowserWindow, Menu, session, ipcMain, globalShortcut, screen } from "electron";
+import { join } from "path";
+import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 import icon from "../../resources/icon.png?asset";
 import * as fs from "node:fs";
-import {rimraf} from "rimraf";
+import { rimraf } from "rimraf";
 
 // Performance Presets System
-app.commandLine.appendSwitch('enable-features', 'GlobalShortcutsPortal')
+app.commandLine.appendSwitch("enable-features", "GlobalShortcutsPortal");
 
 const allowedCommandLineSwitches = [
   // 🚀 Rendering / GPU Performance
@@ -18,13 +18,24 @@ const allowedCommandLineSwitches = [
   "enable-accelerated-2d-canvas",           // Speed up canvas rendering
   "enable-accelerated-video-decode",        // Use GPU for video decoding
   "disable-software-rasterizer",            // Avoid CPU fallback for rendering
-  "use-gl=desktop",                          // Force desktop OpenGL (better for WebGL on some Windows setups)
+  // "use-gl=desktop",                          // Force desktop OpenGL (better for WebGL on some Windows setups)
+  // "use-gl=egl",                          // Force desktop OpenGL (better for WebGL on some Windows setups)
+  "enforce-gl-minimums",
   "enable-webgl-draft-extensions",          // Enable experimental WebGL extensions
   "enable-gpu-memory-buffer-compositor-resources", // GPU memory buffer optimizations
-
+  "enable-gpu-memory-buffer-video-frames",
+  "video-capture-use-gpu-memory-buffer",
+  //"use-angle=d3d9",
+  // "use-angle=d3d11",
+  // "use-angle=d3d11on12",
+  // "use-angle=gl",
+  //"use-angle=gles",
+  //"use-angle=vulkan",
+  // "use-angle=metal",
   // 🧠 GPU Stability & Speed
   "ignore-gpu-blocklist",                    // Forces all GPU features on all drivers
   "enable-gpu-driver-workarounds",           // Keep driver optimizations active
+  "enable-unsafe-webgpu",
 
   // ⚡ FPS & Frame Timing
   "disable-frame-rate-limit",                // Uncap FPS
@@ -41,6 +52,7 @@ const allowedCommandLineSwitches = [
   "disable-low-res-tiling",                  // Avoid low-resolution tiles
   "enable-gpu-shader-disk-cache",            // Cache shaders to disk
   "enable-threaded-compositing",             // Use multi-threaded compositor
+  "enable-low-end-device-mode",
   "no-proxy-server"                          // Reduce network latency from proxy lookups
 ];
 
@@ -53,24 +65,18 @@ let neuzosConfig: any = null;
 const defaultNeuzosConfig = {
   chromium: {
     commandLineSwitches: [
-      "enable-gpu-rasterization",
-      "enable-zero-copy",
-      "enable-gpu-compositing",
-      "enable-native-gpu-memory-buffers",
       "disable-frame-rate-limit",
-      "disable-gpu-vsync",
-      "disable-backgrounding-occluded-windows",
-      "disable-renderer-backgrounding"
+      "disable-gpu-vsync"
     ]
   },
   sessions: [],
   layouts: [],
-  defaultLayouts: [],
+  defaultLayouts: []
 };
 const configDirectoryPath = join(app.getPath("userData"), "/neuzos_config/");
 
 if (!app.getPath("userData").includes("neuzos_config")) {
-  fs.mkdirSync(configDirectoryPath, {recursive: true});
+  fs.mkdirSync(configDirectoryPath, { recursive: true });
 }
 
 
@@ -103,7 +109,7 @@ function loadConfig(reload: boolean = false): Promise<any> {
           const conf = fs.readFileSync(configPath, "utf8");
           neuzosConfig = JSON.parse(conf);
           console.log("Merging possible missing fields from default config");
-          neuzosConfig = {...defaultNeuzosConfig, ...neuzosConfig};
+          neuzosConfig = { ...defaultNeuzosConfig, ...neuzosConfig };
           saveConfig(neuzosConfig);
           resolve(neuzosConfig);
         } catch (err) {
@@ -126,7 +132,7 @@ function createSettingsWindow(): void {
     return Math.floor(units / primaryDisplay.scaleFactor);
   };
 
-  const {width, height} = primaryDisplay.workAreaSize;
+  const { width, height } = primaryDisplay.workAreaSize;
   const aspectRatio = width / height;
 
   const windowWidth = aspectRatio >= 2 ? width / 2 : width - width / 12;
@@ -139,7 +145,7 @@ function createSettingsWindow(): void {
     show: false,
     frame: false,
     autoHideMenuBar: true,
-    ...(process.platform === "linux" ? {icon} : {}),
+    ...(process.platform === "linux" ? { icon } : {}),
     webPreferences: {
       zoomFactor: 1.0 / primaryDisplay.scaleFactor,
       contextIsolation: true,
@@ -152,7 +158,7 @@ function createSettingsWindow(): void {
   if (process.platform !== "darwin") {
     Menu.setApplicationMenu(null);
   } else {
-    Menu.setApplicationMenu(Menu.buildFromTemplate([{role: "appMenu"}, {role: "editMenu"}]));
+    Menu.setApplicationMenu(Menu.buildFromTemplate([{ role: "appMenu" }, { role: "editMenu" }]));
     settingsWindow.setMenuBarVisibility(false);
   }
 
@@ -166,7 +172,7 @@ function createSettingsWindow(): void {
 
   settingsWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url);
-    return {action: "deny"};
+    return { action: "deny" };
   });
 
   // Load the remote URL for development or the local html file for production.
@@ -187,7 +193,7 @@ function createMainWindow(): void {
     return Math.floor(units / primaryDisplay.scaleFactor);
   };
 
-  const {width, height} = primaryDisplay.workAreaSize;
+  const { width, height } = primaryDisplay.workAreaSize;
   const aspectRatio = width / height;
 
   const windowWidth = aspectRatio >= 2 ? width / 2 : width - width / 12;
@@ -199,7 +205,7 @@ function createMainWindow(): void {
     show: false,
     frame: false,
     autoHideMenuBar: true,
-    ...(process.platform === "linux" ? {icon} : {}),
+    ...(process.platform === "linux" ? { icon } : {}),
     webPreferences: {
       zoomFactor: 1.0 / primaryDisplay.scaleFactor,
       contextIsolation: true,
@@ -227,7 +233,7 @@ function createMainWindow(): void {
   if (process.platform !== "darwin") {
     Menu.setApplicationMenu(null);
   } else {
-    Menu.setApplicationMenu(Menu.buildFromTemplate([{role: "appMenu"}, {role: "editMenu"}]));
+    Menu.setApplicationMenu(Menu.buildFromTemplate([{ role: "appMenu" }, { role: "editMenu" }]));
     mainWindow.setMenuBarVisibility(false);
   }
 
@@ -239,18 +245,18 @@ function createMainWindow(): void {
     mainWindow = null;
   });
 
-  mainWindow.on('focus', () => {
+  mainWindow.on("focus", () => {
     globalShortcut.unregister("Control+Tab");
     globalShortcut.register("Control+Tab", () => {
       if (BrowserWindow.getFocusedWindow() == mainWindow) {
         mainWindow?.webContents.send("event.layout_swap");
       }
-    })
-  })
+    });
+  });
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url);
-    return {action: "deny"};
+    return { action: "deny" };
   });
 
   // HMR for renderer base on electron-vite cli.
@@ -271,7 +277,7 @@ function createMainWindow(): void {
 
     neuzosConfig.chromium.commandLineSwitches.forEach((switchName) => {
       const spl = switchName.split("=");
-      const swtch = spl[0]
+      const swtch = spl[0];
       const value = spl[1] ?? true;
       console.log("Appending switch:", swtch, value);
       app.commandLine.appendSwitch(swtch, value);
@@ -371,7 +377,7 @@ function createMainWindow(): void {
       win?.webContents.send("event.start_session", sessionId, layoutId);
     });
 
-    ipcMain.on("session.clear_storage", async function (event, sessionId: string) {
+    ipcMain.on("session.clear_storage", async function(event, sessionId: string) {
       const win = BrowserWindow.fromWebContents(event.sender);
       win?.webContents.send("event.stop_session", sessionId);
       const sess = session.fromPartition("persist:" + sessionId);
@@ -379,7 +385,7 @@ function createMainWindow(): void {
       // delete partition folder
       try {
         if (sessionId) {
-          const partitionFolderPath = join(app.getPath("userData"), "/Partitions", sessionId)
+          const partitionFolderPath = join(app.getPath("userData"), "/Partitions", sessionId);
           if (partitionFolderPath && partitionFolderPath.startsWith(app.getPath("userData"))) {
             rimraf.sync(partitionFolderPath, {
               maxRetries: 2
@@ -392,14 +398,14 @@ function createMainWindow(): void {
       }
     });
 
-    ipcMain.on("session.clear_cache", async function (event, sessionId: string) {
+    ipcMain.on("session.clear_cache", async function(event, sessionId: string) {
       const win = BrowserWindow.fromWebContents(event.sender);
       win?.webContents.send("event.stop_session", sessionId);
       const sess = session.fromPartition("persist:" + sessionId);
       await sess.clearCache();
     });
 
-    ipcMain.on("preferences.set_theme_mode", async function (_, themeMode: string) {
+    ipcMain.on("preferences.set_theme_mode", async function(_, themeMode: string) {
       mainWindow?.webContents.send("event.theme_mode_changed", themeMode);
     });
 
@@ -419,7 +425,7 @@ function createMainWindow(): void {
     });
 
     createMainWindow();
-    app.on("activate", function () {
+    app.on("activate", function() {
       // On macOS it's common to re-create a window in the app when the
       // dock icon is clicked and there are no other windows open.
       if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
@@ -439,7 +445,7 @@ function createMainWindow(): void {
     if (BrowserWindow.getFocusedWindow() == mainWindow) {
       globalShortcut.unregisterAll();
     }
-  })
+  });
 
   app.on("will-quit", () => {
     globalShortcut.unregisterAll();

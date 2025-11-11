@@ -18,7 +18,8 @@
 <Card.Root class="h-full  overflow-y-auto">
   <Card.Content class="flex flex-col gap-4">
     <p class="text-sm">
-      Changing these settings will only affect the next time you start NeuzOS.
+      Changing these settings will only affect the next time you start NeuzOS.<br />
+      If somehow NeuzOS is not starting with the new settings, you can try edit the config file manually and get rid of the flags.
     </p>
     <Table.Root>
       <Table.Header>
