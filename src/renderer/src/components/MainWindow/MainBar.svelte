@@ -102,8 +102,11 @@
   }
 
   const startAllSessions = (layoutId: string) => {
-    for (const sessionId in mainWindowState.sessionsLayoutsRef) {
-      neuzosBridge.sessions.start(sessionId, layoutId)
+    const layout = mainWindowState.layouts.find(l => l.id === layoutId)
+    if (layout) {
+      layout.rows.flatMap(r => r.sessionIds).forEach(sessionId => {
+        neuzosBridge.sessions.start(sessionId, layoutId)
+      })
     }
   }
 
@@ -237,8 +240,8 @@
               </div>
             </ContextMenu.Item
             >
-            <ContextMenu.Item  class="border border-border/50"
-              onclick={() => closeLayout(layTab.id)}
+            <ContextMenu.Item class="border border-border/50"
+                              onclick={() => closeLayout(layTab.id)}
             >
               <div class="flex items-center gap-2">
                 <X class="h-4"/>
@@ -284,7 +287,7 @@
               <Play class="h=4"/>
             </ContextMenu.Item
             >
-             <ContextMenu.Item class={cn("flex-1 items-center justify-center")}
+            <ContextMenu.Item class={cn("flex-1 items-center justify-center")}
                               onclick={() => stopAllSessions(layTab.id)}>
               <Square class="h=4"/>
             </ContextMenu.Item
