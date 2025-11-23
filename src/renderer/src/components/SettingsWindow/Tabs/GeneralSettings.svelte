@@ -7,7 +7,7 @@
   import { Button } from "$lib/components/ui/button";
   import type { NeuzConfig } from "$lib/types";
 
-  let availableCommandLineSwitches: string[] = [];
+  let availableCommandLineSwitches: Array<{ flag: string; description: string }> = [];
   const electronApi = getContext<IpcRenderer>("electronApi");
   const neuzosConfig = getContext<NeuzConfig>("neuzosConfig");
   onMount(async () => {
@@ -25,21 +25,23 @@
       <Table.Header>
         <Table.Row>
           <Table.Head class="font-bold">CLI Argument</Table.Head>
+          <Table.Head class="font-bold">Description</Table.Head>
           <Table.Head></Table.Head>
         </Table.Row>
       </Table.Header>
       <Table.Body>
-        {#each availableCommandLineSwitches as switchName}
-          {@const enabled = neuzosConfig.chromium.commandLineSwitches.includes(switchName)}
+        {#each availableCommandLineSwitches as switchItem}
+          {@const enabled = neuzosConfig.chromium.commandLineSwitches.includes(switchItem.flag)}
           <Table.Row class="{enabled ? 'dark:text-green-300 text-green-600' : ''}">
-            <Table.Cell>{switchName}</Table.Cell>
+            <Table.Cell>{switchItem.flag}</Table.Cell>
+            <Table.Cell class="text-sm text-muted-foreground">{switchItem.description}</Table.Cell>
             <Table.Cell>
               <Button variant="outline" size="sm" class="w-full" onclick={() => {
                 if (enabled) {
-                  const idx = neuzosConfig.chromium.commandLineSwitches.indexOf(switchName);
+                  const idx = neuzosConfig.chromium.commandLineSwitches.indexOf(switchItem.flag);
                   neuzosConfig.chromium.commandLineSwitches.splice(idx, 1);
                 } else {
-                  neuzosConfig.chromium.commandLineSwitches.push(switchName);
+                  neuzosConfig.chromium.commandLineSwitches.push(switchItem.flag);
                 }
               }}>
                 {#if enabled}

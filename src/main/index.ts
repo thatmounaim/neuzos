@@ -9,51 +9,45 @@ import { rimraf } from "rimraf";
 app.commandLine.appendSwitch("enable-features", "GlobalShortcutsPortal");
 
 const allowedCommandLineSwitches = [
+  // Thanks to Kumara finding this one flag to be useful
+  { flag: "site-per-process", description: "Enable site isolation for each site" },
   // 🚀 Rendering / GPU Performance
-  "enable-gpu-rasterization",               // Force GPU rasterization
-  "enable-zero-copy",                        // Use zero-copy textures for better WebGL performance
-  "enable-gpu-compositing",                  // Force GPU compositing
-  "enable-native-gpu-memory-buffers",       // Use native GPU memory buffers
-  "enable-oop-rasterization",                // Out-of-process rasterization
-  "enable-accelerated-2d-canvas",           // Speed up canvas rendering
-  "enable-accelerated-video-decode",        // Use GPU for video decoding
-  "disable-software-rasterizer",            // Avoid CPU fallback for rendering
-  // "use-gl=desktop",                          // Force desktop OpenGL (better for WebGL on some Windows setups)
-  // "use-gl=egl",                          // Force desktop OpenGL (better for WebGL on some Windows setups)
-  "enforce-gl-minimums",
-  "enable-webgl-draft-extensions",          // Enable experimental WebGL extensions
-  "enable-gpu-memory-buffer-compositor-resources", // GPU memory buffer optimizations
-  "enable-gpu-memory-buffer-video-frames",
-  "video-capture-use-gpu-memory-buffer",
-  //"use-angle=d3d9",
-  // "use-angle=d3d11",
-  // "use-angle=d3d11on12",
-  // "use-angle=gl",
-  //"use-angle=gles",
-  //"use-angle=vulkan",
-  // "use-angle=metal",
+  { flag: "enable-gpu-rasterization", description: "Force GPU rasterization" },
+  { flag: "enable-zero-copy", description: "Use zero-copy textures for better WebGL performance" },
+  { flag: "enable-gpu-compositing", description: "Force GPU compositing" },
+  { flag: "enable-native-gpu-memory-buffers", description: "Use native GPU memory buffers" },
+  { flag: "enable-oop-rasterization", description: "Out-of-process rasterization" },
+  { flag: "enable-accelerated-2d-canvas", description: "Speed up canvas rendering" },
+  { flag: "enable-accelerated-video-decode", description: "Use GPU for video decoding" },
+  { flag: "disable-software-rasterizer", description: "Avoid CPU fallback for rendering" },
+  { flag: "enforce-gl-minimums", description: "Enforce OpenGL minimum requirements" },
+  { flag: "enable-webgl-draft-extensions", description: "Enable experimental WebGL extensions" },
+  { flag: "enable-gpu-memory-buffer-compositor-resources", description: "GPU memory buffer optimizations" },
+  { flag: "enable-gpu-memory-buffer-video-frames", description: "GPU memory buffer for video frames" },
+  { flag: "video-capture-use-gpu-memory-buffer", description: "Use GPU memory buffer for video capture" },
+
   // 🧠 GPU Stability & Speed
-  "ignore-gpu-blocklist",                    // Forces all GPU features on all drivers
-  "enable-gpu-driver-workarounds",           // Keep driver optimizations active
-  "enable-unsafe-webgpu",
+  { flag: "ignore-gpu-blocklist", description: "Forces all GPU features on all drivers" },
+  { flag: "enable-gpu-driver-workarounds", description: "Keep driver optimizations active" },
+  { flag: "enable-unsafe-webgpu", description: "Enable unsafe WebGPU features" },
 
   // ⚡ FPS & Frame Timing
-  "disable-frame-rate-limit",                // Uncap FPS
-  "disable-gpu-vsync",                       // Disable vsync for uncapped rendering
-  "enable-fast-unload",                      // Speeds up tab/window destruction
-  "max-active-webgl-contexts=16",           // Allow more active WebGL contexts
+  { flag: "disable-frame-rate-limit", description: "Uncap FPS" },
+  { flag: "disable-gpu-vsync", description: "Disable vsync for uncapped rendering" },
+  { flag: "enable-fast-unload", description: "Speeds up tab/window destruction" },
+  { flag: "max-active-webgl-contexts=16", description: "Allow more active WebGL contexts" },
 
   // 💤 Prevent Throttling / Background Slowdown
-  "disable-backgrounding-occluded-windows", // Keep background windows active
-  "disable-background-timer-throttling",    // Prevent timers from slowing in background
-  "disable-renderer-backgrounding",         // Prevent renderer throttling
+  { flag: "disable-backgrounding-occluded-windows", description: "Keep background windows active" },
+  { flag: "disable-background-timer-throttling", description: "Prevent timers from slowing in background" },
+  { flag: "disable-renderer-backgrounding", description: "Prevent renderer throttling" },
 
   // 🔧 Misc Performance Tweaks
-  "disable-low-res-tiling",                  // Avoid low-resolution tiles
-  "enable-gpu-shader-disk-cache",            // Cache shaders to disk
-  "enable-threaded-compositing",             // Use multi-threaded compositor
-  "enable-low-end-device-mode",
-  "no-proxy-server"                          // Reduce network latency from proxy lookups
+  { flag: "disable-low-res-tiling", description: "Avoid low-resolution tiles" },
+  { flag: "enable-gpu-shader-disk-cache", description: "Cache shaders to disk" },
+  { flag: "enable-threaded-compositing", description: "Use multi-threaded compositor" },
+  { flag: "enable-low-end-device-mode", description: "Enable low-end device mode optimizations" },
+  { flag: "no-proxy-server", description: "Reduce network latency from proxy lookups" },
 ];
 
 let mainWindow: BrowserWindow | null = null;
@@ -272,7 +266,7 @@ function createMainWindow(): void {
   try {
     await loadConfig(true);
     neuzosConfig.chromium.commandLineSwitches = neuzosConfig.chromium.commandLineSwitches.filter((switchName) => {
-      return allowedCommandLineSwitches.includes(switchName);
+      return allowedCommandLineSwitches.some(item => item.flag === switchName);
     });
 
     neuzosConfig.chromium.commandLineSwitches.forEach((switchName) => {
