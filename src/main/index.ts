@@ -348,6 +348,10 @@ function registerKeybinds() {
       optimizer.watchWindowShortcuts(window);
     });
 
+    ipcMain.on("main_window.fullscreen_toggle", () => {
+      mainWindow?.setFullScreen(!mainWindow?.isFullScreen())
+    })
+
     ipcMain.on("main_window.minimize", () => {
       mainWindow?.minimize();
     });

@@ -23,6 +23,7 @@
         commandLineSwitches: [],
       },
       defaultLayouts: [],
+      keyBinds: [],
       changed: false,
     },
     sessions: [],

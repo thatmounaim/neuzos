@@ -1,5 +1,4 @@
 import type {IpcRenderer} from "@electron-toolkit/preload";
-import type {NeuzLayout} from "$lib/types";
 
 let electronApi: IpcRenderer | undefined = undefined;
 
@@ -20,6 +19,9 @@ export const neuzosBridge = {
     },
     reloadConfig: () => {
       electronApi?.send("main_window.reload_config");
+    },
+    fullscreenToggle: () => {
+      electronApi?.send("main_window.fullscreen_toggle");
     }
   },
   settingsWindow: {

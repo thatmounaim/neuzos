@@ -22,7 +22,8 @@
     Home,
     ChevronLeft,
     ChevronRight,
-    RefreshCw
+    RefreshCw,
+    Fullscreen
   } from '@lucide/svelte'
   import {getContext} from "svelte";
   import type {NeuzosBridge} from "$lib/core";
@@ -382,6 +383,12 @@
       </DropdownMenu.Item>
     </DropdownMenu.Content>
   </DropdownMenu.Root>
+  <Separator orientation="vertical" class="h-4"/>
+  <Button size="icon-xs" variant="outline" onclick={() => {
+        neuzosBridge.mainWindow.fullscreenToggle()
+      }} class="cursor-pointer">
+    <Fullscreen class="size-3.5"/>
+  </Button>
   <Separator orientation="vertical" class="h-4"/>
   <Button
     size="icon-xs"
