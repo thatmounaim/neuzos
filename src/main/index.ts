@@ -302,8 +302,8 @@ function checkKeybinds() {
 }
 
 function registerKeybinds() {
+  globalShortcut.unregisterAll()
   neuzosConfig.keyBinds.forEach((bind) => {
-    globalShortcut.unregisterAll()
     globalShortcut.register(bind.key, () => {
       switch (bind.event) {
         case "fullscreen_toggle":
