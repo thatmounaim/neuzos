@@ -42,7 +42,29 @@
     neuzosConfig.keyBinds = conf.keyBinds;
   });
 
+  const allowedKeybindModifiers = [
+    "alt",
+    "control",
+    "ctrl",
+    "commandorcontrol",
+    "cmdorctrl",
+    "super",
+    "command",
+    "cmd",
+    "meta",
+    "shift",
+    "option",
+    "altgr",
+  ];
+
   const sanitizeConfig = async () => {
+    // trim all spaces from keybinds
+    neuzosConfig.keyBinds = neuzosConfig.keyBinds.map((bind) => {
+      return {
+        ...bind,
+        key: bind.key.trim()
+      }
+    })
     // filter empty keybinds
     neuzosConfig.keyBinds = neuzosConfig.keyBinds.filter((bind) => {
       return bind.key !== "";
@@ -52,6 +74,33 @@
     neuzosConfig.keyBinds = neuzosConfig.keyBinds.filter((bind) => {
       return bind.event !== "";
     })
+    // remove keys that are modifiers only example : key = Shift
+
+
+    // if it ends with a + remove it
+
+    neuzosConfig.keyBinds = neuzosConfig.keyBinds.filter((bind) => {
+      return bind.key.endsWith("+") ? false : true;
+    })
+
+    // remove duplicate keybinds
+    neuzosConfig.keyBinds = [...new Set(neuzosConfig.keyBinds.map((bind) => bind.key + bind.event))].map((key) => {
+      return neuzosConfig.keyBinds.find((bind) => bind.key + bind.event === key)!;
+    })
+
+    //lowercase all
+    neuzosConfig.keyBinds = neuzosConfig.keyBinds.map((bind) => {
+      return {
+        ...bind,
+        key: bind.key.toLowerCase()
+      }
+    })
+
+    neuzosConfig.keyBinds = neuzosConfig.keyBinds.filter((bind) => {
+      return !allowedKeybindModifiers.includes(bind.key);
+    })
+
+
   }
 
   const saveSettings = async () => {

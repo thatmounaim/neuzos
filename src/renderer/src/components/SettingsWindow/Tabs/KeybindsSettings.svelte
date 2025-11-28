@@ -11,6 +11,20 @@
   import {Plus, Trash2} from "@lucide/svelte";
   import {Input} from "$lib/components/ui/input";
 
+  const allowedModifiers = [
+    "alt",
+    "control",
+    "ctrl",
+    "commandorcontrol",
+    "cmdorctrl",
+    "super",
+    "command",
+    "cmd",
+    "meta",
+    "shift",
+    "option",
+    "altgr",
+  ];
   let allowedEventKeybinds: {
     [key: string]: {
       label: string,
@@ -38,9 +52,10 @@
   <Card.Content class="flex flex-col gap-4">
     <p class="text-sm">
       Please use Electron accelerator syntax for the keybinds.<br/>
-      Documentation available <a class="underline"
-                                 href="https://www.electronjs.org/docs/latest/tutorial/keyboard-shortcuts"
-                                 target="_blank">Here</a>
+      To prevent crashes please refer to the documentation
+      <a class="underline"
+         href="https://www.electronjs.org/docs/latest/tutorial/keyboard-shortcuts"
+         target="_blank">Here</a>
 
     </p>
     <Table.Root>
@@ -64,7 +79,11 @@
               </Button>
             </Table.Cell>
             <Table.Cell>
-              <Input type="text" bind:value={keyBind.key} class="w-64"/>
+              {@const notAllowed = allowedModifiers.includes(keyBind.key.toLowerCase().trim()) }
+              <Input type="text" bind:value={keyBind.key} class="w-64 {notAllowed ? 'border-red-400' : ''}"/>
+              {#if notAllowed}
+                <b class="text-red-400">Using a modifier only as a keybind is not allowed.</b>
+              {/if}
             </Table.Cell>
             <Table.Cell class="text-sm text-muted-foreground">{eventInfo?.label}</Table.Cell>
             <Table.Cell>

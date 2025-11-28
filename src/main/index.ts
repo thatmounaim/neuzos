@@ -68,7 +68,7 @@ const defaultNeuzosConfig = {
   defaultLayouts: [],
   keyBinds: [
     {
-      "key": "Control+Tab",
+      "key": "CommandOrControl+Tab",
       "event": "layout_swap",
     },
     {
@@ -475,6 +475,7 @@ function registerKeybinds() {
     ipcMain.handle("config.save", async (_, config: any) => {
       saveConfig(JSON.parse(config));
       neuzosConfig = JSON.parse(config);
+      checkKeybinds()
       mainWindow?.webContents?.send("event.config_changed", config);
     });
 
