@@ -1,4 +1,4 @@
-import {app, shell, BrowserWindow, Menu, session, ipcMain, globalShortcut, screen} from "electron";
+import {app, shell, BrowserWindow, Menu,dialog, session, ipcMain, globalShortcut, screen} from "electron";
 import {join} from "path";
 import {electronApp, optimizer, is} from "@electron-toolkit/utils";
 import icon from "../../resources/icon.png?asset";
@@ -304,20 +304,27 @@ function checkKeybinds() {
 function registerKeybinds() {
   globalShortcut.unregisterAll()
   neuzosConfig.keyBinds.forEach((bind) => {
-    globalShortcut.register(bind.key, () => {
-      switch (bind.event) {
-        case "fullscreen_toggle":
-          mainWindow?.setFullScreen(!mainWindow?.isFullScreen())
-          break
-        case "layout_swap":
-          mainWindow?.webContents.send("event.layout_swap");
-          break
-        case "layout_switch":
-          if (bind.args.length > 0)
-            mainWindow?.webContents.send("event.layout_switch", ...(bind.args ?? []));
-      }
-
-    });
+    try {
+      globalShortcut.register(bind.key, () => {
+        switch (bind.event) {
+          case "fullscreen_toggle":
+            mainWindow?.setFullScreen(!mainWindow?.isFullScreen())
+            break
+          case "layout_swap":
+            mainWindow?.webContents.send("event.layout_swap");
+            break
+          case "layout_switch":
+            if (bind.args.length > 0)
+              mainWindow?.webContents.send("event.layout_switch", ...(bind.args ?? []));
+        }
+      })
+    } catch (e) {
+      dialog.showErrorBox("Failed to register keybind", "Please fix your config manually found at \n" + join(configDirectoryPath, "/config.json"));
+      globalShortcut.unregisterAll();
+      exitCount = 3
+      app.quit();
+      return
+    }
   })
 }
 
