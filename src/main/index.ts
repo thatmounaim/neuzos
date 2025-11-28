@@ -72,7 +72,7 @@ const defaultNeuzosConfig = {
       "event": "layout_swap",
     },
     {
-      "key": "Control+Shift+L",
+      "key": "F11",
       "event": "fullscreen_toggle"
     }
   ],
