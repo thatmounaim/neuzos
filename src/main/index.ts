@@ -1,53 +1,53 @@
-import { app, shell, BrowserWindow, Menu, session, ipcMain, globalShortcut, screen } from "electron";
-import { join } from "path";
-import { electronApp, optimizer, is } from "@electron-toolkit/utils";
+import {app, shell, BrowserWindow, Menu, session, ipcMain, globalShortcut, screen} from "electron";
+import {join} from "path";
+import {electronApp, optimizer, is} from "@electron-toolkit/utils";
 import icon from "../../resources/icon.png?asset";
 import * as fs from "node:fs";
-import { rimraf } from "rimraf";
+import {rimraf} from "rimraf";
 
 // Performance Presets System
 app.commandLine.appendSwitch("enable-features", "GlobalShortcutsPortal");
 
 const allowedCommandLineSwitches = [
   // Thanks to Kumara finding this one flag to be useful
-  { flag: "site-per-process", description: "Enable site isolation for each site" },
+  {flag: "site-per-process", description: "Enable site isolation for each site"},
   // 🚀 Rendering / GPU Performance
-  { flag: "enable-gpu-rasterization", description: "Force GPU rasterization" },
-  { flag: "enable-zero-copy", description: "Use zero-copy textures for better WebGL performance" },
-  { flag: "enable-gpu-compositing", description: "Force GPU compositing" },
-  { flag: "enable-native-gpu-memory-buffers", description: "Use native GPU memory buffers" },
-  { flag: "enable-oop-rasterization", description: "Out-of-process rasterization" },
-  { flag: "enable-accelerated-2d-canvas", description: "Speed up canvas rendering" },
-  { flag: "enable-accelerated-video-decode", description: "Use GPU for video decoding" },
-  { flag: "disable-software-rasterizer", description: "Avoid CPU fallback for rendering" },
-  { flag: "enforce-gl-minimums", description: "Enforce OpenGL minimum requirements" },
-  { flag: "enable-webgl-draft-extensions", description: "Enable experimental WebGL extensions" },
-  { flag: "enable-gpu-memory-buffer-compositor-resources", description: "GPU memory buffer optimizations" },
-  { flag: "enable-gpu-memory-buffer-video-frames", description: "GPU memory buffer for video frames" },
-  { flag: "video-capture-use-gpu-memory-buffer", description: "Use GPU memory buffer for video capture" },
+  {flag: "enable-gpu-rasterization", description: "Force GPU rasterization"},
+  {flag: "enable-zero-copy", description: "Use zero-copy textures for better WebGL performance"},
+  {flag: "enable-gpu-compositing", description: "Force GPU compositing"},
+  {flag: "enable-native-gpu-memory-buffers", description: "Use native GPU memory buffers"},
+  {flag: "enable-oop-rasterization", description: "Out-of-process rasterization"},
+  {flag: "enable-accelerated-2d-canvas", description: "Speed up canvas rendering"},
+  {flag: "enable-accelerated-video-decode", description: "Use GPU for video decoding"},
+  {flag: "disable-software-rasterizer", description: "Avoid CPU fallback for rendering"},
+  {flag: "enforce-gl-minimums", description: "Enforce OpenGL minimum requirements"},
+  {flag: "enable-webgl-draft-extensions", description: "Enable experimental WebGL extensions"},
+  {flag: "enable-gpu-memory-buffer-compositor-resources", description: "GPU memory buffer optimizations"},
+  {flag: "enable-gpu-memory-buffer-video-frames", description: "GPU memory buffer for video frames"},
+  {flag: "video-capture-use-gpu-memory-buffer", description: "Use GPU memory buffer for video capture"},
 
   // 🧠 GPU Stability & Speed
-  { flag: "ignore-gpu-blocklist", description: "Forces all GPU features on all drivers" },
-  { flag: "enable-gpu-driver-workarounds", description: "Keep driver optimizations active" },
-  { flag: "enable-unsafe-webgpu", description: "Enable unsafe WebGPU features" },
+  {flag: "ignore-gpu-blocklist", description: "Forces all GPU features on all drivers"},
+  {flag: "enable-gpu-driver-workarounds", description: "Keep driver optimizations active"},
+  {flag: "enable-unsafe-webgpu", description: "Enable unsafe WebGPU features"},
 
   // ⚡ FPS & Frame Timing
-  { flag: "disable-frame-rate-limit", description: "Uncap FPS" },
-  { flag: "disable-gpu-vsync", description: "Disable vsync for uncapped rendering" },
-  { flag: "enable-fast-unload", description: "Speeds up tab/window destruction" },
-  { flag: "max-active-webgl-contexts=16", description: "Allow more active WebGL contexts" },
+  {flag: "disable-frame-rate-limit", description: "Uncap FPS"},
+  {flag: "disable-gpu-vsync", description: "Disable vsync for uncapped rendering"},
+  {flag: "enable-fast-unload", description: "Speeds up tab/window destruction"},
+  {flag: "max-active-webgl-contexts=16", description: "Allow more active WebGL contexts"},
 
   // 💤 Prevent Throttling / Background Slowdown
-  { flag: "disable-backgrounding-occluded-windows", description: "Keep background windows active" },
-  { flag: "disable-background-timer-throttling", description: "Prevent timers from slowing in background" },
-  { flag: "disable-renderer-backgrounding", description: "Prevent renderer throttling" },
+  {flag: "disable-backgrounding-occluded-windows", description: "Keep background windows active"},
+  {flag: "disable-background-timer-throttling", description: "Prevent timers from slowing in background"},
+  {flag: "disable-renderer-backgrounding", description: "Prevent renderer throttling"},
 
   // 🔧 Misc Performance Tweaks
-  { flag: "disable-low-res-tiling", description: "Avoid low-resolution tiles" },
-  { flag: "enable-gpu-shader-disk-cache", description: "Cache shaders to disk" },
-  { flag: "enable-threaded-compositing", description: "Use multi-threaded compositor" },
-  { flag: "enable-low-end-device-mode", description: "Enable low-end device mode optimizations" },
-  { flag: "no-proxy-server", description: "Reduce network latency from proxy lookups" },
+  {flag: "disable-low-res-tiling", description: "Avoid low-resolution tiles"},
+  {flag: "enable-gpu-shader-disk-cache", description: "Cache shaders to disk"},
+  {flag: "enable-threaded-compositing", description: "Use multi-threaded compositor"},
+  {flag: "enable-low-end-device-mode", description: "Enable low-end device mode optimizations"},
+  {flag: "no-proxy-server", description: "Reduce network latency from proxy lookups"},
 ];
 
 let mainWindow: BrowserWindow | null = null;
@@ -65,12 +65,39 @@ const defaultNeuzosConfig = {
   },
   sessions: [],
   layouts: [],
-  defaultLayouts: []
+  defaultLayouts: [],
+  keyBinds: [
+    {
+      "key": "Control+Tab",
+      "event": "layout_swap",
+    },
+    {
+      "key": "Control+Shift+L",
+      "event": "fullscreen_toggle"
+    }
+  ],
 };
+
+const allowedEventKeybinds = {
+  "layout_swap": {
+    label: "Swap to Previous Layout",
+    unique: true,
+  },
+  "fullscreen_toggle": {
+    label: "Toggle Fullscreen",
+    unique: true,
+  },
+  "layout_switch": {
+    label: "Switch to Layout",
+    args: [
+      "layout_id"
+    ],
+  }
+}
 const configDirectoryPath = join(app.getPath("userData"), "/neuzos_config/");
 
 if (!app.getPath("userData").includes("neuzos_config")) {
-  fs.mkdirSync(configDirectoryPath, { recursive: true });
+  fs.mkdirSync(configDirectoryPath, {recursive: true});
 }
 
 
@@ -103,7 +130,8 @@ function loadConfig(reload: boolean = false): Promise<any> {
           const conf = fs.readFileSync(configPath, "utf8");
           neuzosConfig = JSON.parse(conf);
           console.log("Merging possible missing fields from default config");
-          neuzosConfig = { ...defaultNeuzosConfig, ...neuzosConfig };
+          neuzosConfig = {...defaultNeuzosConfig, ...neuzosConfig};
+          checkKeybinds()
           saveConfig(neuzosConfig);
           resolve(neuzosConfig);
         } catch (err) {
@@ -126,7 +154,7 @@ function createSettingsWindow(): void {
     return Math.floor(units / primaryDisplay.scaleFactor);
   };
 
-  const { width, height } = primaryDisplay.workAreaSize;
+  const {width, height} = primaryDisplay.workAreaSize;
   const aspectRatio = width / height;
 
   const windowWidth = aspectRatio >= 2 ? width / 2 : width - width / 12;
@@ -139,7 +167,7 @@ function createSettingsWindow(): void {
     show: false,
     frame: false,
     autoHideMenuBar: true,
-    ...(process.platform === "linux" ? { icon } : {}),
+    ...(process.platform === "linux" ? {icon} : {}),
     webPreferences: {
       zoomFactor: 1.0 / primaryDisplay.scaleFactor,
       contextIsolation: true,
@@ -152,7 +180,7 @@ function createSettingsWindow(): void {
   if (process.platform !== "darwin") {
     Menu.setApplicationMenu(null);
   } else {
-    Menu.setApplicationMenu(Menu.buildFromTemplate([{ role: "appMenu" }, { role: "editMenu" }]));
+    Menu.setApplicationMenu(Menu.buildFromTemplate([{role: "appMenu"}, {role: "editMenu"}]));
     settingsWindow.setMenuBarVisibility(false);
   }
 
@@ -166,7 +194,7 @@ function createSettingsWindow(): void {
 
   settingsWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url);
-    return { action: "deny" };
+    return {action: "deny"};
   });
 
   // Load the remote URL for development or the local html file for production.
@@ -187,7 +215,7 @@ function createMainWindow(): void {
     return Math.floor(units / primaryDisplay.scaleFactor);
   };
 
-  const { width, height } = primaryDisplay.workAreaSize;
+  const {width, height} = primaryDisplay.workAreaSize;
   const aspectRatio = width / height;
 
   const windowWidth = aspectRatio >= 2 ? width / 2 : width - width / 12;
@@ -199,7 +227,7 @@ function createMainWindow(): void {
     show: false,
     frame: false,
     autoHideMenuBar: true,
-    ...(process.platform === "linux" ? { icon } : {}),
+    ...(process.platform === "linux" ? {icon} : {}),
     webPreferences: {
       zoomFactor: 1.0 / primaryDisplay.scaleFactor,
       contextIsolation: true,
@@ -227,7 +255,7 @@ function createMainWindow(): void {
   if (process.platform !== "darwin") {
     Menu.setApplicationMenu(null);
   } else {
-    Menu.setApplicationMenu(Menu.buildFromTemplate([{ role: "appMenu" }, { role: "editMenu" }]));
+    Menu.setApplicationMenu(Menu.buildFromTemplate([{role: "appMenu"}, {role: "editMenu"}]));
     mainWindow.setMenuBarVisibility(false);
   }
 
@@ -240,17 +268,12 @@ function createMainWindow(): void {
   });
 
   mainWindow.on("focus", () => {
-    globalShortcut.unregister("Control+Tab");
-    globalShortcut.register("Control+Tab", () => {
-      if (BrowserWindow.getFocusedWindow() == mainWindow) {
-        mainWindow?.webContents.send("event.layout_swap");
-      }
-    });
+    registerKeybinds()
   });
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url);
-    return { action: "deny" };
+    return {action: "deny"};
   });
 
   // HMR for renderer base on electron-vite cli.
@@ -260,6 +283,42 @@ function createMainWindow(): void {
   } else {
     mainWindow.webContents.loadFile(join(__dirname, "../renderer/index.html"));
   }
+}
+
+function checkKeybinds() {
+  neuzosConfig.keyBinds = neuzosConfig.keyBinds.filter((bind) => {
+    return Object.keys(allowedEventKeybinds).includes(bind.event);
+  })
+
+  // filter empty keybinds
+  neuzosConfig.keyBinds = neuzosConfig.keyBinds.filter((bind) => {
+    return bind.key !== "";
+  })
+
+  // filter empty event
+  neuzosConfig.keyBinds = neuzosConfig.keyBinds.filter((bind) => {
+    return bind.event !== "";
+  })
+}
+
+function registerKeybinds() {
+  neuzosConfig.keyBinds.forEach((bind) => {
+    globalShortcut.unregisterAll()
+    globalShortcut.register(bind.key, () => {
+      switch (bind.event) {
+        case "fullscreen_toggle":
+          mainWindow?.setFullScreen(!mainWindow?.isFullScreen())
+          break
+        case "layout_swap":
+          mainWindow?.webContents.send("event.layout_swap");
+          break
+        case "layout_switch":
+          if (bind.args.length > 0)
+            mainWindow?.webContents.send("event.layout_switch", ...(bind.args ?? []));
+      }
+
+    });
+  })
 }
 
 (async () => {
@@ -310,6 +369,7 @@ function createMainWindow(): void {
     ipcMain.on("main_window.reload_config", (event) => {
       const win = BrowserWindow.fromWebContents(event.sender);
       win?.webContents.send("event.reload_config");
+      registerKeybinds()
     });
 
 
@@ -371,7 +431,7 @@ function createMainWindow(): void {
       win?.webContents.send("event.start_session", sessionId, layoutId);
     });
 
-    ipcMain.on("session.clear_storage", async function(event, sessionId: string) {
+    ipcMain.on("session.clear_storage", async function (event, sessionId: string) {
       const win = BrowserWindow.fromWebContents(event.sender);
       win?.webContents.send("event.stop_session", sessionId);
       const sess = session.fromPartition("persist:" + sessionId);
@@ -392,14 +452,14 @@ function createMainWindow(): void {
       }
     });
 
-    ipcMain.on("session.clear_cache", async function(event, sessionId: string) {
+    ipcMain.on("session.clear_cache", async function (event, sessionId: string) {
       const win = BrowserWindow.fromWebContents(event.sender);
       win?.webContents.send("event.stop_session", sessionId);
       const sess = session.fromPartition("persist:" + sessionId);
       await sess.clearCache();
     });
 
-    ipcMain.on("preferences.set_theme_mode", async function(_, themeMode: string) {
+    ipcMain.on("preferences.set_theme_mode", async function (_, themeMode: string) {
       mainWindow?.webContents.send("event.theme_mode_changed", themeMode);
     });
 
@@ -418,8 +478,12 @@ function createMainWindow(): void {
       return allowedCommandLineSwitches;
     });
 
+    ipcMain.handle("config.get_available_event_keybinds", async () => {
+      return allowedEventKeybinds;
+    })
+
     createMainWindow();
-    app.on("activate", function() {
+    app.on("activate", function () {
       // On macOS it's common to re-create a window in the app when the
       // dock icon is clicked and there are no other windows open.
       if (BrowserWindow.getAllWindows().length === 0) createMainWindow();

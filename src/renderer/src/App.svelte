@@ -111,6 +111,7 @@
     mainWindowState.config.layouts = newConfig.layouts
     mainWindowState.config.defaultLayouts = newConfig.defaultLayouts
     mainWindowState.config.chromium.commandLineSwitches = newConfig.chromium.commandLineSwitches
+    mainWindowState.config.keyBinds = newConfig.keyBinds
   })
 
   const reloadNeuzos = () => {

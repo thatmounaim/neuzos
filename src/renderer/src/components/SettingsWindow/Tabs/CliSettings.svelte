@@ -2,12 +2,18 @@
   import * as Card from "$lib/components/ui/card";
   import * as Table from "$lib/components/ui/table";
 
-  import { getContext, onMount } from "svelte";
-  import type { IpcRenderer } from "@electron-toolkit/preload";
-  import { Button } from "$lib/components/ui/button";
-  import type { NeuzConfig } from "$lib/types";
+  import {getContext, onMount} from "svelte";
+  import type {IpcRenderer} from "@electron-toolkit/preload";
+  import {Button} from "$lib/components/ui/button";
+  import type {NeuzConfig} from "$lib/types";
 
   let availableCommandLineSwitches: Array<{ flag: string; description: string }> = [];
+  let allowedEventKeybinds: {
+    [key: string]: {
+      args?: string[],
+    }
+  } = {}
+
   const electronApi = getContext<IpcRenderer>("electronApi");
   const neuzosConfig = getContext<NeuzConfig>("neuzosConfig");
   onMount(async () => {
@@ -18,8 +24,9 @@
 <Card.Root class="h-full  overflow-y-auto">
   <Card.Content class="flex flex-col gap-4">
     <p class="text-sm">
-      Changing these settings will only affect the next time you start NeuzOS.<br />
-      If somehow NeuzOS is not starting with the new settings, you can try edit the config file manually and get rid of the flags.
+      Changing these settings will only affect the next time you start NeuzOS.<br/>
+      If somehow NeuzOS is not starting with the new settings, you can try edit the config file manually and get rid of
+      the flags.
     </p>
     <Table.Root>
       <Table.Header>

@@ -60,4 +60,9 @@ export type NeuzConfig = {
   sessions: NeuzSession[]
   layouts: NeuzLayout[]
   defaultLayouts: string[]
+  keyBinds: {
+    key: string,
+    event: string,
+    args?: string[]
+  }[]
 }
