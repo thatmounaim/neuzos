@@ -8,11 +8,12 @@ An Electron WebView based Multi Client for Flyff Universe with Svelte and TypeSc
 
 <img src="resources/icon.png" alt="neuzos logo" width="100"/>
 
-**Note: A v2 is in Development that will adress many of the issues with the current one.**
+**Note: Some features from v1 are still missing, they will be added slowly**
 
 ## How to Use
 
-[Shiraho's Youtube Video on NeuzOS](https://youtu.be/nu7v5rQQFcI)
+While its similar to v1 in usage , its less buggy
+[Shiraho's Youtube Video on NeuzOS v1](https://youtu.be/nu7v5rQQFcI)
 Thank you Shiraho for the Showcase
 
 ## Features
@@ -58,14 +59,6 @@ Thank you Shiraho for the Showcase
   - --mode=session_launcher
 - Command Line Arguments to Start Sessions Directly
   - --mode=session|focus|focus_fullscreen --session_id=session_id_here
-- TODO: Floating Widgets:
-    - FCoin<->Penya Calculator
-    - Pet Candy Cost Calculator
-    - Integrated Browser :
-      - Community Shortcuts for The Browser
-          - Flyffipedia
-          - Flyffulator
-          - SiegeStats
 
 ## Download Pre-compiled Binaries
 
@@ -100,8 +93,7 @@ $ bun build:linux
 ## Dev Notes
 
 The base of the project was generate with [electron-vite](https://electron-vite.org/) using the Svelte Template
-
-Some TS Warnings might appear in editor, found it okay to ignore, will give more importance to then in future.
+Some TS Warnings might appear in editor, found it okay to ignore, will give more importance to it in future.
 
 ```bash
 # Run Devmode
