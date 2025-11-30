@@ -27,19 +27,21 @@
   } from '@lucide/svelte'
   import {getContext} from "svelte";
   import type {NeuzosBridge} from "$lib/core";
-  import type {MainWindowState, NeuzLayout} from "$lib/types";
+  import type {MainWindowState, NeuzLayout, NeuzSession} from "$lib/types";
   import * as AlertDialog from '$lib/components/ui/alert-dialog'
   import * as Dialog from '$lib/components/ui/dialog'
   import * as ContextMenu from '$lib/components/ui/context-menu'
   import * as Tabs from '$lib/components/ui/tabs'
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
+  import * as Card from '$lib/components/ui/card'
 
   import {cn} from "$lib/utils";
   import {Separator} from "$lib/components/ui/separator";
+  import type {IpcRenderer} from "@electron-toolkit/preload";
 
   const neuzosBridge = getContext<NeuzosBridge>('neuzosBridge');
   const mainWindowState = getContext<MainWindowState>('mainWindowState');
-
+  const electronApi = getContext<IpcRenderer>('electronApi');
   const openSettings = () => {
     neuzosBridge.settingsWindow.open()
   }
@@ -125,6 +127,16 @@
     neuzosBridge.mainWindow.reloadConfig()
   }
 
+
+  function getIconPath(session: NeuzSession): string {
+    return `icons/${session.icon.slug}.png`;
+  }
+
+
+  function launchSession(sessionId: string, mode: 'session' | 'focus' | 'focus_fullscreen') {
+    electronApi.send("session_launcher.launch_session", sessionId, mode);
+  }
+
 </script>
 <div
   id="titlebar"
@@ -157,10 +169,9 @@
       </Dialog.Header>
       <div class="flex gap-2 flex-col w-full min-h-[33vh]">
         <Tabs.Root value="layouts" class="">
-          <Tabs.List class="grid w-full grid-cols-3">
+          <Tabs.List class="grid w-full grid-cols-2">
             <Tabs.Trigger value="layouts">Layouts</Tabs.Trigger>
             <Tabs.Trigger value="sessions">Sessions</Tabs.Trigger>
-            <Tabs.Trigger value="zensessions">Zen Mode</Tabs.Trigger>
           </Tabs.List>
           <Tabs.Content value="layouts">
             <div class="flex gap-2 flex-col h-full max-h-[33vh] overflow-y-auto px-6">
@@ -175,31 +186,49 @@
             </div>
           </Tabs.Content>
           <Tabs.Content value="sessions">
-            <div class="grid gap-2 grid-cols-1 w-full h-full max-h-[33vh] overflow-y-auto px-6">
-              <!--
+            <div class="grid gap-4 grid-cols-1 w-full h-full max-h-[33vh] overflow-y-auto px-6">
               {#each mainWindowState.sessions as sessionTab (sessionTab.id)}
-                <Button variant="outline" size="sm" class="text-center flex items-center gap-2">
-                  {sessionTab.label}
-                  <div class="flex-1"></div>
-                  <ExternalLink/>
-                </Button>
+                {@const isBrowser = sessionTab.partitionOverwrite === 'browser'}
+                {#if !isBrowser}
+                  <Card.Root>
+                    <Card.Header class="py-0">
+                      <div class="flex items-center gap-2">
+                        <img src={getIconPath(sessionTab)} alt={sessionTab.label} class="w-6 h-6"/>
+                        <span>{sessionTab.label}</span>
+                      </div>
+                    </Card.Header>
+                    <Card.Content class="py-0">
+                      <div class="flex gap-1.5">
+                        <Button
+                          variant="default"
+                          size="sm"
+                          class="text-xs h-7 flex-1"
+                          onclick={() => launchSession(sessionTab.id, 'session')}
+                        >
+                          Normal
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          class="text-xs h-7 flex-1"
+                          onclick={() => launchSession(sessionTab.id, 'focus')}
+                        >
+                          Focus
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          class="text-xs h-7 flex-1"
+                          onclick={() => launchSession(sessionTab.id, 'focus_fullscreen')}
+                        >
+                          Fullscreen
+                        </Button>
+                      </div>
+                    </Card.Content>
+                  </Card.Root>
+                {/if}
               {/each}
-              !-->
-              <strong class="w-full text-center"> Will be available in the full version</strong>
-            </div>
-          </Tabs.Content>
-          <Tabs.Content value="zensessions">
-            <div class="grid gap-2 grid-cols-1 w-full h-full max-h-[33vh] overflow-y-auto px-6">
-              <!--
-            {#each mainWindowState.sessions as sessionTab (sessionTab.id)}
-              <Button variant="outline" size="sm" class="text-center flex items-center gap-2">
-                {sessionTab.label}
-                <div class="flex-1"></div>
-                <ExternalLink/>
-              </Button>
-            {/each}
-            !-->
-              <strong class="w-full text-center"> Will be available in the full version</strong>
+
             </div>
           </Tabs.Content>
         </Tabs.Root>
