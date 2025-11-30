@@ -25,19 +25,19 @@ Thank you Shiraho for the Showcase
   - Icon for each session
   - Launch URL over-write.
     - Chose either to have a unique data partition or share the browser partition.
-      - Example : having sessions for youtube, netflix ... will bloat your disk with extra size so its better to share the browser partition in this case. 
+      - Example : having sessions for youtube, netflix ... will bloat your disk with extra size so its better to share the browser partition in this case.
   - Clear data for the session
   - Clear cache for the session
-    
+
 - Layout System To Launch your sessions in any layout you see fit.
   - Add Layout
   - Chose an icon for each layout
   - Chose a name for each layout
   - Add rows
     - Add a session for each row
-      
+
 - Focus session on hover in main neuzos webviews.
-  
+
 - Right Click on a Layout Tab To Show Context Menu :
   - Mass actions :
     - Stop / Start all session in layout
@@ -47,10 +47,17 @@ Thank you Shiraho for the Showcase
   - Tab actions :
     - Move Right/Left
     - Close
-      
-- TODO: Launch a Session in Its own dedicated window + focus mode
-- TODO: Ctrl + Tab or Bindable SHortcuts for Fast Swapping Between Layouts
-- TODO: Bindable Shortcut per Layout to swap to
+- Chromium Flags Support in Settings
+- Configurable Default Layouts on Startup
+- Launch a Session in Its own dedicated window + focus mode
+- Bindable Shortcuts:
+  - Switch between last used layouts
+  - Fullscreen
+  - Switch to specific layout
+- Launcher Mode via Command Line Argument
+  - --mode=session_launcher
+- Command Line Arguments to Start Sessions Directly
+  - --mode=session|focus|focus_fullscreen --session_id=session_id_here
 - TODO: Floating Widgets:
     - FCoin<->Penya Calculator
     - Pet Candy Cost Calculator
