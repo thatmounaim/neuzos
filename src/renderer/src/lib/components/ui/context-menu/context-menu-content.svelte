@@ -1,24 +1,25 @@
 <script lang="ts">
 	import { ContextMenu as ContextMenuPrimitive } from "bits-ui";
-	import { cn, flyAndScale } from "$lib/utils.js";
+	import { cn } from "$lib/utils.js";
 
-	type $$Props = ContextMenuPrimitive.ContentProps;
-
-	let className: $$Props["class"] = undefined;
-	export let transition: $$Props["transition"] = flyAndScale;
-	export let transitionConfig: $$Props["transitionConfig"] = undefined;
-	export { className as class };
+	let {
+		ref = $bindable(null),
+		portalProps,
+		class: className,
+		...restProps
+	}: ContextMenuPrimitive.ContentProps & {
+		portalProps?: ContextMenuPrimitive.PortalProps;
+	} = $props();
 </script>
 
-<ContextMenuPrimitive.Content
-	{transition}
-	{transitionConfig}
-	class={cn(
-		"bg-popover text-popover-foreground z-50 min-w-[8rem] rounded-md border p-1 shadow-md focus:outline-none",
-		className
-	)}
-	{...$$restProps}
-	on:keydown
->
-	<slot />
-</ContextMenuPrimitive.Content>
+<ContextMenuPrimitive.Portal {...portalProps}>
+	<ContextMenuPrimitive.Content
+		bind:ref
+		data-slot="context-menu-content"
+		class={cn(
+			"bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 max-h-(--bits-context-menu-content-available-height) origin-(--bits-context-menu-content-transform-origin) z-50 min-w-[8rem] overflow-y-auto overflow-x-hidden rounded-md border p-1 shadow-md",
+			className
+		)}
+		{...restProps}
+	/>
+</ContextMenuPrimitive.Portal>
