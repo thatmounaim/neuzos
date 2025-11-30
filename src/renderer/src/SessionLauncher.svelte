@@ -66,7 +66,7 @@
     {:else}
       <div class="grid gap-2">
         {#each sessions as session}
-          <Card.Root class="p-3">
+          <Card.Root class="p-3 gap-2">
             <Card.Header class="p-0 ">
               <Card.Title class="text-base flex items-center gap-2">
                 <img src={getIconPath(session)} alt={session.label} class="w-6 h-6"/>
@@ -80,7 +80,7 @@
             <Card.Content class="p-0">
               <div class="flex gap-1.5">
                 <Button
-                  variant="default"
+                  variant="outline"
                   size="sm"
                   class="text-xs h-7 flex-1"
                   onclick={() => launchSession(session.id, 'session')}
@@ -101,7 +101,7 @@
                   class="text-xs h-7 flex-1"
                   onclick={() => launchSession(session.id, 'focus_fullscreen')}
                 >
-                  Fullscreen
+                  Focus Fullscreen
                 </Button>
               </div>
             </Card.Content>

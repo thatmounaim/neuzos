@@ -190,17 +190,17 @@
               {#each mainWindowState.sessions as sessionTab (sessionTab.id)}
                 {@const isBrowser = sessionTab.partitionOverwrite === 'browser'}
                 {#if !isBrowser}
-                  <Card.Root>
+                  <Card.Root class="gap-2 pt-2 pb-3">
                     <Card.Header class="py-0">
                       <div class="flex items-center gap-2">
-                        <img src={getIconPath(sessionTab)} alt={sessionTab.label} class="w-6 h-6"/>
+                        <img src={getIconPath(sessionTab)} alt={sessionTab.label} class="w-4 h-4"/>
                         <span>{sessionTab.label}</span>
                       </div>
                     </Card.Header>
                     <Card.Content class="py-0">
                       <div class="flex gap-1.5">
                         <Button
-                          variant="default"
+                          variant="outline"
                           size="sm"
                           class="text-xs h-7 flex-1"
                           onclick={() => launchSession(sessionTab.id, 'session')}
@@ -221,7 +221,7 @@
                           class="text-xs h-7 flex-1"
                           onclick={() => launchSession(sessionTab.id, 'focus_fullscreen')}
                         >
-                          Fullscreen
+                          Focus Fullscreen
                         </Button>
                       </div>
                     </Card.Content>

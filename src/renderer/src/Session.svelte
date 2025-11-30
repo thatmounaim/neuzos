@@ -1,14 +1,22 @@
 <script lang="ts">
   import {ModeWatcher} from "mode-watcher";
   import {onMount} from "svelte";
-  import {initElectronApi} from "$lib/core";
+  import {initElectronApi, neuzosBridge} from "$lib/core";
   import {Button} from "$lib/components/ui/button";
   import type {NeuzSession} from "$lib/types";
   import type {WebviewTag} from 'electron';
 
   import {
-    Fullscreen, Minus, Maximize, X
+    Fullscreen, Minus, Maximize, X, Play,
+    RefreshCcw,
+    VolumeX,
+    Volume,
+    Volume2,
+    VolumeOff,
+    Square,
+    RefreshCw,
   } from '@lucide/svelte'
+  import {Separator} from "$lib/components/ui/separator";
 
   initElectronApi(window.electron.ipcRenderer);
 
@@ -82,6 +90,53 @@
         return '';
     }
   }
+
+  let started: boolean = $state(false)
+  let muted: boolean = $state(false)
+
+  export const startClient = () => {
+    started = true
+  }
+
+  export const stopClient = () => {
+    started = false
+  }
+
+  export const isStarted = () => {
+    return started
+  }
+
+  export const focus = () => {
+    if (!autofocusEnabled) return
+    if (!webview.shadowRoot) {
+      webview.focus()
+      return
+    }
+    const cNodes = webview.shadowRoot.getRootNode().childNodes
+    const client = cNodes[cNodes.length - 1] as HTMLElement
+    if (client) {
+      setTimeout(() => client.focus(), 1)
+    }
+  }
+
+  export const setAudioMuted = (mu: boolean) => {
+    try {
+      if (webview) {
+        ;(webview as WebviewTag)?.setAudioMuted(mu)
+        muted = (webview as WebviewTag)?.isAudioMuted() ?? false
+      }
+    } catch (e) {
+      console.log('Cant mute, maybe client not started')
+    }
+  }
+
+  export const isMuted = () => {
+    return muted
+  }
+
+  export const getWebview = () => {
+    return webview?.tagName === 'WEBVIEW' ? (webview as WebviewTag) : null
+  }
 </script>
 
 <ModeWatcher/>
@@ -100,20 +155,38 @@
           <span class="text-sm font-semibold">Loading...</span>
         {/if}
       </div>
-      <div class="flex gap-1">
-        <Button variant="ghost" size="icon" class="h-6 w-6" onclick={minimizeWindow}>
-          <Minus class="size-3.5"/>
+      <div class="flex gap-2 h-full items-center">
+        <Button size="icon-xs" variant="outline" onclick={() => { muted ? setAudioMuted(false) : setAudioMuted(true)} }>
+          {#if muted}
+            <VolumeOff class="size-3.5"/>
+          {:else}
+            <Volume class="size-3.5"/>
+          {/if}
         </Button>
-        <Button variant="ghost" size="icon" class="h-6 w-6" onclick={maximizeWindow}>
-          <Maximize class="size-3.5"/>
-        </Button>
-        {#if sessionData?.mode === 'session'}
-          <Button variant="ghost" size="icon" class="h-6 w-6" onclick={toggleFullscreen}>
-            <Fullscreen class="size-3.5"/>
+        {#if sessionData?.mode !== 'focus'}
+          <Button size="icon-xs" variant="outline" onclick={() => { started ? stopClient() : startClient()} }>
+            {#if started}
+              <Square class="size-3.5"/>
+            {:else}
+              <Play class="size-3.5"/>
+            {/if}
           </Button>
         {/if}
+          <Separator orientation="vertical" class="h-4"/>
+        {#if sessionData?.mode === 'session'}
+          <Button size="icon-xs" variant="outline" onclick={toggleFullscreen}>
+            <Fullscreen class="size-3.5"/>
+          </Button>
+          <Separator orientation="vertical" class="h-4"/>
+        {/if}
+        <Button size="icon-xs" variant="outline" onclick={minimizeWindow}>
+          <Minus class="size-3.5"/>
+        </Button>
+        <Button size="icon-xs" variant="outline" onclick={maximizeWindow}>
+          <Maximize class="size-3.5"/>
+        </Button>
         {#if sessionData?.mode !== 'focus'}
-          <Button variant="ghost" size="icon" class="h-6 w-6" onclick={closeWindow}>
+          <Button size="icon-xs" variant="outline" onclick={closeWindow}>
             <X class="size-3.5"/>
           </Button>
         {/if}
@@ -122,17 +195,31 @@
   {/if}
 
   <!-- Webview Content -->
-  <div class="flex-1 relative">
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="flex-1 relative" onmouseenter={() => {
+    focus()
+  }}>
     {#if sessionData}
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <webview
-        bind:this={webview}
-        src={getSrc()}
-        partition={getPartition()}
-        class="w-full h-full"
-        webpreferences="nativeWindowOpen=no"
-        allowpopups="false"
-      ></webview>
+      {#if started || sessionData.mode === 'focus_fullscreen' || sessionData.mode === 'focus'}
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <webview
+          bind:this={webview}
+          src={getSrc()}
+          partition={getPartition()}
+          class="w-full h-full"
+          webpreferences="nativeWindowOpen=no"
+          allowpopups="false"
+        ></webview>
+      {:else}
+        <div
+          bind:this={webview}
+          class="w-full h-full flex items-center flex-col gap-2 justify-center select-none"
+        >
+          <img src="flyffu-logo.png" alt="Flyff Universe Logo" class="w-1/2 max-w-32 pointer-events-none select-none"/>
+          <Button variant="outline" onclick={() => startClient()}>Start Session
+            - {sessionData.sessionConfig.label}</Button>
+        </div>
+      {/if}
     {:else}
       <div class="flex items-center justify-center h-full">
         <p class="text-muted-foreground">Loading session...</p>
