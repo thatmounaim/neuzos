@@ -21,7 +21,9 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: path.resolve(__dirname, 'src/renderer/index.html'),
-          settings: path.resolve(__dirname, 'src/renderer/settings.html')
+          settings: path.resolve(__dirname, 'src/renderer/settings.html'),
+          session: path.resolve(__dirname, 'src/renderer/session.html'),
+          session_launcher: path.resolve(__dirname, 'src/renderer/session_launcher.html'),
         },
       }
     }

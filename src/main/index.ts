@@ -52,8 +52,38 @@ const allowedCommandLineSwitches = [
 
 let mainWindow: BrowserWindow | null = null;
 let settingsWindow: BrowserWindow | null = null;
+let sessionWindow: BrowserWindow | null = null;
 
 let exitCount: number = 0;
+
+// Parse command-line arguments
+type LaunchMode = 'normal' | 'session_launcher' | 'session' | 'focus' | 'focus_fullscreen';
+interface LaunchArgs {
+  mode: LaunchMode;
+  sessionId?: string;
+}
+
+function parseLaunchArgs(): LaunchArgs {
+  const args = process.argv.slice(1);
+  let mode: LaunchMode = 'normal';
+  let sessionId: string | undefined;
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg.startsWith('--mode=')) {
+      const modeValue = arg.split('=')[1] as LaunchMode;
+      if (['session_launcher', 'session', 'focus', 'focus_fullscreen'].includes(modeValue)) {
+        mode = modeValue;
+      }
+    } else if (arg.startsWith('--session_id=')) {
+      sessionId = arg.split('=')[1];
+    }
+  }
+
+  return { mode, sessionId };
+}
+
+const launchArgs = parseLaunchArgs();
 
 let neuzosConfig: any = null;
 const defaultNeuzosConfig = {
@@ -205,6 +235,181 @@ function createSettingsWindow(): void {
   }
 }
 
+function createSessionLauncherWindow(): void {
+  if (sessionWindow && !sessionWindow.isDestroyed()) {
+    sessionWindow.focus();
+    return;
+  }
+
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const toPixels = (units: number) => {
+    return Math.floor(units / primaryDisplay.scaleFactor);
+  };
+
+  // Small window for session launcher
+  sessionWindow = new BrowserWindow({
+    width: toPixels(600),
+    height: toPixels(400),
+    show: false,
+    frame: false,
+    autoHideMenuBar: true,
+    resizable: false,
+    ...(process.platform === "linux" ? {icon} : {}),
+    webPreferences: {
+      zoomFactor: 1.0 / primaryDisplay.scaleFactor,
+      contextIsolation: true,
+      preload: join(__dirname, "../preload/index.js"),
+      sandbox: false
+    }
+  });
+
+  // Single-click exit for session launcher
+  sessionWindow.on("close", () => {
+    globalShortcut.unregisterAll();
+  });
+
+  // Fix for MacOS Command Shortcuts
+  if (process.platform !== "darwin") {
+    Menu.setApplicationMenu(null);
+  } else {
+    Menu.setApplicationMenu(Menu.buildFromTemplate([{role: "appMenu"}, {role: "editMenu"}]));
+    sessionWindow.setMenuBarVisibility(false);
+  }
+
+  sessionWindow.on("ready-to-show", () => {
+    sessionWindow?.show();
+  });
+
+  sessionWindow.on("closed", () => {
+    sessionWindow = null;
+  });
+
+  sessionWindow.webContents.setWindowOpenHandler((details) => {
+    shell.openExternal(details.url);
+    return {action: "deny"};
+  });
+
+  // Load the session launcher HTML
+  if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
+    sessionWindow.webContents.loadURL(process.env["ELECTRON_RENDERER_URL"] + "/session_launcher.html");
+  } else {
+    sessionWindow.webContents.loadFile(join(__dirname, "../renderer/session_launcher.html"));
+  }
+}
+
+function createSessionWindow(mode: LaunchMode, sessionId: string): void {
+  // Load config first
+  if (!neuzosConfig) {
+    dialog.showErrorBox("Configuration Error", "Failed to load configuration.");
+    app.quit();
+    return;
+  }
+
+  // Find the session
+  const sessionData = neuzosConfig.sessions.find((s: any) => s.id === sessionId);
+  if (!sessionData) {
+    dialog.showErrorBox("Session Not Found", `Session with ID "${sessionId}" was not found in configuration.`);
+    app.quit();
+    return;
+  }
+
+  // Check if session has browser partition overwrite
+  if (sessionData.partitionOverwrite === "browser") {
+    dialog.showErrorBox("Invalid Session", `Session "${sessionData.label}" cannot be launched in standalone mode (browser partition).`);
+    app.quit();
+    return;
+  }
+
+  if (sessionWindow && !sessionWindow.isDestroyed()) {
+    sessionWindow.focus();
+    return;
+  }
+
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const toPixels = (units: number) => {
+    return Math.floor(units / primaryDisplay.scaleFactor);
+  };
+
+  const {width, height} = primaryDisplay.workAreaSize;
+
+  // Determine if we should start fullscreen
+  const startFullscreen = mode === 'focus_fullscreen';
+
+  // Create the session window
+  sessionWindow = new BrowserWindow({
+    width: toPixels(width),
+    height: toPixels(height),
+    show: false,
+    frame: false,
+    autoHideMenuBar: true,
+    fullscreen: startFullscreen,
+    ...(process.platform === "linux" ? {icon} : {}),
+    webPreferences: {
+      zoomFactor: 1.0 / primaryDisplay.scaleFactor,
+      contextIsolation: true,
+      preload: join(__dirname, "../preload/index.js"),
+      sandbox: false,
+      webviewTag: true,
+      partition: `persist:${sessionId}`
+    }
+  });
+
+  // Exit behavior similar to main window
+  sessionWindow.on("close", (event) => {
+    if (exitCount < 2) {
+      event.preventDefault();
+      console.log("Prevented manual close");
+      exitCount++;
+      setTimeout(() => {
+        exitCount--;
+        exitCount = exitCount < 0 ? 0 : exitCount;
+      }, 2000);
+    } else {
+      exitCount = 0;
+      globalShortcut.unregisterAll();
+    }
+  });
+
+  // Fix for MacOS Command Shortcuts
+  if (process.platform !== "darwin") {
+    Menu.setApplicationMenu(null);
+  } else {
+    Menu.setApplicationMenu(Menu.buildFromTemplate([{role: "appMenu"}, {role: "editMenu"}]));
+    sessionWindow.setMenuBarVisibility(false);
+  }
+
+  sessionWindow.on("ready-to-show", () => {
+    sessionWindow?.show();
+  });
+
+  sessionWindow.on("closed", () => {
+    sessionWindow = null;
+  });
+
+  sessionWindow.on("focus", () => {
+    registerSessionKeybinds(mode);
+  });
+
+  sessionWindow.webContents.setWindowOpenHandler((details) => {
+    shell.openExternal(details.url);
+    return {action: "deny"};
+  });
+
+  // Store session data for IPC handlers
+  (sessionWindow as any).sessionData = {
+    mode,
+    sessionId,
+    sessionConfig: sessionData
+  };
+
+  // Load the session HTML
+  if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
+    sessionWindow.webContents.loadURL(process.env["ELECTRON_RENDERER_URL"] + "/session.html");
+  } else {
+    sessionWindow.webContents.loadFile(join(__dirname, "../renderer/session.html"));
+  }
+}
+
 function createMainWindow(): void {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.focus();
@@ -328,6 +533,44 @@ function registerKeybinds() {
   })
 }
 
+function registerSessionKeybinds(mode: LaunchMode) {
+  globalShortcut.unregisterAll();
+
+  // Find fullscreen keybind
+  const fullscreenBind = neuzosConfig.keyBinds.find((bind: any) => bind.event === "fullscreen_toggle");
+
+  if (!fullscreenBind) {
+    return;
+  }
+
+  try {
+    switch (mode) {
+      case 'session':
+        // Allow fullscreen toggle
+        globalShortcut.register(fullscreenBind.key, () => {
+          sessionWindow?.setFullScreen(!sessionWindow?.isFullScreen());
+        });
+        break;
+      case 'focus':
+        // Prevent fullscreen
+        globalShortcut.register(fullscreenBind.key, () => {
+          // Do nothing - prevent fullscreen
+        });
+        break;
+      case 'focus_fullscreen':
+        // Prevent removing fullscreen
+        globalShortcut.register(fullscreenBind.key, () => {
+          if (!sessionWindow?.isFullScreen()) {
+            sessionWindow?.setFullScreen(true);
+          }
+        });
+        break;
+    }
+  } catch (e) {
+    console.error("Failed to register session keybind:", e);
+  }
+}
+
 (async () => {
   try {
     await loadConfig(true);
@@ -353,6 +596,69 @@ function registerKeybinds() {
     // and ignore CommandOrControl + R in production.
     app.on("browser-window-created", (_, window) => {
       optimizer.watchWindowShortcuts(window);
+    });
+
+    // Setup IPC handlers for session launcher
+    ipcMain.handle("session_launcher.get_sessions", async () => {
+      return neuzosConfig.sessions.filter((s: any) => s.partitionOverwrite !== "browser");
+    });
+
+    ipcMain.on("session_launcher.launch_session", (_, sessionId: string, mode: LaunchMode) => {
+      const execPath = process.execPath;
+      const args = [`--mode=${mode}`, `--session_id=${sessionId}`];
+
+      // Spawn new process
+      const {spawn} = require('child_process');
+      spawn(execPath, args, {
+        detached: true,
+        stdio: 'ignore'
+      }).unref();
+    });
+
+    ipcMain.on("session_launcher.close", () => {
+      globalShortcut.unregisterAll();
+      sessionWindow?.destroy();
+      sessionWindow = null;
+    });
+
+    ipcMain.on("session_launcher.minimize", () => {
+      sessionWindow?.minimize();
+    });
+
+    // Setup IPC handlers for session window
+    ipcMain.handle("session_window.get_data", async () => {
+      return (sessionWindow as any)?.sessionData || null;
+    });
+
+    ipcMain.on("session_window.fullscreen_toggle", () => {
+      const mode = (sessionWindow as any)?.sessionData?.mode;
+      if (mode === 'session') {
+        sessionWindow?.setFullScreen(!sessionWindow?.isFullScreen());
+      } else if (mode === 'focus_fullscreen') {
+        // Keep fullscreen
+        if (!sessionWindow?.isFullScreen()) {
+          sessionWindow?.setFullScreen(true);
+        }
+      }
+      // For 'focus' mode, do nothing (prevent fullscreen)
+    });
+
+    ipcMain.on("session_window.minimize", () => {
+      sessionWindow?.minimize();
+    });
+
+    ipcMain.on("session_window.maximize", () => {
+      if (sessionWindow?.isMaximized()) {
+        sessionWindow?.unmaximize();
+      } else {
+        sessionWindow?.maximize();
+      }
+    });
+
+    ipcMain.on("session_window.close", () => {
+      globalShortcut.unregisterAll();
+      sessionWindow?.destroy();
+      sessionWindow = null;
     });
 
     ipcMain.on("main_window.fullscreen_toggle", () => {
@@ -494,7 +800,26 @@ function registerKeybinds() {
       return allowedEventKeybinds;
     })
 
-    createMainWindow();
+    // Handle different launch modes
+    switch (launchArgs.mode) {
+      case 'session_launcher':
+        createSessionLauncherWindow();
+        break;
+      case 'session':
+      case 'focus':
+      case 'focus_fullscreen':
+        if (!launchArgs.sessionId) {
+          dialog.showErrorBox("Missing Session ID", "Session ID is required for this launch mode.");
+          app.quit();
+          return;
+        }
+        createSessionWindow(launchArgs.mode, launchArgs.sessionId);
+        break;
+      default:
+        createMainWindow();
+        break;
+    }
+
     app.on("activate", function () {
       // On macOS it's common to re-create a window in the app when the
       // dock icon is clicked and there are no other windows open.
