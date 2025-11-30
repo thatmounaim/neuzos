@@ -69,7 +69,7 @@ Thank you Shiraho for the Showcase
 
 ## Download Pre-compiled Binaries
 
-[View Latest Releases](https://github.com/thatmounaim/neuzos/releases)
+[View Latest Releases](https://github.com/thatmounaim/neuzos/releases) 
 ## Project Setup - Build From Source
 
 ### Clone Project Repository
