@@ -46,7 +46,22 @@
 
     mainWindowState.sessionsLayoutsRef[session.id].layouts[layoutId] = exposedRef
   })
-
+  let koreanLinkFixed = $state(false);
+  const koreanLinkFix = () => {
+    getWebview()?.executeJavaScript(`
+document.querySelectorAll('[target="_blank"]').forEach((el) => {el.setAttribute('target', '_self');});
+const oldWindowOpen = window.open;
+window.open = function(...args) {
+  if(args[0].startsWith('https://universe.flyff.com/sniegu/auth/wcnkr/callback')){
+    location.href = args[0]
+    window.open = oldWindowOpen
+  } else {
+    oldWindowOpen(...args)
+  }
+}
+`)
+    koreanLinkFixed = true;
+  }
   export const startClient = () => {
     started = true
     onUpdate(session.id)
@@ -55,6 +70,7 @@
   export const stopClient = () => {
     started = false
     onUpdate(session.id)
+    koreanLinkFixed = false;
   }
 
   export const isStarted = () => {
@@ -98,13 +114,18 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
-  class="w-full h-full"
+  class="w-full h-full relative"
   onmouseenter={() => {
     focus()
   }}
 >
   {#if partition !== ''}
     {#if started}
+      {#if src.startsWith('https://flyff.wemadeconnect.com') && !koreanLinkFixed}
+        <Button class="z-50 absolute bottom-2 right-2" size="xs" onclick={koreanLinkFix}>
+          KR Fix - Once Logged & Page is Fully Loaded Press This Button
+        </Button>
+      {/if}
       <webview
         bind:this={webview}
         class="w-full h-full"
