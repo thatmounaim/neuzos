@@ -25,7 +25,7 @@
             ? 'z-[50]'
             : 'z-[0] hidden'} overflow-hidden"
       >
-        <Resizable.PaneGroup direction="vertical" class="h-full w-full" autoSaveId={'rows_' + layout.id}>
+        <Resizable.PaneGroup  direction="vertical" class="h-full w-full" autoSaveId={'rows_' + layout.id}>
           {#each layout.rows as row, rowIndex}
             {#if row.sessionIds.length > 0}
               <Resizable.Pane>
@@ -46,13 +46,13 @@
                       />
                     </Resizable.Pane>
                     {#if cellIndex < row.sessionIds.length - 1}
-                      <Resizable.Handle/>
+                      <Resizable.Handle disabled={layout.locked ?? false}/>
                     {/if}
                   {/each}
                 </Resizable.PaneGroup>
               </Resizable.Pane>
               {#if rowIndex < layout.rows.length - 1}
-                <Resizable.Handle/>
+                <Resizable.Handle disabled={layout.locked ?? false}/>
               {/if}
             {/if}
           {/each}

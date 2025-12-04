@@ -28,6 +28,7 @@ export type NeuzLayout = {
   rows: {
     sessionIds: string[]
   }[]
+  locked?: boolean
 }
 
 export type MainWindowState = {

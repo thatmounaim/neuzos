@@ -73,9 +73,8 @@
                 <span>{session.label}</span>
                 <span class="text-xs font-normal text-muted-foreground">({session.id})</span>
               </Card.Title>
-              {#if session.srcOverwrite}
-                <Card.Description class="text-xs truncate">{session.srcOverwrite}</Card.Description>
-              {/if}
+              <Card.Description
+                class="text-xs truncate">{session.srcOverwrite ?? 'https://universe.flyff.com/play'}</Card.Description>
             </Card.Header>
             <Card.Content class="p-0">
               <div class="flex gap-1.5">

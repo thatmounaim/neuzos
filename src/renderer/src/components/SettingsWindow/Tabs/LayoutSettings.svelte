@@ -9,7 +9,8 @@
     Plus,
     Save,
     Trash,
-    Minus
+    Minus,
+    Lock
   } from "@lucide/svelte";
 
   import {Input} from "$lib/components/ui/input";
@@ -23,6 +24,9 @@
   import {getContext} from "svelte";
   import {Button} from "$lib/components/ui/button";
   import {neuzosBridge} from "$lib/core";
+  import {Checkbox} from "$lib/components/ui/checkbox";
+  import {Label} from "$lib/components/ui/label";
+  import {Toggle} from "$lib/components/ui/toggle";
 
   const layoutIcons: string[] = [
     "neuzos_pang",
@@ -170,6 +174,7 @@
               </div>
             </Table.Cell>
             <Table.Cell class="w-1/2">
+              <div class="flex gap-2 items-center">
               <Input
                 class="px-3 py-1 h-auto"
                 bind:value={layout.label}
@@ -180,6 +185,14 @@
                 }
               }}
               />
+                <Toggle class="border" aria-label="toggle bold" pressed={layout.locked} onPressedChange={(v) => {
+                  layout.locked = v
+                }}
+              >
+                  <Lock class="size-4"/>
+                </Toggle>
+              </div>
+
             </Table.Cell>
             <Table.Cell class="w-1/2">
               <div class="flex flex-col gap-2">
