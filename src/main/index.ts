@@ -1,4 +1,4 @@
-import {app, shell, BrowserWindow, Menu,dialog, session, ipcMain, globalShortcut, screen} from "electron";
+import {app, shell, BrowserWindow, Menu, dialog, session, ipcMain, globalShortcut, screen} from "electron";
 import {join} from "path";
 import {electronApp, optimizer, is} from "@electron-toolkit/utils";
 import icon from "../../resources/icon.png?asset";
@@ -58,6 +58,7 @@ let exitCount: number = 0;
 
 // Parse command-line arguments
 type LaunchMode = 'normal' | 'session_launcher' | 'session' | 'focus' | 'focus_fullscreen';
+
 interface LaunchArgs {
   mode: LaunchMode;
   sessionId?: string;
@@ -80,7 +81,7 @@ function parseLaunchArgs(): LaunchArgs {
     }
   }
 
-  return { mode, sessionId };
+  return {mode, sessionId};
 }
 
 const launchArgs = parseLaunchArgs();
@@ -798,6 +799,27 @@ function registerSessionKeybinds(mode: LaunchMode) {
 
     ipcMain.handle("config.get_available_event_keybinds", async () => {
       return allowedEventKeybinds;
+    })
+
+    ipcMain.handle('fetch.flyff_news', async () => {
+      const https = require('https');
+      return new Promise((resolve, reject) => {
+        https.get('https://universe.flyff.com/news', (resp: any) => {
+          let data = '';
+          // A chunk of data has been received.
+          resp.on('data', (chunk: any) => {
+            data += chunk;
+          });
+          // The whole response has been received. get html result
+          resp.on('end', () => {
+            try {
+              resolve(data);
+            } catch (e) {
+              reject(e);
+            }
+          })
+        })
+      })
     })
 
     // Handle different launch modes

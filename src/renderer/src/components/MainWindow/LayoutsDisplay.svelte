@@ -1,23 +1,23 @@
 <script lang="ts">
   import {getContext} from "svelte";
-  import type {NeuzosBridge} from "$lib/core";
   import type {MainWindowState} from "$lib/types";
-  import {Button} from "$lib/components/ui/button";
   import * as Resizable from '$lib/components/ui/resizable'
   import NeuzClient from "./NeuzClient.svelte";
+  import HomePage from "./HomePage.svelte";
 
-  const neuzosBridge = getContext<NeuzosBridge>('neuzosBridge');
   const mainWindowState = getContext<MainWindowState>('mainWindowState');
 
-  let activeLayoutId: string | null = null;
   let autofocusEnabled: boolean = true;
-
-  const startSession = (sessionId: string) => {
-  }
-
 </script>
 
 <div class="flex flex-1 p-4 relative">
+  <div
+    class="h-full w-full left-0 top-0 absolute bg-background {mainWindowState.tabs.activeLayoutId === 'home'
+            ? 'z-[50]'
+            : 'z-[0] hidden'} overflow-hidden"
+  >
+    <HomePage/>
+  </div>
   {#each mainWindowState.layouts as layout (layout.id)}
     {#if mainWindowState.tabs.layoutsIds.includes(layout.id)}
       <div
@@ -25,7 +25,7 @@
             ? 'z-[50]'
             : 'z-[0] hidden'} overflow-hidden"
       >
-        <Resizable.PaneGroup  direction="vertical" class="h-full w-full" autoSaveId={'rows_' + layout.id}>
+        <Resizable.PaneGroup direction="vertical" class="h-full w-full" autoSaveId={'rows_' + layout.id}>
           {#each layout.rows as row, rowIndex}
             {#if row.sessionIds.length > 0}
               <Resizable.Pane>
