@@ -802,24 +802,12 @@ function registerSessionKeybinds(mode: LaunchMode) {
     })
 
     ipcMain.handle('fetch.flyff_news', async () => {
-      const https = require('https');
-      return new Promise((resolve, reject) => {
-        https.get('https://universe.flyff.com/news', (resp: any) => {
-          let data = '';
-          // A chunk of data has been received.
-          resp.on('data', (chunk: any) => {
-            data += chunk;
-          });
-          // The whole response has been received. get html result
-          resp.on('end', () => {
-            try {
-              resolve(data);
-            } catch (e) {
-              reject(e);
-            }
-          })
-        })
-      })
+      try {
+        const data = await fetch('https://universe.flyff.com/news')
+        return data?.text() ?? ''
+      } catch (e) {
+        return ''
+      }
     })
 
     // Handle different launch modes
