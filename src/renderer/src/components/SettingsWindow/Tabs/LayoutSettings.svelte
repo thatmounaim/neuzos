@@ -116,6 +116,7 @@
           <Table.Head class=""></Table.Head>
           <Table.Head class="w-[100px]">Icon</Table.Head>
           <Table.Head class="w-1/3">Label</Table.Head>
+          <Table.Head class="w-auto">Lock</Table.Head>
           <Table.Head class="w-2/3">Sessions</Table.Head>
         </Table.Row>
       </Table.Header>
@@ -174,7 +175,6 @@
               </div>
             </Table.Cell>
             <Table.Cell class="w-1/2">
-              <div class="flex gap-2 items-center">
               <Input
                 class="px-3 py-1 h-auto"
                 bind:value={layout.label}
@@ -185,14 +185,14 @@
                 }
               }}
               />
-                <Toggle class="border" aria-label="toggle bold" pressed={layout.locked} onPressedChange={(v) => {
+            </Table.Cell>
+            <Table.Cell>
+              <Toggle class="border" aria-label="toggle bold" pressed={layout.locked} onPressedChange={(v) => {
                   layout.locked = v
                 }}
               >
-                  <Lock class="size-4"/>
-                </Toggle>
-              </div>
-
+                <Lock class="size-4"/>
+              </Toggle>
             </Table.Cell>
             <Table.Cell class="w-1/2">
               <div class="flex flex-col gap-2">
@@ -201,27 +201,28 @@
                     {#each row.sessionIds ?? [] as sessionId,sidx (sidx)}
                       {@const session = neuzosConfig.sessions.find(s => s.id === sessionId)}
                       <div class="flex items-center gap-1">
-                        <Button variant="outline" size="xs" class="text-xs">
-                          <img class="h-4 w-4" src="icons/{session?.icon.slug}.png" alt=""/> {session?.label}
+                        <Button variant="outline" size="xs" class="text-xs gap-2" onclick={() => {
+                        row.sessionIds.splice(sidx, 1)
+                      }}>
+                          <img class="h-4 w-4" src="icons/{session?.icon.slug}.png" alt=""/>
+                          <div class="flex items-center gap-2">
+                            {session?.label}
+                            <Trash class="size-3"/>
+                          </div>
                         </Button>
                       </div>
                     {/each}
                     <div class="flex-1"></div>
                     <div class="flex items-center gap-1">
-
-                      <Button disabled={row.sessionIds.length === 0} variant="outline" size="icon-xs" onclick={() => {
-                       row.sessionIds.splice(row.sessionIds.length-1, 1)
-                     }}>
-                        <Minus class="size-3"></Minus>
-                      </Button>
                       <Select.Root type="single" bind:value={dummy} onValueChange={(value) => {
                         if(!value) return
                         row.sessionIds.push(value)
                       }}>
-                        <Select.Trigger size="xs" class="w-14 p-0 m-0 px-2 py-1" onclick={() => {
+                        <Select.Trigger size="xs" class="text-xs p-0 m-0 px-2 py-1" onclick={() => {
                           dummy = null
                         }}>
-                          <Plus class="size-3"></Plus>
+                          <Plus class="size-3"/>
+                          Add Column
                         </Select.Trigger>
                         <Select.Content class="w-16 max-h-64">
                           {#each neuzosConfig.sessions as session}
@@ -237,10 +238,11 @@
                           {/each}
                         </Select.Content>
                       </Select.Root>
-                      <Button variant="outline" size="icon-xs" onclick={() => {
+                      <Button class="text-xs" variant="outline" size="xs" onclick={() => {
                       layout.rows.splice(ridx, 1)
                     }}>
-                        <Trash class="size-3"></Trash>
+                        <Trash class="size-3"/>
+                        Delete Row
                       </Button>
                     </div>
 
