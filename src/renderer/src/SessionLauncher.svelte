@@ -1,10 +1,12 @@
 <script lang="ts">
   import {ModeWatcher} from "mode-watcher";
   import {onMount} from "svelte";
-  import {initElectronApi} from "$lib/core";
+  import {initElectronApi, neuzosBridge} from "$lib/core";
   import * as Card from "$lib/components/ui/card";
   import {Button} from "$lib/components/ui/button";
   import type {NeuzSession} from "$lib/types";
+  import {Minus, Settings2, X} from "@lucide/svelte";
+  import {Separator} from "$lib/components/ui/separator";
 
   initElectronApi(window.electron.ipcRenderer);
 
@@ -30,6 +32,10 @@
   function getIconPath(session: NeuzSession): string {
     return `icons/${session.icon.slug}.png`;
   }
+
+  const openSettings = () => {
+    neuzosBridge.settingsWindow.open()
+  }
 </script>
 
 <ModeWatcher/>
@@ -48,11 +54,26 @@
 
     </div>
     <div class="flex gap-1">
-      <Button variant="ghost" size="icon" class="h-6 w-6" onclick={minimizeWindow}>
-        <span class="text-base">−</span>
+      <Button size="icon-xs" variant="outline" onclick={openSettings} class="cursor-pointer">
+        <Settings2 class="size-3.5"/>
       </Button>
-      <Button variant="ghost" size="icon" class="h-6 w-6" onclick={closeWindow}>
-        <span class="text-base">×</span>
+      <Separator orientation="vertical" class="h-4"/>
+
+      <Button
+        size="icon-xs"
+        variant="outline"
+        onclick={minimizeWindow}
+        class="cursor-pointer"
+      >
+        <Minus class="size-3.5"/>
+      </Button>
+      <Button
+        variant="outline"
+        onclick={closeWindow}
+        size="icon-xs"
+        class="cursor-pointer"
+      >
+        <X class="size-3.5"/>
       </Button>
     </div>
   </div>

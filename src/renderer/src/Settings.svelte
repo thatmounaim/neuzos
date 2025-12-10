@@ -8,7 +8,7 @@
   import KeybindsSettings from "./components/SettingsWindow/Tabs/KeybindsSettings.svelte";
   import * as Tabs from "$lib/components/ui/tabs";
 
-  import CliSettings from "./components/SettingsWindow/Tabs/CliSettings.svelte";
+  import LaunchSettings from "./components/SettingsWindow/Tabs/LaunchSettings.svelte";
   import SessionSettings from "./components/SettingsWindow/Tabs/SessionSettings.svelte";
   import LayoutSettings from "./components/SettingsWindow/Tabs/LayoutSettings.svelte";
   import {Button} from "$lib/components/ui/button";
@@ -121,7 +121,7 @@
           <Tabs.Trigger value="sessions">Sessions</Tabs.Trigger>
           <Tabs.Trigger value="layouts">Layouts</Tabs.Trigger>
           <Tabs.Trigger value="keybinds">Keybinds</Tabs.Trigger>
-          <Tabs.Trigger value="cli">Command Line Switches</Tabs.Trigger>
+          <Tabs.Trigger value="launch">Launch Settings</Tabs.Trigger>
 
         </div>
         <div class="flex-1"></div>
@@ -141,8 +141,8 @@
       <Tabs.Content value="keybinds" class="h-full overflow-y-auto">
         <KeybindsSettings/>
       </Tabs.Content>
-      <Tabs.Content value="cli" class="h-full overflow-y-auto">
-        <CliSettings/>
+      <Tabs.Content value="launch" class="h-full overflow-y-auto">
+        <LaunchSettings/>
       </Tabs.Content>
     </Tabs.Root>
   </div>

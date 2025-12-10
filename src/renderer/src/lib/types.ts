@@ -55,6 +55,7 @@ export type MainWindowState = {
 }
 
 export type NeuzConfig = {
+  defaultLaunchMode: 'normal' | 'session_launcher'
   chromium: {
     commandLineSwitches: string[]
   }
