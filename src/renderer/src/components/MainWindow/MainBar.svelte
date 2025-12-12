@@ -38,7 +38,7 @@
   import {cn} from "$lib/utils";
   import {Separator} from "$lib/components/ui/separator";
   import type {IpcRenderer} from "@electron-toolkit/preload";
-  import WidgetsDropdownContent from "../Widgets/WidgetsDropdownContent.svelte";
+  import WidgetsDropdownContent from "../Widgets/Core/WidgetsDropdownContent.svelte";
 
   const neuzosBridge = getContext<NeuzosBridge>('neuzosBridge');
   const mainWindowState = getContext<MainWindowState>('mainWindowState');
