@@ -6,12 +6,17 @@
   import type {MainWindowState} from "$lib/types";
   import LayoutsDisplay from "./components/MainWindow/LayoutsDisplay.svelte";
   import SharedEvents from "./components/SharedEvents.svelte";
+  import { createWidgetsContext, setWidgetsContext } from '$lib/contexts/widgetsContext.svelte';
 
   const dockedTabs = $state([])
 
   setContext('electronApi', window.electron.ipcRenderer)
   setContext('dockedTabs', dockedTabs);
   setContext('neuzosBridge', neuzosBridge)
+
+  // Create and set the widgets context at the app level
+  const widgetsContext = createWidgetsContext();
+  setWidgetsContext(widgetsContext);
 
   initElectronApi(window.electron.ipcRenderer)
 

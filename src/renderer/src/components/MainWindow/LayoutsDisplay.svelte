@@ -5,6 +5,7 @@
   import NeuzClient from "./NeuzClient.svelte";
   import HomePage from "./HomePage.svelte";
   import FloatingWindowsPortal from "./FloatingWindowsPortal.svelte";
+  import WidgetsManager from "./WidgetsManager.svelte";
 
   const mainWindowState = getContext<MainWindowState>('mainWindowState');
 
@@ -13,7 +14,7 @@
 
 <div class="flex flex-1 p-4 relative">
   <FloatingWindowsPortal>
-
+    <WidgetsManager/>
   </FloatingWindowsPortal>
 
   <div

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, getContext } from 'svelte';
   import type { Snippet } from 'svelte';
-  import { X, Minus, Maximize2 } from '@lucide/svelte';
+  import { X, Minus, Maximize2, EyeOff } from '@lucide/svelte';
   import { FLOATING_WINDOW_CONTEXT_KEY, type FloatingWindowContext } from './floatingWindowContext';
 
   const windowContext = getContext<FloatingWindowContext>(FLOATING_WINDOW_CONTEXT_KEY);
@@ -18,8 +18,10 @@
     maxWidth?: number;
     maxHeight?: number;
     onClose?: () => void;
+    onHide?: () => void;
     closable?: boolean;
     minimizable?: boolean;
+    hidable?: boolean;
     resizable?: boolean;
     class?: string;
     children?: Snippet;
@@ -38,8 +40,10 @@
     maxWidth = Infinity,
     maxHeight = Infinity,
     onClose,
+    onHide,
     closable = true,
     minimizable = true,
+    hidable = true,
     resizable = true,
     class: className = '',
     children,
@@ -79,8 +83,8 @@
         const state = JSON.parse(stored);
         x = state.x ?? defaultX;
         y = state.y ?? defaultY;
-        width = state.width ?? defaultWidth;
-        height = state.height ?? defaultHeight;
+        width = resizable ? (state.width ?? defaultWidth) : defaultWidth;
+        height =  resizable ? (state.height ?? defaultHeight) : defaultHeight;
         isMinimized = state.isMinimized ?? false;
       } catch (e) {
         console.error('Failed to parse stored window state:', e);
@@ -268,6 +272,18 @@
           {/if}
         </button>
       {/if}
+      {#if hidable}
+        <button
+          class="bg-transparent border-none p-1 cursor-pointer rounded flex items-center justify-center text-foreground transition-colors hover:bg-accent"
+          onclick={(e) => {
+            e.stopPropagation();
+            onHide?.();
+          }}
+          title="Hide"
+        >
+          <EyeOff size={14} />
+        </button>
+      {/if}
       {#if closable}
         <button
           class="bg-transparent border-none p-1 cursor-pointer rounded flex items-center justify-center text-foreground transition-colors hover:bg-destructive hover:text-destructive-foreground"
@@ -283,30 +299,28 @@
     </div>
   </div>
 
-  {#if !isMinimized}
-    <div class="flex-1 overflow-auto p-3">
-      {@render children?.()}
-    </div>
+  <div class="flex-1 overflow-auto p-3" style="display: {isMinimized ? 'none' : 'block'};">
+    {@render children?.()}
+  </div>
 
-    {#if resizable}
-      <!-- Resize handles -->
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div class="absolute top-0 left-0 w-full h-1.5 cursor-ns-resize z-10" onmousedown={(e) => startResize('n', e)}></div>
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div class="absolute bottom-0 left-0 w-full h-1.5 cursor-ns-resize z-10" onmousedown={(e) => startResize('s', e)}></div>
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div class="absolute top-0 left-0 w-1.5 h-full cursor-ew-resize z-10" onmousedown={(e) => startResize('w', e)}></div>
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div class="absolute top-0 right-0 w-1.5 h-full cursor-ew-resize z-10" onmousedown={(e) => startResize('e', e)}></div>
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div class="absolute top-0 left-0 w-3 h-3 cursor-nwse-resize z-10" onmousedown={(e) => startResize('nw', e)}></div>
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div class="absolute top-0 right-0 w-3 h-3 cursor-nesw-resize z-10" onmousedown={(e) => startResize('ne', e)}></div>
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div class="absolute bottom-0 left-0 w-3 h-3 cursor-nesw-resize z-10" onmousedown={(e) => startResize('sw', e)}></div>
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div class="absolute bottom-0 right-0 w-3 h-3 cursor-nwse-resize z-10" onmousedown={(e) => startResize('se', e)}></div>
-    {/if}
+  {#if resizable && !isMinimized}
+    <!-- Resize handles -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="absolute top-0 left-0 w-full h-1.5 cursor-ns-resize z-10" onmousedown={(e) => startResize('n', e)}></div>
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="absolute bottom-0 left-0 w-full h-1.5 cursor-ns-resize z-10" onmousedown={(e) => startResize('s', e)}></div>
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="absolute top-0 left-0 w-1.5 h-full cursor-ew-resize z-10" onmousedown={(e) => startResize('w', e)}></div>
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="absolute top-0 right-0 w-1.5 h-full cursor-ew-resize z-10" onmousedown={(e) => startResize('e', e)}></div>
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="absolute top-0 left-0 w-3 h-3 cursor-nwse-resize z-10" onmousedown={(e) => startResize('nw', e)}></div>
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="absolute top-0 right-0 w-3 h-3 cursor-nesw-resize z-10" onmousedown={(e) => startResize('ne', e)}></div>
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="absolute bottom-0 left-0 w-3 h-3 cursor-nesw-resize z-10" onmousedown={(e) => startResize('sw', e)}></div>
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="absolute bottom-0 right-0 w-3 h-3 cursor-nwse-resize z-10" onmousedown={(e) => startResize('se', e)}></div>
   {/if}
 </div>
 

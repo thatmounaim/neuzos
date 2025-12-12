@@ -38,6 +38,7 @@
   import {cn} from "$lib/utils";
   import {Separator} from "$lib/components/ui/separator";
   import type {IpcRenderer} from "@electron-toolkit/preload";
+  import WidgetsDropdownContent from "../Widgets/WidgetsDropdownContent.svelte";
 
   const neuzosBridge = getContext<NeuzosBridge>('neuzosBridge');
   const mainWindowState = getContext<MainWindowState>('mainWindowState');
@@ -389,9 +390,18 @@
       <RefreshCw class="size-3.5"/>
     </Button>
   {/if}
-  <Button disabled size="icon-xs" variant="outline" onclick={null} class="cursor-pointer">
-    <Puzzle class="size-3.5"/>
-  </Button>
+  <DropdownMenu.Root>
+    <DropdownMenu.Trigger>
+      {#snippet child({props})}
+        <Button {...props} variant="outline" size="icon-xs">
+          <Puzzle class="size-3.5"/>
+        </Button>
+      {/snippet}
+    </DropdownMenu.Trigger>
+    <DropdownMenu.Content align="end">
+      <WidgetsDropdownContent />
+    </DropdownMenu.Content>
+  </DropdownMenu.Root>
   <DropdownMenu.Root>
     <DropdownMenu.Trigger>
       {#snippet child({props})}
