@@ -1,7 +1,7 @@
 <script lang="ts">
   import {ModeWatcher} from "mode-watcher";
   import MainBar from "./components/MainWindow/MainBar.svelte";
-  import {onMount, setContext, tick} from "svelte";
+  import {onMount, setContext} from "svelte";
   import {neuzosBridge, initElectronApi} from "$lib/core";
   import type {MainWindowState} from "$lib/types";
   import LayoutsDisplay from "./components/MainWindow/LayoutsDisplay.svelte";

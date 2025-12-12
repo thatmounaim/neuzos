@@ -4,6 +4,7 @@
   import * as Resizable from '$lib/components/ui/resizable'
   import NeuzClient from "./NeuzClient.svelte";
   import HomePage from "./HomePage.svelte";
+  import FloatingWindowsPortal from "./FloatingWindowsPortal.svelte";
 
   const mainWindowState = getContext<MainWindowState>('mainWindowState');
 
@@ -11,9 +12,13 @@
 </script>
 
 <div class="flex flex-1 p-4 relative">
+  <FloatingWindowsPortal>
+
+  </FloatingWindowsPortal>
+
   <div
     class="h-full w-full left-0 top-0 absolute bg-background {mainWindowState.tabs.activeLayoutId === 'home'
-            ? 'z-[50]'
+            ? 'z-[39]'
             : 'z-[0] hidden'} overflow-hidden"
   >
     <HomePage/>
@@ -21,8 +26,8 @@
   {#each mainWindowState.layouts as layout (layout.id)}
     {#if mainWindowState.tabs.layoutsIds.includes(layout.id)}
       <div
-        class="h-full w-full left-0 top-0 absolute bg-background {layout.id === mainWindowState.tabs.activeLayoutId
-            ? 'z-[50]'
+        class="h-full w-full left-0 top-0 absolute bg-background select-none {layout.id === mainWindowState.tabs.activeLayoutId
+            ? 'z-[39]'
             : 'z-[0] hidden'} overflow-hidden"
       >
         <Resizable.PaneGroup direction="vertical" class="h-full w-full" autoSaveId={'rows_' + layout.id}>
