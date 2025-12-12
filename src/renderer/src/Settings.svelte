@@ -20,12 +20,14 @@
   initElectronApi(window.electron.ipcRenderer);
 
   let neuzosConfig: NeuzConfig = $state({
+    defaultLaunchMode: 'normal',
     sessions: [],
     layouts: [],
     chromium: {
       commandLineSwitches: []
     },
-    defaultLayouts: []
+    defaultLayouts: [],
+    keyBinds: []
   });
 
   const electronApi = window.electron.ipcRenderer;
@@ -35,6 +37,7 @@
 
   onMount(async () => {
     const conf = await electronApi.invoke("config.load", true);
+    neuzosConfig.defaultLaunchMode = conf.defaultLaunchMode;
     neuzosConfig.sessions = conf.sessions;
     neuzosConfig.layouts = conf.layouts;
     neuzosConfig.chromium = conf.chromium;

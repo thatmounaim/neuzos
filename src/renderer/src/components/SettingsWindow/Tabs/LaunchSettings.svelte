@@ -8,11 +8,6 @@
   import type {NeuzConfig} from "$lib/types";
 
   let availableCommandLineSwitches: Array<{ flag: string; description: string }> = [];
-  let allowedEventKeybinds: {
-    [key: string]: {
-      args?: string[],
-    }
-  } = {}
 
   const electronApi = getContext<IpcRenderer>("electronApi");
   const neuzosConfig = getContext<NeuzConfig>("neuzosConfig");
