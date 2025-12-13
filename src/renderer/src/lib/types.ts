@@ -61,6 +61,7 @@ export type SessionAction = {
   ingameKey: string;
   castTime: number;
   cooldown: number;
+  pinned?: boolean;
 }
 
 export type SessionActions = {

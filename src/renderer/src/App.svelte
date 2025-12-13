@@ -7,6 +7,7 @@
   import LayoutsDisplay from "./components/MainWindow/LayoutsDisplay.svelte";
   import SharedEvents from "./components/SharedEvents.svelte";
   import { createWidgetsContext, setWidgetsContext } from '$lib/contexts/widgetsContext.svelte';
+  import { createCooldownsContext, setCooldownsContext } from '$lib/contexts/cooldownsContext';
 
   const dockedTabs = $state([])
 
@@ -17,6 +18,10 @@
   // Create and set the widgets context at the app level
   const widgetsContext = createWidgetsContext();
   setWidgetsContext(widgetsContext);
+
+  // Create and set the cooldowns context at the app level
+  const cooldownsContext = createCooldownsContext();
+  setCooldownsContext(cooldownsContext);
 
   initElectronApi(window.electron.ipcRenderer)
 
@@ -114,6 +119,13 @@
 
   electronApi.on('event.send_session_action', (_, sessionId: string, actionId: string) => {
     console.log("send_session_action", sessionId, actionId)
+
+    // Check if action is ready (not casting or on cooldown)
+    if (!cooldownsContext.canUseAction(sessionId, actionId)) {
+      console.log("Action on cooldown, ignoring")
+      return
+    }
+
     // Find the session actions for this session
     const sessionActionsData = mainWindowState.config.sessionActions?.find(sa => sa.sessionId === sessionId)
     if (!sessionActionsData) {
@@ -130,6 +142,27 @@
 
     console.log("Executing action:", action.label, "for session:", sessionId)
 
+    // Start cast if there's a cast time
+    if (action.castTime > 0) {
+      cooldownsContext.startCast(sessionId, actionId, action.castTime)
+
+      // After cast time, send the key and start cooldown
+      setTimeout(() => {
+        sendActionKeyToSession(sessionId, action)
+        if (action.cooldown > 0) {
+          cooldownsContext.startCooldown(sessionId, actionId, action.cooldown)
+        }
+      }, action.castTime * 1000)
+    } else {
+      // No cast time, send immediately and start cooldown
+      sendActionKeyToSession(sessionId, action)
+      if (action.cooldown > 0) {
+        cooldownsContext.startCooldown(sessionId, actionId, action.cooldown)
+      }
+    }
+  })
+
+  function sendActionKeyToSession(sessionId: string, action: any) {
     // Send the action key to all neuz clients for this session across all layouts
     const sessionLayouts = mainWindowState.sessionsLayoutsRef[sessionId]?.layouts
     if (sessionLayouts) {
@@ -142,7 +175,7 @@
         }
       })
     }
-  })
+  }
 
   electronApi.on('event.config_changed', (_, cfg: string) => {
     mainWindowState.config.changed = true

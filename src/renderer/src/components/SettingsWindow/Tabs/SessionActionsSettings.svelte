@@ -8,6 +8,7 @@
   import {getContext} from "svelte";
   import {Button} from "$lib/components/ui/button";
   import {Input} from "$lib/components/ui/input";
+  import {Switch} from "$lib/components/ui/switch";
 
   import type {NeuzConfig, SessionActions} from "$lib/types";
   import {Plus, Trash2, ChevronsUpDown, Check, ChevronDown} from "@lucide/svelte";
@@ -440,7 +441,8 @@
       label: 'New Action',
       ingameKey: '',
       castTime: 0,
-      cooldown: 0
+      cooldown: 0,
+      pinned: false
     });
   }
 
@@ -458,8 +460,8 @@
     return session?.icon.slug || 'misc/browser';
   }
 
-  // Initialize combobox states for actions
   $effect(() => {
+    // Ensure combobox states match action counts
     neuzosConfig.sessionActions.forEach(sa => {
       if (!comboboxStates[sa.sessionId]) {
         comboboxStates[sa.sessionId] = [];
@@ -471,6 +473,13 @@
       if (comboboxStates[sa.sessionId].length > neededLength) {
         comboboxStates[sa.sessionId].length = neededLength;
       }
+
+      // Initialize pinned property for existing actions
+      sa.actions.forEach(action => {
+        if (action.pinned === undefined) {
+          action.pinned = false;
+        }
+      });
     });
   });
 
@@ -558,6 +567,7 @@
                           <Table.Head class="w-[120px]">Key</Table.Head>
                           <Table.Head class="w-[120px]">Cast Time(s)</Table.Head>
                           <Table.Head class="w-[120px]">Cooldown(s)</Table.Head>
+                          <Table.Head class="w-[80px]">Pinned</Table.Head>
                           <Table.Head class="w-[80px]"></Table.Head>
                         </Table.Row>
                       </Table.Header>
@@ -703,6 +713,13 @@
                                 step="0.1"
                                 placeholder="0"
                               />
+                            </Table.Cell>
+
+                            <!-- Pinned -->
+                            <Table.Cell>
+                              <div class="flex items-center justify-center">
+                                <Switch checked={action.pinned ?? false} onCheckedChange={(checked) => { action.pinned = checked; }} />
+                              </div>
                             </Table.Cell>
 
                             <!-- Delete -->

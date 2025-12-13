@@ -5,11 +5,7 @@
     Minus,
     Maximize,
     X,
-    Puzzle,
-    Eye,
-    EyeOff,
     Plus,
-    ExternalLink,
     RefreshCcw,
     VolumeX,
     Volume,
@@ -17,8 +13,6 @@
     VolumeOff,
     Square,
     Play,
-    Sun,
-    Moon,
     Home,
     ChevronLeft,
     ChevronRight,
@@ -27,29 +21,27 @@
   } from '@lucide/svelte'
   import {getContext} from "svelte";
   import type {NeuzosBridge} from "$lib/core";
-  import type {MainWindowState, NeuzLayout, NeuzSession} from "$lib/types";
-  import * as AlertDialog from '$lib/components/ui/alert-dialog'
+  import type {MainWindowState, NeuzSession} from "$lib/types";
   import * as Dialog from '$lib/components/ui/dialog'
   import * as ContextMenu from '$lib/components/ui/context-menu'
   import * as Tabs from '$lib/components/ui/tabs'
-  import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
   import * as Card from '$lib/components/ui/card'
 
   import {cn} from "$lib/utils";
   import {Separator} from "$lib/components/ui/separator";
   import type {IpcRenderer} from "@electron-toolkit/preload";
-  import WidgetsDropdownContent from "../Widgets/Core/WidgetsDropdownContent.svelte";
+  import PinnedActions from "./PinnedActions.svelte";
+  import WidgetsButton from "./WidgetsButton.svelte";
+  import ThemeToggle from "./ThemeToggle.svelte";
 
   const neuzosBridge = getContext<NeuzosBridge>('neuzosBridge');
   const mainWindowState = getContext<MainWindowState>('mainWindowState');
   const electronApi = getContext<IpcRenderer>('electronApi');
+
   const openSettings = () => {
     neuzosBridge.settingsWindow.open()
   }
 
-  const toggleTabsVisibility = () => {
-    mainWindowState.tabs.visible = !mainWindowState?.tabs?.visible;
-  }
 
   const switchToHome = () => {
     neuzosBridge.layouts.switch('home')
@@ -141,7 +133,7 @@
 </script>
 <div
   id="titlebar"
-  class="gap-2 p-1 px-2 select-none border-b border-accent flex items-center justify-end bg-accent/50 min-h-8"
+  class="gap-2 p-1 px-2 select-none border-b border-accent flex items-center justify-end bg-accent/50 min-h-10"
 >
   <div class="flex items-center gap-2">
     <img src="favicon.png" alt="NeuzOS Logo" class="size-6"/>
@@ -385,43 +377,19 @@
     class="flex-1 cursor-grab active:cursor-grabbing h-full w-full"
     style="-webkit-app-region: drag;"
   ></div>
+
+  <PinnedActions />
+  <Separator orientation="vertical" class="h-4"/>
+
   {#if mainWindowState.config.changed}
     <Button size="icon-xs" variant="outline" onclick={reloadConfing} class="cursor-pointer">
       <RefreshCw class="size-3.5"/>
     </Button>
   {/if}
-  <DropdownMenu.Root>
-    <DropdownMenu.Trigger>
-      {#snippet child({props})}
-        <Button {...props} variant="outline" size="icon-xs">
-          <Puzzle class="size-3.5"/>
-        </Button>
-      {/snippet}
-    </DropdownMenu.Trigger>
-    <DropdownMenu.Content align="end">
-      <WidgetsDropdownContent />
-    </DropdownMenu.Content>
-  </DropdownMenu.Root>
-  <DropdownMenu.Root>
-    <DropdownMenu.Trigger>
-      {#snippet child({props})}
-        <Button {...props} variant="outline" size="icon-xs">
-          <Sun
-            class=" rotate-0 size-3.5 scale-100 transition-all dark:-rotate-90 dark:scale-0"
-          />
-          <Moon
-            class="absolute size-3.5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100"
-          />
-        </Button>
-      {/snippet}
-    </DropdownMenu.Trigger>
-    <DropdownMenu.Content align="end">
-      <DropdownMenu.Item onclick={() => neuzosBridge.preferences.setThemeMode('light')}>Light Mode</DropdownMenu.Item>
-      <DropdownMenu.Item onclick={() => neuzosBridge.preferences.setThemeMode('dark')}>Dark Mode</DropdownMenu.Item>
-      <DropdownMenu.Item onclick={() => neuzosBridge.preferences.setThemeMode('system')}>Follow System
-      </DropdownMenu.Item>
-    </DropdownMenu.Content>
-  </DropdownMenu.Root>
+
+  <WidgetsButton />
+  <ThemeToggle />
+
   <Separator orientation="vertical" class="h-4"/>
   <Button size="icon-xs" variant="outline" onclick={() => {
         neuzosBridge.mainWindow.fullscreenToggle()
@@ -460,4 +428,3 @@
     <X class="size-3.5"/>
   </Button>
 </div>
-
