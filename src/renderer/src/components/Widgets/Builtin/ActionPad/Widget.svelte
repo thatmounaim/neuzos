@@ -167,13 +167,17 @@
       return;
     }
 
-    // Start cast if there's a cast time
+    // Start cast FIRST to mark action as "in use" and prevent double-triggering
     if (action.castTime > 0) {
       cooldownsContext.startCast(sessionId, action.id, action.castTime);
+    }
 
-      // After cast time, send the key and start cooldown
+    // Send the key immediately to buffer/queue the action in-game
+    sendActionKey(action);
+
+    // After cast time, start cooldown
+    if (action.castTime > 0) {
       setTimeout(() => {
-        sendActionKey(action);
         if (action.cooldown > 0) {
           cooldownsContext.startCooldown(sessionId, action.id, action.cooldown);
 
@@ -184,8 +188,7 @@
         }
       }, action.castTime * 1000);
     } else {
-      // No cast time, send immediately and start cooldown
-      sendActionKey(action);
+      // No cast time, start cooldown immediately
       if (action.cooldown > 0) {
         cooldownsContext.startCooldown(sessionId, action.id, action.cooldown);
 
