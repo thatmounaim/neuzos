@@ -3,6 +3,7 @@
   import BuiltinWidgetFCoinCalculator from "../Widgets/Builtin/BuiltinWidgetFCoinCalculator.svelte";
   import BuiltinWidgetNotepad from "../Widgets/Builtin/BuiltinWidgetNotepad.svelte";
   import BuiltinWidgetMiniBrowser from "../Widgets/Builtin/BuiltinWidgetMiniBrowser.svelte";
+  import BuiltinWidgetActionPad from "../Widgets/Builtin/BuiltinWidgetActionPad.svelte";
 
   // Get the widgets context from App
   const widgetsContext = getWidgetsContext();
@@ -25,6 +26,13 @@
     />
   {:else if widget.type === 'widget.builtin.mini_browser'}
     <BuiltinWidgetMiniBrowser
+      visible={widget.visible}
+      data={widget.data}
+      onClose={() => widgetsContext.destroyWidget(widget.id)}
+      onHide={() => widgetsContext.hideWidget(widget.id)}
+    />
+  {:else if widget.type === 'widget.builtin.action_pad'}
+    <BuiltinWidgetActionPad
       visible={widget.visible}
       data={widget.data}
       onClose={() => widgetsContext.destroyWidget(widget.id)}

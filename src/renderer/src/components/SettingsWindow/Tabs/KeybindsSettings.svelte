@@ -1,7 +1,6 @@
 <script lang="ts">
   import * as Card from "$lib/components/ui/card";
   import * as Table from "$lib/components/ui/table";
-  import * as Select from "$lib/components/ui/select";
   import * as Popover from "$lib/components/ui/popover";
   import * as Command from "$lib/components/ui/command";
 
@@ -88,10 +87,20 @@
     allowedEventKeybinds = await electronApi.invoke("config.get_available_event_keybinds");
   });
 
-  let dummy: any = $state(null);
-
   // State for combobox - store open state per keybind
   let comboboxStates: Array<{ open: boolean; modifierOpen: boolean }> = $state([]);
+
+  // State for add keybind popover
+  let addKeybindPopoverOpen = $state(false);
+
+  // State for layout selector popovers (keyed by keybind index)
+  let layoutSelectorStates: { [index: number]: boolean } = $state({});
+
+  // State for session selector popovers (keyed by keybind index)
+  let sessionSelectorStates: { [index: number]: boolean } = $state({});
+
+  // State for action selector popovers (keyed by keybind index)
+  let actionSelectorStates: { [index: number]: boolean } = $state({});
 
   // Initialize combobox states when keybinds change
   $effect(() => {
@@ -105,11 +114,6 @@
     }
   });
 
-  $effect(() => {
-    if (dummy !== null) {
-      dummy = null;
-    }
-  });
 
 </script>
 <Card.Root class="h-full  overflow-y-auto">
@@ -124,7 +128,7 @@
           <Table.Head class="font-bold">Modifier</Table.Head>
           <Table.Head class="font-bold">Key</Table.Head>
           <Table.Head class="font-bold">Event</Table.Head>
-          <Table.Head></Table.Head>
+          <Table.Head class="w-full"></Table.Head>
         </Table.Row>
       </Table.Header>
       <Table.Body>
@@ -179,7 +183,7 @@
             </Table.Cell>
             <Table.Cell>
               {@const keyOnly = parsed.key}
-              <Popover.Root bind:open={state.open}>
+              <Popover.Root open={state.open} onOpenChange={(open) => { state.open = open; }}>
                 <Popover.Trigger class="w-40 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-mono font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
                   <span class="truncate {keyOnly ? 'text-foreground uppercase' : 'text-muted-foreground font-sans font-normal lowercase'}">
                     {keyOnly || "select key..."}
@@ -214,33 +218,170 @@
             <Table.Cell class="text-sm text-muted-foreground">{eventInfo?.label}</Table.Cell>
             <Table.Cell>
               {#if eventInfo?.args?.length > 0}
-                {#each eventInfo?.args ?? [] as arg}
-                  {#if arg === 'layout_id'}
-                    <Select.Root type="single" bind:value={ keyBind.args[0]} onValueChange={(value) => {
-                        if(!value) return
-                        keyBind.args[0] = value
-                      }}>
-                      <Select.Trigger size="xs" class="w-64 p-0 m-0 px-2 py-1" onclick={() => {
-                          dummy = null
-                        }}>
-                        {@const selectedLayout = neuzosConfig.layouts.find(layout => layout.id === keyBind.args[0])}
-
-                        {selectedLayout?.label ?? 'Select Layout'}
-                      </Select.Trigger>
-                      <Select.Content class="max-h-64">
-                        {#each neuzosConfig.layouts as layout}
-                          <Select.Item aria-checked={false} value={layout.id}>
-                            <img class="w-5 h-5" src="icons/{layout.icon.slug}.png" alt=""/>
-                            {layout.label}
-                          </Select.Item
-                          >
-                        {/each}
-                      </Select.Content>
-                    </Select.Root>
-                  {:else if arg === 'session_id'}
-                    Session Choser Select
-                  {/if}
-                {/each}
+                <div class="flex flex-wrap items-start gap-2">
+                  {#each eventInfo?.args ?? [] as arg, argIndex}
+                    {#if arg === 'layout_id'}
+                      {@const isLayoutSelectorOpen = layoutSelectorStates[index] ?? false}
+                      {@const selectedLayout = neuzosConfig.layouts.find(layout => layout.id === keyBind.args[argIndex])}
+                      <div class="flex items-center gap-2">
+                        <span class="text-xs text-muted-foreground whitespace-nowrap">Layout:</span>
+                        <Popover.Root open={isLayoutSelectorOpen} onOpenChange={(open) => { layoutSelectorStates[index] = open; }}>
+                          <Popover.Trigger>
+                            <Button variant="outline" size="sm" class="h-9">
+                              {#if selectedLayout}
+                                <img class="w-4 h-4 mr-2" src="icons/{selectedLayout.icon.slug}.png" alt=""/>
+                                {selectedLayout.label}
+                              {:else}
+                                Select Layout
+                              {/if}
+                            </Button>
+                          </Popover.Trigger>
+                          <Popover.Content class="w-[280px] p-0">
+                            <Command.Root shouldFilter={true}>
+                              <Command.Input placeholder="Search layouts..." class="h-10" />
+                              <Command.Empty>No layout found.</Command.Empty>
+                              <Command.List class="max-h-[320px]">
+                                <Command.Group>
+                                  {#each neuzosConfig.layouts as layout}
+                                    <Command.Item
+                                      value={layout.id}
+                                      keywords={[layout.label.toLowerCase()]}
+                                      onSelect={() => {
+                                        keyBind.args[argIndex] = layout.id;
+                                        layoutSelectorStates[index] = false;
+                                      }}
+                                      class="py-2"
+                                    >
+                                      <img class="size-5 mr-2" src="icons/{layout.icon.slug}.png" alt=""/>
+                                      <span>{layout.label}</span>
+                                    </Command.Item>
+                                  {/each}
+                                </Command.Group>
+                              </Command.List>
+                            </Command.Root>
+                          </Popover.Content>
+                        </Popover.Root>
+                      </div>
+                    {:else if arg === 'session_id'}
+                      {@const isSessionSelectorOpen = sessionSelectorStates[index] ?? false}
+                      {@const selectedSession = neuzosConfig.sessions.find(session => session.id === keyBind.args[argIndex])}
+                      <div class="flex items-center gap-2">
+                        <span class="text-xs text-muted-foreground whitespace-nowrap">Session:</span>
+                        <Popover.Root open={isSessionSelectorOpen} onOpenChange={(open) => { sessionSelectorStates[index] = open; }}>
+                          <Popover.Trigger>
+                            <Button variant="outline" size="sm" class="h-9">
+                              {#if selectedSession}
+                                <img class="w-4 h-4 mr-2" src="icons/{selectedSession.icon.slug}.png" alt=""/>
+                                {selectedSession.label}
+                              {:else}
+                                Select Session
+                              {/if}
+                            </Button>
+                          </Popover.Trigger>
+                          <Popover.Content class="w-[280px] p-0">
+                            <Command.Root shouldFilter={true}>
+                              <Command.Input placeholder="Search sessions..." class="h-10" />
+                              <Command.Empty>No session found.</Command.Empty>
+                              <Command.List class="max-h-[320px]">
+                                <Command.Group>
+                                  {#each neuzosConfig.sessions as session}
+                                    <Command.Item
+                                      value={session.id}
+                                      keywords={[session.label.toLowerCase()]}
+                                      onSelect={() => {
+                                        keyBind.args[argIndex] = session.id;
+                                        sessionSelectorStates[index] = false;
+                                      }}
+                                      class="py-2"
+                                    >
+                                      <img class="size-5 mr-2" src="icons/{session.icon.slug}.png" alt=""/>
+                                      <span>{session.label}</span>
+                                    </Command.Item>
+                                  {/each}
+                                </Command.Group>
+                              </Command.List>
+                            </Command.Root>
+                          </Popover.Content>
+                        </Popover.Root>
+                      </div>
+                    {:else if arg === 'action_id'}
+                      {@const isActionSelectorOpen = actionSelectorStates[index] ?? false}
+                      {@const sessionId = keyBind.args[argIndex - 1]}
+                      {@const sessionActionsData = neuzosConfig.sessionActions?.find(sa => sa.sessionId === sessionId)}
+                      {@const selectedAction = sessionActionsData?.actions.find(action => action.id === keyBind.args[argIndex])}
+                      <div class="flex items-center gap-2">
+                        <span class="text-xs text-muted-foreground whitespace-nowrap">Action:</span>
+                        <Popover.Root open={isActionSelectorOpen} onOpenChange={(open) => { actionSelectorStates[index] = open; }}>
+                          <Popover.Trigger>
+                            <Button variant="outline" size="sm" class="h-9" disabled={!sessionId || !sessionActionsData}>
+                              {#if selectedAction}
+                                <img class="w-4 h-4 mr-2" src="icons/{selectedAction.icon.slug}.png" alt=""/>
+                                {selectedAction.label}
+                              {:else}
+                                Select Action
+                              {/if}
+                            </Button>
+                          </Popover.Trigger>
+                          <Popover.Content class="w-[280px] p-0">
+                            <Command.Root shouldFilter={true}>
+                              <Command.Input placeholder="Search actions..." class="h-10" />
+                              <Command.Empty>No action found.</Command.Empty>
+                              <Command.List class="max-h-[320px]">
+                                <Command.Group>
+                                  {#if sessionActionsData}
+                                    {#each sessionActionsData.actions as action}
+                                      <Command.Item
+                                        value={action.id}
+                                        keywords={[action.label.toLowerCase()]}
+                                        onSelect={() => {
+                                          keyBind.args[argIndex] = action.id;
+                                          actionSelectorStates[index] = false;
+                                        }}
+                                        class="py-2"
+                                      >
+                                        <img class="size-5 mr-2" src="icons/{action.icon.slug}.png" alt=""/>
+                                        <span>{action.label}</span>
+                                      </Command.Item>
+                                    {/each}
+                                  {/if}
+                                </Command.Group>
+                              </Command.List>
+                            </Command.Root>
+                          </Popover.Content>
+                        </Popover.Root>
+                      </div>
+                    {:else if arg === 'event_name'}
+                      <div class="flex items-center gap-2">
+                        <span class="text-xs text-muted-foreground whitespace-nowrap">Event Name:</span>
+                        <input
+                          type="text"
+                          class="w-48 h-9 px-3 py-2 rounded-md text-sm border-2 border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                          placeholder="Enter event name..."
+                          bind:value={keyBind.args[argIndex]}
+                        />
+                      </div>
+                    {:else if arg === 'event_data'}
+                      <div class="flex flex-col gap-1 w-full">
+                        <span class="text-xs text-muted-foreground">Event Data:</span>
+                        <textarea
+                          class="w-full min-h-[80px] px-3 py-2 rounded-md text-sm border-2 border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 resize-y"
+                          placeholder="Enter event data..."
+                          bind:value={keyBind.args[argIndex]}
+                        ></textarea>
+                      </div>
+                    {:else}
+                      <div class="flex items-center gap-2">
+                        <span class="text-xs text-muted-foreground whitespace-nowrap">{arg}:</span>
+                        <input
+                          type="text"
+                          class="w-48 h-9 px-3 py-2 rounded-md text-sm border-2 border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                          placeholder="Enter {arg}..."
+                          bind:value={keyBind.args[argIndex]}
+                        />
+                      </div>
+                    {/if}
+                  {/each}
+                </div>
               {:else}
                 <i class="text-accent-foreground opacity-50"> No extra data is needed for this event.</i>
               {/if}
@@ -250,31 +391,44 @@
         {/each}
       </Table.Body>
     </Table.Root>
-    <Select.Root type="single" bind:value={dummy} onValueChange={(value) => {
-                        if(!value) return
-                        neuzosConfig.keyBinds.push({
+    <Popover.Root open={addKeybindPopoverOpen} onOpenChange={(open) => { addKeybindPopoverOpen = open; }}>
+      <Popover.Trigger>
+        <Button variant="outline" size="sm">
+          <Plus class="size-4 mr-2"/>
+          Add Keybind
+        </Button>
+      </Popover.Trigger>
+      <Popover.Content class="w-[320px] p-0">
+        <Command.Root shouldFilter={true}>
+          <Command.Input placeholder="Search events..." class="h-10" />
+          <Command.Empty>No event found.</Command.Empty>
+          <Command.List class="max-h-[320px]">
+            <Command.Group>
+              {#each Object.keys(allowedEventKeybinds) as event (event)}
+                {#if !(allowedEventKeybinds[event]?.unique && neuzosConfig.keyBinds.find(keyBind => keyBind.event === event))}
+                  {@const eventInfo = allowedEventKeybinds[event]}
+                  <Command.Item
+                    value={event}
+                    keywords={[eventInfo?.label.toLowerCase()]}
+                    onSelect={() => {
+                      const argCount = eventInfo?.args?.length || 0;
+                      neuzosConfig.keyBinds.push({
                         key: '',
-                        event: value,
-                        args: []
-                        })
-                      }}>
-      <Select.Trigger size="xs" class="p-0 m-0 px-2 py-1" onclick={() => {
-                          dummy = null
-                        }}>
-        <Plus class="size-3"/>
-        Add Keybind
-      </Select.Trigger>
-      <Select.Content class="">
-        {#each Object.keys(allowedEventKeybinds) as event (event)}
-          {#if !(allowedEventKeybinds[event]?.unique && neuzosConfig.keyBinds.find(keyBind => keyBind.event === event))}
-            {@const eventInfo = allowedEventKeybinds[event]}
-            <Select.Item aria-checked={false} value={event}>
-              {eventInfo?.label}
-            </Select.Item
-            >
-          {/if}
-        {/each}
-      </Select.Content>
-    </Select.Root>
+                        event: event,
+                        args: new Array(argCount).fill('')
+                      });
+                      addKeybindPopoverOpen = false;
+                    }}
+                    class="py-2"
+                  >
+                    <span>{eventInfo?.label}</span>
+                  </Command.Item>
+                {/if}
+              {/each}
+            </Command.Group>
+          </Command.List>
+        </Command.Root>
+      </Popover.Content>
+    </Popover.Root>
   </Card.Content>
 </Card.Root>

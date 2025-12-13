@@ -30,12 +30,54 @@
 
   const layoutIcons: string[] = [
     "neuzos_pang",
-    "misc/neuz_hat",
+    "misc/bag",
     "misc/browser",
+    "misc/card1",
+    "misc/card2",
+    "misc/card3",
+    "misc/card4",
+    "misc/card5",
+    "misc/card6",
+    "misc/card7",
+    "misc/card8",
+    "misc/card9",
+    "misc/card10",
+    "misc/diamond_black",
+    "misc/diamond",
+    "misc/egg",
+    "misc/element_blue",
+    "misc/element_green",
+    "misc/element_purple",
+    "misc/element_red",
+    "misc/element_white",
+    "misc/element_yellow",
+    "misc/heart_blue",
+    "misc/heart_cyan",
+    "misc/heart_green",
+    "misc/heart_red",
+    "misc/heart_yellow",
+    "misc/item",
+    "misc/jewel_black",
+    "misc/jewel_green",
+    "misc/jewel_purple",
+    "misc/jewel_red",
+    "misc/jewel_yellow",
+    "misc/neuz_hat",
+    "misc/perin",
+    "misc/pet_food",
     "misc/pickup_pet_buff_1",
     "misc/pickup_pet_buff_2",
     "misc/pickup_pet_buff_3",
-    "misc/perin",
+    "levels/master_1",
+    "levels/master_2",
+    "levels/master_3",
+    "levels/master_4",
+    "levels/master_5",
+    "levels/master_6",
+    "levels/hero_1",
+    "levels/hero_2",
+    "levels/hero_3",
+    "levels/hero_4",
   ];
 
   const neuzosConfig = getContext<NeuzConfig>("neuzosConfig");
@@ -51,13 +93,12 @@
     });
   };
 
-  let dummy: any = $state(null);
+  // Track icon popover state for each layout
+  let iconPopoverStates: { [layoutId: string]: boolean } = $state({});
 
-  $effect(() => {
-    if (dummy !== null) {
-      dummy = null;
-    }
-  });
+  // Track popover states for adding default layouts and columns
+  let addDefaultLayoutPopoverOpen = $state(false);
+  let addColumnPopoverStates: { [key: string]: boolean } = $state({});
 
 </script>
 <Card.Root class="w-full">
@@ -65,28 +106,40 @@
     <div class="flex items-center gap-2">
       <strong>Default Layouts on Launch</strong>
 
-      <Select.Root type="single" bind:value={dummy} onValueChange={(value) => {
-                        if(!value) return
-                        neuzosConfig.defaultLayouts.push(value)
-                      }}>
-        <Select.Trigger size="xs" class="w-14 p-0 m-0 px-2 py-1" onclick={() => {
-                          dummy = null
-                        }}>
-          <Plus class="size-3"></Plus>
-        </Select.Trigger>
-        <Select.Content class="w-16 max-h-64">
-          {#each neuzosConfig.layouts as layout}
-            {@const disabled = neuzosConfig.defaultLayouts.includes(layout.id)}
-            {#if !disabled}
-              <Select.Item aria-checked={false} disabled={disabled} value={layout.id}>
-                <img class="w-5 h-5" src="icons/{layout.icon.slug}.png" alt=""/>
-                {layout.label}
-              </Select.Item
-              >
-            {/if}
-          {/each}
-        </Select.Content>
-      </Select.Root>
+      <Popover.Root open={addDefaultLayoutPopoverOpen} onOpenChange={(open) => { addDefaultLayoutPopoverOpen = open; }}>
+        <Popover.Trigger>
+          <Button variant="outline" size="xs">
+            <Plus class="size-3"/>
+          </Button>
+        </Popover.Trigger>
+        <Popover.Content class="w-[280px] p-0">
+          <Command.Root shouldFilter={true}>
+            <Command.Input placeholder="Search layouts..." class="h-10" />
+            <Command.Empty>No layout found.</Command.Empty>
+            <Command.List class="max-h-[320px]">
+              <Command.Group>
+                {#each neuzosConfig.layouts as layout}
+                  {@const disabled = neuzosConfig.defaultLayouts.includes(layout.id)}
+                  {#if !disabled}
+                    <Command.Item
+                      value={layout.id}
+                      keywords={[layout.label.toLowerCase()]}
+                      onSelect={() => {
+                        neuzosConfig.defaultLayouts.push(layout.id);
+                        addDefaultLayoutPopoverOpen = false;
+                      }}
+                      class="py-2"
+                    >
+                      <img class="size-5 mr-2" src="icons/{layout.icon.slug}.png" alt=""/>
+                      <span>{layout.label}</span>
+                    </Command.Item>
+                  {/if}
+                {/each}
+              </Command.Group>
+            </Command.List>
+          </Command.Root>
+        </Popover.Content>
+      </Popover.Root>
     </div>
     <div class="flex gap-2">
       {#if neuzosConfig.defaultLayouts.length === 0}
@@ -155,23 +208,41 @@
               </div>
             </Table.Cell>
             <Table.Cell>
+              {@const isOpen = iconPopoverStates[layout.id] ?? false}
               <div class="flex items-center">
-                <Select.Root type="single" bind:value={layout.icon.slug}>
-                  <Select.Trigger size="sm" class="w-14 p-0 m-0 px-2 py-2 h-6">
+                <Popover.Root open={isOpen} onOpenChange={(open) => { iconPopoverStates[layout.id] = open; }}>
+                  <Popover.Trigger class="w-14 h-6 p-0 px-2 py-2 inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
                     {#if layout.icon.slug}
                       <img class="w-5 h-5" src="icons/{layout.icon.slug}.png" alt=""/>
                     {:else}
                       <img class="w-5 h-5" src="icons/neuzos_pang.png" alt=""/>
                     {/if}
-                  </Select.Trigger>
-                  <Select.Content class="w-16 max-h-64">
-                    {#each layoutIcons as icon}
-                      <Select.Item value={icon}>
-                        <img class="w-5 h-5" src="icons/{icon}.png" alt=""/></Select.Item
-                      >
-                    {/each}
-                  </Select.Content>
-                </Select.Root>
+                  </Popover.Trigger>
+                  <Popover.Content class="w-[280px] p-0">
+                    <Command.Root shouldFilter={true}>
+                      <Command.Input placeholder="Search icons..." class="h-10" />
+                      <Command.Empty>No icon found.</Command.Empty>
+                      <Command.List class="max-h-[320px]">
+                        <Command.Group>
+                          {#each layoutIcons as icon}
+                            <Command.Item
+                              value={icon}
+                              keywords={[icon.replace('misc/', '').replace('levels/', '').replace(/_/g, ' ').toLowerCase()]}
+                              onSelect={() => {
+                                layout.icon.slug = icon;
+                                iconPopoverStates[layout.id] = false;
+                              }}
+                              class="py-2"
+                            >
+                              <img class="size-5 mr-2" src="icons/{icon}.png" alt=""/>
+                              <span class="text-xs truncate">{icon.replace('misc/', '').replace('levels/', '')}</span>
+                            </Command.Item>
+                          {/each}
+                        </Command.Group>
+                      </Command.List>
+                    </Command.Root>
+                  </Popover.Content>
+                </Popover.Root>
               </div>
             </Table.Cell>
             <Table.Cell class="w-1/2">
@@ -197,6 +268,8 @@
             <Table.Cell class="w-1/2">
               <div class="flex flex-col gap-2">
                 {#each layout.rows ?? [] as row, ridx (ridx)}
+                  {@const popoverKey = `${layout.id}-${ridx}`}
+                  {@const isPopoverOpen = addColumnPopoverStates[popoverKey] ?? false}
                   <div class="flex items-center gap-2">
                     {#each row.sessionIds ?? [] as sessionId,sidx (sidx)}
                       {@const session = neuzosConfig.sessions.find(s => s.id === sessionId)}
@@ -214,30 +287,41 @@
                     {/each}
                     <div class="flex-1"></div>
                     <div class="flex items-center gap-1">
-                      <Select.Root type="single" bind:value={dummy} onValueChange={(value) => {
-                        if(!value) return
-                        row.sessionIds.push(value)
-                      }}>
-                        <Select.Trigger size="xs" class="text-xs p-0 m-0 px-2 py-1" onclick={() => {
-                          dummy = null
-                        }}>
-                          <Plus class="size-3"/>
-                          Add Column
-                        </Select.Trigger>
-                        <Select.Content class="w-16 max-h-64">
-                          {#each neuzosConfig.sessions as session}
-                            {@const
-                              selectedInLayout = neuzosConfig.layouts.find(l => l.id === layout.id)?.rows.find(r => r.sessionIds.includes(session.id)) !== undefined }
-                            {#if !selectedInLayout}
-                              <Select.Item aria-checked={false} disabled={selectedInLayout} value={session.id}>
-                                <img class="w-5 h-5" src="icons/{session.icon.slug}.png" alt=""/>
-                                {session.label}
-                              </Select.Item
-                              >
-                            {/if}
-                          {/each}
-                        </Select.Content>
-                      </Select.Root>
+                      <Popover.Root open={isPopoverOpen} onOpenChange={(open) => { addColumnPopoverStates[popoverKey] = open; }}>
+                        <Popover.Trigger>
+                          <Button variant="outline" size="xs" class="text-xs">
+                            <Plus class="size-3 mr-1"/>
+                            Add Column
+                          </Button>
+                        </Popover.Trigger>
+                        <Popover.Content class="w-[280px] p-0">
+                          <Command.Root shouldFilter={true}>
+                            <Command.Input placeholder="Search sessions..." class="h-10" />
+                            <Command.Empty>No session found.</Command.Empty>
+                            <Command.List class="max-h-[320px]">
+                              <Command.Group>
+                                {#each neuzosConfig.sessions as session}
+                                  {@const selectedInLayout = neuzosConfig.layouts.find(l => l.id === layout.id)?.rows.find(r => r.sessionIds.includes(session.id)) !== undefined}
+                                  {#if !selectedInLayout}
+                                    <Command.Item
+                                      value={session.id}
+                                      keywords={[session.label.toLowerCase()]}
+                                      onSelect={() => {
+                                        row.sessionIds.push(session.id);
+                                        addColumnPopoverStates[popoverKey] = false;
+                                      }}
+                                      class="py-2"
+                                    >
+                                      <img class="size-5 mr-2" src="icons/{session.icon.slug}.png" alt=""/>
+                                      <span>{session.label}</span>
+                                    </Command.Item>
+                                  {/if}
+                                {/each}
+                              </Command.Group>
+                            </Command.List>
+                          </Command.Root>
+                        </Popover.Content>
+                      </Popover.Root>
                       <Button class="text-xs" variant="outline" size="xs" onclick={() => {
                       layout.rows.splice(ridx, 1)
                     }}>

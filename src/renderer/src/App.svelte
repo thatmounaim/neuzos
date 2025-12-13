@@ -29,6 +29,8 @@
       },
       defaultLayouts: [],
       keyBinds: [],
+      sessionActions: [],
+      defaultLaunchMode: 'normal',
       changed: false,
     },
     sessions: [],
@@ -110,6 +112,38 @@
     }, 100)
   })
 
+  electronApi.on('event.send_session_action', (_, sessionId: string, actionId: string) => {
+    console.log("send_session_action", sessionId, actionId)
+    // Find the session actions for this session
+    const sessionActionsData = mainWindowState.config.sessionActions?.find(sa => sa.sessionId === sessionId)
+    if (!sessionActionsData) {
+      console.warn("No session actions found for session:", sessionId)
+      return
+    }
+
+    // Find the specific action
+    const action = sessionActionsData.actions.find(a => a.id === actionId)
+    if (!action) {
+      console.warn("Action not found:", actionId, "in session:", sessionId)
+      return
+    }
+
+    console.log("Executing action:", action.label, "for session:", sessionId)
+
+    // Send the action key to all neuz clients for this session across all layouts
+    const sessionLayouts = mainWindowState.sessionsLayoutsRef[sessionId]?.layouts
+    if (sessionLayouts) {
+      Object.keys(sessionLayouts).forEach(layoutId => {
+        const neuzClient = sessionLayouts[layoutId] as any
+        if (neuzClient && neuzClient.sendKey && action.ingameKey) {
+          console.log("Sending key", action.ingameKey, "to session", sessionId, "in layout", layoutId)
+          // Send the ingame key to the neuz client
+          neuzClient.sendKey(action.ingameKey)
+        }
+      })
+    }
+  })
+
   electronApi.on('event.config_changed', (_, cfg: string) => {
     mainWindowState.config.changed = true
     const newConfig = JSON.parse(cfg)
@@ -118,6 +152,7 @@
     mainWindowState.config.defaultLayouts = newConfig.defaultLayouts
     mainWindowState.config.chromium.commandLineSwitches = newConfig.chromium.commandLineSwitches
     mainWindowState.config.keyBinds = newConfig.keyBinds
+    mainWindowState.config.sessionActions = newConfig.sessionActions || []
     mainWindowState.config.defaultLaunchMode = newConfig.defaultLaunchMode
   })
 

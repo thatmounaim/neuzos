@@ -26,6 +26,7 @@
   import {neuzosBridge} from "$lib/core";
 
   const sessionIcons: string[] = [
+    "neuzos_pang",
     'misc/browser',
     'jobs/vagrant',
     'jobs/assist',
@@ -48,13 +49,6 @@
     'jobs/templar',
     'jobs/blade',
     'jobs/slayer',
-    'levels/master_1',
-    'levels/master_2',
-    'levels/master_3',
-    'levels/master_4',
-    'levels/master_5',
-    'levels/master_6',
-    'levels/hero_1',
   ]
 
   const neuzosConfig = getContext<NeuzConfig>('neuzosConfig')
@@ -81,8 +75,11 @@
     neuzosConfig.sessions = neuzosConfig.sessions.filter(s => s.id !== sessionId)
   }
 
-  let clearCacheOpenModal : string | null = $state(null)
-  let clearStorageOpenModal : string | null = $state(null)
+  let clearCacheOpenModal: string | null = $state(null)
+  let clearStorageOpenModal: string | null = $state(null)
+
+  // Track icon popover state for each session
+  let iconPopoverStates: { [sessionId: string]: boolean } = $state({});
 </script>
 <Card.Root class="h-full  overflow-y-auto">
   <Card.Content class="flex flex-col gap-4">
@@ -128,23 +125,41 @@
               </div>
             </Table.Cell>
             <Table.Cell>
+              {@const isOpen = iconPopoverStates[session.id] ?? false}
               <div class="flex items-center">
-                <Select.Root type="single" bind:value={session.icon.slug}>
-                  <Select.Trigger size="xs" class="w-14 p-0 m-0 px-2 py-1">
+                <Popover.Root open={isOpen} onOpenChange={(open) => { iconPopoverStates[session.id] = open; }}>
+                  <Popover.Trigger class="w-14 h-8 p-0 px-2 py-1 inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
                     {#if session.icon.slug}
                       <img class="w-5 h-5" src="icons/{session.icon.slug}.png" alt=""/>
                     {:else}
                       <img class="w-5 h-5" src="icons/neuzos_pang.png" alt=""/>
                     {/if}
-                  </Select.Trigger>
-                  <Select.Content class="w-16 max-h-64">
-                    {#each sessionIcons as icon}
-                      <Select.Item value={icon}>
-                        <img class="w-5 h-5" src="icons/{icon}.png" alt=""/></Select.Item
-                      >
-                    {/each}
-                  </Select.Content>
-                </Select.Root>
+                  </Popover.Trigger>
+                  <Popover.Content class="w-[280px] p-0">
+                    <Command.Root shouldFilter={true}>
+                      <Command.Input placeholder="Search icons..." class="h-10" />
+                      <Command.Empty>No icon found.</Command.Empty>
+                      <Command.List class="max-h-[320px]">
+                        <Command.Group>
+                          {#each sessionIcons as icon}
+                            <Command.Item
+                              value={icon}
+                              keywords={[icon.replace('jobs/', '').replace('misc/', '').replace(/_/g, ' ').toLowerCase()]}
+                              onSelect={() => {
+                                session.icon.slug = icon;
+                                iconPopoverStates[session.id] = false;
+                              }}
+                              class="py-2"
+                            >
+                              <img class="size-5 mr-2" src="icons/{icon}.png" alt=""/>
+                              <span class="text-xs truncate">{icon.replace('jobs/', '').replace('misc/', '')}</span>
+                            </Command.Item>
+                          {/each}
+                        </Command.Group>
+                      </Command.List>
+                    </Command.Root>
+                  </Popover.Content>
+                </Popover.Root>
               </div>
             </Table.Cell>
             <Table.Cell class="w-1/2">

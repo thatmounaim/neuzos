@@ -54,6 +54,20 @@ export type MainWindowState = {
   }
 }
 
+export type SessionAction = {
+  id: string;
+  icon: NeuzIcon;
+  label: string;
+  ingameKey: string;
+  castTime: number;
+  cooldown: number;
+}
+
+export type SessionActions = {
+  sessionId: string;
+  actions: SessionAction[];
+}
+
 export type NeuzConfig = {
   defaultLaunchMode: 'normal' | 'session_launcher'
   chromium: {
@@ -67,4 +81,5 @@ export type NeuzConfig = {
     event: string,
     args?: string[]
   }[]
+  sessionActions: SessionActions[];
 }

@@ -117,6 +117,7 @@ const defaultNeuzosConfig = {
       "event": "fullscreen_toggle"
     }
   ],
+  sessionActions: []
 };
 
 const allowedEventKeybinds = {
@@ -132,6 +133,20 @@ const allowedEventKeybinds = {
     label: "Switch to Layout",
     args: [
       "layout_id"
+    ],
+  },
+  "send_session_action": {
+    label: "Send Action to Session",
+    args: [
+      "session_id",
+      "action_id"
+    ],
+  },
+  "custom_event": {
+    label: "Custom Event",
+    args: [
+      "event_name",
+      "event_data"
     ],
   }
 }
@@ -532,6 +547,15 @@ function registerKeybinds() {
           case "layout_switch":
             if (bind.args.length > 0)
               mainWindow?.webContents.send("event.layout_switch", ...(bind.args ?? []));
+            break
+          case "send_session_action":
+            if (bind.args.length > 1)
+              mainWindow?.webContents.send("event.send_session_action", ...(bind.args ?? []));
+            break
+          case "custom_event":
+            if (bind.args.length > 1)
+              mainWindow?.webContents.send(bind.args[0], bind.args[1]);
+            break
         }
       })
     } catch (e) {

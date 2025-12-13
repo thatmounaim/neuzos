@@ -123,7 +123,7 @@
     defaultX={200}
     defaultY={150}
     defaultWidth={320}
-    defaultHeight={320}
+    defaultHeight={300}
     onClose={onClose}
     onHide={onHide}
     resizable={false}
@@ -139,7 +139,7 @@
       <!-- Rate Input -->
       <div class="space-y-1">
         <Label for="rate" class="text-xs font-medium">
-          Rate (1 KFC ↔ Penya)
+          Rate (Penya per 1 000 FCoin)
         </Label>
         <Input
           id="rate"
@@ -183,8 +183,7 @@
 
       <!-- Quick Info -->
       <div class="p-2 bg-muted rounded text-[10px] text-muted-foreground space-y-0.5">
-        <div><strong>1 KFC</strong> = <strong>{formatPenya(rate)}</strong> Penya</div>
-        <div><strong>1 FCoin</strong> = <strong>{formatPenya(rate / 1000)}</strong> Penya</div>
+        <div><strong>1 FCoin</strong> {'<->'} <strong>{formatPenya(rate / 1000)}</strong> Penya</div>
       </div>
     </div>
   </FloatingWindow>

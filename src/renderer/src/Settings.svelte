@@ -11,6 +11,7 @@
   import LaunchSettings from "./components/SettingsWindow/Tabs/LaunchSettings.svelte";
   import SessionSettings from "./components/SettingsWindow/Tabs/SessionSettings.svelte";
   import LayoutSettings from "./components/SettingsWindow/Tabs/LayoutSettings.svelte";
+  import SessionActionsSettings from "./components/SettingsWindow/Tabs/SessionActionsSettings.svelte";
   import {Button} from "$lib/components/ui/button";
 
 
@@ -27,7 +28,8 @@
       commandLineSwitches: []
     },
     defaultLayouts: [],
-    keyBinds: []
+    keyBinds: [],
+    sessionActions: []
   });
 
   const electronApi = window.electron.ipcRenderer;
@@ -43,6 +45,7 @@
     neuzosConfig.chromium = conf.chromium;
     neuzosConfig.defaultLayouts = conf.defaultLayouts;
     neuzosConfig.keyBinds = conf.keyBinds;
+    neuzosConfig.sessionActions = conf.sessionActions || [];
   });
 
   const allowedKeybindModifiers = [
@@ -124,6 +127,7 @@
           <Tabs.Trigger value="sessions">Sessions</Tabs.Trigger>
           <Tabs.Trigger value="layouts">Layouts</Tabs.Trigger>
           <Tabs.Trigger value="keybinds">Keybinds</Tabs.Trigger>
+          <Tabs.Trigger value="session-actions">Session Actions</Tabs.Trigger>
           <Tabs.Trigger value="launch">Launch Settings</Tabs.Trigger>
 
         </div>
@@ -143,6 +147,9 @@
       </Tabs.Content>
       <Tabs.Content value="keybinds" class="h-full overflow-y-auto">
         <KeybindsSettings/>
+      </Tabs.Content>
+      <Tabs.Content value="session-actions" class="h-full overflow-y-auto">
+        <SessionActionsSettings/>
       </Tabs.Content>
       <Tabs.Content value="launch" class="h-full overflow-y-auto">
         <LaunchSettings/>
