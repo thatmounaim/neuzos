@@ -9,7 +9,8 @@ export type WidgetType =
   | 'widget.builtin.mini_browser'
   | 'widget.builtin.action_pad'
   | 'widget.custom.example'
-  // Add more widget types here following the pattern: widget.namespace.name
+  | string
+// Add more widget types here following the pattern: widget.namespace.name
 
 export interface WidgetInstance {
   id: string;
