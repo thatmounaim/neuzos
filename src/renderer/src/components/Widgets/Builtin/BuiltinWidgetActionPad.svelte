@@ -176,6 +176,11 @@
         sendActionKey(action);
         if (action.cooldown > 0) {
           cooldownsContext.startCooldown(sessionId, action.id, action.cooldown);
+
+          // Trigger cooldowns for all actions in the same category
+          if (action.cooldownCategory && action.cooldownCategory.trim() !== '') {
+            triggerCategoryCooldowns(sessionId, action.cooldownCategory, action.cooldown, action.id);
+          }
         }
       }, action.castTime * 1000);
     } else {
@@ -183,8 +188,31 @@
       sendActionKey(action);
       if (action.cooldown > 0) {
         cooldownsContext.startCooldown(sessionId, action.id, action.cooldown);
+
+        // Trigger cooldowns for all actions in the same category
+        if (action.cooldownCategory && action.cooldownCategory.trim() !== '') {
+          triggerCategoryCooldowns(sessionId, action.cooldownCategory, action.cooldown, action.id);
+        }
       }
     }
+  }
+
+  function triggerCategoryCooldowns(sessionId: string, category: string, cooldown: number, excludeActionId: string) {
+    // Find the session actions for this session
+    const sessionActionsData = mainWindowState.config.sessionActions?.find(sa => sa.sessionId === sessionId);
+    if (!sessionActionsData) return;
+
+    // Find all actions with the same category (excluding the one that was just triggered)
+    const categoryActions = sessionActionsData.actions.filter(
+      a => a.id !== excludeActionId &&
+           a.cooldownCategory &&
+           a.cooldownCategory.trim() === category.trim()
+    );
+
+    // Start cooldown for each action in the category
+    categoryActions.forEach(categoryAction => {
+      cooldownsContext.startCooldown(sessionId, categoryAction.id, cooldown);
+    });
   }
 
   function sendActionKey(action: SessionAction) {

@@ -62,6 +62,7 @@ export type SessionAction = {
   castTime: number;
   cooldown: number;
   pinned?: boolean;
+  cooldownCategory?: string;
 }
 
 export type SessionActions = {

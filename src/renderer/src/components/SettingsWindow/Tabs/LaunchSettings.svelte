@@ -45,7 +45,7 @@
     </Table.Root>
   </Card.Content>
   <Card.Header>
-    <Card.Title class="text-lg font-semibold">Launch Settings</Card.Title>
+    <Card.Title class="text-lg font-semibold">Command Line Switches</Card.Title>
     <Card.Description class="flex flex-col">
       <p>Manage Chromium command line arguments to modify browser behavior.</p>
       <b class="text-sm mt-4">

@@ -107,8 +107,9 @@
                 neuzosConfig.sessions[sidx-1] = curSess
 
               }} disabled={sidx <= 0} variant="outline" size="icon-xs"
+
                 >
-                  <ChevronUp class="size-3"></ChevronUp>
+                  <ChevronUp class="h-4 w-4"></ChevronUp>
                 </Button
                 >
                 <Button onclick={() => {
@@ -118,8 +119,9 @@
                 neuzosConfig.sessions[sidx+1] = curSess
               }}
                         disabled={sidx > neuzosConfig.sessions.length - 2} variant="outline" size="icon-xs"
+
                 >
-                  <ChevronDown class="size-3"></ChevronDown>
+                  <ChevronDown class="h-4 w-4"></ChevronDown>
                 </Button
                 >
               </div>
@@ -128,11 +130,11 @@
               {@const isOpen = iconPopoverStates[session.id] ?? false}
               <div class="flex items-center">
                 <Popover.Root open={isOpen} onOpenChange={(open) => { iconPopoverStates[session.id] = open; }}>
-                  <Popover.Trigger class="w-14 h-8 p-0 px-2 py-1 inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
+                  <Popover.Trigger class="w-10 h-10 p-0 inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
                     {#if session.icon.slug}
-                      <img class="w-5 h-5" src="icons/{session.icon.slug}.png" alt=""/>
+                      <img class="w-6 h-6" src="icons/{session.icon.slug}.png" alt=""/>
                     {:else}
-                      <img class="w-5 h-5" src="icons/neuzos_pang.png" alt=""/>
+                      <img class="w-6 h-6" src="icons/neuzos_pang.png" alt=""/>
                     {/if}
                   </Popover.Trigger>
                   <Popover.Content class="w-[280px] p-0">
@@ -151,7 +153,7 @@
                               }}
                               class="py-2"
                             >
-                              <img class="size-5 mr-2" src="icons/{icon}.png" alt=""/>
+                              <img class="size-6 mr-2" src="icons/{icon}.png" alt=""/>
                               <span class="text-xs truncate">{icon.replace('jobs/', '').replace('misc/', '')}</span>
                             </Command.Item>
                           {/each}
@@ -164,7 +166,7 @@
             </Table.Cell>
             <Table.Cell class="w-1/2">
               <Input
-                class="px-3 py-1 h-auto"
+                class="h-9 text-sm"
                 bind:value={session.label}
                 onchange={(e) => {
                 {/*@ts-ignore*/}
@@ -186,7 +188,7 @@
                       <Globe/>
                     </Button>
                   {/if}
-                  <Input class="px-3 py-1 h-auto w-full" bind:value={session.srcOverwrite} oninput={(e) => {
+                  <Input class="h-9 text-sm w-full" bind:value={session.srcOverwrite} oninput={(e) => {
                   if (e.target.value.length == 0 || e.target.value === ' ') {
                     delete(session.srcOverwrite)
                     delete(session.partitionOverwrite)
@@ -208,8 +210,8 @@
                   clearCacheOpenModal = open ? session.id : null;
                 }}>
                   <AlertDialog.Trigger>
-                    <Button variant="outline" size="xs">
-                      <FileX class="h-4"/>
+                    <Button variant="outline" size="icon" class="h-8 w-8">
+                      <FileX class="h-4 w-4"/>
                     </Button>
                   </AlertDialog.Trigger>
                   <AlertDialog.Content>
@@ -238,8 +240,8 @@
                   clearStorageOpenModal = open ? session.id : null;
                 }}>
                   <AlertDialog.Trigger>
-                    <Button variant="outline" size="xs">
-                      <HardDrive class="h-4"/>
+                    <Button variant="outline" size="icon" class="h-8 w-8">
+                      <HardDrive class="h-4 w-4"/>
                     </Button>
                   </AlertDialog.Trigger>
                   <AlertDialog.Content>
@@ -264,8 +266,8 @@
                 </AlertDialog.Root>
                 <AlertDialog.Root>
                   <AlertDialog.Trigger>
-                    <Button variant="outline" size="xs">
-                      <Trash class="h-4"/>
+                    <Button variant="outline" size="icon" class="h-8 w-8 hover:bg-destructive hover:text-destructive-foreground">
+                      <Trash class="h-4 w-4"/>
                     </Button>
                   </AlertDialog.Trigger>
                   <AlertDialog.Content>
