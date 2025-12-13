@@ -1,9 +1,9 @@
 <script lang="ts">
   import { getWidgetsContext } from '$lib/contexts/widgetsContext.svelte';
-  import BuiltinWidgetFCoinCalculator from "../Widgets/Builtin/BuiltinWidgetFCoinCalculator.svelte";
-  import BuiltinWidgetNotepad from "../Widgets/Builtin/BuiltinWidgetNotepad.svelte";
-  import BuiltinWidgetMiniBrowser from "../Widgets/Builtin/BuiltinWidgetMiniBrowser.svelte";
-  import BuiltinWidgetActionPad from "../Widgets/Builtin/BuiltinWidgetActionPad.svelte";
+  import FCoinCalculatorWidget from "../Widgets/Builtin/FCoinCalculator/Widget.svelte";
+  import NotepadWidget from "../Widgets/Builtin/Notepad/Widget.svelte";
+  import MiniBrowserWidget from "../Widgets/Builtin/MiniBrowser/Widget.svelte";
+  import ActionPadWidget from "../Widgets/Builtin/ActionPad/Widget.svelte";
 
   // Get the widgets context from App
   const widgetsContext = getWidgetsContext();
@@ -11,28 +11,28 @@
 
 {#each widgetsContext.widgets as widget (widget.id)}
   {#if widget.type === 'widget.builtin.fcoin_calculator'}
-    <BuiltinWidgetFCoinCalculator
+    <FCoinCalculatorWidget
       visible={widget.visible}
       data={widget.data}
       onClose={() => widgetsContext.destroyWidget(widget.id)}
       onHide={() => widgetsContext.hideWidget(widget.id)}
     />
   {:else if widget.type === 'widget.builtin.notepad'}
-    <BuiltinWidgetNotepad
+    <NotepadWidget
       visible={widget.visible}
       data={widget.data}
       onClose={() => widgetsContext.destroyWidget(widget.id)}
       onHide={() => widgetsContext.hideWidget(widget.id)}
     />
   {:else if widget.type === 'widget.builtin.mini_browser'}
-    <BuiltinWidgetMiniBrowser
+    <MiniBrowserWidget
       visible={widget.visible}
       data={widget.data}
       onClose={() => widgetsContext.destroyWidget(widget.id)}
       onHide={() => widgetsContext.hideWidget(widget.id)}
     />
   {:else if widget.type === 'widget.builtin.action_pad'}
-    <BuiltinWidgetActionPad
+    <ActionPadWidget
       visible={widget.visible}
       data={widget.data}
       onClose={() => widgetsContext.destroyWidget(widget.id)}

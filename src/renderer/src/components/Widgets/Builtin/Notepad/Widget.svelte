@@ -1,5 +1,5 @@
 <script lang="ts">
-  import FloatingWindow from '../../Shared/FloatingWindow.svelte';
+  import FloatingWindow from '../../../Shared/FloatingWindow.svelte';
   import { Button } from '$lib/components/ui/button';
   import { Input } from '$lib/components/ui/input';
   import { Textarea } from '$lib/components/ui/textarea';

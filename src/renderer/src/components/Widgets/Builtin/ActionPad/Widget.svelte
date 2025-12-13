@@ -1,5 +1,5 @@
 <script lang="ts">
-  import FloatingWindow from '../../Shared/FloatingWindow.svelte';
+  import FloatingWindow from '../../../Shared/FloatingWindow.svelte';
   import { Swords } from '@lucide/svelte';
   import { getContext } from 'svelte';
   import type { MainWindowState, SessionAction } from '$lib/types';
@@ -422,5 +422,6 @@
     flex-direction: column;
   }
 </style>
+
 
 
