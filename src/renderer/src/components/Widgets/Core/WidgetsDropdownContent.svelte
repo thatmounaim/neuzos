@@ -13,6 +13,7 @@
   <FCoinCalculatorDropdownItem />
   <NotepadDropdownItem />
   <MiniBrowserDropdownItem />
+  <DropdownMenu.Separator />
   <ActionPadDropdownItem />
 </DropdownMenu.Group>
 
