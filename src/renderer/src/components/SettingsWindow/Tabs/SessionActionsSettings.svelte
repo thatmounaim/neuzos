@@ -14,30 +14,32 @@
   import {Plus, Trash2, ChevronsUpDown, Check, ChevronDown, ChevronUp} from "@lucide/svelte";
 
   const modifierOptions = [
-    { value: "", label: "None" },
-    { value: "commandorcontrol", label: "Ctrl/Cmd" },
-    { value: "alt", label: "Alt" },
-    { value: "shift", label: "Shift" },
-    { value: "commandorcontrol+alt", label: "Ctrl/Cmd+Alt" },
-    { value: "commandorcontrol+shift", label: "Ctrl/Cmd+Shift" },
-    { value: "alt+shift", label: "Alt+Shift" },
-    { value: "commandorcontrol+alt+shift", label: "Ctrl/Cmd+Alt+Shift" },
-    { value: "control", label: "Control" },
-    { value: "command", label: "Command" },
-    { value: "cmdorctrl", label: "CmdOrCtrl" },
-    { value: "cmd", label: "Cmd" },
-    { value: "super", label: "Super" },
-    { value: "meta", label: "Meta" },
-    { value: "option", label: "Option" },
-    { value: "altgr", label: "AltGr" },
+    {value: "", label: "None"},
+    {value: "alt", label: "Alt"},
+    {value: "shift", label: "Shift"},
+    {value: "control", label: "Control"},
+    {value: "command", label: "Command"},
+    {value: "meta", label: "Meta"},
+    {value: "control+alt", label: "Ctrl+Alt"},
+    {value: "control+shift", label: "Ctrl+Shift"},
+
+    {value: "command+control", label: "Cmd+Ctrl"},
+    {value: "command+alt", label: "Cmd+Alt"},
+    {value: "command+shift", label: "Cmd+Shift"},
+
+    {value: "alt+shift", label: "Alt+Shift"},
+    {value: "control+alt+shift", label: "Ctrl+Alt+Shift"},
+    {value: "command+control+shift", label: "Cmd+Ctrl+Shift"},
+    {value: "command+control+alt", label: "Cmd+Ctrl+Alt"},
+    {value: "command+alt+shift", label: "Cmd+Alt+Shift"},
   ];
 
   const cooldownCategoryOptions = [
-    { value: "", label: "None" },
-    { value: "food", label: "Food" },
-    { value: "pill", label: "Pill" },
-    { value: "refresher", label: "Refresher" },
-    { value: "vital", label: "Vital" },
+    {value: "", label: "None"},
+    {value: "food", label: "Food"},
+    {value: "pill", label: "Pill"},
+    {value: "refresher", label: "Refresher"},
+    {value: "vital", label: "Vital"},
   ];
 
   const allowedKeys = [
@@ -336,20 +338,33 @@
     "skill/vagrant_clean_hit",
     "skill/vagrant_flurry",
     "skill/vagrant_over_cutter",
-    "items/fprefresher",
-    "items/goldpill",
-    "items/mprefresher",
+    "skill/pt_giftbox",
+    "skill/pt_giftbox",
+    "skill/pt_luckydrop",
+    "skill/pt_link",
+    "skill/couple_blessingsky",
+    "skill/couple_fieldouting",
+    "skill/couple_goldenluck",
+    "skill/couple_happyjump",
+    "skill/couple_partytogether",
+    "skill/couple_staminaboost",
+    "skill/couple_stroll",
+    "skill/couple_swiftrecovery",
+    "items/food_sushi",
+    "items/vital_fp",
+    "items/pill_gold",
+    "items/refresher_mp",
     "items/wings",
   ];
 
   function parseKeybind(keybind: string): { modifier: string; key: string } {
     const parts = keybind.split('+');
     if (parts.length === 1) {
-      return { modifier: "", key: keybind };
+      return {modifier: "", key: keybind};
     }
     const key = parts[parts.length - 1];
     const modifier = parts.slice(0, -1).join('+');
-    return { modifier, key };
+    return {modifier, key};
   }
 
   function buildKeybind(modifier: string, key: string): string {
@@ -366,7 +381,9 @@
     neuzosConfig.sessionActions = [];
   }
 
-  let comboboxStates: { [sessionId: string]: Array<{ keyOpen: boolean; modifierOpen: boolean; iconOpen: boolean; categoryOpen: boolean }> } = $state({});
+  let comboboxStates: {
+    [sessionId: string]: Array<{ keyOpen: boolean; modifierOpen: boolean; iconOpen: boolean; categoryOpen: boolean }>
+  } = $state({});
 
   // Track open state for each collapsible
   let openSessions: { [sessionId: string]: boolean } = $state({});
@@ -395,7 +412,7 @@
   function addAction(sessionActions: SessionActions) {
     sessionActions.actions.push({
       id: Date.now().toString() + Math.random(),
-      icon: { slug: 'neuzos_pang' },
+      icon: {slug: 'neuzos_pang'},
       label: 'New Action',
       ingameKey: '',
       castTime: 0,
@@ -457,7 +474,7 @@
       }
       const neededLength = sa.actions.length;
       while (comboboxStates[sa.sessionId].length < neededLength) {
-        comboboxStates[sa.sessionId].push({ keyOpen: false, modifierOpen: false, iconOpen: false, categoryOpen: false });
+        comboboxStates[sa.sessionId].push({keyOpen: false, modifierOpen: false, iconOpen: false, categoryOpen: false});
       }
       if (comboboxStates[sa.sessionId].length > neededLength) {
         comboboxStates[sa.sessionId].length = neededLength;
@@ -477,7 +494,8 @@
 <Card.Root class="h-full overflow-y-auto">
   <Card.Content class="flex flex-col gap-4">
     <p class="text-sm">
-      Manage actions for your sessions. Each session can have multiple actions with customizable icons, labels, ingame keys, cast times, and cooldowns.
+      Manage actions for your sessions. Each session can have multiple actions with customizable icons, labels, ingame
+      keys, cast times, and cooldowns.
     </p>
 
     <!-- Add Session Selector -->
@@ -491,7 +509,7 @@
         </Popover.Trigger>
         <Popover.Content class="w-[280px] p-0">
           <Command.Root shouldFilter={true}>
-            <Command.Input placeholder="Search sessions..." class="h-10" />
+            <Command.Input placeholder="Search sessions..." class="h-10"/>
             <Command.Empty>No session found.</Command.Empty>
             <Command.List class="max-h-[320px]">
               <Command.Group>
@@ -522,16 +540,20 @@
         {@const sessionLabel = getSessionLabel(sessionActions.sessionId)}
         {@const sessionIcon = getSessionIcon(sessionActions.sessionId)}
         {@const isSessionOpen = openSessions[sessionActions.sessionId] ?? false}
-        <Collapsible.Root open={isSessionOpen} onOpenChange={(open) => { openSessions[sessionActions.sessionId] = open; }} class="group border rounded-lg bg-card">
+        <Collapsible.Root open={isSessionOpen}
+                          onOpenChange={(open) => { openSessions[sessionActions.sessionId] = open; }}
+                          class="group border rounded-lg bg-card">
           <div class="p-4">
             <div class="flex items-center justify-between">
               <Collapsible.Trigger class="flex items-center gap-3 hover:opacity-80 transition-opacity flex-1 text-left">
-                <img class="w-6 h-6 rounded" src="icons/{sessionIcon}.png" alt="" />
+                <img class="w-6 h-6 rounded" src="icons/{sessionIcon}.png" alt=""/>
                 <div class="flex flex-col">
                   <span class="font-medium">{sessionLabel}</span>
-                  <span class="text-sm text-muted-foreground">{sessionActions.actions.length} action{sessionActions.actions.length !== 1 ? 's' : ''}</span>
+                  <span class="text-sm text-muted-foreground">{sessionActions.actions.length}
+                    action{sessionActions.actions.length !== 1 ? 's' : ''}</span>
                 </div>
-                <ChevronDown class="h-4 w-4 ml-auto transition-transform {openSessions[sessionActions.sessionId] ? 'rotate-180' : ''}" />
+                <ChevronDown
+                  class="h-4 w-4 ml-auto transition-transform {openSessions[sessionActions.sessionId] ? 'rotate-180' : ''}"/>
               </Collapsible.Trigger>
               <Button
                 variant="ghost"
@@ -539,272 +561,296 @@
                 onclick={() => removeSessionActions(sessionActions.sessionId)}
                 class="ml-2 h-8 w-8 hover:bg-destructive hover:text-destructive-foreground"
               >
-                <Trash2 class="h-4 w-4" />
+                <Trash2 class="h-4 w-4"/>
               </Button>
             </div>
 
             <Collapsible.Content class="pt-4">
               <div class="space-y-4">
-                  <!-- Actions Table -->
-                  {#if sessionActions.actions.length > 0}
-                    <div class="rounded-md border">
-                      <Table.Root>
-                        <Table.Header>
-                          <Table.Row>
-                            <Table.Head class="w-[20px]"></Table.Head>
-                            <Table.Head class="w-[60px]">Icon</Table.Head>
-                            <Table.Head class="w-[200px]">Label</Table.Head>
-                            <Table.Head class="w-[120px]">Modifier</Table.Head>
-                            <Table.Head class="w-[120px]">Key</Table.Head>
-                            <Table.Head class="w-[100px]">Cast Time(s)</Table.Head>
-                            <Table.Head class="w-[100px]">Cooldown(s)</Table.Head>
-                            <Table.Head class="w-[120px]">CD Category</Table.Head>
-                            <Table.Head class="w-[70px] text-center">Pinned</Table.Head>
-                            <Table.Head class="w-[40px]"></Table.Head>
-                          </Table.Row>
-                        </Table.Header>
-                        <Table.Body>
-                          {#each sessionActions.actions as action, index (action.id)}
-                            {@const parsed = parseKeybind(action.ingameKey)}
-                            {@const state = comboboxStates[sessionActions.sessionId]?.[index] || { keyOpen: false, modifierOpen: false, iconOpen: false, categoryOpen: false }}
-                            <Table.Row class="hover:bg-muted/50">
-                               <!-- Order -->
-                              <Table.Cell class="py-3">
-                                <div class="flex flex-col items-center justify-center gap-1">
-                                  <Button
-                                    variant="outline"
-                                    size="icon-xs"
-                                    onclick={() => moveActionUp(sessionActions, index)}
-                                    disabled={index === 0}
-                                  >
-                                    <ChevronUp class="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                   size="icon-xs"
-                                    onclick={() => moveActionDown(sessionActions, index)}
-                                    disabled={index === sessionActions.actions.length - 1}
-                                  >
-                                    <ChevronDown class="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </Table.Cell>
-                              <!-- Icon -->
-                              <Table.Cell class="py-3">
-                                <Popover.Root open={state.iconOpen} onOpenChange={(open) => { if (comboboxStates[sessionActions.sessionId]?.[index]) comboboxStates[sessionActions.sessionId][index].iconOpen = open; }}>
-                                  <Popover.Trigger class="w-10 h-10 p-0 inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
-                                    <img class="size-8" src="icons/{action.icon.slug}.png" alt="" />
-                                  </Popover.Trigger>
-                                  <Popover.Content class="w-[280px] p-0">
-                                    <Command.Root shouldFilter={true}>
-                                      <Command.Input placeholder="Search icons..." class="h-10" />
-                                      <Command.Empty>No icon found.</Command.Empty>
-                                      <Command.List class="max-h-[320px]">
-                                        <Command.Group>
-                                          {#each actionIcons as icon}
-                                            {@const displayName = icon.includes('/') ? icon.split('/')[1] : icon}
-                                            <Command.Item
-                                              value={icon}
-                                              keywords={[icon.replace(/_/g, ' ').replace(/\//g, ' ').toLowerCase()]}
-                                              onSelect={() => {
+                <!-- Actions Table -->
+                {#if sessionActions.actions.length > 0}
+                  <div class="rounded-md border">
+                    <Table.Root>
+                      <Table.Header>
+                        <Table.Row>
+                          <Table.Head class="w-[20px]"></Table.Head>
+                          <Table.Head class="w-[60px]">Icon</Table.Head>
+                          <Table.Head class="w-[200px]">Label</Table.Head>
+                          <Table.Head class="w-[120px]">Modifier</Table.Head>
+                          <Table.Head class="w-[120px]">Key</Table.Head>
+                          <Table.Head class="w-[100px]">Cast Time(s)</Table.Head>
+                          <Table.Head class="w-[100px]">Cooldown(s)</Table.Head>
+                          <Table.Head class="w-[120px]">CD Category</Table.Head>
+                          <Table.Head class="w-[70px] text-center">Pinned</Table.Head>
+                          <Table.Head class="w-[40px]"></Table.Head>
+                        </Table.Row>
+                      </Table.Header>
+                      <Table.Body>
+                        {#each sessionActions.actions as action, index (action.id)}
+                          {@const parsed = parseKeybind(action.ingameKey)}
+                          {@const state = comboboxStates[sessionActions.sessionId]?.[index] || {
+                            keyOpen: false,
+                            modifierOpen: false,
+                            iconOpen: false,
+                            categoryOpen: false
+                          }}
+                          <Table.Row class="hover:bg-muted/50">
+                            <!-- Order -->
+                            <Table.Cell class="py-3">
+                              <div class="flex flex-col items-center justify-center gap-1">
+                                <Button
+                                  variant="outline"
+                                  size="icon-xs"
+                                  onclick={() => moveActionUp(sessionActions, index)}
+                                  disabled={index === 0}
+                                >
+                                  <ChevronUp class="h-4 w-4"/>
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="icon-xs"
+                                  onclick={() => moveActionDown(sessionActions, index)}
+                                  disabled={index === sessionActions.actions.length - 1}
+                                >
+                                  <ChevronDown class="h-4 w-4"/>
+                                </Button>
+                              </div>
+                            </Table.Cell>
+                            <!-- Icon -->
+                            <Table.Cell class="py-3">
+                              <Popover.Root open={state.iconOpen}
+                                            onOpenChange={(open) => { if (comboboxStates[sessionActions.sessionId]?.[index]) comboboxStates[sessionActions.sessionId][index].iconOpen = open; }}>
+                                <Popover.Trigger
+                                  class="w-10 h-10 p-0 inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
+                                  <img class="size-8" src="icons/{action.icon.slug}.png" alt=""/>
+                                </Popover.Trigger>
+                                <Popover.Content class="w-[280px] p-0">
+                                  <Command.Root shouldFilter={true}>
+                                    <Command.Input placeholder="Search icons..." class="h-10"/>
+                                    <Command.Empty>No icon found.</Command.Empty>
+                                    <Command.List class="max-h-[320px]">
+                                      <Command.Group>
+                                        {#each actionIcons as icon}
+                                          {@const displayName = icon.includes('/') ? icon.split('/')[1] : icon}
+                                          <Command.Item
+                                            value={icon}
+                                            keywords={[icon.replace(/_/g, ' ').replace(/\//g, ' ').toLowerCase()]}
+                                            onSelect={() => {
                                                 action.icon.slug = icon;
                                                 state.iconOpen = false;
                                               }}
-                                              class="py-2"
-                                            >
-                                              <img class="size-6 mr-2" src="icons/{icon}.png" alt="" />
-                                              <span class="text-xs truncate">{displayName}</span>
-                                            </Command.Item>
-                                          {/each}
-                                        </Command.Group>
-                                      </Command.List>
-                                    </Command.Root>
-                                  </Popover.Content>
-                                </Popover.Root>
-                              </Table.Cell>
+                                            class="py-2"
+                                          >
+                                            <img class="size-6 mr-2" src="icons/{icon}.png" alt=""/>
+                                            <span class="text-xs truncate">{displayName}</span>
+                                          </Command.Item>
+                                        {/each}
+                                      </Command.Group>
+                                    </Command.List>
+                                  </Command.Root>
+                                </Popover.Content>
+                              </Popover.Root>
+                            </Table.Cell>
 
-                              <!-- Label -->
-                              <Table.Cell class="py-3">
-                                <Input
-                                  class="h-9 text-sm"
-                                  bind:value={action.label}
-                                  placeholder="Action label"
-                                />
-                              </Table.Cell>
+                            <!-- Label -->
+                            <Table.Cell class="py-3">
+                              <Input
+                                class="h-9 text-sm"
+                                bind:value={action.label}
+                                placeholder="Action label"
+                              />
+                            </Table.Cell>
 
-                              <!-- Modifier -->
-                              <Table.Cell class="py-3">
-                                <Popover.Root open={state.modifierOpen} onOpenChange={(open) => { if (comboboxStates[sessionActions.sessionId]?.[index]) comboboxStates[sessionActions.sessionId][index].modifierOpen = open; }}>
-                                  <Popover.Trigger class="w-full h-9 px-3 py-2 inline-flex items-center justify-between rounded-md border border-input bg-background text-sm shadow-sm hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50">
-                                    {@const selectedMod = modifierOptions.find(m => m.value === parsed.modifier)?.label ?? 'None'}
-                                    <span class="truncate {parsed.modifier ? 'text-foreground' : 'text-muted-foreground'}">
+                            <!-- Modifier -->
+                            <Table.Cell class="py-3">
+                              <Popover.Root open={state.modifierOpen}
+                                            onOpenChange={(open) => { if (comboboxStates[sessionActions.sessionId]?.[index]) comboboxStates[sessionActions.sessionId][index].modifierOpen = open; }}>
+                                <Popover.Trigger
+                                  class="w-full h-9 px-3 py-2 inline-flex items-center justify-between rounded-md border border-input bg-background text-sm shadow-sm hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50">
+                                  {@const
+                                    selectedMod = modifierOptions.find(m => m.value === parsed.modifier)?.label ?? 'None'}
+                                  <span
+                                    class="truncate {parsed.modifier ? 'text-foreground' : 'text-muted-foreground'}">
                                       {selectedMod}
                                     </span>
-                                    <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50" />
-                                  </Popover.Trigger>
-                                  <Popover.Content class="w-[220px] p-0">
-                                    <Command.Root shouldFilter={true}>
-                                      <Command.Input placeholder="Search modifier..." class="h-10" />
-                                      <Command.Empty>No modifier found.</Command.Empty>
-                                      <Command.List class="max-h-[320px]">
-                                        <Command.Group>
-                                          {#each modifierOptions as modifier}
-                                            <Command.Item
-                                              value={modifier.value}
-                                              keywords={[modifier.label.toLowerCase()]}
-                                              onSelect={() => {
+                                  <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
+                                </Popover.Trigger>
+                                <Popover.Content class="w-[220px] p-0">
+                                  <Command.Root shouldFilter={true}>
+                                    <Command.Input placeholder="Search modifier..." class="h-10"/>
+                                    <Command.Empty>No modifier found.</Command.Empty>
+                                    <Command.List class="max-h-[320px]">
+                                      <Command.Group>
+                                        {#each modifierOptions as modifier}
+                                          <Command.Item
+                                            value={modifier.value}
+                                            keywords={[modifier.label.toLowerCase()]}
+                                            onSelect={() => {
                                                 action.ingameKey = buildKeybind(modifier.value, parsed.key);
                                                 state.modifierOpen = false;
                                               }}
-                                              class="py-2.5"
-                                            >
-                                              <Check class={parsed.modifier === modifier.value ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"} />
-                                              <span class={parsed.modifier === modifier.value ? "text-primary" : ""}>{modifier.label}</span>
-                                            </Command.Item>
-                                          {/each}
-                                        </Command.Group>
-                                      </Command.List>
-                                    </Command.Root>
-                                  </Popover.Content>
-                                </Popover.Root>
-                              </Table.Cell>
+                                            class="py-2.5"
+                                          >
+                                            <Check
+                                              class={parsed.modifier === modifier.value ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
+                                            <span
+                                              class={parsed.modifier === modifier.value ? "text-primary" : ""}>{modifier.label}</span>
+                                          </Command.Item>
+                                        {/each}
+                                      </Command.Group>
+                                    </Command.List>
+                                  </Command.Root>
+                                </Popover.Content>
+                              </Popover.Root>
+                            </Table.Cell>
 
-                              <!-- Key -->
-                              <Table.Cell class="py-3">
-                                {@const keyOnly = parsed.key}
-                                <Popover.Root open={state.keyOpen} onOpenChange={(open) => { if (comboboxStates[sessionActions.sessionId]?.[index]) comboboxStates[sessionActions.sessionId][index].keyOpen = open; }}>
-                                  <Popover.Trigger class="w-full h-9 px-3 py-2 inline-flex items-center justify-between rounded-md border border-input bg-background text-sm font-mono shadow-sm hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50">
-                                    <span class="truncate {keyOnly ? 'text-foreground uppercase font-semibold' : 'text-muted-foreground font-sans font-normal lowercase'}">
+                            <!-- Key -->
+                            <Table.Cell class="py-3">
+                              {@const keyOnly = parsed.key}
+                              <Popover.Root open={state.keyOpen}
+                                            onOpenChange={(open) => { if (comboboxStates[sessionActions.sessionId]?.[index]) comboboxStates[sessionActions.sessionId][index].keyOpen = open; }}>
+                                <Popover.Trigger
+                                  class="w-full h-9 px-3 py-2 inline-flex items-center justify-between rounded-md border border-input bg-background text-sm font-mono shadow-sm hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50">
+                                    <span
+                                      class="truncate {keyOnly ? 'text-foreground uppercase font-semibold' : 'text-muted-foreground font-sans font-normal lowercase'}">
                                       {keyOnly || "select key..."}
                                     </span>
-                                    <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50" />
-                                  </Popover.Trigger>
-                                  <Popover.Content class="w-[220px] p-0">
-                                    <Command.Root shouldFilter={true}>
-                                      <Command.Input placeholder="Search key..." class="h-10" />
-                                      <Command.Empty>No key found.</Command.Empty>
-                                      <Command.List class="max-h-[320px]">
-                                        <Command.Group>
-                                          {#each allowedKeys as key}
-                                            <Command.Item
-                                              value={key}
-                                              onSelect={() => {
+                                  <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
+                                </Popover.Trigger>
+                                <Popover.Content class="w-[220px] p-0">
+                                  <Command.Root shouldFilter={true}>
+                                    <Command.Input placeholder="Search key..." class="h-10"/>
+                                    <Command.Empty>No key found.</Command.Empty>
+                                    <Command.List class="max-h-[320px]">
+                                      <Command.Group>
+                                        {#each allowedKeys as key}
+                                          <Command.Item
+                                            value={key}
+                                            onSelect={() => {
                                                 action.ingameKey = buildKeybind(parsed.modifier, key);
                                                 state.keyOpen = false;
                                               }}
-                                              class="font-mono font-semibold uppercase py-2.5"
-                                            >
-                                              <Check class={keyOnly === key ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"} />
-                                              <span class={keyOnly === key ? "text-primary" : ""}>{key}</span>
-                                            </Command.Item>
-                                          {/each}
-                                        </Command.Group>
-                                      </Command.List>
-                                    </Command.Root>
-                                  </Popover.Content>
-                                </Popover.Root>
-                              </Table.Cell>
+                                            class="font-mono font-semibold uppercase py-2.5"
+                                          >
+                                            <Check
+                                              class={keyOnly === key ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
+                                            <span class={keyOnly === key ? "text-primary" : ""}>{key}</span>
+                                          </Command.Item>
+                                        {/each}
+                                      </Command.Group>
+                                    </Command.List>
+                                  </Command.Root>
+                                </Popover.Content>
+                              </Popover.Root>
+                            </Table.Cell>
 
-                              <!-- Cast Time -->
-                              <Table.Cell class="py-3">
-                                <Input
-                                  type="number"
-                                  class="h-9 text-sm"
-                                  bind:value={action.castTime}
-                                  min="0"
-                                  step="0.1"
-                                  placeholder="0"
-                                />
-                              </Table.Cell>
+                            <!-- Cast Time -->
+                            <Table.Cell class="py-3">
+                              <Input
+                                type="number"
+                                class="h-9 text-sm"
+                                bind:value={action.castTime}
+                                min="0"
+                                step="0.1"
+                                placeholder="0"
+                              />
+                            </Table.Cell>
 
-                              <!-- Cooldown -->
-                              <Table.Cell class="py-3">
-                                <Input
-                                  type="number"
-                                  class="h-9 text-sm"
-                                  bind:value={action.cooldown}
-                                  min="0"
-                                  step="0.1"
-                                  placeholder="0"
-                                />
-                              </Table.Cell>
+                            <!-- Cooldown -->
+                            <Table.Cell class="py-3">
+                              <Input
+                                type="number"
+                                class="h-9 text-sm"
+                                bind:value={action.cooldown}
+                                min="0"
+                                step="0.1"
+                                placeholder="0"
+                              />
+                            </Table.Cell>
 
-                              <!-- Cooldown Category -->
-                              <Table.Cell class="py-3">
-                                <Popover.Root open={state.categoryOpen} onOpenChange={(open) => { if (comboboxStates[sessionActions.sessionId]?.[index]) comboboxStates[sessionActions.sessionId][index].categoryOpen = open; }}>
-                                  <Popover.Trigger class="w-full h-9 px-3 py-2 inline-flex items-center justify-between rounded-md border border-input bg-background text-sm shadow-sm hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50">
-                                    {@const selectedCategory = cooldownCategoryOptions.find(c => c.value === (action.cooldownCategory || ""))?.label ?? 'None'}
-                                    <span class="truncate {action.cooldownCategory ? 'text-foreground' : 'text-muted-foreground'}">
+                            <!-- Cooldown Category -->
+                            <Table.Cell class="py-3">
+                              <Popover.Root open={state.categoryOpen}
+                                            onOpenChange={(open) => { if (comboboxStates[sessionActions.sessionId]?.[index]) comboboxStates[sessionActions.sessionId][index].categoryOpen = open; }}>
+                                <Popover.Trigger
+                                  class="w-full h-9 px-3 py-2 inline-flex items-center justify-between rounded-md border border-input bg-background text-sm shadow-sm hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50">
+                                  {@const
+                                    selectedCategory = cooldownCategoryOptions.find(c => c.value === (action.cooldownCategory || ""))?.label ?? 'None'}
+                                  <span
+                                    class="truncate {action.cooldownCategory ? 'text-foreground' : 'text-muted-foreground'}">
                                       {selectedCategory}
                                     </span>
-                                    <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50" />
-                                  </Popover.Trigger>
-                                  <Popover.Content class="w-[220px] p-0">
-                                    <Command.Root shouldFilter={true}>
-                                      <Command.Input placeholder="Search category..." class="h-10" />
-                                      <Command.Empty>No category found.</Command.Empty>
-                                      <Command.List class="max-h-[320px]">
-                                        <Command.Group>
-                                          {#each cooldownCategoryOptions as category}
-                                            <Command.Item
-                                              value={category.value}
-                                              keywords={[category.label.toLowerCase()]}
-                                              onSelect={() => {
+                                  <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
+                                </Popover.Trigger>
+                                <Popover.Content class="w-[220px] p-0">
+                                  <Command.Root shouldFilter={true}>
+                                    <Command.Input placeholder="Search category..." class="h-10"/>
+                                    <Command.Empty>No category found.</Command.Empty>
+                                    <Command.List class="max-h-[320px]">
+                                      <Command.Group>
+                                        {#each cooldownCategoryOptions as category}
+                                          <Command.Item
+                                            value={category.value}
+                                            keywords={[category.label.toLowerCase()]}
+                                            onSelect={() => {
                                                 action.cooldownCategory = category.value;
                                                 state.categoryOpen = false;
                                               }}
-                                              class="py-2.5"
-                                            >
-                                              <Check class={(action.cooldownCategory || "") === category.value ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"} />
-                                              <span class={(action.cooldownCategory || "") === category.value ? "text-primary" : ""}>{category.label}</span>
-                                            </Command.Item>
-                                          {/each}
-                                        </Command.Group>
-                                      </Command.List>
-                                    </Command.Root>
-                                  </Popover.Content>
-                                </Popover.Root>
-                              </Table.Cell>
+                                            class="py-2.5"
+                                          >
+                                            <Check
+                                              class={(action.cooldownCategory || "") === category.value ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
+                                            <span
+                                              class={(action.cooldownCategory || "") === category.value ? "text-primary" : ""}>{category.label}</span>
+                                          </Command.Item>
+                                        {/each}
+                                      </Command.Group>
+                                    </Command.List>
+                                  </Command.Root>
+                                </Popover.Content>
+                              </Popover.Root>
+                            </Table.Cell>
 
-                              <!-- Pinned -->
-                              <Table.Cell class="py-3">
-                                <div class="flex items-center justify-center">
-                                  <Switch checked={action.pinned ?? false} onCheckedChange={(checked) => { action.pinned = checked; }} />
-                                </div>
-                              </Table.Cell>
-                                 <!-- Delete -->
-                              <Table.Cell class="py-3">
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  onclick={() => removeAction(sessionActions, action.id)}
-                                  class="h-8 w-8 hover:bg-destructive hover:text-destructive-foreground"
-                                >
-                                  <Trash2 class="h-4 w-4" />
-                                </Button>
-                              </Table.Cell>
-                            </Table.Row>
-                          {/each}
-                        </Table.Body>
-                      </Table.Root>
-                    </div>
-                  {:else}
-                    <p class="text-sm text-muted-foreground text-center py-4">
-                      No actions yet. Click the button below to add your first action.
-                    </p>
-                  {/if}
+                            <!-- Pinned -->
+                            <Table.Cell class="py-3">
+                              <div class="flex items-center justify-center">
+                                <Switch checked={action.pinned ?? false}
+                                        onCheckedChange={(checked) => { action.pinned = checked; }}/>
+                              </div>
+                            </Table.Cell>
+                            <!-- Delete -->
+                            <Table.Cell class="py-3">
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onclick={() => removeAction(sessionActions, action.id)}
+                                class="h-8 w-8 hover:bg-destructive hover:text-destructive-foreground"
+                              >
+                                <Trash2 class="h-4 w-4"/>
+                              </Button>
+                            </Table.Cell>
+                          </Table.Row>
+                        {/each}
+                      </Table.Body>
+                    </Table.Root>
+                  </div>
+                {:else}
+                  <p class="text-sm text-muted-foreground text-center py-4">
+                    No actions yet. Click the button below to add your first action.
+                  </p>
+                {/if}
 
-                  <!-- Add Action Button -->
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onclick={() => addAction(sessionActions)}
-                    class="w-full"
-                  >
-                    <Plus class="h-4 w-4 mr-2" />
-                    Add Action
-                  </Button>
-                </div>
+                <!-- Add Action Button -->
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onclick={() => addAction(sessionActions)}
+                  class="w-full"
+                >
+                  <Plus class="h-4 w-4 mr-2"/>
+                  Add Action
+                </Button>
+              </div>
             </Collapsible.Content>
           </div>
         </Collapsible.Root>

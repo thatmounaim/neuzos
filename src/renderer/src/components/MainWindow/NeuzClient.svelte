@@ -118,81 +118,127 @@ window.open = function(...args) {
       return
     }
 
+    // Normalize special modifier names to standard ones
+    // Order matters: check longer patterns first to avoid partial matches
+    // cmdorctrl/commandorcontrol always maps to Ctrl (control)
+    // cmd/command remain as-is for separate handling
+    let normalizedKey = key
+      .replace(/commandorcontrol/gi, 'Ctrl')
+      .replace(/cmdorctrl/gi, 'Ctrl')
+      .replace(/\bsuper\b/gi, 'Meta')
+      .replace(/\boption\b/gi, 'Alt')
+
+    console.log('🔑 Original key:', key, '→ Normalized:', normalizedKey)
+
     // Parse the key string (e.g., "Ctrl+F1", "Alt+A", "F5")
-    const parts = key.split('+').map(k => k.trim())
+    const parts = normalizedKey.split('+').map(k => k.trim())
     let mainKey = parts[parts.length - 1]
-    const hasCtrl = parts.slice(0, -1).some(m => m.toLowerCase() === 'ctrl' || m.toLowerCase() === 'control')
-    const hasAlt = parts.slice(0, -1).some(m => m.toLowerCase() === 'alt')
-    const hasShift = parts.slice(0, -1).some(m => m.toLowerCase() === 'shift')
-    const hasMeta = parts.slice(0, -1).some(m => m.toLowerCase() === 'meta' || m.toLowerCase() === 'cmd')
+    const modifierParts = parts.slice(0, -1).map(m => m.toLowerCase())
 
-    console.log('Sending key:', key, '→ parsed:', mainKey, 'Ctrl:', hasCtrl, 'Alt:', hasAlt, 'Shift:', hasShift)
+    console.log('📋 Parts:', parts, '→ Modifiers:', modifierParts, '→ MainKey:', mainKey)
 
-    // Use executeJavaScript to inject key events directly into the page
-    // This is more reliable than sendInputEvent for web games
-    const jsCode = `
-      (function() {
-        const key = ${JSON.stringify(mainKey)};
-        const keyLower = key.toLowerCase();
+    const hasCtrl = modifierParts.some(m => m === 'ctrl' || m === 'control')
+    const hasAlt = modifierParts.some(m => m === 'alt' || m === 'altgr')
+    const hasShift = modifierParts.some(m => m === 'shift')
+    const hasMeta = modifierParts.some(m => m === 'meta')
+    const hasCmd = modifierParts.some(m => m === 'cmd' || m === 'command')
 
-        // Determine the key and code values
-        let keyValue = key;
-        let codeValue = key;
+    console.log('🎯 Parsed:', 'mainKey:', mainKey, 'Ctrl:', hasCtrl, 'Alt:', hasAlt, 'Shift:', hasShift, 'Meta:', hasMeta, 'Cmd:', hasCmd)
 
-        // Function keys (F1-F12)
-        if (keyLower.match(/^f([1-9]|1[0-2])$/)) {
-          keyValue = key.toUpperCase();
-          codeValue = key.toUpperCase();
-        }
-        // Letter keys
-        else if (keyLower.length === 1 && keyLower.match(/[a-z]/)) {
-          keyValue = keyLower;
-          codeValue = 'Key' + key.toUpperCase();
-        }
-        // Digit keys
-        else if (keyLower.length === 1 && keyLower.match(/[0-9]/)) {
-          keyValue = key;
-          codeValue = 'Digit' + key;
-        }
+    // Convert key to keyCode for sendInputEvent
+    const getKeyCode = (key: string): string => {
+      const keyLower = key.toLowerCase()
 
-        const eventOptions = {
-          key: keyValue,
-          code: codeValue,
-          ctrlKey: ${hasCtrl},
-          altKey: ${hasAlt},
-          shiftKey: ${hasShift},
-          metaKey: ${hasMeta},
-          bubbles: true,
-          cancelable: true
-        };
+      // Function keys
+      if (keyLower.match(/^f([1-9]|1[0-2])$/)) {
+        return key.toUpperCase()
+      }
 
-        // Dispatch keydown event
-        const keydownEvent = new KeyboardEvent('keydown', eventOptions);
-        document.dispatchEvent(keydownEvent);
+      // Letter keys - just use the lowercase letter
+      if (keyLower.length === 1 && keyLower.match(/[a-z]/)) {
+        return keyLower
+      }
 
-        // Also try dispatching to the active element
-        if (document.activeElement) {
-          document.activeElement.dispatchEvent(new KeyboardEvent('keydown', eventOptions));
-        }
+      // Digit keys - use the digit as-is
+      if (keyLower.length === 1 && keyLower.match(/[0-9]/)) {
+        return key
+      }
 
-        // Dispatch keyup after a short delay
-        setTimeout(() => {
-          const keyupEvent = new KeyboardEvent('keyup', eventOptions);
-          document.dispatchEvent(keyupEvent);
-          if (document.activeElement) {
-            document.activeElement.dispatchEvent(new KeyboardEvent('keyup', eventOptions));
-          }
-        }, 50);
+      // Default: return as-is
+      return key
+    }
 
-        console.log('Key events dispatched:', keyValue, codeValue, eventOptions);
-      })();
-    `
+    const keyCode = getKeyCode(mainKey)
+    type ModifierType = 'control' | 'alt' | 'shift' | 'meta' | 'cmd'
+    const modifiers: ModifierType[] = []
+
+    if (hasCtrl) modifiers.push('control')
+    if (hasAlt) modifiers.push('alt')
+    if (hasShift) modifiers.push('shift')
+    if (hasMeta) modifiers.push('meta')
+    if (hasCmd) modifiers.push('cmd')
+
+    console.log('⌨️ Sending with sendInputEvent:', keyCode, 'modifiers:', modifiers)
 
     try {
-      webviewElement.executeJavaScript(jsCode)
-      console.log('Key sent successfully:', key)
+      // Press modifiers first
+      if (hasCtrl) {
+        webviewElement.sendInputEvent({ type: 'keyDown', keyCode: 'Control', modifiers: ['control'] as ModifierType[] })
+      }
+      if (hasAlt) {
+        const altMods = modifiers.filter(m => m !== 'alt') as ModifierType[]
+        altMods.push('alt')
+        webviewElement.sendInputEvent({ type: 'keyDown', keyCode: 'Alt', modifiers: altMods })
+      }
+      if (hasShift) {
+        const shiftMods = modifiers.filter(m => m !== 'shift') as ModifierType[]
+        shiftMods.push('shift')
+        webviewElement.sendInputEvent({ type: 'keyDown', keyCode: 'Shift', modifiers: shiftMods })
+      }
+      if (hasMeta) {
+        webviewElement.sendInputEvent({ type: 'keyDown', keyCode: 'Meta', modifiers: modifiers as ModifierType[] })
+      }
+      if (hasCmd) {
+        webviewElement.sendInputEvent({ type: 'keyDown', keyCode: 'Command', modifiers: modifiers as ModifierType[] })
+      }
+
+      // Press main key with all modifiers
+      webviewElement.sendInputEvent({
+        type: 'keyDown',
+        keyCode: keyCode,
+        modifiers: modifiers as ModifierType[]
+      })
+
+      // Small delay before keyup
+      setTimeout(() => {
+        // Release main key
+        webviewElement.sendInputEvent({
+          type: 'keyUp',
+          keyCode: keyCode,
+          modifiers: modifiers as ModifierType[]
+        })
+
+        // Release modifiers in reverse order
+        if (hasCmd) {
+          webviewElement.sendInputEvent({ type: 'keyUp', keyCode: 'Command', modifiers: modifiers.filter(m => m !== 'cmd') as ModifierType[] })
+        }
+        if (hasMeta) {
+          webviewElement.sendInputEvent({ type: 'keyUp', keyCode: 'Meta', modifiers: modifiers.filter(m => m !== 'meta' && m !== 'cmd') as ModifierType[] })
+        }
+        if (hasShift) {
+          webviewElement.sendInputEvent({ type: 'keyUp', keyCode: 'Shift', modifiers: modifiers.filter(m => m !== 'shift' && m !== 'meta' && m !== 'cmd') as ModifierType[] })
+        }
+        if (hasAlt) {
+          webviewElement.sendInputEvent({ type: 'keyUp', keyCode: 'Alt', modifiers: modifiers.filter(m => m !== 'alt' && m !== 'shift' && m !== 'meta' && m !== 'cmd') as ModifierType[] })
+        }
+        if (hasCtrl) {
+          webviewElement.sendInputEvent({ type: 'keyUp', keyCode: 'Control', modifiers: [] })
+        }
+      }, 50)
+
+      console.log('✅ Key sent successfully:', key)
     } catch (e) {
-      console.error('Error sending key:', e)
+      console.error('❌ Error sending key:', e)
     }
   }
 </script>
