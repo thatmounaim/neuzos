@@ -75,7 +75,7 @@
       {@const sessionInfo = allSessionsWithActions.find(s => s.id === widget.data?.sessionId)}
       <div class="flex items-center justify-between px-2 py-1.5 text-sm gap-2">
         <div class="flex items-center gap-2">
-          <Keyboard class="h-4 w-4" />
+          <img class="w-4 h-4 mr-2" src="icons/{sessionInfo.icon}.png" alt="" />
           <span class="text-xs">{sessionInfo?.label || 'Unknown'}</span>
         </div>
         <div class="flex items-center gap-1">
