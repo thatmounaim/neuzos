@@ -3,12 +3,9 @@
   import {Maximize, Minus, Moon, Sun, X} from "@lucide/svelte";
   import {Separator} from "$lib/components/ui/separator";
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
-  import {getContext} from "svelte";
-  import type {NeuzosBridge} from "$lib/core";
-  import type {IpcRenderer} from "@electron-toolkit/preload";
+  import { getNeuzosBridgeContext } from "$lib/contexts/neuzosBridgeContext";
 
-  const electronApi = getContext<IpcRenderer>('electronApi')
-  const neuzosBridge = getContext<NeuzosBridge>('neuzosBridge')
+  const neuzosBridge = getNeuzosBridgeContext()
 </script>
 <div
   id="titlebar"

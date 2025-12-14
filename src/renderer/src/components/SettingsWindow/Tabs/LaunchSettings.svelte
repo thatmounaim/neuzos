@@ -4,12 +4,12 @@
   import {Switch} from "$lib/components/ui/switch";
 
   import {getContext, onMount} from "svelte";
-  import type {IpcRenderer} from "@electron-toolkit/preload";
+  import { getElectronContext } from "$lib/contexts/electronContext";
   import type {NeuzConfig} from "$lib/types";
 
   let availableCommandLineSwitches: Array<{ flag: string; description: string }> = [];
 
-  const electronApi = getContext<IpcRenderer>("electronApi");
+  const electronApi = getElectronContext();
   const neuzosConfig = getContext<NeuzConfig>("neuzosConfig");
   onMount(async () => {
     availableCommandLineSwitches = await electronApi.invoke("config.get_available_command_line_switches");

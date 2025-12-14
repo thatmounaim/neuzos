@@ -5,8 +5,8 @@
   import * as Command from "$lib/components/ui/command";
 
   import { getContext, onMount } from "svelte";
-  import type { IpcRenderer } from "@electron-toolkit/preload";
   import { Button } from "$lib/components/ui/button";
+  import { getElectronContext } from "$lib/contexts/electronContext";
 
   import type { NeuzConfig } from "$lib/types";
   import { Plus, Trash2, ChevronsUpDown, Check } from "@lucide/svelte";
@@ -83,7 +83,7 @@
     return key ? `${modifier}+${key}` : modifier;
   }
 
-  const electronApi = getContext<IpcRenderer>("electronApi");
+  const electronApi = getElectronContext();
   const neuzosConfig = getContext<NeuzConfig>("neuzosConfig");
   onMount(async () => {
     allowedEventKeybinds = await electronApi.invoke("config.get_available_event_keybinds");

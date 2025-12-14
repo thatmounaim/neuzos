@@ -1,11 +1,10 @@
 <script lang="ts">
-  import { getContext } from 'svelte';
   import { Button } from '$lib/components/ui/button';
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
   import { Sun, Moon } from '@lucide/svelte';
-  import type { NeuzosBridge } from '$lib/core';
+  import { getNeuzosBridgeContext } from "$lib/contexts/neuzosBridgeContext";
 
-  const neuzosBridge = getContext<NeuzosBridge>('neuzosBridge');
+  const neuzosBridge = getNeuzosBridgeContext();
 </script>
 
 <DropdownMenu.Root>
@@ -27,4 +26,3 @@
     <DropdownMenu.Item onclick={() => neuzosBridge.preferences.setThemeMode('system')}>Follow System</DropdownMenu.Item>
   </DropdownMenu.Content>
 </DropdownMenu.Root>
-

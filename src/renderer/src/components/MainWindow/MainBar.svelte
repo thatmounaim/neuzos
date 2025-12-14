@@ -20,12 +20,13 @@
     Fullscreen
   } from '@lucide/svelte'
   import {getContext} from "svelte";
-  import type {NeuzosBridge} from "$lib/core";
   import type {MainWindowState, NeuzSession} from "$lib/types";
   import * as Dialog from '$lib/components/ui/dialog'
   import * as ContextMenu from '$lib/components/ui/context-menu'
   import * as Tabs from '$lib/components/ui/tabs'
   import * as Card from '$lib/components/ui/card'
+  import { getNeuzosBridgeContext } from "$lib/contexts/neuzosBridgeContext";
+  import { getElectronContext } from "$lib/contexts/electronContext";
 
   import {cn} from "$lib/utils";
   import {Separator} from "$lib/components/ui/separator";
@@ -34,9 +35,9 @@
   import WidgetsButton from "./MainBarComponents/WidgetsButton.svelte";
   import ThemeToggle from "./MainBarComponents/ThemeToggle.svelte";
 
-  const neuzosBridge = getContext<NeuzosBridge>('neuzosBridge');
+  const neuzosBridge = getNeuzosBridgeContext();
   const mainWindowState = getContext<MainWindowState>('mainWindowState');
-  const electronApi = getContext<IpcRenderer>('electronApi');
+  const electronApi = getElectronContext();
 
   const openSettings = () => {
     neuzosBridge.settingsWindow.open()
