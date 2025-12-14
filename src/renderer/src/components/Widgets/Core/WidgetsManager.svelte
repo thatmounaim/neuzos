@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { getWidgetsContext } from '$lib/contexts/widgetsContext.svelte';
-  import FCoinCalculatorWidget from "../Widgets/Builtin/FCoinCalculator/Widget.svelte";
-  import NotepadWidget from "../Widgets/Builtin/Notepad/Widget.svelte";
-  import MiniBrowserWidget from "../Widgets/Builtin/MiniBrowser/Widget.svelte";
-  import ActionPadWidget from "../Widgets/Builtin/ActionPad/Widget.svelte";
+  import { getWidgetsContext } from '$lib/contexts/widgetsContext.svelte.js';
+  import FCoinCalculatorWidget from "../Builtin/FCoinCalculator/Widget.svelte";
+  import NotepadWidget from "../Builtin/Notepad/Widget.svelte";
+  import MiniBrowserWidget from "../Builtin/MiniBrowser/Widget.svelte";
+  import ActionPadWidget from "../Builtin/ActionPad/Widget.svelte";
   // Get the widgets context from App
   const widgetsContext = getWidgetsContext();
 </script>

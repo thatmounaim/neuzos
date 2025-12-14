@@ -1,7 +1,7 @@
 <script lang="ts">
   import type {Snippet} from 'svelte';
   import {setContext} from 'svelte';
-  import {FLOATING_WINDOW_CONTEXT_KEY, type FloatingWindowContext} from '../Shared/floatingWindowContext';
+  import {FLOATING_WINDOW_CONTEXT_KEY, type FloatingWindowContext} from '../../Shared/floatingWindowContext';
 
   interface Props {
     children?: Snippet;

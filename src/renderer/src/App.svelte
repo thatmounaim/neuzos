@@ -4,8 +4,8 @@
   import {onMount, setContext} from "svelte";
   import {neuzosBridge, initElectronApi} from "$lib/core";
   import type {MainWindowState} from "$lib/types";
-  import LayoutsDisplay from "./components/MainWindow/LayoutsDisplay.svelte";
-  import SharedEvents from "./components/SharedEvents.svelte";
+  import MainSectionsContainer from "./components/MainWindow/MainSectionsContainer.svelte";
+  import SharedEvents from "./components/Shared/SharedEvents.svelte";
   import { createWidgetsContext, setWidgetsContext } from '$lib/contexts/widgetsContext.svelte';
   import { createCooldownsContext, setCooldownsContext } from '$lib/contexts/cooldownsContext';
 
@@ -252,5 +252,5 @@
 <SharedEvents/>
 <div class="w-full h-full flex flex-col border-2">
   <MainBar/>
-  <LayoutsDisplay/>
+  <MainSectionsContainer/>
 </div>

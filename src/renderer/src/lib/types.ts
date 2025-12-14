@@ -1,4 +1,4 @@
-import NeuzClient from "../components/MainWindow/NeuzClient.svelte";
+import NeuzClient from "../components/Shared/NeuzClient.svelte";
 
 export type IconFilter = {
   [key: string]: string;

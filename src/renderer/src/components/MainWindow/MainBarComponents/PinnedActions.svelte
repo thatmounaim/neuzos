@@ -5,7 +5,7 @@
   import {Button} from '$lib/components/ui/button';
   import type {MainWindowState} from '$lib/types';
   import {getCooldownsContext} from '$lib/contexts/cooldownsContext';
-  import {getWidgetsContext} from '$lib/contexts/widgetsContext.svelte';
+  import {getWidgetsContext} from '$lib/contexts/widgetsContext.svelte.js';
 
   const mainWindowState = getContext<MainWindowState>('mainWindowState');
   const cooldownsContext = getCooldownsContext();

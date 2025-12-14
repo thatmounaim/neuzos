@@ -2,7 +2,7 @@
   import { Button } from '$lib/components/ui/button';
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
   import { Puzzle } from '@lucide/svelte';
-  import WidgetsDropdownContent from '../Widgets/Core/WidgetsDropdownContent.svelte';
+  import WidgetsDropdownContent from '../../Widgets/Core/WidgetsDropdownContent.svelte';
 </script>
 
 <DropdownMenu.Root>

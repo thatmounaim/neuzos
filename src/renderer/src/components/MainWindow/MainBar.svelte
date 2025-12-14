@@ -30,9 +30,9 @@
   import {cn} from "$lib/utils";
   import {Separator} from "$lib/components/ui/separator";
   import type {IpcRenderer} from "@electron-toolkit/preload";
-  import PinnedActions from "./PinnedActions.svelte";
-  import WidgetsButton from "./WidgetsButton.svelte";
-  import ThemeToggle from "./ThemeToggle.svelte";
+  import PinnedActions from "./MainBarComponents/PinnedActions.svelte";
+  import WidgetsButton from "./MainBarComponents/WidgetsButton.svelte";
+  import ThemeToggle from "./MainBarComponents/ThemeToggle.svelte";
 
   const neuzosBridge = getContext<NeuzosBridge>('neuzosBridge');
   const mainWindowState = getContext<MainWindowState>('mainWindowState');

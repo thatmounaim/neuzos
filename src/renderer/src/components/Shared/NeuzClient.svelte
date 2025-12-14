@@ -2,7 +2,7 @@
   import {getContext, onMount} from 'svelte'
   import type {MainWindowState, NeuzSession} from "$lib/types";
   import type {WebviewTag} from 'electron'
-  import Button from '$lib/components/ui/button/button.svelte'
+  import Button from '../../lib/components/ui/button/button.svelte'
   import {neuzosBridge} from "$lib/core";
 
   let {session, onUpdate, autofocusEnabled = $bindable(), layoutId, src}: {

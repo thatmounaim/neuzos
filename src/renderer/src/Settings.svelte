@@ -3,7 +3,7 @@
   import {onMount, setContext} from "svelte";
   import {neuzosBridge, initElectronApi} from "$lib/core";
   import type {NeuzConfig} from "$lib/types";
-  import SharedEvents from "./components/SharedEvents.svelte";
+  import SharedEvents from "./components/Shared/SharedEvents.svelte";
   import SettingsBar from "./components/SettingsWindow/SettingsBar.svelte";
   import KeybindsSettings from "./components/SettingsWindow/Tabs/KeybindsSettings.svelte";
   import * as Tabs from "$lib/components/ui/tabs";
