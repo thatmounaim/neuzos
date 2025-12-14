@@ -5,6 +5,7 @@
   import NotepadDropdownItem from '../Builtin/Notepad/DropdownItem.svelte';
   import MiniBrowserDropdownItem from '../Builtin/MiniBrowser/DropdownItem.svelte';
   import ActionPadDropdownItem from '../Builtin/ActionPad/DropdownItem.svelte';
+  import ActionPinDropdownItem from '../Builtin/ActionPin/DropdownItem.svelte';
 
   const widgetsContext = getWidgetsContext();
 </script>
@@ -14,6 +15,7 @@
   <NotepadDropdownItem />
   <MiniBrowserDropdownItem />
   <DropdownMenu.Separator />
+  <ActionPinDropdownItem />
   <ActionPadDropdownItem />
 </DropdownMenu.Group>
 

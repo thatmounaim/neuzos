@@ -39,7 +39,7 @@
   // Get all pinned actions from sessions that have action pad widgets (even if hidden)
   const pinnedActionsToShow = $derived.by(() => {
     const actionPadWidgets = widgetsContext.widgets.filter(w =>
-      w.type === 'widget.builtin.action_pad' && w.data?.sessionId
+      w.type === 'widget.builtin.action_pin' && w.data?.sessionId
     );
 
     const result: Array<{

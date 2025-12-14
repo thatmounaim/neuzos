@@ -2,7 +2,7 @@
   import { getWidgetsContext } from '$lib/contexts/widgetsContext.svelte';
   import { getContext } from 'svelte';
   import { Button } from '$lib/components/ui/button';
-  import { Swords, Eye, EyeOff, X } from '@lucide/svelte';
+  import { Keyboard, Eye, EyeOff, X } from '@lucide/svelte';
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
   import type { MainWindowState } from '$lib/types';
 
@@ -50,10 +50,10 @@
 {#if allSessionsWithActions.length > 0}
   <DropdownMenu.Sub>
     <DropdownMenu.SubTrigger>
-      <Swords class="h-4 w-4 mr-2" />
-      <span>Action Pad</span>
+      <Keyboard class="h-4 w-4 mr-2" />
+      <span>Action Pads</span>
     </DropdownMenu.SubTrigger>
-    <DropdownMenu.SubContent>
+    <DropdownMenu.SubContent class="min-w-44">
       {#if availableSessionsForActionPad.length > 0}
         {#each availableSessionsForActionPad as sessionInfo}
           <DropdownMenu.Item onclick={() => createWidget(sessionInfo.id)}>
@@ -67,10 +67,7 @@
           All sessions have action pads
         </div>
       {/if}
-    </DropdownMenu.SubContent>
-  </DropdownMenu.Sub>
-
-  <!-- Show active action pad instances -->
+        <!-- Show active action pad instances -->
   {#if widgets.length > 0}
     <DropdownMenu.Separator />
     <DropdownMenu.Label class="text-xs">Active Action Pads ({widgets.length})</DropdownMenu.Label>
@@ -78,7 +75,7 @@
       {@const sessionInfo = allSessionsWithActions.find(s => s.id === widget.data?.sessionId)}
       <div class="flex items-center justify-between px-2 py-1.5 text-sm gap-2">
         <div class="flex items-center gap-2">
-          <Swords class="h-4 w-4" />
+          <Keyboard class="h-4 w-4" />
           <span class="text-xs">{sessionInfo?.label || 'Unknown'}</span>
         </div>
         <div class="flex items-center gap-1">
@@ -108,5 +105,7 @@
       </div>
     {/each}
   {/if}
+    </DropdownMenu.SubContent>
+  </DropdownMenu.Sub>
 {/if}
 

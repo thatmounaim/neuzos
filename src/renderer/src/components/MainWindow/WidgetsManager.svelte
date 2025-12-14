@@ -4,7 +4,6 @@
   import NotepadWidget from "../Widgets/Builtin/Notepad/Widget.svelte";
   import MiniBrowserWidget from "../Widgets/Builtin/MiniBrowser/Widget.svelte";
   import ActionPadWidget from "../Widgets/Builtin/ActionPad/Widget.svelte";
-
   // Get the widgets context from App
   const widgetsContext = getWidgetsContext();
 </script>

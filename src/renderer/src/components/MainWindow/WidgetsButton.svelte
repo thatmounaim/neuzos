@@ -13,7 +13,7 @@
       </Button>
     {/snippet}
   </DropdownMenu.Trigger>
-  <DropdownMenu.Content align="end">
+  <DropdownMenu.Content align="end" class="min-w-64">
     <WidgetsDropdownContent />
   </DropdownMenu.Content>
 </DropdownMenu.Root>
