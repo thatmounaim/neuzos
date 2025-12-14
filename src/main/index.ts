@@ -47,7 +47,8 @@ const allowedCommandLineSwitches = [
   // 🔧 Misc Performance Tweaks
   //{flag: "disable-low-res-tiling", description: "Avoid low-resolution tiles"},
   {flag: "enable-threaded-compositing", description: "Use multi-threaded compositor"},
-  {flag: "max-active-webgl-contexts=16", description: "Allow more active WebGL contexts"},
+  {flag: "max-active-webgl-contexts=16", description: "Allow more active WebGL contexts (16)"},
+  {flag: "max-active-webgl-contexts=32", description: "Allow more active WebGL contexts (32)"},
   //{flag: "no-proxy-server", description: "Reduce network latency from proxy lookups"},
   {flag: "enable-low-end-device-mode", description: "Low-end device mode optimizations (Reduced Performance)"},
 ];
@@ -100,8 +101,14 @@ const defaultNeuzosConfig = {
   defaultLaunchMode : "normal",
   chromium: {
     commandLineSwitches: [
+      "force_high_performance_gpu",
       "disable-frame-rate-limit",
-      "disable-gpu-vsync"
+      "enable-accelerated-2d-canvas",
+      "enable-gpu-rasterization",
+      "enable-oop-rasterization",
+      "ignore-gpu-blocklist",
+      "max-active-webgl-contexts=16",
+      "enable-gpu-memory-buffer-compositor-resources",
     ]
   },
   sessions: [],
