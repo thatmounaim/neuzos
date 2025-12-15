@@ -863,6 +863,27 @@ function registerSessionKeybinds(mode: LaunchMode) {
       }
     })
 
+    ipcMain.handle('app.get_default_user_agent', async () => {
+      try {
+        // Get the default user agent from a BrowserWindow's webContents
+        const testWindow = new BrowserWindow({
+          show: false,
+          webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true
+          }
+        });
+
+        const userAgent = testWindow.webContents.getUserAgent();
+        testWindow.destroy();
+
+        return userAgent;
+      } catch (e) {
+        // Fallback user agent if the above fails
+        return 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+      }
+    })
+
     // Handle different launch modes
     switch (launchArgs.mode) {
       case 'session_launcher':

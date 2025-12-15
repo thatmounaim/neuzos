@@ -34,6 +34,7 @@
 
                           }}
                       src={session.srcOverwrite || 'https://universe.flyff.com/play'}
+                      userAgent={mainWindowState.config.userAgent}
                     />
                   </Resizable.Pane>
                   {#if cellIndex < row.sessionIds.length - 1}

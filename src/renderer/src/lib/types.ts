@@ -71,6 +71,7 @@ export type SessionActions = {
 }
 
 export type NeuzConfig = {
+  userAgent?: string;
   defaultLaunchMode: 'normal' | 'session_launcher'
   chromium: {
     commandLineSwitches: string[]

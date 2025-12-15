@@ -38,6 +38,7 @@
       keyBinds: [],
       sessionActions: [],
       defaultLaunchMode: 'normal',
+      userAgent: undefined,
       changed: false,
     },
     sessions: [],
@@ -50,7 +51,7 @@
       previousLayoutId: null,
     },
     sessionsLayoutsRef: {},
-    doCalculationUpdatesRng: 0,
+    doCalculationUpdatesRng: 0
   })
 
   const electronApi = window.electron.ipcRenderer;
@@ -220,6 +221,7 @@
     mainWindowState.config.keyBinds = newConfig.keyBinds
     mainWindowState.config.sessionActions = newConfig.sessionActions || []
     mainWindowState.config.defaultLaunchMode = newConfig.defaultLaunchMode
+    mainWindowState.config.userAgent = newConfig.userAgent || undefined
   })
 
   const reloadNeuzos = () => {
@@ -228,6 +230,8 @@
       mainWindowState.layouts = JSON.parse(JSON.stringify(mainWindowState.config.layouts))
       mainWindowState.tabs.layoutsIds = JSON.parse(JSON.stringify(mainWindowState.config.defaultLayouts))
       mainWindowState.tabs.layoutOrder = JSON.parse(JSON.stringify(mainWindowState.config.defaultLayouts))
+      mainWindowState.tabs.activeLayoutId = 'home'
+      mainWindowState.tabs.previousLayoutId = null
     }, 50)
   }
 

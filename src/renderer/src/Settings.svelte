@@ -12,6 +12,7 @@
   import SessionSettings from "./components/SettingsWindow/Tabs/SessionSettings.svelte";
   import LayoutSettings from "./components/SettingsWindow/Tabs/LayoutSettings.svelte";
   import SessionActionsSettings from "./components/SettingsWindow/Tabs/SessionActionsSettings.svelte";
+  import GeneralSettings from "./components/SettingsWindow/Tabs/GeneralSettings.svelte";
   import {Button} from "$lib/components/ui/button";
   import { setElectronContext } from "$lib/contexts/electronContext";
   import { setNeuzosBridgeContext } from "$lib/contexts/neuzosBridgeContext";
@@ -49,6 +50,7 @@
     neuzosConfig.defaultLayouts = conf.defaultLayouts;
     neuzosConfig.keyBinds = conf.keyBinds;
     neuzosConfig.sessionActions = conf.sessionActions || [];
+    neuzosConfig.userAgent = conf.userAgent;
 
     // Wait a bit to ensure contexts are initialized
     setTimeout(() => {
@@ -144,6 +146,7 @@
             <Tabs.Trigger value="layouts">Layouts</Tabs.Trigger>
             <Tabs.Trigger value="keybinds">Keybinds</Tabs.Trigger>
             <Tabs.Trigger value="session-actions">Session Actions</Tabs.Trigger>
+            <Tabs.Trigger value="general">General</Tabs.Trigger>
             <Tabs.Trigger value="launch">Launch Settings</Tabs.Trigger>
 
           </div>
@@ -166,6 +169,9 @@
         </Tabs.Content>
         <Tabs.Content value="session-actions" class="h-full overflow-y-auto">
           <SessionActionsSettings/>
+        </Tabs.Content>
+          <Tabs.Content value="general" class="h-full overflow-y-auto">
+          <GeneralSettings/>
         </Tabs.Content>
         <Tabs.Content value="launch" class="h-full overflow-y-auto">
           <LaunchSettings/>
