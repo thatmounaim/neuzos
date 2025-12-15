@@ -25,8 +25,8 @@
   import * as ContextMenu from '$lib/components/ui/context-menu'
   import * as Tabs from '$lib/components/ui/tabs'
   import * as Card from '$lib/components/ui/card'
-  import { getNeuzosBridgeContext } from "$lib/contexts/neuzosBridgeContext";
-  import { getElectronContext } from "$lib/contexts/electronContext";
+  import {getNeuzosBridgeContext} from "$lib/contexts/neuzosBridgeContext";
+  import {getElectronContext} from "$lib/contexts/electronContext";
 
   import {cn} from "$lib/utils";
   import {Separator} from "$lib/components/ui/separator";
@@ -379,7 +379,7 @@
     style="-webkit-app-region: drag;"
   ></div>
 
-  <PinnedActions />
+  <PinnedActions/>
   <Separator orientation="vertical" class="h-4"/>
 
   {#if mainWindowState.config.changed}
@@ -388,17 +388,24 @@
     </Button>
   {/if}
 
-  <WidgetsButton />
-  <ShortcutsToggle window="main" onToggle={(enabled) => neuzosBridge.mainWindow.toggleShortcuts(enabled)} />
-  <ThemeToggle />
+  <WidgetsButton/>
+  {#if mainWindowState.config.titleBarButtons.keybindToggle}
+    <ShortcutsToggle window="main" onToggle={(enabled) => neuzosBridge.mainWindow.toggleShortcuts(enabled)}/>
+  {/if}
+  {#if mainWindowState.config.titleBarButtons.darkModeToggle}
+    <ThemeToggle/>
+  {/if}
 
   <Separator orientation="vertical" class="h-4"/>
-  <Button size="icon-xs" variant="outline" onclick={() => {
+  {#if mainWindowState.config.titleBarButtons.fullscreenToggle}
+    <Button size="icon-xs" variant="outline" onclick={() => {
         neuzosBridge.mainWindow.fullscreenToggle()
       }} class="cursor-pointer">
-    <Fullscreen class="size-3.5"/>
-  </Button>
-  <Separator orientation="vertical" class="h-4"/>
+      <Fullscreen class="size-3.5"/>
+    </Button>
+    <Separator orientation="vertical" class="h-4"/>
+  {/if}
+
   <Button
     size="icon-xs"
     variant="outline"

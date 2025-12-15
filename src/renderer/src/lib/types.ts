@@ -85,4 +85,9 @@ export type NeuzConfig = {
     args?: string[]
   }[]
   sessionActions: SessionActions[];
+  titleBarButtons: {
+    darkModeToggle: boolean;
+    fullscreenToggle: boolean;
+    keybindToggle: boolean;
+  };
 }

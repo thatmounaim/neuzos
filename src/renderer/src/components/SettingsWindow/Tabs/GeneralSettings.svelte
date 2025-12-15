@@ -16,7 +16,16 @@
 
   let userAgentEnabled = $state(false);
   let userAgentValue = $state("");
-  let defaultUserAgent = "";
+  let defaultUserAgent = $state("");
+
+  // Initialize titleBarButtons if it doesn't exist
+  if (!neuzosConfig.titleBarButtons) {
+    neuzosConfig.titleBarButtons = {
+      darkModeToggle: true,
+      fullscreenToggle: true,
+      keybindToggle: true
+    };
+  }
 
   // Get the default user agent when component mounts
   onMount(async () => {
@@ -59,6 +68,28 @@
     if (userAgentEnabled) {
       neuzosConfig.userAgent = value;
     }
+  }
+
+  // Handle title bar button toggles
+  function handleDarkModeToggle(enabled: boolean) {
+    if (!neuzosConfig.titleBarButtons) {
+      neuzosConfig.titleBarButtons = {};
+    }
+    neuzosConfig.titleBarButtons.darkModeToggle = enabled;
+  }
+
+  function handleFullscreenToggle(enabled: boolean) {
+    if (!neuzosConfig.titleBarButtons) {
+      neuzosConfig.titleBarButtons = {};
+    }
+    neuzosConfig.titleBarButtons.fullscreenToggle = enabled;
+  }
+
+  function handleKeybindToggle(enabled: boolean) {
+    if (!neuzosConfig.titleBarButtons) {
+      neuzosConfig.titleBarButtons = {};
+    }
+    neuzosConfig.titleBarButtons.keybindToggle = enabled;
   }
 </script>
 
@@ -108,7 +139,10 @@
           type="text"
           placeholder="Enter custom user agent..."
           bind:value={userAgentValue}
-          oninput={(e) => handleUserAgentInput(e.target.value)}
+          oninput={(e) => {
+            const target = e.target as HTMLInputElement;
+            handleUserAgentInput(target.value);
+          }}
           class="w-full"
         />
         <p class="text-xs text-muted-foreground">
@@ -116,5 +150,59 @@
         </p>
       </div>
     {/if}
+
+    <!-- Title Bar Buttons Section -->
+    <div class="space-y-2 pt-6 border-t">
+      <div class="space-y-1">
+        <h3 class="text-base font-semibold">Title Bar Buttons</h3>
+        <p class="text-sm text-muted-foreground">
+          Configure which buttons are visible in the title bar.
+        </p>
+      </div>
+
+      <Table.Root>
+        <Table.Body>
+          <Table.Row>
+            <Table.Cell class="font-medium">Dark Mode Toggle Button</Table.Cell>
+            <Table.Cell class="text-sm text-muted-foreground">
+              Show/hide the dark mode toggle button in the title bar
+            </Table.Cell>
+            <Table.Cell class="text-right">
+              <Switch
+                id="darkmode-toggle"
+                checked={neuzosConfig.titleBarButtons?.darkModeToggle ?? true}
+                onCheckedChange={handleDarkModeToggle}
+              />
+            </Table.Cell>
+          </Table.Row>
+          <Table.Row>
+            <Table.Cell class="font-medium">Fullscreen Toggle Button</Table.Cell>
+            <Table.Cell class="text-sm text-muted-foreground">
+              Show/hide the fullscreen toggle button in the title bar
+            </Table.Cell>
+            <Table.Cell class="text-right">
+              <Switch
+                id="fullscreen-toggle"
+                checked={neuzosConfig.titleBarButtons?.fullscreenToggle ?? true}
+                onCheckedChange={handleFullscreenToggle}
+              />
+            </Table.Cell>
+          </Table.Row>
+          <Table.Row>
+            <Table.Cell class="font-medium">Keybind Toggle Button</Table.Cell>
+            <Table.Cell class="text-sm text-muted-foreground">
+              Show/hide the keybind toggle button in the title bar
+            </Table.Cell>
+            <Table.Cell class="text-right">
+              <Switch
+                id="keybind-toggle"
+                checked={neuzosConfig.titleBarButtons?.keybindToggle ?? true}
+                onCheckedChange={handleKeybindToggle}
+              />
+            </Table.Cell>
+          </Table.Row>
+        </Table.Body>
+      </Table.Root>
+    </div>
   </Card.Content>
 </Card.Root>

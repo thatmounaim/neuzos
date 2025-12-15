@@ -6,10 +6,10 @@
   import type {MainWindowState} from "$lib/types";
   import MainSectionsContainer from "./components/MainWindow/MainSectionsContainer.svelte";
   import SharedEvents from "./components/Shared/SharedEvents.svelte";
-  import { createWidgetsContext, setWidgetsContext } from '$lib/contexts/widgetsContext.svelte';
-  import { createCooldownsContext, setCooldownsContext } from '$lib/contexts/cooldownsContext';
-  import { setElectronContext } from '$lib/contexts/electronContext';
-  import { setNeuzosBridgeContext } from '$lib/contexts/neuzosBridgeContext';
+  import {createWidgetsContext, setWidgetsContext} from '$lib/contexts/widgetsContext.svelte';
+  import {createCooldownsContext, setCooldownsContext} from '$lib/contexts/cooldownsContext';
+  import {setElectronContext} from '$lib/contexts/electronContext';
+  import {setNeuzosBridgeContext} from '$lib/contexts/neuzosBridgeContext';
 
 
   let isLoading = $state(true);
@@ -40,6 +40,11 @@
       defaultLaunchMode: 'normal',
       userAgent: undefined,
       changed: false,
+      titleBarButtons: {
+        darkModeToggle: true,
+        fullscreenToggle: true,
+        keybindToggle: true
+      },
     },
     sessions: [],
     layouts: [],
@@ -186,8 +191,8 @@
     // Find all actions with the same category (excluding the one that was just triggered)
     const categoryActions = sessionActionsData.actions.filter(
       a => a.id !== excludeActionId &&
-           a.cooldownCategory &&
-           a.cooldownCategory.trim() === category.trim()
+        a.cooldownCategory &&
+        a.cooldownCategory.trim() === category.trim()
     )
 
     // Start cooldown for each action in the category
@@ -222,6 +227,7 @@
     mainWindowState.config.sessionActions = newConfig.sessionActions || []
     mainWindowState.config.defaultLaunchMode = newConfig.defaultLaunchMode
     mainWindowState.config.userAgent = newConfig.userAgent || undefined
+    mainWindowState.config.titleBarButtons = newConfig.titleBarButtons
   })
 
   const reloadNeuzos = () => {

@@ -16,7 +16,7 @@ const allowedCommandLineSwitches = [
   //{flag: "force_low_power_gpu", description: "Use integrated GPU on hybrid systems"},
   {flag: "enable-gpu-rasterization", description: "Force GPU rasterization"},
   {flag: "enable-zero-copy", description: "Use zero-copy textures for better WebGL performance"},
- // {flag: "enable-gpu-compositing", description: "Force GPU compositing"},
+  // {flag: "enable-gpu-compositing", description: "Force GPU compositing"},
   //{flag: "enable-native-gpu-memory-buffers", description: "Use native GPU memory buffers"},
   {flag: "enable-oop-rasterization", description: "Out-of-process rasterization"},
   {flag: "enable-accelerated-2d-canvas", description: "Speed up canvas rendering"},
@@ -25,7 +25,7 @@ const allowedCommandLineSwitches = [
   //{flag: "enforce-gl-minimums", description: "Enforce OpenGL minimum requirements"},
   //{flag: "enable-webgl-draft-extensions", description: "Enable experimental WebGL extensions"},
   {flag: "enable-gpu-memory-buffer-compositor-resources", description: "GPU memory buffer optimizations"},
- // {flag: "enable-gpu-memory-buffer-video-frames", description: "GPU memory buffer for video frames"},
+  // {flag: "enable-gpu-memory-buffer-video-frames", description: "GPU memory buffer for video frames"},
   //{flag: "video-capture-use-gpu-memory-buffer", description: "Use GPU memory buffer for video capture"},
 
   // 🧠 GPU Stability & Speed
@@ -100,7 +100,7 @@ let launchArgs: LaunchArgs;
 
 let neuzosConfig: any = null;
 const defaultNeuzosConfig = {
-  defaultLaunchMode : "normal",
+  defaultLaunchMode: "normal",
   chromium: {
     commandLineSwitches: [
       "force_high_performance_gpu",
@@ -126,7 +126,12 @@ const defaultNeuzosConfig = {
       "event": "fullscreen_toggle"
     }
   ],
-  sessionActions: []
+  sessionActions: [],
+  titleBarButtons: {
+    darkModeToggle: true,
+    fullscreenToggle: true,
+    keybindToggle: true,
+  },
 };
 
 const allowedEventKeybinds = {
