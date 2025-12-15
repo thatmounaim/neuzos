@@ -389,6 +389,8 @@ function createSessionWindow(mode: LaunchMode, sessionId: string): void {
 
   // Exit behavior similar to main window
   sessionWindow.on("close", (event) => {
+    // Always unregister shortcuts when session window is closing
+    globalShortcut.unregisterAll();
     if (exitCount < 2) {
       event.preventDefault();
       console.log("Prevented manual close");
@@ -416,6 +418,8 @@ function createSessionWindow(mode: LaunchMode, sessionId: string): void {
   });
 
   sessionWindow.on("closed", () => {
+    // Ensure shortcuts are unregistered when session window is destroyed
+    globalShortcut.unregisterAll();
     sessionWindow = null;
   });
 
@@ -476,6 +480,8 @@ function createMainWindow(): void {
   });
 
   mainWindow.on("close", (event) => {
+    // Always unregister shortcuts when main window is closing
+    globalShortcut.unregisterAll();
     if (exitCount < 2) {
       event.preventDefault();
       console.log("Prevented manual close");
@@ -502,6 +508,8 @@ function createMainWindow(): void {
   });
 
   mainWindow.on("closed", () => {
+    // Ensure shortcuts are unregistered when window is destroyed
+    globalShortcut.unregisterAll();
     mainWindow = null;
   });
 
@@ -886,19 +894,61 @@ function registerSessionKeybinds(mode: LaunchMode) {
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
   app.on("window-all-closed", () => {
+    globalShortcut.unregisterAll();
     if (process.platform !== "darwin") {
       app.quit();
     }
   });
 
   app.on("browser-window-blur", () => {
-    if (BrowserWindow.getFocusedWindow() == mainWindow) {
-      globalShortcut.unregisterAll();
+    // Unregister shortcuts when any window loses focus to prevent conflicts
+    globalShortcut.unregisterAll();
+  });
+
+  app.on("browser-window-focus", () => {
+    // Re-register appropriate shortcuts when any window gains focus
+    const focusedWindow = BrowserWindow.getFocusedWindow();
+    if (focusedWindow === mainWindow) {
+      registerKeybinds();
+    } else if (focusedWindow === sessionWindow && (sessionWindow as any)?.sessionData) {
+      registerSessionKeybinds((sessionWindow as any).sessionData.mode);
     }
   });
 
   app.on("will-quit", () => {
     globalShortcut.unregisterAll();
+  });
+
+  // Add additional safety cleanup on process events
+  app.on("before-quit", () => {
+    globalShortcut.unregisterAll();
+  });
+
+  // Handle unexpected process termination
+  process.on('exit', () => {
+    try {
+      globalShortcut.unregisterAll();
+    } catch (e) {
+      console.error("Error cleaning up shortcuts on exit:", e);
+    }
+  });
+
+  process.on('SIGINT', () => {
+    try {
+      globalShortcut.unregisterAll();
+    } catch (e) {
+      console.error("Error cleaning up shortcuts on SIGINT:", e);
+    }
+    app.quit();
+  });
+
+  process.on('SIGTERM', () => {
+    try {
+      globalShortcut.unregisterAll();
+    } catch (e) {
+      console.error("Error cleaning up shortcuts on SIGTERM:", e);
+    }
+    app.quit();
   });
 });
 
