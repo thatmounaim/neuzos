@@ -2,10 +2,11 @@
   import * as Card from "$lib/components/ui/card";
   import * as Table from "$lib/components/ui/table";
   import {Switch} from "$lib/components/ui/switch";
-
+  import * as Alert from "$lib/components/ui/alert";
   import {getContext, onMount} from "svelte";
   import { getElectronContext } from "$lib/contexts/electronContext";
   import type {NeuzConfig} from "$lib/types";
+  import {AlertCircleIcon} from "@lucide/svelte";
 
   let availableCommandLineSwitches: Array<{ flag: string; description: string }> = [];
 
@@ -48,12 +49,23 @@
     <Card.Title class="text-lg font-semibold">Command Line Switches</Card.Title>
     <Card.Description class="flex flex-col">
       <p>Manage Chromium command line arguments to modify browser behavior.</p>
-      <b class="text-sm mt-4">
-        Changing these settings will only affect the next time you start NeuzOS.<br/>
-        If somehow NeuzOS is not starting with the new settings, you can try edit the config file manually and get
+      <Alert.Root class="mt-4">
+        <AlertCircleIcon/>
+        <Alert.Title>Important Note.</Alert.Title>
+        <Alert.Description class="pt-2">
+          <ul>
+            <li>- Changing these settings will only affect the next time you start NeuzOS.
+            </li>
+            <li>-  If somehow NeuzOS is not starting with the new settings, you can try edit the config file manually and get
         rid
         of
-        the flags.
+        the flags.</li>
+          </ul>
+        </Alert.Description>
+      </Alert.Root>
+      <b class="text-sm mt-4">
+        <br/>
+
       </b>
     </Card.Description>
   </Card.Header>

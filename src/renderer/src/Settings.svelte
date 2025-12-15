@@ -139,14 +139,14 @@
   <div class="w-full h-full flex flex-col border-2 ">
     <SettingsBar/>
     <div class="flex w-full flex-col gap-6 p-4 flex-1 overflow-hidden">
-      <Tabs.Root value="sessions" class="h-full w-full">
+      <Tabs.Root value="general" class="h-full w-full">
         <Tabs.List class="relative w-full">
           <div class="flex items-center justify-start gap-2">
+            <Tabs.Trigger value="general">General</Tabs.Trigger>
             <Tabs.Trigger value="sessions">Sessions</Tabs.Trigger>
             <Tabs.Trigger value="layouts">Layouts</Tabs.Trigger>
             <Tabs.Trigger value="keybinds">Keybinds</Tabs.Trigger>
             <Tabs.Trigger value="session-actions">Session Actions</Tabs.Trigger>
-            <Tabs.Trigger value="general">General</Tabs.Trigger>
             <Tabs.Trigger value="launch">Launch Settings</Tabs.Trigger>
 
           </div>

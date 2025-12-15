@@ -82,9 +82,18 @@
   let iconPopoverStates: { [sessionId: string]: boolean } = $state({});
 </script>
 <Card.Root class="h-full  overflow-y-auto">
+  <Card.Header>
+    <Card.Title class="text-lg font-semibold">
+      Manage Sessions
+    </Card.Title>
+    <Card.Description>
+      Configure your Flyff Universe sessions below. You can add, edit, reorder, and delete sessions as needed.<br>
+      You can overwrite the launch URL for each session to point to different website.<br>
+      Overwritten URLs for web use cases can be set to use a browser partition to avoid heavy storage usage.
+    </Card.Description>
+  </Card.Header>
   <Card.Content class="flex flex-col gap-4">
     <Table.Root>
-      <Table.Caption>A list of your flyff universe sessions.</Table.Caption>
       <Table.Header>
         <Table.Row>
           <Table.Head class=""></Table.Head>

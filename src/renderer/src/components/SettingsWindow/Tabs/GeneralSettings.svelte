@@ -4,9 +4,11 @@
   import {Switch} from "$lib/components/ui/switch";
   import {Input} from "$lib/components/ui/input";
   import {Label} from "$lib/components/ui/label";
+  import * as Alert from "$lib/components/ui/alert";
+  import {AlertCircleIcon} from "@lucide/svelte";
 
   import {getContext, onMount} from "svelte";
-  import { getElectronContext } from "$lib/contexts/electronContext";
+  import {getElectronContext} from "$lib/contexts/electronContext";
   import type {NeuzConfig} from "$lib/types";
 
   const electronApi = getElectronContext();
@@ -65,9 +67,15 @@
     <Card.Title class="text-lg font-semibold">User Agent Settings</Card.Title>
     <Card.Description class="flex flex-col">
       <p>Configure custom user agent string for webviews and sessions.</p>
-      <p class="text-xs text-muted-foreground mt-2">
-        When disabled, the default Electron user agent will be used.
-      </p>
+        <Alert.Root variant="destructive" class="mt-4">
+          <AlertCircleIcon/>
+          <Alert.Title>Important before changing the user agent.</Alert.Title>
+          <Alert.Description class="pt-2">
+            <ul>
+              <li>- In some cases all your currently logged in sessions might will become invalid with a new user agent.</li>
+            </ul>
+          </Alert.Description>
+        </Alert.Root>
     </Card.Description>
   </Card.Header>
   <Card.Content class="flex flex-col gap-4">
@@ -86,6 +94,9 @@
             />
           </Table.Cell>
         </Table.Row>
+        <p class="text-xs text-muted-foreground mt-2">
+          When disabled, the default Electron user agent will be used.
+        </p>
       </Table.Body>
     </Table.Root>
 
