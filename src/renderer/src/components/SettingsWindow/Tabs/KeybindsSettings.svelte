@@ -9,7 +9,7 @@
   import {getElectronContext} from "$lib/contexts/electronContext";
 
   import type {NeuzConfig} from "$lib/types";
-  import {Plus, Trash2, ChevronsUpDown, Check, AlertCircleIcon} from "@lucide/svelte";
+  import {Plus, Trash2, ChevronsUpDown, Check, AlertCircleIcon, ChevronUp, ChevronDown} from "@lucide/svelte";
 
   const modifierOptions = [
     {value: "", label: "None"},
@@ -116,6 +116,31 @@
     }
   });
 
+  function moveKeybindUp(index: number) {
+    if (index > 0) {
+      const keybinds = [...neuzosConfig.keyBinds];
+      [keybinds[index], keybinds[index - 1]] = [keybinds[index - 1], keybinds[index]];
+      neuzosConfig.keyBinds = keybinds;
+
+      // Also swap the combobox states
+      const states = [...comboboxStates];
+      [states[index], states[index - 1]] = [states[index - 1], states[index]];
+      comboboxStates = states;
+    }
+  }
+
+  function moveKeybindDown(index: number) {
+    if (index < neuzosConfig.keyBinds.length - 1) {
+      const keybinds = [...neuzosConfig.keyBinds];
+      [keybinds[index], keybinds[index + 1]] = [keybinds[index + 1], keybinds[index]];
+      neuzosConfig.keyBinds = keybinds;
+
+      // Also swap the combobox states
+      const states = [...comboboxStates];
+      [states[index], states[index + 1]] = [states[index + 1], states[index]];
+      comboboxStates = states;
+    }
+  }
 
 </script>
 <Card.Root class="h-full overflow-y-auto">
@@ -140,15 +165,16 @@
       </Alert.Root>
     </Card.Description>
   </Card.Header>
-  <Card.Content class="flex flex-col gap-4">
+  <Card.Content class="flex flex-col gap-4 items-start">
     <Table.Root>
       <Table.Header>
         <Table.Row>
-          <Table.Head class="font-bold"></Table.Head>
+          <Table.Head class="font-bold w-[60px]">Order</Table.Head>
           <Table.Head class="font-bold">Modifier</Table.Head>
           <Table.Head class="font-bold">Key</Table.Head>
           <Table.Head class="font-bold">Event</Table.Head>
           <Table.Head class="w-full"></Table.Head>
+          <Table.Head class="font-bold"></Table.Head>
         </Table.Row>
       </Table.Header>
       <Table.Body>
@@ -158,12 +184,25 @@
           {#if comboboxStates[index]}
             {@const state = comboboxStates[index]}
             <Table.Row>
-              <Table.Cell class="text-sm text-muted-foreground">
-                <Button variant="outline" size="xs" class="w-6 h-6" onclick={() => {
-                neuzosConfig.keyBinds.splice(neuzosConfig.keyBinds.indexOf(keyBind), 1)
-              }}>
-                  <Trash2 class="size-3"/>
-                </Button>
+              <Table.Cell>
+                <div class="flex flex-col gap-0.5">
+                  <Button
+                    variant="outline"
+                    size="icon-xs"
+                    onclick={() => moveKeybindUp(index)}
+                    disabled={index === 0}
+                  >
+                    <ChevronUp class="h-3 w-3"/>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon-xs"
+                    onclick={() => moveKeybindDown(index)}
+                    disabled={index >= neuzosConfig.keyBinds.length - 1}
+                  >
+                    <ChevronDown class="h-3 w-3"/>
+                  </Button>
+                </div>
               </Table.Cell>
               <Table.Cell>
                 {@const modifierState = comboboxStates[index]}
@@ -419,6 +458,13 @@
                   <i class="text-accent-foreground opacity-50"> No extra data is needed for this event.</i>
                 {/if}
               </Table.Cell>
+               <Table.Cell class="text-sm text-muted-foreground">
+                <Button variant="outline" size="sm"  onclick={() => {
+                neuzosConfig.keyBinds.splice(neuzosConfig.keyBinds.indexOf(keyBind), 1)
+              }}>
+                  <Trash2 class="size-4"/>
+                </Button>
+              </Table.Cell>
             </Table.Row>
           {/if}
         {/each}
@@ -428,7 +474,7 @@
       <Popover.Trigger>
         <Button variant="outline" size="sm">
           <Plus class="size-4 mr-2"/>
-          Add Keybind
+          Add a Global Shortcut Keybind
         </Button>
       </Popover.Trigger>
       <Popover.Content class="w-[320px] p-0">
