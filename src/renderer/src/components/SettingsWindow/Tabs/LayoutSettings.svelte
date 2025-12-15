@@ -123,67 +123,79 @@
 
 </script>
 <Card.Root class="w-full">
-  <Card.Content class="flex flex-col gap-4">
-    <div class="flex items-center gap-2">
-      <strong>Default Layouts on Launch</strong>
-
-      <Popover.Root open={addDefaultLayoutPopoverOpen} onOpenChange={(open) => { addDefaultLayoutPopoverOpen = open; }}>
-        <Popover.Trigger>
-          <Button variant="outline" size="icon" class="h-8 w-8">
-            <Plus class="h-4 w-4"/>
-          </Button>
-        </Popover.Trigger>
-        <Popover.Content class="w-[280px] p-0">
-          <Command.Root shouldFilter={true}>
-            <Command.Input placeholder="Search layouts..." class="h-10"/>
-            <Command.Empty>No layout found.</Command.Empty>
-            <Command.List class="max-h-[320px]">
-              <Command.Group>
-                {#each neuzosConfig.layouts as layout}
-                  {@const disabled = neuzosConfig.defaultLayouts.includes(layout.id)}
-                  {#if !disabled}
-                    <Command.Item
-                      value={layout.id}
-                      keywords={[layout.label.toLowerCase()]}
-                      onSelect={() => {
+  <Card.Header>
+    <Card.Title class="text-lg font-semibold">
+      Default Layouts on Launch
+    </Card.Title>
+    <Card.Description class="flex flex-col">
+      Select which layouts should be active by default when NeuzOS starts. You can add or remove layouts from the list below.
+    </Card.Description>
+  </Card.Header>
+  <Card.Content class="flex gap-4">
+    {#if neuzosConfig.defaultLayouts.length === 0}
+      <div class="flex items-center gap-1 text-sm">
+        No Default Layouts
+      </div>
+    {/if}
+    {#each neuzosConfig.defaultLayouts as layoutId, lidx (layoutId)}
+      {@const layout = neuzosConfig.layouts.find(l => l.id === layoutId)}
+      <Button variant="outline" size="sm" onclick={() => { neuzosConfig.defaultLayouts.splice(lidx, 1) }}>
+        <img class="w-5 h-5" src="icons/{layout?.icon.slug}.png" alt=""/>
+        {layout?.label ?? "Unnamed Layout"}
+        <Trash class="size-3"></Trash>
+      </Button>
+    {/each}
+    <Popover.Root open={addDefaultLayoutPopoverOpen} onOpenChange={(open) => { addDefaultLayoutPopoverOpen = open; }}>
+      <Popover.Trigger>
+        <Button variant="outline" size="icon" class="h-8 w-8">
+          <Plus class="h-4 w-4"/>
+        </Button>
+      </Popover.Trigger>
+      <Popover.Content class="w-[280px] p-0">
+        <Command.Root shouldFilter={true}>
+          <Command.Input placeholder="Search layouts..." class="h-10"/>
+          <Command.Empty>No layout found.</Command.Empty>
+          <Command.List class="max-h-[320px]">
+            <Command.Group>
+              {#each neuzosConfig.layouts as layout}
+                {@const disabled = neuzosConfig.defaultLayouts.includes(layout.id)}
+                {#if !disabled}
+                  <Command.Item
+                    value={layout.id}
+                    keywords={[layout.label.toLowerCase()]}
+                    onSelect={() => {
                         neuzosConfig.defaultLayouts.push(layout.id);
                         addDefaultLayoutPopoverOpen = false;
                       }}
-                      class="py-2"
-                    >
-                      <img class="size-5 mr-2" src="icons/{layout.icon.slug}.png" alt=""/>
-                      <span>{layout.label}</span>
-                    </Command.Item>
-                  {/if}
-                {/each}
-              </Command.Group>
-            </Command.List>
-          </Command.Root>
-        </Popover.Content>
-      </Popover.Root>
-    </div>
-    <div class="flex gap-2">
-      {#if neuzosConfig.defaultLayouts.length === 0}
-        <div class="flex items-center gap-1 text-sm">
-          No Default Layouts
-        </div>
-      {/if}
-      {#each neuzosConfig.defaultLayouts as layoutId, lidx (layoutId)}
-        {@const layout = neuzosConfig.layouts.find(l => l.id === layoutId)}
-        <Button variant="outline" size="sm" onclick={() => { neuzosConfig.defaultLayouts.splice(lidx, 1) }}>
-          <img class="w-5 h-5" src="icons/{layout?.icon.slug}.png" alt=""/>
-          {layout?.label ?? "Unnamed Layout"}
-          <Trash class="size-3"></Trash>
-        </Button>
-      {/each}
-    </div>
+                    class="py-2"
+                  >
+                    <img class="size-5 mr-2" src="icons/{layout.icon.slug}.png" alt=""/>
+                    <span>{layout.label}</span>
+                  </Command.Item>
+                {/if}
+              {/each}
+            </Command.Group>
+          </Command.List>
+        </Command.Root>
+      </Popover.Content>
+    </Popover.Root>
+
   </Card.Content>
 </Card.Root>
 <Separator class="my-4"/>
 <Card.Root class="overflow-y-auto">
+  <Card.Header>
+    <Card.Title class="text-lg font-semibold">
+      Manage Layouts
+    </Card.Title>
+    <Card.Description class="flex flex-col">
+      Customize and organize your layouts below. You can set icons, labels, lock layouts to prevent resizing, and manage
+      sessions within each layout.<br>
+      Use the buttons to add, remove, and rearrange layouts as needed.
+    </Card.Description>
+  </Card.Header>
   <Card.Content class="flex flex-col gap-4">
     <Table.Root>
-      <Table.Caption>A list of your layouts.</Table.Caption>
       <Table.Header>
         <Table.Row>
           <Table.Head class=""></Table.Head>
@@ -253,7 +265,8 @@
                               class="py-2"
                             >
                               <img class="size-6 mr-2" src="icons/{icon}.png" alt=""/>
-                              <span class="text-xs truncate">{icon.replace('misc/', '').replace('levels/', '').replace('jobs/', '')}</span>
+                              <span
+                                class="text-xs truncate">{icon.replace('misc/', '').replace('levels/', '').replace('jobs/', '')}</span>
                             </Command.Item>
                           {/each}
                         </Command.Group>

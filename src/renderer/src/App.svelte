@@ -6,14 +6,16 @@
   import type {MainWindowState} from "$lib/types";
   import MainSectionsContainer from "./components/MainWindow/MainSectionsContainer.svelte";
   import SharedEvents from "./components/Shared/SharedEvents.svelte";
-  import { createWidgetsContext, setWidgetsContext } from '$lib/contexts/widgetsContext.svelte';
-  import { createCooldownsContext, setCooldownsContext } from '$lib/contexts/cooldownsContext';
+  import {createWidgetsContext, setWidgetsContext} from '$lib/contexts/widgetsContext.svelte';
+  import {createCooldownsContext, setCooldownsContext} from '$lib/contexts/cooldownsContext';
+  import {setElectronContext} from '$lib/contexts/electronContext';
+  import {setNeuzosBridgeContext} from '$lib/contexts/neuzosBridgeContext';
 
-  const dockedTabs = $state([])
 
-  setContext('electronApi', window.electron.ipcRenderer)
-  setContext('dockedTabs', dockedTabs);
-  setContext('neuzosBridge', neuzosBridge)
+  let isLoading = $state(true);
+
+  setElectronContext(window.electron.ipcRenderer);
+  setNeuzosBridgeContext(neuzosBridge);
 
   // Create and set the widgets context at the app level
   const widgetsContext = createWidgetsContext();
@@ -36,7 +38,13 @@
       keyBinds: [],
       sessionActions: [],
       defaultLaunchMode: 'normal',
+      userAgent: undefined,
       changed: false,
+      titleBarButtons: {
+        darkModeToggle: true,
+        fullscreenToggle: true,
+        keybindToggle: true
+      },
     },
     sessions: [],
     layouts: [],
@@ -48,7 +56,7 @@
       previousLayoutId: null,
     },
     sessionsLayoutsRef: {},
-    doCalculationUpdatesRng: 0,
+    doCalculationUpdatesRng: 0
   })
 
   const electronApi = window.electron.ipcRenderer;
@@ -183,8 +191,8 @@
     // Find all actions with the same category (excluding the one that was just triggered)
     const categoryActions = sessionActionsData.actions.filter(
       a => a.id !== excludeActionId &&
-           a.cooldownCategory &&
-           a.cooldownCategory.trim() === category.trim()
+        a.cooldownCategory &&
+        a.cooldownCategory.trim() === category.trim()
     )
 
     // Start cooldown for each action in the category
@@ -218,6 +226,8 @@
     mainWindowState.config.keyBinds = newConfig.keyBinds
     mainWindowState.config.sessionActions = newConfig.sessionActions || []
     mainWindowState.config.defaultLaunchMode = newConfig.defaultLaunchMode
+    mainWindowState.config.userAgent = newConfig.userAgent || undefined
+    mainWindowState.config.titleBarButtons = newConfig.titleBarButtons
   })
 
   const reloadNeuzos = () => {
@@ -226,6 +236,8 @@
       mainWindowState.layouts = JSON.parse(JSON.stringify(mainWindowState.config.layouts))
       mainWindowState.tabs.layoutsIds = JSON.parse(JSON.stringify(mainWindowState.config.defaultLayouts))
       mainWindowState.tabs.layoutOrder = JSON.parse(JSON.stringify(mainWindowState.config.defaultLayouts))
+      mainWindowState.tabs.activeLayoutId = 'home'
+      mainWindowState.tabs.previousLayoutId = null
     }, 50)
   }
 
@@ -246,11 +258,24 @@
     neuzosBridge.layouts.closeAll()
     mainWindowState.config = await electronApi.invoke('config.load', true)
     reloadNeuzos()
+    // Wait a bit to ensure all contexts are properly initialized
+    setTimeout(() => {
+      isLoading = false
+    }, 500)
   })
 </script>
 <ModeWatcher/>
-<SharedEvents/>
-<div class="w-full h-full flex flex-col border-2">
-  <MainBar/>
-  <MainSectionsContainer/>
-</div>
+{#if isLoading}
+  <div class="w-full h-full flex items-center justify-center bg-background">
+    <div class="flex flex-col items-center gap-4">
+      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <p class="text-muted-foreground">Loading NeuzOS...</p>
+    </div>
+  </div>
+{:else}
+  <SharedEvents/>
+  <div class="w-full h-full flex flex-col border-2">
+    <MainBar/>
+    <MainSectionsContainer/>
+  </div>
+{/if}

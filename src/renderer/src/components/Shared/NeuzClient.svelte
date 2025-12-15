@@ -5,12 +5,13 @@
   import Button from '../../lib/components/ui/button/button.svelte'
   import {neuzosBridge} from "$lib/core";
 
-  let {session, onUpdate, autofocusEnabled = $bindable(), layoutId, src}: {
+  let {session, onUpdate, autofocusEnabled = $bindable(), layoutId, src, userAgent}: {
     session: NeuzSession
     layoutId: string
     onUpdate: (sessionId: string) => void
     autofocusEnabled: boolean
     src: string
+    userAgent?: string
   } = $props()
 
   let partition: string = $state('')
@@ -20,7 +21,6 @@
 
 
   const mainWindowState = getContext<MainWindowState>('mainWindowState')
-
 
   onMount(() => {
     if (session.partitionOverwrite) {
@@ -263,6 +263,7 @@ window.open = function(...args) {
         src={src}
         onload={() => onUpdate(session.id)}
         {partition}
+        useragent={userAgent}
       ></webview>
     {:else}
       <div
@@ -272,6 +273,8 @@ window.open = function(...args) {
         <img src="flyffu-logo.png" alt="Flyff Universe Logo" class="w-1/2 max-w-32 pointer-events-none select-none"/>
         <Button variant="outline" onclick={() => neuzosBridge.sessions.start(session.id,layoutId)}>Start Session
           - {session.label}</Button>
+
+
       </div>
     {/if}
   {/if}

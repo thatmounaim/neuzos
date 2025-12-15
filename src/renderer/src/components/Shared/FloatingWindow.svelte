@@ -2,7 +2,7 @@
   import { onMount, getContext } from 'svelte';
   import type { Snippet } from 'svelte';
   import { X, Minus, Maximize2, EyeOff } from '@lucide/svelte';
-  import { FLOATING_WINDOW_CONTEXT_KEY, type FloatingWindowContext } from './floatingWindowContext';
+  import { FLOATING_WINDOW_CONTEXT_KEY, type FloatingWindowContext } from '$lib/contexts/floatingWindowContext';
 
   const windowContext = getContext<FloatingWindowContext>(FLOATING_WINDOW_CONTEXT_KEY);
 

@@ -5,41 +5,41 @@
   import * as Command from "$lib/components/ui/command";
   import * as Collapsible from "$lib/components/ui/collapsible";
 
-  import { getContext } from "svelte";
-  import { Button } from "$lib/components/ui/button";
-  import { Input } from "$lib/components/ui/input";
-  import { Switch } from "$lib/components/ui/switch";
-
-  import type { NeuzConfig, SessionActions } from "$lib/types";
-  import { Plus, Trash2, ChevronsUpDown, Check, ChevronDown, ChevronUp } from "@lucide/svelte";
+  import {getContext} from "svelte";
+  import {Button} from "$lib/components/ui/button";
+  import {Input} from "$lib/components/ui/input";
+  import {Switch} from "$lib/components/ui/switch";
+  import * as Alert from "$lib/components/ui/alert";
+  import type {NeuzConfig, SessionActions} from "$lib/types";
+  import {Plus, Trash2, ChevronsUpDown, Check, ChevronDown, ChevronUp, AlertCircleIcon} from "@lucide/svelte";
 
   const modifierOptions = [
-    { value: "", label: "None" },
-    { value: "alt", label: "Alt" },
-    { value: "shift", label: "Shift" },
-    { value: "control", label: "Control" },
-    { value: "command", label: "Command" },
-    { value: "meta", label: "Meta" },
-    { value: "control+alt", label: "Ctrl+Alt" },
-    { value: "control+shift", label: "Ctrl+Shift" },
+    {value: "", label: "None"},
+    {value: "alt", label: "Alt"},
+    {value: "shift", label: "Shift"},
+    {value: "control", label: "Control"},
+    {value: "command", label: "Command"},
+    {value: "meta", label: "Meta"},
+    {value: "control+alt", label: "Ctrl+Alt"},
+    {value: "control+shift", label: "Ctrl+Shift"},
 
-    { value: "command+control", label: "Cmd+Ctrl" },
-    { value: "command+alt", label: "Cmd+Alt" },
-    { value: "command+shift", label: "Cmd+Shift" },
+    {value: "command+control", label: "Cmd+Ctrl"},
+    {value: "command+alt", label: "Cmd+Alt"},
+    {value: "command+shift", label: "Cmd+Shift"},
 
-    { value: "alt+shift", label: "Alt+Shift" },
-    { value: "control+alt+shift", label: "Ctrl+Alt+Shift" },
-    { value: "command+control+shift", label: "Cmd+Ctrl+Shift" },
-    { value: "command+control+alt", label: "Cmd+Ctrl+Alt" },
-    { value: "command+alt+shift", label: "Cmd+Alt+Shift" }
+    {value: "alt+shift", label: "Alt+Shift"},
+    {value: "control+alt+shift", label: "Ctrl+Alt+Shift"},
+    {value: "command+control+shift", label: "Cmd+Ctrl+Shift"},
+    {value: "command+control+alt", label: "Cmd+Ctrl+Alt"},
+    {value: "command+alt+shift", label: "Cmd+Alt+Shift"}
   ];
 
   const cooldownCategoryOptions = [
-    { value: "", label: "None" },
-    { value: "food", label: "Food" },
-    { value: "pill", label: "Pill" },
-    { value: "refresher", label: "Refresher" },
-    { value: "vital", label: "Vital" }
+    {value: "", label: "None"},
+    {value: "food", label: "Food"},
+    {value: "pill", label: "Pill"},
+    {value: "refresher", label: "Refresher"},
+    {value: "vital", label: "Vital"}
   ];
 
   const allowedKeys = [
@@ -371,11 +371,11 @@
   function parseKeybind(keybind: string): { modifier: string; key: string } {
     const parts = keybind.split("+");
     if (parts.length === 1) {
-      return { modifier: "", key: keybind };
+      return {modifier: "", key: keybind};
     }
     const key = parts[parts.length - 1];
     const modifier = parts.slice(0, -1).join("+");
-    return { modifier, key };
+    return {modifier, key};
   }
 
   function buildKeybind(modifier: string, key: string): string {
@@ -423,7 +423,7 @@
   function addAction(sessionActions: SessionActions) {
     sessionActions.actions.push({
       id: Date.now().toString() + Math.random(),
-      icon: { slug: "neuzos_pang" },
+      icon: {slug: "neuzos_pang"},
       label: "New Action",
       ingameKey: "",
       castTime: 0,
@@ -464,6 +464,22 @@
         comboboxStates[sessionActions.sessionId][index] = comboboxStates[sessionActions.sessionId][index + 1];
         comboboxStates[sessionActions.sessionId][index + 1] = tempState;
       }
+    }
+  }
+
+  function moveSessionUp(index: number) {
+    if (index > 0) {
+      const sessions = [...neuzosConfig.sessionActions];
+      [sessions[index], sessions[index - 1]] = [sessions[index - 1], sessions[index]];
+      neuzosConfig.sessionActions = sessions;
+    }
+  }
+
+  function moveSessionDown(index: number) {
+    if (index < neuzosConfig.sessionActions.length - 1) {
+      const sessions = [...neuzosConfig.sessionActions];
+      [sessions[index], sessions[index + 1]] = [sessions[index + 1], sessions[index]];
+      neuzosConfig.sessionActions = sessions;
     }
   }
 
@@ -508,24 +524,40 @@
 </script>
 
 <Card.Root class="h-full overflow-y-auto">
-  <Card.Content class="flex flex-col gap-4">
-    <p class="text-sm">
-      Manage actions for your sessions. Each session can have multiple actions with customizable icons, labels, ingame
-      keys, cast times, and cooldowns.
-    </p>
+  <Card.Header>
 
+    <Card.Title class="text-lg font-semibold">Session Actions</Card.Title>
+    <Card.Description class="flex flex-col">
+      <p class="text-sm">
+        Manage actions for your sessions. Each session can have multiple actions with customizable icons, labels, ingame
+        keys, cast times, and cooldowns.
+      </p>
+      <Alert.Root variant="destructive" class="mt-4">
+        <AlertCircleIcon/>
+        <Alert.Title>Important Note.</Alert.Title>
+        <Alert.Description class="pt-2">
+          <ul>
+            <li>- While it complies with TOS of 1 Human Action = 1 InGame Action, use this feature at your own risk.
+            </li>
+            <li>- It's still in a gray area, and if checked by a mod and failing to respond might cause you issues.</li>
+          </ul>
+        </Alert.Description>
+      </Alert.Root>
+    </Card.Description>
+  </Card.Header>
+  <Card.Content class="flex flex-col gap-4">
     <!-- Add Session Selector -->
     <div class="flex items-center gap-2">
       <Popover.Root open={addSessionPopoverOpen} onOpenChange={(open) => { addSessionPopoverOpen = open; }}>
         <Popover.Trigger>
           <Button variant="outline" size="sm">
-            <Plus class="size-4 mr-2" />
+            <Plus class="size-4 mr-2"/>
             Add Session to Manage
           </Button>
         </Popover.Trigger>
         <Popover.Content class="w-[280px] p-0">
           <Command.Root shouldFilter={true}>
-            <Command.Input placeholder="Search sessions..." class="h-10" />
+            <Command.Input placeholder="Search sessions..." class="h-10"/>
             <Command.Empty>No session found.</Command.Empty>
             <Command.List class="max-h-[320px]">
               <Command.Group>
@@ -538,7 +570,7 @@
                       onSelect={() => addSessionToManage(session.id)}
                       class="py-2.5"
                     >
-                      <img class="size-4 mr-2" src="icons/{session.icon.slug}.png" alt="" />
+                      <img class="size-4 mr-2" src="icons/{session.icon.slug}.png" alt=""/>
                       <span>{session.label}</span>
                     </Command.Item>
                   {/if}
@@ -552,7 +584,7 @@
 
     <!-- Session Actions Cards -->
     <div class="flex flex-col gap-3">
-      {#each neuzosConfig.sessionActions as sessionActions (sessionActions.sessionId)}
+      {#each neuzosConfig.sessionActions as sessionActions, sessionIndex (sessionActions.sessionId)}
         {@const sessionLabel = getSessionLabel(sessionActions.sessionId)}
         {@const sessionIcon = getSessionIcon(sessionActions.sessionId)}
         {@const isSessionOpen = openSessions[sessionActions.sessionId] ?? false}
@@ -561,15 +593,35 @@
                           class="group border rounded-lg bg-card">
           <div class="p-4">
             <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2 mr-2">
+                <div class="flex flex-col gap-0.5">
+                  <Button
+                    variant="outline"
+                    size="icon-xs"
+                    onclick={() => moveSessionUp(sessionIndex)}
+                    disabled={sessionIndex === 0}
+                  >
+                    <ChevronUp class="h-3 w-3"/>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon-xs"
+                    onclick={() => moveSessionDown(sessionIndex)}
+                    disabled={sessionIndex >= neuzosConfig.sessionActions.length - 1}
+                  >
+                    <ChevronDown class="h-3 w-3"/>
+                  </Button>
+                </div>
+              </div>
               <Collapsible.Trigger class="flex items-center gap-3 hover:opacity-80 transition-opacity flex-1 text-left">
-                <img class="w-6 h-6 rounded" src="icons/{sessionIcon}.png" alt="" />
+                <img class="w-6 h-6 rounded" src="icons/{sessionIcon}.png" alt=""/>
                 <div class="flex flex-col">
                   <span class="font-medium">{sessionLabel}</span>
                   <span class="text-sm text-muted-foreground">{sessionActions.actions.length}
                     action{sessionActions.actions.length !== 1 ? 's' : ''}</span>
                 </div>
                 <ChevronDown
-                  class="h-4 w-4 ml-auto transition-transform {openSessions[sessionActions.sessionId] ? 'rotate-180' : ''}" />
+                  class="h-4 w-4 ml-auto transition-transform {openSessions[sessionActions.sessionId] ? 'rotate-180' : ''}"/>
               </Collapsible.Trigger>
               <Button
                 variant="ghost"
@@ -577,7 +629,7 @@
                 onclick={() => removeSessionActions(sessionActions.sessionId)}
                 class="ml-2 h-8 w-8 hover:bg-destructive hover:text-destructive-foreground"
               >
-                <Trash2 class="h-4 w-4" />
+                <Trash2 class="h-4 w-4"/>
               </Button>
             </div>
 
@@ -620,7 +672,7 @@
                                   onclick={() => moveActionUp(sessionActions, index)}
                                   disabled={index === 0}
                                 >
-                                  <ChevronUp class="h-4 w-4" />
+                                  <ChevronUp class="h-4 w-4"/>
                                 </Button>
                                 <Button
                                   variant="outline"
@@ -628,7 +680,7 @@
                                   onclick={() => moveActionDown(sessionActions, index)}
                                   disabled={index === sessionActions.actions.length - 1}
                                 >
-                                  <ChevronDown class="h-4 w-4" />
+                                  <ChevronDown class="h-4 w-4"/>
                                 </Button>
                               </div>
                             </Table.Cell>
@@ -638,11 +690,11 @@
                                             onOpenChange={(open) => { if (comboboxStates[sessionActions.sessionId]?.[index]) comboboxStates[sessionActions.sessionId][index].iconOpen = open; }}>
                                 <Popover.Trigger
                                   class="w-10 h-10 p-0 inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
-                                  <img class="size-8" src="icons/{action.icon.slug}.png" alt="" />
+                                  <img class="size-8" src="icons/{action.icon.slug}.png" alt=""/>
                                 </Popover.Trigger>
                                 <Popover.Content class="w-[280px] p-0">
                                   <Command.Root shouldFilter={true}>
-                                    <Command.Input placeholder="Search icons..." class="h-10" />
+                                    <Command.Input placeholder="Search icons..." class="h-10"/>
                                     <Command.Empty>No icon found.</Command.Empty>
                                     <Command.List class="max-h-[320px]">
                                       <Command.Group>
@@ -660,7 +712,7 @@
                                               }}
                                             class="py-2"
                                           >
-                                            <img class="size-6 mr-2" src="icons/{icon}.png" alt="" />
+                                            <img class="size-6 mr-2" src="icons/{icon}.png" alt=""/>
                                             <span class="text-xs truncate">{displayName}</span>
                                           </Command.Item>
                                         {/each}
@@ -692,11 +744,11 @@
                                     class="truncate {parsed.modifier ? 'text-foreground' : 'text-muted-foreground'}">
                                       {selectedMod}
                                     </span>
-                                  <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50" />
+                                  <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
                                 </Popover.Trigger>
                                 <Popover.Content class="w-[220px] p-0">
                                   <Command.Root shouldFilter={true}>
-                                    <Command.Input placeholder="Search modifier..." class="h-10" />
+                                    <Command.Input placeholder="Search modifier..." class="h-10"/>
                                     <Command.Empty>No modifier found.</Command.Empty>
                                     <Command.List class="max-h-[320px]">
                                       <Command.Group>
@@ -711,7 +763,7 @@
                                             class="py-2.5"
                                           >
                                             <Check
-                                              class={parsed.modifier === modifier.value ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"} />
+                                              class={parsed.modifier === modifier.value ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
                                             <span
                                               class={parsed.modifier === modifier.value ? "text-primary" : ""}>{modifier.label}</span>
                                           </Command.Item>
@@ -734,11 +786,11 @@
                                       class="truncate {keyOnly ? 'text-foreground uppercase font-semibold' : 'text-muted-foreground font-sans font-normal lowercase'}">
                                       {keyOnly || "select key..."}
                                     </span>
-                                  <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50" />
+                                  <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
                                 </Popover.Trigger>
                                 <Popover.Content class="w-[220px] p-0">
                                   <Command.Root shouldFilter={true}>
-                                    <Command.Input placeholder="Search key..." class="h-10" />
+                                    <Command.Input placeholder="Search key..." class="h-10"/>
                                     <Command.Empty>No key found.</Command.Empty>
                                     <Command.List class="max-h-[320px]">
                                       <Command.Group>
@@ -752,7 +804,7 @@
                                             class="font-mono font-semibold uppercase py-2.5"
                                           >
                                             <Check
-                                              class={keyOnly === key ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"} />
+                                              class={keyOnly === key ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
                                             <span class={keyOnly === key ? "text-primary" : ""}>{key}</span>
                                           </Command.Item>
                                         {/each}
@@ -799,11 +851,11 @@
                                     class="truncate {action.cooldownCategory ? 'text-foreground' : 'text-muted-foreground'}">
                                       {selectedCategory}
                                     </span>
-                                  <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50" />
+                                  <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
                                 </Popover.Trigger>
                                 <Popover.Content class="w-[220px] p-0">
                                   <Command.Root shouldFilter={true}>
-                                    <Command.Input placeholder="Search category..." class="h-10" />
+                                    <Command.Input placeholder="Search category..." class="h-10"/>
                                     <Command.Empty>No category found.</Command.Empty>
                                     <Command.List class="max-h-[320px]">
                                       <Command.Group>
@@ -818,7 +870,7 @@
                                             class="py-2.5"
                                           >
                                             <Check
-                                              class={(action.cooldownCategory || "") === category.value ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"} />
+                                              class={(action.cooldownCategory || "") === category.value ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
                                             <span
                                               class={(action.cooldownCategory || "") === category.value ? "text-primary" : ""}>{category.label}</span>
                                           </Command.Item>
@@ -834,7 +886,7 @@
                             <Table.Cell class="py-3">
                               <div class="flex items-center justify-center">
                                 <Switch checked={action.pinned ?? false}
-                                        onCheckedChange={(checked) => { action.pinned = checked; }} />
+                                        onCheckedChange={(checked) => { action.pinned = checked; }}/>
                               </div>
                             </Table.Cell>
                             <!-- Delete -->
@@ -845,7 +897,7 @@
                                 onclick={() => removeAction(sessionActions, action.id)}
                                 class="h-8 w-8 hover:bg-destructive hover:text-destructive-foreground"
                               >
-                                <Trash2 class="h-4 w-4" />
+                                <Trash2 class="h-4 w-4"/>
                               </Button>
                             </Table.Cell>
                           </Table.Row>
@@ -866,7 +918,7 @@
                   onclick={() => addAction(sessionActions)}
                   class="w-full"
                 >
-                  <Plus class="h-4 w-4 mr-2" />
+                  <Plus class="h-4 w-4 mr-2"/>
                   Add Action
                 </Button>
               </div>

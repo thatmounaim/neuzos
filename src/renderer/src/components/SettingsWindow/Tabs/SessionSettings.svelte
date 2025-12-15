@@ -2,12 +2,10 @@
   import * as Card from "$lib/components/ui/card";
   import {
     ChevronDown,
-    ChevronsUpDown,
     ChevronUp,
     FileX,
     HardDrive,
     Plus,
-    Save,
     Trash,
     Globe,
     PersonStanding
@@ -16,9 +14,7 @@
   import {Input} from '$lib/components/ui/input'
   import * as Command from '$lib/components/ui/command'
   import * as Popover from '$lib/components/ui/popover'
-  import {Separator} from '$lib/components/ui/separator'
   import * as Table from '$lib/components/ui/table'
-  import * as Select from '$lib/components/ui/select'
   import * as AlertDialog from '$lib/components/ui/alert-dialog'
   import type {NeuzConfig} from "$lib/types";
   import {getContext} from "svelte";
@@ -61,6 +57,13 @@
     neuzosBridge.sessions.clearStorage(sessionId)
   }
 
+  const clearAllCache = () => {
+    neuzosConfig.sessions.forEach(session => {
+      neuzosBridge.sessions.clearCache(session.id)
+    })
+    clearAllCacheOpenModal = false
+  }
+
   const addSession = () => {
     neuzosConfig.sessions.push({
       id: Date.now().toString(),
@@ -77,14 +80,24 @@
 
   let clearCacheOpenModal: string | null = $state(null)
   let clearStorageOpenModal: string | null = $state(null)
+  let clearAllCacheOpenModal: boolean = $state(false)
 
   // Track icon popover state for each session
   let iconPopoverStates: { [sessionId: string]: boolean } = $state({});
 </script>
 <Card.Root class="h-full  overflow-y-auto">
+  <Card.Header>
+    <Card.Title class="text-lg font-semibold">
+      Manage Sessions
+    </Card.Title>
+    <Card.Description>
+      Configure your Flyff Universe sessions below. You can add, edit, reorder, and delete sessions as needed.<br>
+      You can overwrite the launch URL for each session to point to different website.<br>
+      Overwritten URLs for web use cases can be set to use a browser partition to avoid heavy storage usage.
+    </Card.Description>
+  </Card.Header>
   <Card.Content class="flex flex-col gap-4">
     <Table.Root>
-      <Table.Caption>A list of your flyff universe sessions.</Table.Caption>
       <Table.Header>
         <Table.Row>
           <Table.Head class=""></Table.Head>
@@ -297,8 +310,46 @@
     </Table.Root>
   </Card.Content>
   <Card.Footer>
-    <div class="flex items-center justify-between">
-      <Button variant="outline" size="sm" onclick={addSession}>Add Session</Button>
+    <div class="flex items-center justify-between w-full">
+      <Button variant="outline" size="sm" onclick={addSession}>
+        <Plus class="h-4 w-4 mr-2"/>
+        Add Session
+      </Button>
+      <AlertDialog.Root open={clearAllCacheOpenModal} onOpenChange={(open) => {
+        clearAllCacheOpenModal = open;
+      }}>
+        <AlertDialog.Trigger>
+          <Button variant="outline" size="sm">
+            <FileX class="h-4 w-4 mr-2"/>
+            Clear All Cache
+          </Button>
+        </AlertDialog.Trigger>
+        <AlertDialog.Content>
+          <AlertDialog.Header>
+            <AlertDialog.Title>Clear all sessions' cache?</AlertDialog.Title>
+            <AlertDialog.Description>
+              This action will clear the cache for all sessions even without saving your changes later on.<br/><br/>
+              <strong>Sessions that will be affected:</strong>
+              <ul class="mt-2 space-y-1 list-disc list-inside">
+                {#each neuzosConfig.sessions as session}
+                  <li class="text-sm">
+                    <span class="font-medium">{session.label}</span>
+                    <span class="text-muted-foreground"> (ID: {session.id})</span>
+                  </li>
+                {/each}
+              </ul>
+              <br/>
+              Your session data will still be saved.
+            </AlertDialog.Description>
+          </AlertDialog.Header>
+          <AlertDialog.Footer>
+            <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+            <AlertDialog.Action onclick={clearAllCache}>
+              Clear All Cache
+            </AlertDialog.Action>
+          </AlertDialog.Footer>
+        </AlertDialog.Content>
+      </AlertDialog.Root>
     </div>
   </Card.Footer>
 </Card.Root>

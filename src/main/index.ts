@@ -16,7 +16,7 @@ const allowedCommandLineSwitches = [
   //{flag: "force_low_power_gpu", description: "Use integrated GPU on hybrid systems"},
   {flag: "enable-gpu-rasterization", description: "Force GPU rasterization"},
   {flag: "enable-zero-copy", description: "Use zero-copy textures for better WebGL performance"},
- // {flag: "enable-gpu-compositing", description: "Force GPU compositing"},
+  // {flag: "enable-gpu-compositing", description: "Force GPU compositing"},
   //{flag: "enable-native-gpu-memory-buffers", description: "Use native GPU memory buffers"},
   {flag: "enable-oop-rasterization", description: "Out-of-process rasterization"},
   {flag: "enable-accelerated-2d-canvas", description: "Speed up canvas rendering"},
@@ -25,7 +25,7 @@ const allowedCommandLineSwitches = [
   //{flag: "enforce-gl-minimums", description: "Enforce OpenGL minimum requirements"},
   //{flag: "enable-webgl-draft-extensions", description: "Enable experimental WebGL extensions"},
   {flag: "enable-gpu-memory-buffer-compositor-resources", description: "GPU memory buffer optimizations"},
- // {flag: "enable-gpu-memory-buffer-video-frames", description: "GPU memory buffer for video frames"},
+  // {flag: "enable-gpu-memory-buffer-video-frames", description: "GPU memory buffer for video frames"},
   //{flag: "video-capture-use-gpu-memory-buffer", description: "Use GPU memory buffer for video capture"},
 
   // 🧠 GPU Stability & Speed
@@ -58,6 +58,8 @@ let settingsWindow: BrowserWindow | null = null;
 let sessionWindow: BrowserWindow | null = null;
 
 let exitCount: number = 0;
+let mainWindowShortcutsEnabled: boolean = true;
+let sessionWindowShortcutsEnabled: boolean = true;
 
 // Parse command-line arguments
 type LaunchMode = 'normal' | 'session_launcher' | 'session' | 'focus' | 'focus_fullscreen';
@@ -98,7 +100,7 @@ let launchArgs: LaunchArgs;
 
 let neuzosConfig: any = null;
 const defaultNeuzosConfig = {
-  defaultLaunchMode : "normal",
+  defaultLaunchMode: "normal",
   chromium: {
     commandLineSwitches: [
       "force_high_performance_gpu",
@@ -124,7 +126,12 @@ const defaultNeuzosConfig = {
       "event": "fullscreen_toggle"
     }
   ],
-  sessionActions: []
+  sessionActions: [],
+  titleBarButtons: {
+    darkModeToggle: true,
+    fullscreenToggle: true,
+    keybindToggle: true,
+  },
 };
 
 const allowedEventKeybinds = {
@@ -389,6 +396,8 @@ function createSessionWindow(mode: LaunchMode, sessionId: string): void {
 
   // Exit behavior similar to main window
   sessionWindow.on("close", (event) => {
+    // Always unregister shortcuts when session window is closing
+    globalShortcut.unregisterAll();
     if (exitCount < 2) {
       event.preventDefault();
       console.log("Prevented manual close");
@@ -416,6 +425,8 @@ function createSessionWindow(mode: LaunchMode, sessionId: string): void {
   });
 
   sessionWindow.on("closed", () => {
+    // Ensure shortcuts are unregistered when session window is destroyed
+    globalShortcut.unregisterAll();
     sessionWindow = null;
   });
 
@@ -476,6 +487,8 @@ function createMainWindow(): void {
   });
 
   mainWindow.on("close", (event) => {
+    // Always unregister shortcuts when main window is closing
+    globalShortcut.unregisterAll();
     if (exitCount < 2) {
       event.preventDefault();
       console.log("Prevented manual close");
@@ -502,6 +515,8 @@ function createMainWindow(): void {
   });
 
   mainWindow.on("closed", () => {
+    // Ensure shortcuts are unregistered when window is destroyed
+    globalShortcut.unregisterAll();
     mainWindow = null;
   });
 
@@ -541,6 +556,12 @@ function checkKeybinds() {
 
 function registerKeybinds() {
   globalShortcut.unregisterAll()
+
+  // Only register shortcuts if they are enabled for main window
+  if (!mainWindowShortcutsEnabled) {
+    return;
+  }
+
   neuzosConfig.keyBinds.forEach((bind) => {
     try {
       globalShortcut.register(bind.key, () => {
@@ -577,6 +598,11 @@ function registerKeybinds() {
 
 function registerSessionKeybinds(mode: LaunchMode) {
   globalShortcut.unregisterAll();
+
+  // Only register shortcuts if they are enabled for session window
+  if (!sessionWindowShortcutsEnabled) {
+    return;
+  }
 
   // Find fullscreen keybind
   const fullscreenBind = neuzosConfig.keyBinds.find((bind: any) => bind.event === "fullscreen_toggle");
@@ -735,6 +761,37 @@ function registerSessionKeybinds(mode: LaunchMode) {
       registerKeybinds()
     });
 
+    // IPC handlers for global shortcuts toggle
+    ipcMain.on("main_window.toggle_shortcuts", (event, enabled: boolean) => {
+      mainWindowShortcutsEnabled = enabled;
+      const win = BrowserWindow.fromWebContents(event.sender);
+      if (enabled) {
+        registerKeybinds();
+      } else {
+        globalShortcut.unregisterAll();
+      }
+      win?.webContents.send("event.shortcuts_state_changed", enabled);
+    });
+
+    ipcMain.on("session_window.toggle_shortcuts", (event, enabled: boolean) => {
+      sessionWindowShortcutsEnabled = enabled;
+      const win = BrowserWindow.fromWebContents(event.sender);
+      const mode = (sessionWindow as any)?.sessionData?.mode;
+      if (enabled && mode) {
+        registerSessionKeybinds(mode);
+      } else {
+        globalShortcut.unregisterAll();
+      }
+      win?.webContents.send("event.shortcuts_state_changed", enabled);
+    });
+
+    ipcMain.handle("shortcuts.get_state", () => {
+      return {
+        mainWindow: mainWindowShortcutsEnabled,
+        sessionWindow: sessionWindowShortcutsEnabled,
+      };
+    });
+
 
     ipcMain.on("settings_window.open", (_) => {
       createSettingsWindow();
@@ -855,6 +912,27 @@ function registerSessionKeybinds(mode: LaunchMode) {
       }
     })
 
+    ipcMain.handle('app.get_default_user_agent', async () => {
+      try {
+        // Get the default user agent from a BrowserWindow's webContents
+        const testWindow = new BrowserWindow({
+          show: false,
+          webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true
+          }
+        });
+
+        const userAgent = testWindow.webContents.getUserAgent();
+        testWindow.destroy();
+
+        return userAgent;
+      } catch (e) {
+        // Fallback user agent if the above fails
+        return 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+      }
+    })
+
     // Handle different launch modes
     switch (launchArgs.mode) {
       case 'session_launcher':
@@ -886,19 +964,61 @@ function registerSessionKeybinds(mode: LaunchMode) {
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
   app.on("window-all-closed", () => {
+    globalShortcut.unregisterAll();
     if (process.platform !== "darwin") {
       app.quit();
     }
   });
 
   app.on("browser-window-blur", () => {
-    if (BrowserWindow.getFocusedWindow() == mainWindow) {
-      globalShortcut.unregisterAll();
+    // Unregister shortcuts when any window loses focus to prevent conflicts
+    globalShortcut.unregisterAll();
+  });
+
+  app.on("browser-window-focus", () => {
+    // Re-register appropriate shortcuts when any window gains focus
+    const focusedWindow = BrowserWindow.getFocusedWindow();
+    if (focusedWindow === mainWindow) {
+      registerKeybinds();
+    } else if (focusedWindow === sessionWindow && (sessionWindow as any)?.sessionData) {
+      registerSessionKeybinds((sessionWindow as any).sessionData.mode);
     }
   });
 
   app.on("will-quit", () => {
     globalShortcut.unregisterAll();
+  });
+
+  // Add additional safety cleanup on process events
+  app.on("before-quit", () => {
+    globalShortcut.unregisterAll();
+  });
+
+  // Handle unexpected process termination
+  process.on('exit', () => {
+    try {
+      globalShortcut.unregisterAll();
+    } catch (e) {
+      console.error("Error cleaning up shortcuts on exit:", e);
+    }
+  });
+
+  process.on('SIGINT', () => {
+    try {
+      globalShortcut.unregisterAll();
+    } catch (e) {
+      console.error("Error cleaning up shortcuts on SIGINT:", e);
+    }
+    app.quit();
+  });
+
+  process.on('SIGTERM', () => {
+    try {
+      globalShortcut.unregisterAll();
+    } catch (e) {
+      console.error("Error cleaning up shortcuts on SIGTERM:", e);
+    }
+    app.quit();
   });
 });
 

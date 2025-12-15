@@ -7,14 +7,25 @@
   import type {NeuzSession} from "$lib/types";
   import {Minus, Settings2, X} from "@lucide/svelte";
   import {Separator} from "$lib/components/ui/separator";
+  import { setElectronContext, getElectronContext } from "$lib/contexts/electronContext";
+  import { setNeuzosBridgeContext } from "$lib/contexts/neuzosBridgeContext";
+
+  let isLoading = $state(true);
+
+  setElectronContext(window.electron.ipcRenderer);
+  setNeuzosBridgeContext(neuzosBridge);
 
   initElectronApi(window.electron.ipcRenderer);
 
   let sessions: NeuzSession[] = $state([]);
-  const electronApi = window.electron.ipcRenderer;
+  const electronApi = getElectronContext();
 
   onMount(async () => {
     sessions = await electronApi.invoke("session_launcher.get_sessions");
+    // Wait a bit to ensure contexts are initialized
+    setTimeout(() => {
+      isLoading = false;
+    }, 100);
   });
 
   function launchSession(sessionId: string, mode: 'session' | 'focus' | 'focus_fullscreen') {
@@ -40,95 +51,103 @@
 
 <ModeWatcher/>
 
-<div class="w-screen h-screen flex flex-col bg-background text-foreground">
-  <!-- Title Bar -->
-  <div class="flex items-center justify-between px-2 bg-card border-b border-border min-h-8 select-none">
-    <div
-      class="flex-1 cursor-grab active:cursor-grabbing h-full w-full flex items-center gap-2 select-none"
-      style="-webkit-app-region: drag;"
-    >
-      <div class="flex items-center gap-2">
-        <img src="neuzos_pang.png" alt="NeuZOS" class="w-4 h-4"/>
-        <span class="text-sm font-semibold">Session Launcher</span>
-      </div>
-
-    </div>
-    <div class="flex gap-1">
-      <Button size="icon-xs" variant="outline" onclick={openSettings} class="cursor-pointer">
-        <Settings2 class="size-3.5"/>
-      </Button>
-      <Separator orientation="vertical" class="h-4"/>
-
-      <Button
-        size="icon-xs"
-        variant="outline"
-        onclick={minimizeWindow}
-        class="cursor-pointer"
-      >
-        <Minus class="size-3.5"/>
-      </Button>
-      <Button
-        variant="outline"
-        onclick={closeWindow}
-        size="icon-xs"
-        class="cursor-pointer"
-      >
-        <X class="size-3.5"/>
-      </Button>
+{#if isLoading}
+  <div class="w-screen h-screen flex items-center justify-center bg-background">
+    <div class="flex flex-col items-center gap-4">
+      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <p class="text-muted-foreground">Loading Sessions...</p>
     </div>
   </div>
+{:else}
+  <div class="w-screen h-screen flex flex-col bg-background text-foreground">
+    <!-- Title Bar -->
+    <div class="flex items-center justify-between px-2 bg-card border-b border-border min-h-8 select-none">
+      <div
+        class="flex-1 cursor-grab active:cursor-grabbing h-full w-full flex items-center gap-2 select-none"
+        style="-webkit-app-region: drag;"
+      >
+        <div class="flex items-center gap-2">
+          <img src="neuzos_pang.png" alt="NeuZOS" class="w-4 h-4"/>
+          <span class="text-sm font-semibold">Session Launcher</span>
+        </div>
 
-  <!-- Content -->
-  <div class="flex-1 overflow-auto p-3">
-    {#if sessions.length === 0}
-      <div class="flex items-center justify-center h-full">
-        <p class="text-muted-foreground text-sm">No sessions available</p>
       </div>
-    {:else}
-      <div class="grid gap-2">
-        {#each sessions as session}
-          <Card.Root class="p-3 gap-2">
-            <Card.Header class="p-0 ">
-              <Card.Title class="text-base flex items-center gap-2">
-                <img src={getIconPath(session)} alt={session.label} class="w-6 h-6"/>
-                <span>{session.label}</span>
-                <span class="text-xs font-normal text-muted-foreground">({session.id})</span>
-              </Card.Title>
-              <Card.Description
-                class="text-xs truncate">{session.srcOverwrite ?? 'https://universe.flyff.com/play'}</Card.Description>
-            </Card.Header>
-            <Card.Content class="p-0">
-              <div class="flex gap-1.5">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  class="text-xs h-7 flex-1"
-                  onclick={() => launchSession(session.id, 'session')}
-                >
-                  Normal
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  class="text-xs h-7 flex-1"
-                  onclick={() => launchSession(session.id, 'focus')}
-                >
-                  Focus
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  class="text-xs h-7 flex-1"
-                  onclick={() => launchSession(session.id, 'focus_fullscreen')}
-                >
-                  Focus Fullscreen
-                </Button>
-              </div>
-            </Card.Content>
-          </Card.Root>
-        {/each}
+      <div class="flex gap-1">
+        <Button size="icon-xs" variant="outline" onclick={openSettings} class="cursor-pointer">
+          <Settings2 class="size-3.5"/>
+        </Button>
+        <Separator orientation="vertical" class="h-4"/>
+
+        <Button
+          size="icon-xs"
+          variant="outline"
+          onclick={minimizeWindow}
+          class="cursor-pointer"
+        >
+          <Minus class="size-3.5"/>
+        </Button>
+        <Button
+          variant="outline"
+          onclick={closeWindow}
+          size="icon-xs"
+          class="cursor-pointer"
+        >
+          <X class="size-3.5"/>
+        </Button>
       </div>
-    {/if}
+    </div>
+
+    <!-- Content -->
+    <div class="flex-1 overflow-auto p-3">
+      {#if sessions.length === 0}
+        <div class="flex items-center justify-center h-full">
+          <p class="text-muted-foreground text-sm">No sessions available</p>
+        </div>
+      {:else}
+        <div class="grid gap-2">
+          {#each sessions as session}
+            <Card.Root class="p-3 gap-2">
+              <Card.Header class="p-0 ">
+                <Card.Title class="text-base flex items-center gap-2">
+                  <img src={getIconPath(session)} alt={session.label} class="w-6 h-6"/>
+                  <span>{session.label}</span>
+                  <span class="text-xs font-normal text-muted-foreground">({session.id})</span>
+                </Card.Title>
+                <Card.Description
+                  class="text-xs truncate">{session.srcOverwrite ?? 'https://universe.flyff.com/play'}</Card.Description>
+              </Card.Header>
+              <Card.Content class="p-0">
+                <div class="flex gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    class="text-xs h-7 flex-1"
+                    onclick={() => launchSession(session.id, 'session')}
+                  >
+                    Normal
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    class="text-xs h-7 flex-1"
+                    onclick={() => launchSession(session.id, 'focus')}
+                  >
+                    Focus
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    class="text-xs h-7 flex-1"
+                    onclick={() => launchSession(session.id, 'focus_fullscreen')}
+                  >
+                    Focus Fullscreen
+                  </Button>
+                </div>
+              </Card.Content>
+            </Card.Root>
+          {/each}
+        </div>
+      {/if}
+    </div>
   </div>
-</div>
-
+{/if}

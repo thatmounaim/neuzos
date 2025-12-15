@@ -71,6 +71,7 @@ export type SessionActions = {
 }
 
 export type NeuzConfig = {
+  userAgent?: string;
   defaultLaunchMode: 'normal' | 'session_launcher'
   chromium: {
     commandLineSwitches: string[]
@@ -84,4 +85,9 @@ export type NeuzConfig = {
     args?: string[]
   }[]
   sessionActions: SessionActions[];
+  titleBarButtons: {
+    darkModeToggle: boolean;
+    fullscreenToggle: boolean;
+    keybindToggle: boolean;
+  };
 }

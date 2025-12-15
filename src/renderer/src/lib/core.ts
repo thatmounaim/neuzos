@@ -22,6 +22,9 @@ export const neuzosBridge = {
     },
     fullscreenToggle: () => {
       electronApi?.send("main_window.fullscreen_toggle");
+    },
+    toggleShortcuts: (enabled: boolean) => {
+      electronApi?.send("main_window.toggle_shortcuts", enabled);
     }
   },
   settingsWindow: {
@@ -78,8 +81,10 @@ export const neuzosBridge = {
     popout: (sessionId: string) => {
       electronApi?.send("session.popout", sessionId);
     },
+    toggleShortcuts: (enabled: boolean) => {
+      electronApi?.send("session_window.toggle_shortcuts", enabled);
+    }
   }
 }
 
 export type NeuzosBridge = typeof neuzosBridge;
-

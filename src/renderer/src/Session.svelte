@@ -2,23 +2,26 @@
   import {ModeWatcher} from "mode-watcher";
   import {onMount} from "svelte";
   import {initElectronApi, neuzosBridge} from "$lib/core";
+  import type {NeuzSession, NeuzConfig} from "$lib/types";
+  import type {WebviewTag} from "electron";
   import {Button} from "$lib/components/ui/button";
-  import type {NeuzSession} from "$lib/types";
-  import type {WebviewTag} from 'electron';
+  import { setElectronContext } from "$lib/contexts/electronContext";
+  import { setNeuzosBridgeContext } from "$lib/contexts/neuzosBridgeContext";
+  import ShortcutsToggle from "./components/Shared/ShortcutsToggle.svelte";
 
   import {
     Fullscreen, Minus, Maximize, X, Play,
-    RefreshCcw,
-    VolumeX,
     Volume,
-    Volume2,
     VolumeOff,
     Square,
-    RefreshCw,
   } from '@lucide/svelte'
   import {Separator} from "$lib/components/ui/separator";
 
   initElectronApi(window.electron.ipcRenderer);
+
+  // Set up contexts for accessing electron and neuzosBridge
+  setElectronContext(window.electron.ipcRenderer);
+  setNeuzosBridgeContext(neuzosBridge);
 
   let sessionData: {
     mode: 'session' | 'focus' | 'focus_fullscreen';
@@ -31,6 +34,13 @@
 
   onMount(async () => {
     sessionData = await electronApi.invoke("session_window.get_data");
+
+    // Load config to get userAgent setting
+    try {
+      neuzosConfig = await electronApi.invoke("config.load", false);
+    } catch (e) {
+      console.error("Failed to load config:", e);
+    }
 
     if (!sessionData) {
       console.error("Failed to load session data");
@@ -107,7 +117,7 @@
   }
 
   export const focus = () => {
-    if (!autofocusEnabled) return
+   // if (!autofocusEnabled) return
     if (!webview.shadowRoot) {
       webview.focus()
       return
@@ -154,6 +164,14 @@ window.open = function(...args) {
 `)
     koreanLinkFixed = true;
   }
+
+  let neuzosConfig: NeuzConfig | null = $state(null);
+  let userAgent: string | undefined = $state(undefined);
+
+  // Load config and compute userAgent
+  $effect(() => {
+    userAgent = neuzosConfig?.userAgent || undefined;
+  });
 </script>
 
 <ModeWatcher/>
@@ -173,6 +191,7 @@ window.open = function(...args) {
         {/if}
       </div>
       <div class="flex gap-2 h-full items-center">
+        <ShortcutsToggle window="session" onToggle={(enabled) => neuzosBridge.sessionWindow.toggleShortcuts(enabled)} />
         <Button size="icon-xs" variant="outline" onclick={() => { muted ? setAudioMuted(false) : setAudioMuted(true)} }>
           {#if muted}
             <VolumeOff class="size-3.5"/>
@@ -230,6 +249,7 @@ window.open = function(...args) {
           partition={getPartition()}
           class="w-full h-full"
           webpreferences="nativeWindowOpen=no"
+          useragent={userAgent}
         ></webview>
       {:else}
         <div
@@ -248,4 +268,3 @@ window.open = function(...args) {
     {/if}
   </div>
 </div>
-

@@ -1,14 +1,14 @@
 <script lang="ts">
   import { getContext, onMount } from "svelte";
-  import type { IpcRenderer } from "@electron-toolkit/preload";
   import * as Card from "$lib/components/ui/card";
   import * as Tabs from "$lib/components/ui/tabs";
   import { Skeleton } from "$lib/components/ui/skeleton";
   import { Button } from "$lib/components/ui/button";
   import { RefreshCcw } from "@lucide/svelte";
   import type { MainWindowState } from "$lib/types";
+  import { getElectronContext } from "$lib/contexts/electronContext";
 
-  const electronApi = getContext<IpcRenderer>("electronApi");
+  const electronApi = getElectronContext();
   const mainWindowState = getContext<MainWindowState>("mainWindowState");
 
   let loading: boolean = $state(true);

@@ -3,31 +3,31 @@
   import * as Table from "$lib/components/ui/table";
   import * as Popover from "$lib/components/ui/popover";
   import * as Command from "$lib/components/ui/command";
+  import * as Alert from "$lib/components/ui/alert";
+  import {getContext, onMount} from "svelte";
+  import {Button} from "$lib/components/ui/button";
+  import {getElectronContext} from "$lib/contexts/electronContext";
 
-  import { getContext, onMount } from "svelte";
-  import type { IpcRenderer } from "@electron-toolkit/preload";
-  import { Button } from "$lib/components/ui/button";
-
-  import type { NeuzConfig } from "$lib/types";
-  import { Plus, Trash2, ChevronsUpDown, Check } from "@lucide/svelte";
+  import type {NeuzConfig} from "$lib/types";
+  import {Plus, Trash2, ChevronsUpDown, Check, AlertCircleIcon, ChevronUp, ChevronDown} from "@lucide/svelte";
 
   const modifierOptions = [
-    { value: "", label: "None" },
-    { value: "commandorcontrol", label: "Ctrl/Cmd" },
-    { value: "alt", label: "Alt" },
-    { value: "shift", label: "Shift" },
-    { value: "commandorcontrol+alt", label: "Ctrl/Cmd+Alt" },
-    { value: "commandorcontrol+shift", label: "Ctrl/Cmd+Shift" },
-    { value: "alt+shift", label: "Alt+Shift" },
-    { value: "commandorcontrol+alt+shift", label: "Ctrl/Cmd+Alt+Shift" },
-    { value: "control", label: "Control" },
-    { value: "command", label: "Command" },
-    { value: "cmdorctrl", label: "CmdOrCtrl" },
-    { value: "cmd", label: "Cmd" },
-    { value: "super", label: "Super" },
-    { value: "meta", label: "Meta" },
-    { value: "option", label: "Option" },
-    { value: "altgr", label: "AltGr" }
+    {value: "", label: "None"},
+    {value: "commandorcontrol", label: "Ctrl/Cmd"},
+    {value: "alt", label: "Alt"},
+    {value: "shift", label: "Shift"},
+    {value: "commandorcontrol+alt", label: "Ctrl/Cmd+Alt"},
+    {value: "commandorcontrol+shift", label: "Ctrl/Cmd+Shift"},
+    {value: "alt+shift", label: "Alt+Shift"},
+    {value: "commandorcontrol+alt+shift", label: "Ctrl/Cmd+Alt+Shift"},
+    {value: "control", label: "Control"},
+    {value: "command", label: "Command"},
+    {value: "cmdorctrl", label: "CmdOrCtrl"},
+    {value: "cmd", label: "Cmd"},
+    {value: "super", label: "Super"},
+    {value: "meta", label: "Meta"},
+    {value: "option", label: "Option"},
+    {value: "altgr", label: "AltGr"}
   ];
 
   // Allowed keys based on Electron accelerator syntax
@@ -68,11 +68,11 @@
   function parseKeybind(keybind: string): { modifier: string; key: string } {
     const parts = keybind.split("+");
     if (parts.length === 1) {
-      return { modifier: "", key: keybind };
+      return {modifier: "", key: keybind};
     }
     const key = parts[parts.length - 1];
     const modifier = parts.slice(0, -1).join("+");
-    return { modifier, key };
+    return {modifier, key};
   }
 
   // Helper function to build keybind from modifier and key
@@ -83,7 +83,7 @@
     return key ? `${modifier}+${key}` : modifier;
   }
 
-  const electronApi = getContext<IpcRenderer>("electronApi");
+  const electronApi = getElectronContext();
   const neuzosConfig = getContext<NeuzConfig>("neuzosConfig");
   onMount(async () => {
     allowedEventKeybinds = await electronApi.invoke("config.get_available_event_keybinds");
@@ -108,7 +108,7 @@
   $effect(() => {
     const neededLength = neuzosConfig.keyBinds.length;
     while (comboboxStates.length < neededLength) {
-      comboboxStates.push({ open: false, modifierOpen: false });
+      comboboxStates.push({open: false, modifierOpen: false});
     }
     // Clean up if keybinds were removed
     if (comboboxStates.length > neededLength) {
@@ -116,21 +116,65 @@
     }
   });
 
+  function moveKeybindUp(index: number) {
+    if (index > 0) {
+      const keybinds = [...neuzosConfig.keyBinds];
+      [keybinds[index], keybinds[index - 1]] = [keybinds[index - 1], keybinds[index]];
+      neuzosConfig.keyBinds = keybinds;
+
+      // Also swap the combobox states
+      const states = [...comboboxStates];
+      [states[index], states[index - 1]] = [states[index - 1], states[index]];
+      comboboxStates = states;
+    }
+  }
+
+  function moveKeybindDown(index: number) {
+    if (index < neuzosConfig.keyBinds.length - 1) {
+      const keybinds = [...neuzosConfig.keyBinds];
+      [keybinds[index], keybinds[index + 1]] = [keybinds[index + 1], keybinds[index]];
+      neuzosConfig.keyBinds = keybinds;
+
+      // Also swap the combobox states
+      const states = [...comboboxStates];
+      [states[index], states[index + 1]] = [states[index + 1], states[index]];
+      comboboxStates = states;
+    }
+  }
 
 </script>
-<Card.Root class="h-full  overflow-y-auto">
-  <Card.Content class="flex flex-col gap-4">
-    <p class="text-sm">
-      Manage your keyboard shortcuts for various NeuzOS actions. Click on a key or modifier to change it.
-    </p>
+<Card.Root class="h-full overflow-y-auto">
+  <Card.Header>
+    <Card.Title class="text-lg font-semibold">
+      Keybind Settings
+    </Card.Title>
+    <Card.Description class="flex flex-col">
+      <p>
+        Manage your keyboard shortcuts for various NeuzOS actions. Click on a key or modifier to change it.
+      </p>
+      <Alert.Root class="mt-4">
+        <AlertCircleIcon/>
+        <Alert.Title>Important Note.</Alert.Title>
+        <Alert.Description class="pt-2">
+          <ul>
+            <li>- Keybinds used here will be bound globaly while using neuzos, that specific key won't be available inside webviews.
+            </li>
+            <li>- Keybinds can be toggled in the client's title bar keyboard icon.</li>
+          </ul>
+        </Alert.Description>
+      </Alert.Root>
+    </Card.Description>
+  </Card.Header>
+  <Card.Content class="flex flex-col gap-4 items-start">
     <Table.Root>
       <Table.Header>
         <Table.Row>
-          <Table.Head class="font-bold"></Table.Head>
+          <Table.Head class="font-bold w-[60px]">Order</Table.Head>
           <Table.Head class="font-bold">Modifier</Table.Head>
           <Table.Head class="font-bold">Key</Table.Head>
           <Table.Head class="font-bold">Event</Table.Head>
           <Table.Head class="w-full"></Table.Head>
+          <Table.Head class="font-bold"></Table.Head>
         </Table.Row>
       </Table.Header>
       <Table.Body>
@@ -140,12 +184,25 @@
           {#if comboboxStates[index]}
             {@const state = comboboxStates[index]}
             <Table.Row>
-              <Table.Cell class="text-sm text-muted-foreground">
-                <Button variant="outline" size="xs" class="w-6 h-6" onclick={() => {
-                neuzosConfig.keyBinds.splice(neuzosConfig.keyBinds.indexOf(keyBind), 1)
-              }}>
-                  <Trash2 class="size-3" />
-                </Button>
+              <Table.Cell>
+                <div class="flex flex-col gap-0.5">
+                  <Button
+                    variant="outline"
+                    size="icon-xs"
+                    onclick={() => moveKeybindUp(index)}
+                    disabled={index === 0}
+                  >
+                    <ChevronUp class="h-3 w-3"/>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon-xs"
+                    onclick={() => moveKeybindDown(index)}
+                    disabled={index >= neuzosConfig.keyBinds.length - 1}
+                  >
+                    <ChevronDown class="h-3 w-3"/>
+                  </Button>
+                </div>
               </Table.Cell>
               <Table.Cell>
                 {@const modifierState = comboboxStates[index]}
@@ -156,11 +213,11 @@
                     <span class="truncate {parsed.modifier ? 'text-foreground' : 'text-muted-foreground'}">
                     {selectedMod}
                   </span>
-                    <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50" />
+                    <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
                   </Popover.Trigger>
                   <Popover.Content class="w-[220px] p-0">
                     <Command.Root shouldFilter={true}>
-                      <Command.Input placeholder="Search modifier..." class="h-10" />
+                      <Command.Input placeholder="Search modifier..." class="h-10"/>
                       <Command.Empty>No modifier found.</Command.Empty>
                       <Command.List class="max-h-[320px]">
                         <Command.Group>
@@ -175,7 +232,7 @@
                               class="font-medium py-2.5"
                             >
                               <Check
-                                class={parsed.modifier === modifier.value ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"} />
+                                class={parsed.modifier === modifier.value ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
                               <span
                                 class={parsed.modifier === modifier.value ? "text-primary" : ""}>{modifier.label}</span>
                             </Command.Item>
@@ -195,11 +252,11 @@
                     class="truncate {keyOnly ? 'text-foreground uppercase' : 'text-muted-foreground font-sans font-normal lowercase'}">
                     {keyOnly || "select key..."}
                   </span>
-                    <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50" />
+                    <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
                   </Popover.Trigger>
                   <Popover.Content class="w-[220px] p-0">
                     <Command.Root shouldFilter={true}>
-                      <Command.Input placeholder="Search key..." class="h-10" />
+                      <Command.Input placeholder="Search key..." class="h-10"/>
                       <Command.Empty>No key found.</Command.Empty>
                       <Command.List class="max-h-[320px]">
                         <Command.Group>
@@ -212,7 +269,7 @@
                             }}
                               class="font-mono font-semibold uppercase py-2.5"
                             >
-                              <Check class={keyOnly === key ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"} />
+                              <Check class={keyOnly === key ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
                               <span class={keyOnly === key ? "text-primary" : ""}>{key}</span>
                             </Command.Item>
                           {/each}
@@ -238,7 +295,7 @@
                             <Popover.Trigger>
                               <Button variant="outline" size="sm" class="h-9">
                                 {#if selectedLayout}
-                                  <img class="w-4 h-4 mr-2" src="icons/{selectedLayout.icon.slug}.png" alt="" />
+                                  <img class="w-4 h-4 mr-2" src="icons/{selectedLayout.icon.slug}.png" alt=""/>
                                   {selectedLayout.label}
                                 {:else}
                                   Select Layout
@@ -247,7 +304,7 @@
                             </Popover.Trigger>
                             <Popover.Content class="w-[280px] p-0">
                               <Command.Root shouldFilter={true}>
-                                <Command.Input placeholder="Search layouts..." class="h-10" />
+                                <Command.Input placeholder="Search layouts..." class="h-10"/>
                                 <Command.Empty>No layout found.</Command.Empty>
                                 <Command.List class="max-h-[320px]">
                                   <Command.Group>
@@ -261,7 +318,7 @@
                                       }}
                                         class="py-2"
                                       >
-                                        <img class="size-5 mr-2" src="icons/{layout.icon.slug}.png" alt="" />
+                                        <img class="size-5 mr-2" src="icons/{layout.icon.slug}.png" alt=""/>
                                         <span>{layout.label}</span>
                                       </Command.Item>
                                     {/each}
@@ -282,7 +339,7 @@
                             <Popover.Trigger>
                               <Button variant="outline" size="sm" class="h-9">
                                 {#if selectedSession}
-                                  <img class="w-4 h-4 mr-2" src="icons/{selectedSession.icon.slug}.png" alt="" />
+                                  <img class="w-4 h-4 mr-2" src="icons/{selectedSession.icon.slug}.png" alt=""/>
                                   {selectedSession.label}
                                 {:else}
                                   Select Session
@@ -291,7 +348,7 @@
                             </Popover.Trigger>
                             <Popover.Content class="w-[280px] p-0">
                               <Command.Root shouldFilter={true}>
-                                <Command.Input placeholder="Search sessions..." class="h-10" />
+                                <Command.Input placeholder="Search sessions..." class="h-10"/>
                                 <Command.Empty>No session found.</Command.Empty>
                                 <Command.List class="max-h-[320px]">
                                   <Command.Group>
@@ -305,7 +362,7 @@
                                       }}
                                         class="py-2"
                                       >
-                                        <img class="size-5 mr-2" src="icons/{session.icon.slug}.png" alt="" />
+                                        <img class="size-5 mr-2" src="icons/{session.icon.slug}.png" alt=""/>
                                         <span>{session.label}</span>
                                       </Command.Item>
                                     {/each}
@@ -330,7 +387,7 @@
                               <Button variant="outline" size="sm" class="h-9"
                                       disabled={!sessionId || !sessionActionsData}>
                                 {#if selectedAction}
-                                  <img class="w-4 h-4 mr-2" src="icons/{selectedAction.icon.slug}.png" alt="" />
+                                  <img class="w-4 h-4 mr-2" src="icons/{selectedAction.icon.slug}.png" alt=""/>
                                   {selectedAction.label}
                                 {:else}
                                   Select Action
@@ -339,7 +396,7 @@
                             </Popover.Trigger>
                             <Popover.Content class="w-[280px] p-0">
                               <Command.Root shouldFilter={true}>
-                                <Command.Input placeholder="Search actions..." class="h-10" />
+                                <Command.Input placeholder="Search actions..." class="h-10"/>
                                 <Command.Empty>No action found.</Command.Empty>
                                 <Command.List class="max-h-[320px]">
                                   <Command.Group>
@@ -354,7 +411,7 @@
                                         }}
                                           class="py-2"
                                         >
-                                          <img class="size-5 mr-2" src="icons/{action.icon.slug}.png" alt="" />
+                                          <img class="size-5 mr-2" src="icons/{action.icon.slug}.png" alt=""/>
                                           <span>{action.label}</span>
                                         </Command.Item>
                                       {/each}
@@ -401,6 +458,13 @@
                   <i class="text-accent-foreground opacity-50"> No extra data is needed for this event.</i>
                 {/if}
               </Table.Cell>
+               <Table.Cell class="text-sm text-muted-foreground">
+                <Button variant="outline" size="sm"  onclick={() => {
+                neuzosConfig.keyBinds.splice(neuzosConfig.keyBinds.indexOf(keyBind), 1)
+              }}>
+                  <Trash2 class="size-4"/>
+                </Button>
+              </Table.Cell>
             </Table.Row>
           {/if}
         {/each}
@@ -409,13 +473,13 @@
     <Popover.Root open={addKeybindPopoverOpen} onOpenChange={(open) => { addKeybindPopoverOpen = open; }}>
       <Popover.Trigger>
         <Button variant="outline" size="sm">
-          <Plus class="size-4 mr-2" />
-          Add Keybind
+          <Plus class="size-4 mr-2"/>
+          Add a Global Shortcut Keybind
         </Button>
       </Popover.Trigger>
       <Popover.Content class="w-[320px] p-0">
         <Command.Root shouldFilter={true}>
-          <Command.Input placeholder="Search events..." class="h-10" />
+          <Command.Input placeholder="Search events..." class="h-10"/>
           <Command.Empty>No event found.</Command.Empty>
           <Command.List class="max-h-[320px]">
             <Command.Group>
