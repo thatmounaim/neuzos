@@ -58,6 +58,8 @@ let settingsWindow: BrowserWindow | null = null;
 let sessionWindow: BrowserWindow | null = null;
 
 let exitCount: number = 0;
+let mainWindowShortcutsEnabled: boolean = true;
+let sessionWindowShortcutsEnabled: boolean = true;
 
 // Parse command-line arguments
 type LaunchMode = 'normal' | 'session_launcher' | 'session' | 'focus' | 'focus_fullscreen';
@@ -549,6 +551,12 @@ function checkKeybinds() {
 
 function registerKeybinds() {
   globalShortcut.unregisterAll()
+
+  // Only register shortcuts if they are enabled for main window
+  if (!mainWindowShortcutsEnabled) {
+    return;
+  }
+
   neuzosConfig.keyBinds.forEach((bind) => {
     try {
       globalShortcut.register(bind.key, () => {
@@ -585,6 +593,11 @@ function registerKeybinds() {
 
 function registerSessionKeybinds(mode: LaunchMode) {
   globalShortcut.unregisterAll();
+
+  // Only register shortcuts if they are enabled for session window
+  if (!sessionWindowShortcutsEnabled) {
+    return;
+  }
 
   // Find fullscreen keybind
   const fullscreenBind = neuzosConfig.keyBinds.find((bind: any) => bind.event === "fullscreen_toggle");
@@ -741,6 +754,37 @@ function registerSessionKeybinds(mode: LaunchMode) {
       const win = BrowserWindow.fromWebContents(event.sender);
       win?.webContents.send("event.reload_config");
       registerKeybinds()
+    });
+
+    // IPC handlers for global shortcuts toggle
+    ipcMain.on("main_window.toggle_shortcuts", (event, enabled: boolean) => {
+      mainWindowShortcutsEnabled = enabled;
+      const win = BrowserWindow.fromWebContents(event.sender);
+      if (enabled) {
+        registerKeybinds();
+      } else {
+        globalShortcut.unregisterAll();
+      }
+      win?.webContents.send("event.shortcuts_state_changed", enabled);
+    });
+
+    ipcMain.on("session_window.toggle_shortcuts", (event, enabled: boolean) => {
+      sessionWindowShortcutsEnabled = enabled;
+      const win = BrowserWindow.fromWebContents(event.sender);
+      const mode = (sessionWindow as any)?.sessionData?.mode;
+      if (enabled && mode) {
+        registerSessionKeybinds(mode);
+      } else {
+        globalShortcut.unregisterAll();
+      }
+      win?.webContents.send("event.shortcuts_state_changed", enabled);
+    });
+
+    ipcMain.handle("shortcuts.get_state", () => {
+      return {
+        mainWindow: mainWindowShortcutsEnabled,
+        sessionWindow: sessionWindowShortcutsEnabled,
+      };
     });
 
 

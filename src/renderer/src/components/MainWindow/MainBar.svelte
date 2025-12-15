@@ -30,10 +30,10 @@
 
   import {cn} from "$lib/utils";
   import {Separator} from "$lib/components/ui/separator";
-  import type {IpcRenderer} from "@electron-toolkit/preload";
   import PinnedActions from "./MainBarComponents/PinnedActions.svelte";
   import WidgetsButton from "./MainBarComponents/WidgetsButton.svelte";
   import ThemeToggle from "./MainBarComponents/ThemeToggle.svelte";
+  import ShortcutsToggle from "../Shared/ShortcutsToggle.svelte";
 
   const neuzosBridge = getNeuzosBridgeContext();
   const mainWindowState = getContext<MainWindowState>('mainWindowState');
@@ -389,6 +389,7 @@
   {/if}
 
   <WidgetsButton />
+  <ShortcutsToggle window="main" onToggle={(enabled) => neuzosBridge.mainWindow.toggleShortcuts(enabled)} />
   <ThemeToggle />
 
   <Separator orientation="vertical" class="h-4"/>

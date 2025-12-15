@@ -7,6 +7,7 @@
   import {Button} from "$lib/components/ui/button";
   import { setElectronContext } from "$lib/contexts/electronContext";
   import { setNeuzosBridgeContext } from "$lib/contexts/neuzosBridgeContext";
+  import ShortcutsToggle from "./components/Shared/ShortcutsToggle.svelte";
 
   import {
     Fullscreen, Minus, Maximize, X, Play,
@@ -190,6 +191,7 @@ window.open = function(...args) {
         {/if}
       </div>
       <div class="flex gap-2 h-full items-center">
+        <ShortcutsToggle window="session" onToggle={(enabled) => neuzosBridge.sessionWindow.toggleShortcuts(enabled)} />
         <Button size="icon-xs" variant="outline" onclick={() => { muted ? setAudioMuted(false) : setAudioMuted(true)} }>
           {#if muted}
             <VolumeOff class="size-3.5"/>
