@@ -1,7 +1,7 @@
 {
   "name": "neuzos",
   "productName": "NeuzOS",
-  "version": "2.1.3",
+  "version": "2.1.4",
   "description": "Launcher for Flyff Universe",
   "main": "./out/main/index.js",
   "author": {
