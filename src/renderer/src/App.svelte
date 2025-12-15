@@ -261,7 +261,7 @@
     // Wait a bit to ensure all contexts are properly initialized
     setTimeout(() => {
       isLoading = false
-    }, 100)
+    }, 500)
   })
 </script>
 <ModeWatcher/>

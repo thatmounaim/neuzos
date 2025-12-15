@@ -16,6 +16,8 @@
   import {Button} from "$lib/components/ui/button";
   import { setElectronContext } from "$lib/contexts/electronContext";
   import { setNeuzosBridgeContext } from "$lib/contexts/neuzosBridgeContext";
+  import { toast } from "svelte-sonner";
+  import { Toaster } from "$lib/components/ui/sonner";
 
   let isLoading = $state(true);
 
@@ -33,7 +35,12 @@
     },
     defaultLayouts: [],
     keyBinds: [],
-    sessionActions: []
+    sessionActions: [],
+    titleBarButtons: {
+      darkModeToggle: true,
+      fullscreenToggle: true,
+      keybindToggle: true
+    }
   });
 
   const electronApi = window.electron.ipcRenderer;
@@ -51,6 +58,7 @@
     neuzosConfig.keyBinds = conf.keyBinds;
     neuzosConfig.sessionActions = conf.sessionActions || [];
     neuzosConfig.userAgent = conf.userAgent;
+    neuzosConfig.titleBarButtons = conf.titleBarButtons;
 
     // Wait a bit to ensure contexts are initialized
     setTimeout(() => {
@@ -120,13 +128,20 @@
   }
 
   const saveSettings = async () => {
-    await sanitizeConfig();
-    await electronApi.invoke("config.save", JSON.stringify(neuzosConfig));
+    try {
+      await sanitizeConfig();
+      await electronApi.invoke("config.save", JSON.stringify(neuzosConfig));
+      toast.success("Settings saved successfully!", { position: "top-right" , duration: 1000});
+    } catch (error) {
+      console.error("Failed to save settings:", error);
+      toast.error("Failed to save settings. Please try again.",{ position: "top-right"});
+    }
   };
 
 
 </script>
 <ModeWatcher/>
+<Toaster />
 {#if isLoading}
   <div class="w-full h-full flex items-center justify-center bg-background">
     <div class="flex flex-col items-center gap-4">
