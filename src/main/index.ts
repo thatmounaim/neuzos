@@ -239,7 +239,6 @@ function createSettingsWindow(): void {
     autoHideMenuBar: true,
     ...(process.platform === "linux" ? {icon} : {}),
     webPreferences: {
-      zoomFactor: 1.0 / primaryDisplay.scaleFactor,
       contextIsolation: true,
       preload: join(__dirname, "../preload/index.js"),
       sandbox: false
@@ -296,7 +295,6 @@ function createSessionLauncherWindow(): void {
     resizable: false,
     ...(process.platform === "linux" ? {icon} : {}),
     webPreferences: {
-      zoomFactor: 1.0 / primaryDisplay.scaleFactor,
       contextIsolation: true,
       preload: join(__dirname, "../preload/index.js"),
       sandbox: false
@@ -385,7 +383,6 @@ function createSessionWindow(mode: LaunchMode, sessionId: string): void {
     fullscreen: startFullscreen,
     ...(process.platform === "linux" ? {icon} : {}),
     webPreferences: {
-      zoomFactor: 1.0 / primaryDisplay.scaleFactor,
       contextIsolation: true,
       preload: join(__dirname, "../preload/index.js"),
       sandbox: false,
@@ -478,7 +475,6 @@ function createMainWindow(): void {
     autoHideMenuBar: true,
     ...(process.platform === "linux" ? {icon} : {}),
     webPreferences: {
-      zoomFactor: 1.0 / primaryDisplay.scaleFactor,
       contextIsolation: true,
       preload: join(__dirname, "../preload/index.js"),
       sandbox: false,
