@@ -99,7 +99,10 @@ function parseLaunchArgs(config: any): LaunchArgs {
 let launchArgs: LaunchArgs;
 
 let neuzosConfig: any = null;
-const defaultNeuzosConfig = {
+
+const defaultNeuzosConfig: any = {
+  window: undefined,
+  autoSaveSettings: false,
   defaultLaunchMode: "normal",
   chromium: {
     commandLineSwitches: [
@@ -219,21 +222,10 @@ function createSettingsWindow(): void {
     return;
   }
 
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const toPixels = (units: number) => {
-    return Math.floor(units / primaryDisplay.scaleFactor);
-  };
-
-  const {width, height} = primaryDisplay.workAreaSize;
-  const aspectRatio = width / height;
-
-  const windowWidth = aspectRatio >= 2 ? width / 2 : width - width / 12;
-  const windowHeight = height - height / 12;
-
   // Create smaller window for settings
   settingsWindow = new BrowserWindow({
-    width: toPixels(windowWidth),
-    height: toPixels(windowHeight),
+    width: neuzosConfig.window.main.width,
+    height: neuzosConfig.window.main.height,
     show: false,
     frame: false,
     autoHideMenuBar: true,
@@ -241,7 +233,8 @@ function createSettingsWindow(): void {
     webPreferences: {
       contextIsolation: true,
       preload: join(__dirname, "../preload/index.js"),
-      sandbox: false
+      sandbox: false,
+      zoomFactor: neuzosConfig.window.main.zoom ?? 1.0,
     }
   });
 
@@ -255,6 +248,7 @@ function createSettingsWindow(): void {
 
   settingsWindow.on("ready-to-show", () => {
     settingsWindow?.show();
+    sessionWindow?.webContents.setZoomFactor(neuzosConfig.window.main.zoom);
   });
 
   settingsWindow.on("closed", () => {
@@ -280,15 +274,10 @@ function createSessionLauncherWindow(): void {
     return;
   }
 
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const toPixels = (units: number) => {
-    return Math.floor(units / primaryDisplay.scaleFactor);
-  };
-
   // Small window for session launcher
   sessionWindow = new BrowserWindow({
-    width: toPixels(600),
-    height: toPixels(400),
+    width: 600,
+    height: 400,
     show: false,
     frame: false,
     autoHideMenuBar: true,
@@ -297,7 +286,8 @@ function createSessionLauncherWindow(): void {
     webPreferences: {
       contextIsolation: true,
       preload: join(__dirname, "../preload/index.js"),
-      sandbox: false
+      sandbox: false,
+      zoomFactor: neuzosConfig.window.main.zoom ?? 1.0,
     }
   });
 
@@ -316,6 +306,7 @@ function createSessionLauncherWindow(): void {
 
   sessionWindow.on("ready-to-show", () => {
     sessionWindow?.show();
+    sessionWindow?.webContents.setZoomFactor(neuzosConfig.window.main.zoom)
   });
 
   sessionWindow.on("closed", () => {
@@ -363,20 +354,13 @@ function createSessionWindow(mode: LaunchMode, sessionId: string): void {
     return;
   }
 
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const toPixels = (units: number) => {
-    return Math.floor(units / primaryDisplay.scaleFactor);
-  };
-
-  const {width, height} = primaryDisplay.workAreaSize;
-
   // Determine if we should start fullscreen
   const startFullscreen = mode === 'focus_fullscreen';
 
   // Create the session window
   sessionWindow = new BrowserWindow({
-    width: toPixels(width),
-    height: toPixels(height),
+    width: neuzosConfig.window.session.width,
+    height: neuzosConfig.window.session.height,
     show: false,
     frame: false,
     autoHideMenuBar: true,
@@ -387,7 +371,8 @@ function createSessionWindow(mode: LaunchMode, sessionId: string): void {
       preload: join(__dirname, "../preload/index.js"),
       sandbox: false,
       webviewTag: true,
-      partition: `persist:${sessionId}`
+      partition: `persist:${sessionId}`,
+      zoomFactor: neuzosConfig.window.session.zoom ?? 1.0,
     }
   });
 
@@ -419,6 +404,10 @@ function createSessionWindow(mode: LaunchMode, sessionId: string): void {
 
   sessionWindow.on("ready-to-show", () => {
     sessionWindow?.show();
+    if (!startFullscreen && neuzosConfig.window.session.maximized) {
+      sessionWindow?.maximize()
+    }
+    sessionWindow?.webContents.setZoomFactor(neuzosConfig.window.session.zoom)
   });
 
   sessionWindow.on("closed", () => {
@@ -456,20 +445,11 @@ function createMainWindow(): void {
     mainWindow.focus();
     return;
   }
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const toPixels = (units: number) => {
-    return Math.floor(units / primaryDisplay.scaleFactor);
-  };
 
-  const {width, height} = primaryDisplay.workAreaSize;
-  const aspectRatio = width / height;
-
-  const windowWidth = aspectRatio >= 2 ? width / 2 : width - width / 12;
-  const windowHeight = height - height / 12;
   // Create the browser window.
   mainWindow = new BrowserWindow({
-    width: toPixels(windowWidth),
-    height: toPixels(windowHeight),
+    width: neuzosConfig.window.main.width,
+    height: neuzosConfig.window.main.height,
     show: false,
     frame: false,
     autoHideMenuBar: true,
@@ -478,7 +458,8 @@ function createMainWindow(): void {
       contextIsolation: true,
       preload: join(__dirname, "../preload/index.js"),
       sandbox: false,
-      webviewTag: true
+      webviewTag: true,
+      zoomFactor: neuzosConfig.window.main.zoom ?? 1.0,
     }
   });
 
@@ -508,6 +489,10 @@ function createMainWindow(): void {
 
   mainWindow.on("ready-to-show", () => {
     mainWindow?.show();
+    if (neuzosConfig.window.main.maximized) {
+      sessionWindow?.maximize()
+    }
+    mainWindow?.webContents.setZoomFactor(neuzosConfig.window.main.zoom);
   });
 
   mainWindow.on("closed", () => {
@@ -928,6 +913,35 @@ function registerSessionKeybinds(mode: LaunchMode) {
         return 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
       }
     })
+
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const {width: defaultScreenWidth, height: defaultScreenHeight} = primaryDisplay.workAreaSize;
+    const aspectRatio = defaultScreenWidth / defaultScreenHeight;
+    const defaultWindowWidth = aspectRatio >= 2 ? defaultScreenWidth / 2 : defaultScreenWidth - defaultScreenWidth / 12;
+    const defaultWindowHeight = defaultScreenHeight - (defaultScreenHeight / 12);
+
+    // Ensure window config exists
+    if (!defaultNeuzosConfig.window) {
+      defaultNeuzosConfig.window = {
+        main: {
+          width: defaultWindowWidth,
+          height: defaultWindowHeight,
+          maximized: false,
+          zoom: 1.0
+        },
+        session: {
+          width: defaultWindowWidth,
+          height: defaultWindowHeight,
+          maximized: false,
+          zoom: 1.0
+        },
+      }
+    }
+
+    neuzosConfig = {...defaultNeuzosConfig, ...neuzosConfig};
+    neuzosConfig.window = {...defaultNeuzosConfig.window, ...neuzosConfig.window};
+    neuzosConfig.window.main = {...defaultNeuzosConfig.window.main, ...neuzosConfig.window.main};
+    neuzosConfig.window.session = {...defaultNeuzosConfig.window.session, ...neuzosConfig.window.session};
 
     // Handle different launch modes
     switch (launchArgs.mode) {

@@ -1,10 +1,10 @@
 <script lang="ts">
   import * as Card from "$lib/components/ui/card";
-  import * as Table from "$lib/components/ui/table";
   import {Switch} from "$lib/components/ui/switch";
   import {Input} from "$lib/components/ui/input";
   import {Label} from "$lib/components/ui/label";
   import * as Alert from "$lib/components/ui/alert";
+  import {Separator} from "$lib/components/ui/separator";
   import {AlertCircleIcon} from "@lucide/svelte";
 
   import {getContext, onMount} from "svelte";
@@ -17,6 +17,27 @@
   let userAgentEnabled = $state(false);
   let userAgentValue = $state("");
   let defaultUserAgent = $state("");
+
+  // Initialize window config if it doesn't exist
+  if (!neuzosConfig.window) {
+    neuzosConfig.window = {};
+  }
+  if (!neuzosConfig.window.main) {
+    neuzosConfig.window.main = {
+      width: 1200,
+      height: 800,
+      zoom: 1.0,
+      maximized: false
+    };
+  }
+  if (!neuzosConfig.window.session) {
+    neuzosConfig.window.session = {
+      width: 1024,
+      height: 768,
+      zoom: 1.0,
+      maximized: false
+    };
+  }
 
   // Initialize titleBarButtons if it doesn't exist
   if (!neuzosConfig.titleBarButtons) {
@@ -91,68 +112,300 @@
     }
     neuzosConfig.titleBarButtons.keybindToggle = enabled;
   }
+
+  // Handle auto-save toggle
+  function handleAutoSaveToggle(enabled: boolean) {
+    neuzosConfig.autoSaveSettings = enabled;
+  }
+
+  // Handle main window settings
+  function handleMainWindowWidth(value: number) {
+    if (!neuzosConfig.window) neuzosConfig.window = {};
+    if (!neuzosConfig.window.main) neuzosConfig.window.main = { width: 1200, height: 800, zoom: 1.0, maximized: false };
+    neuzosConfig.window.main.width = value;
+  }
+
+  function handleMainWindowHeight(value: number) {
+    if (!neuzosConfig.window) neuzosConfig.window = {};
+    if (!neuzosConfig.window.main) neuzosConfig.window.main = { width: 1200, height: 800, zoom: 1.0, maximized: false };
+    neuzosConfig.window.main.height = value;
+  }
+
+  function handleMainWindowZoom(value: number) {
+    if (!neuzosConfig.window) neuzosConfig.window = {};
+    if (!neuzosConfig.window.main) neuzosConfig.window.main = { width: 1200, height: 800, zoom: 1.0, maximized: false };
+    neuzosConfig.window.main.zoom = value;
+  }
+
+  function handleMainWindowMaximized(enabled: boolean) {
+    if (!neuzosConfig.window) neuzosConfig.window = {};
+    if (!neuzosConfig.window.main) neuzosConfig.window.main = { width: 1200, height: 800, zoom: 1.0, maximized: false };
+    neuzosConfig.window.main.maximized = enabled;
+  }
+
+  // Handle session window settings
+  function handleSessionWindowWidth(value: number) {
+    if (!neuzosConfig.window) neuzosConfig.window = {};
+    if (!neuzosConfig.window.session) neuzosConfig.window.session = { width: 1024, height: 768, zoom: 1.0, maximized: false };
+    neuzosConfig.window.session.width = value;
+  }
+
+  function handleSessionWindowHeight(value: number) {
+    if (!neuzosConfig.window) neuzosConfig.window = {};
+    if (!neuzosConfig.window.session) neuzosConfig.window.session = { width: 1024, height: 768, zoom: 1.0, maximized: false };
+    neuzosConfig.window.session.height = value;
+  }
+
+  function handleSessionWindowZoom(value: number) {
+    if (!neuzosConfig.window) neuzosConfig.window = {};
+    if (!neuzosConfig.window.session) neuzosConfig.window.session = { width: 1024, height: 768, zoom: 1.0, maximized: false };
+    neuzosConfig.window.session.zoom = value;
+  }
+
+  function handleSessionWindowMaximized(enabled: boolean) {
+    if (!neuzosConfig.window) neuzosConfig.window = {};
+    if (!neuzosConfig.window.session) neuzosConfig.window.session = { width: 1024, height: 768, zoom: 1.0, maximized: false };
+    neuzosConfig.window.session.maximized = enabled;
+  }
 </script>
 
 <Card.Root class="h-full overflow-y-auto">
   <Card.Header>
-    <Card.Title class="text-lg font-semibold">User Agent Settings</Card.Title>
-    <Card.Description class="flex flex-col">
-      <p>Configure custom user agent string for webviews and sessions.</p>
-        <Alert.Root variant="destructive" class="mt-4">
-          <AlertCircleIcon/>
-          <Alert.Title>Important before changing the user agent.</Alert.Title>
-          <Alert.Description class="pt-2">
-            <ul>
-              <li>- In some cases all your currently logged in sessions might will become invalid with a new user agent.</li>
-            </ul>
-          </Alert.Description>
-        </Alert.Root>
+    <Card.Title class="text-lg font-semibold">General Window(s) and Webview Settings</Card.Title>
+    <Card.Description>
+      Configure general settings for application windows and webviews.
     </Card.Description>
   </Card.Header>
-  <Card.Content class="flex flex-col gap-4">
-    <Table.Root>
-      <Table.Body>
-        <Table.Row>
-          <Table.Cell class="font-medium">Custom User Agent</Table.Cell>
-          <Table.Cell class="text-sm text-muted-foreground">
-            Enable custom user agent for all webviews and sessions
-          </Table.Cell>
-          <Table.Cell class="text-right">
-            <Switch
-              id="custom-user-agent"
-              checked={userAgentEnabled}
-              onCheckedChange={handleUserAgentToggle}
-            />
-          </Table.Cell>
-        </Table.Row>
-        <p class="text-xs text-muted-foreground mt-2">
-          When disabled, the default Electron user agent will be used.
-        </p>
-      </Table.Body>
-    </Table.Root>
+  <Card.Content class="flex flex-col gap-6">
 
-    {#if userAgentEnabled}
-      <div class="space-y-2">
-        <Label for="user-agent-input">User Agent String</Label>
-        <Input
-          id="user-agent-input"
-          type="text"
-          placeholder="Enter custom user agent..."
-          bind:value={userAgentValue}
-          oninput={(e) => {
-            const target = e.target as HTMLInputElement;
-            handleUserAgentInput(target.value);
-          }}
-          class="w-full"
-        />
-        <p class="text-xs text-muted-foreground">
-          Current default: <code class="bg-muted px-1 py-0.5 rounded text-xs">{defaultUserAgent}</code>
+    <!-- Auto Save Settings Section -->
+    <div class="space-y-3">
+      <div class="space-y-1">
+        <h3 class="text-base font-semibold">Auto Save</h3>
+        <p class="text-sm text-muted-foreground">
+          Automatically save settings when changes are made.
         </p>
       </div>
-    {/if}
+
+      <div class="flex items-center justify-between py-2">
+        <div class="space-y-0.5">
+          <Label for="auto-save-settings" class="text-sm font-medium">Enable Auto Save</Label>
+          <p class="text-xs text-muted-foreground">
+            Automatically save settings after 500ms of inactivity
+          </p>
+        </div>
+        <Switch
+          id="auto-save-settings"
+          checked={neuzosConfig.autoSaveSettings ?? false}
+          onCheckedChange={handleAutoSaveToggle}
+        />
+      </div>
+    </div>
+
+    <Separator />
+
+    <!-- Window Settings Section -->
+    <div class="space-y-3">
+      <div class="space-y-1">
+        <h3 class="text-base font-semibold">Window Settings</h3>
+        <p class="text-sm text-muted-foreground">
+          Configure default dimensions and zoom for windows.
+        </p>
+      </div>
+
+      <div class="flex gap-4 w-full">
+        <!-- Main Window Column -->
+        <div class="space-y-3 flex-1">
+          <h4 class="text-sm font-medium">Main Window / Session Launcher</h4>
+          <div class="space-y-2">
+            <div class="grid grid-cols-2 gap-2">
+              <div class="space-y-1">
+                <Label for="main-window-width" class="text-xs">Width</Label>
+                <Input
+                  id="main-window-width"
+                  type="number"
+                  min="400"
+                  max="3840"
+                  value={neuzosConfig.window?.main?.width ?? 1200}
+                  oninput={(e) => {
+                    const target = e.target as HTMLInputElement;
+                    handleMainWindowWidth(parseInt(target.value, 10));
+                  }}
+                  class="h-8 text-sm"
+                />
+              </div>
+              <div class="space-y-1">
+                <Label for="main-window-height" class="text-xs">Height</Label>
+                <Input
+                  id="main-window-height"
+                  type="number"
+                  min="300"
+                  max="2160"
+                  value={neuzosConfig.window?.main?.height ?? 800}
+                  oninput={(e) => {
+                    const target = e.target as HTMLInputElement;
+                    handleMainWindowHeight(parseInt(target.value, 10));
+                  }}
+                  class="h-8 text-sm"
+                />
+              </div>
+            </div>
+            <div class="space-y-1">
+              <Label for="main-window-zoom" class="text-xs">Zoom ({Math.round((neuzosConfig.window?.main?.zoom ?? 1.0) * 100)}%)</Label>
+              <Input
+                id="main-window-zoom"
+                type="number"
+                min="0.25"
+                max="3.0"
+                step="0.05"
+                value={neuzosConfig.window?.main?.zoom ?? 1.0}
+                oninput={(e) => {
+                  const target = e.target as HTMLInputElement;
+                  handleMainWindowZoom(parseFloat(target.value));
+                }}
+                class="h-8 text-sm"
+              />
+            </div>
+            <div class="flex items-center justify-between pt-1">
+              <Label for="main-window-maximized" class="text-xs">Start Maximized</Label>
+              <Switch
+                id="main-window-maximized"
+                checked={neuzosConfig.window?.main?.maximized ?? false}
+                onCheckedChange={handleMainWindowMaximized}
+              />
+            </div>
+          </div>
+        </div>
+
+        <Separator orientation="vertical" class="h-full" />
+
+        <!-- Session Window Column -->
+        <div class="space-y-3 flex-1">
+          <h4 class="text-sm font-medium">Session Window</h4>
+          <div class="space-y-2">
+            <div class="grid grid-cols-2 gap-2">
+              <div class="space-y-1">
+                <Label for="session-window-width" class="text-xs">Width</Label>
+                <Input
+                  id="session-window-width"
+                  type="number"
+                  min="400"
+                  max="3840"
+                  value={neuzosConfig.window?.session?.width ?? 1024}
+                  oninput={(e) => {
+                    const target = e.target as HTMLInputElement;
+                    handleSessionWindowWidth(parseInt(target.value, 10));
+                  }}
+                  class="h-8 text-sm"
+                />
+              </div>
+              <div class="space-y-1">
+                <Label for="session-window-height" class="text-xs">Height</Label>
+                <Input
+                  id="session-window-height"
+                  type="number"
+                  min="300"
+                  max="2160"
+                  value={neuzosConfig.window?.session?.height ?? 768}
+                  oninput={(e) => {
+                    const target = e.target as HTMLInputElement;
+                    handleSessionWindowHeight(parseInt(target.value, 10));
+                  }}
+                  class="h-8 text-sm"
+                />
+              </div>
+            </div>
+            <div class="space-y-1">
+              <Label for="session-window-zoom" class="text-xs">Zoom ({Math.round((neuzosConfig.window?.session?.zoom ?? 1.0) * 100)}%)</Label>
+              <Input
+                id="session-window-zoom"
+                type="number"
+                min="0.25"
+                max="3.0"
+                step="0.05"
+                value={neuzosConfig.window?.session?.zoom ?? 1.0}
+                oninput={(e) => {
+                  const target = e.target as HTMLInputElement;
+                  handleSessionWindowZoom(parseFloat(target.value));
+                }}
+                class="h-8 text-sm"
+              />
+            </div>
+            <div class="flex items-center justify-between pt-1">
+              <Label for="session-window-maximized" class="text-xs">Start Maximized</Label>
+              <Switch
+                id="session-window-maximized"
+                checked={neuzosConfig.window?.session?.maximized ?? false}
+                onCheckedChange={handleSessionWindowMaximized}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <Separator />
+
+    <!-- User Agent Settings Section -->
+    <div class="space-y-3">
+      <div class="space-y-1">
+        <h3 class="text-base font-semibold">User Agent Settings</h3>
+        <p class="text-sm text-muted-foreground">
+          Configure custom user agent string for webviews and sessions.
+        </p>
+      </div>
+
+      <Alert.Root variant="destructive">
+        <AlertCircleIcon class="h-4 w-4" />
+        <Alert.Title>Important before changing the user agent</Alert.Title>
+        <Alert.Description>
+          In some cases, currently logged in sessions might become invalid with a new user agent.
+        </Alert.Description>
+      </Alert.Root>
+
+      <div class="flex items-center justify-between py-2">
+        <div class="space-y-0.5">
+          <Label for="custom-user-agent" class="text-sm font-medium">Custom User Agent</Label>
+          <p class="text-xs text-muted-foreground">
+            Enable custom user agent for all webviews and sessions
+          </p>
+        </div>
+        <Switch
+          id="custom-user-agent"
+          checked={userAgentEnabled}
+          onCheckedChange={handleUserAgentToggle}
+        />
+      </div>
+
+      {#if userAgentEnabled}
+        <div class="space-y-2">
+          <Label for="user-agent-input" class="text-xs">User Agent String</Label>
+          <Input
+            id="user-agent-input"
+            type="text"
+            placeholder="Enter custom user agent..."
+            bind:value={userAgentValue}
+            oninput={(e) => {
+              const target = e.target as HTMLInputElement;
+              handleUserAgentInput(target.value);
+            }}
+            class="h-8 text-sm w-full"
+          />
+          <p class="text-xs text-muted-foreground">
+            Default: <code class="bg-muted px-1 py-0.5 rounded text-xs">{defaultUserAgent}</code>
+          </p>
+        </div>
+      {:else}
+        <p class="text-xs text-muted-foreground">
+          When disabled, the default Electron user agent will be used.
+        </p>
+      {/if}
+    </div>
+
+    <Separator />
 
     <!-- Title Bar Buttons Section -->
-    <div class="space-y-2 pt-6 border-t">
+    <div class="space-y-3">
       <div class="space-y-1">
         <h3 class="text-base font-semibold">Title Bar Buttons</h3>
         <p class="text-sm text-muted-foreground">
@@ -160,49 +413,49 @@
         </p>
       </div>
 
-      <Table.Root>
-        <Table.Body>
-          <Table.Row>
-            <Table.Cell class="font-medium">Dark Mode Toggle Button</Table.Cell>
-            <Table.Cell class="text-sm text-muted-foreground">
+      <div class="space-y-2">
+        <div class="flex items-center justify-between py-2">
+          <div class="space-y-0.5">
+            <Label for="darkmode-toggle" class="text-sm font-medium">Dark Mode Toggle</Label>
+            <p class="text-xs text-muted-foreground">
               Show/hide the dark mode toggle button in the title bar
-            </Table.Cell>
-            <Table.Cell class="text-right">
-              <Switch
-                id="darkmode-toggle"
-                checked={neuzosConfig.titleBarButtons?.darkModeToggle ?? true}
-                onCheckedChange={handleDarkModeToggle}
-              />
-            </Table.Cell>
-          </Table.Row>
-          <Table.Row>
-            <Table.Cell class="font-medium">Fullscreen Toggle Button</Table.Cell>
-            <Table.Cell class="text-sm text-muted-foreground">
+            </p>
+          </div>
+          <Switch
+            id="darkmode-toggle"
+            checked={neuzosConfig.titleBarButtons?.darkModeToggle ?? true}
+            onCheckedChange={handleDarkModeToggle}
+          />
+        </div>
+
+        <div class="flex items-center justify-between py-2">
+          <div class="space-y-0.5">
+            <Label for="fullscreen-toggle" class="text-sm font-medium">Fullscreen Toggle</Label>
+            <p class="text-xs text-muted-foreground">
               Show/hide the fullscreen toggle button in the title bar
-            </Table.Cell>
-            <Table.Cell class="text-right">
-              <Switch
-                id="fullscreen-toggle"
-                checked={neuzosConfig.titleBarButtons?.fullscreenToggle ?? true}
-                onCheckedChange={handleFullscreenToggle}
-              />
-            </Table.Cell>
-          </Table.Row>
-          <Table.Row>
-            <Table.Cell class="font-medium">Keybind Toggle Button</Table.Cell>
-            <Table.Cell class="text-sm text-muted-foreground">
+            </p>
+          </div>
+          <Switch
+            id="fullscreen-toggle"
+            checked={neuzosConfig.titleBarButtons?.fullscreenToggle ?? true}
+            onCheckedChange={handleFullscreenToggle}
+          />
+        </div>
+
+        <div class="flex items-center justify-between py-2">
+          <div class="space-y-0.5">
+            <Label for="keybind-toggle" class="text-sm font-medium">Keybind Toggle</Label>
+            <p class="text-xs text-muted-foreground">
               Show/hide the keybind toggle button in the title bar
-            </Table.Cell>
-            <Table.Cell class="text-right">
-              <Switch
-                id="keybind-toggle"
-                checked={neuzosConfig.titleBarButtons?.keybindToggle ?? true}
-                onCheckedChange={handleKeybindToggle}
-              />
-            </Table.Cell>
-          </Table.Row>
-        </Table.Body>
-      </Table.Root>
+            </p>
+          </div>
+          <Switch
+            id="keybind-toggle"
+            checked={neuzosConfig.titleBarButtons?.keybindToggle ?? true}
+            onCheckedChange={handleKeybindToggle}
+          />
+        </div>
+      </div>
     </div>
   </Card.Content>
 </Card.Root>

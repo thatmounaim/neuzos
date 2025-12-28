@@ -71,6 +71,21 @@ export type SessionActions = {
 }
 
 export type NeuzConfig = {
+  window?: {
+    main: {
+      width: number;
+      height: number;
+      zoom: number;
+      maximized: boolean;
+    },
+    session: {
+      width: number;
+      height: number;
+      zoom: number;
+      maximized: boolean;
+    }
+  },
+  autoSaveSettings: boolean;
   userAgent?: string;
   defaultLaunchMode: 'normal' | 'session_launcher'
   chromium: {

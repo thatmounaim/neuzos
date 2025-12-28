@@ -1,6 +1,6 @@
 <script lang="ts">
   import {ModeWatcher} from "mode-watcher";
-  import {onMount, setContext} from "svelte";
+  import {onMount, setContext, untrack} from "svelte";
   import {neuzosBridge, initElectronApi} from "$lib/core";
   import type {NeuzConfig} from "$lib/types";
   import SharedEvents from "./components/Shared/SharedEvents.svelte";
@@ -14,10 +14,10 @@
   import SessionActionsSettings from "./components/SettingsWindow/Tabs/SessionActionsSettings.svelte";
   import GeneralSettings from "./components/SettingsWindow/Tabs/GeneralSettings.svelte";
   import {Button} from "$lib/components/ui/button";
-  import { setElectronContext } from "$lib/contexts/electronContext";
-  import { setNeuzosBridgeContext } from "$lib/contexts/neuzosBridgeContext";
-  import { toast } from "svelte-sonner";
-  import { Toaster } from "$lib/components/ui/sonner";
+  import {setElectronContext} from "$lib/contexts/electronContext";
+  import {setNeuzosBridgeContext} from "$lib/contexts/neuzosBridgeContext";
+  import {toast} from "svelte-sonner";
+  import {Toaster} from "$lib/components/ui/sonner";
 
   let isLoading = $state(true);
 
@@ -40,15 +40,16 @@
       darkModeToggle: true,
       fullscreenToggle: true,
       keybindToggle: true
-    }
+    },
+    autoSaveSettings: false
   });
 
   const electronApi = window.electron.ipcRenderer;
 
   setContext("neuzosConfig", neuzosConfig);
 
-
-  onMount(async () => {
+  async function loadConfig() {
+    isLoading = true;
     const conf = await electronApi.invoke("config.load", true);
     neuzosConfig.defaultLaunchMode = conf.defaultLaunchMode;
     neuzosConfig.sessions = conf.sessions;
@@ -59,11 +60,20 @@
     neuzosConfig.sessionActions = conf.sessionActions || [];
     neuzosConfig.userAgent = conf.userAgent;
     neuzosConfig.titleBarButtons = conf.titleBarButtons;
+    neuzosConfig.window = conf.window;
+    neuzosConfig.autoSaveSettings = conf.autoSaveSettings ?? false;
+
+    // Initialize snapshot after config is loaded
+    lastConfigSnapshot = JSON.stringify(neuzosConfig);
 
     // Wait a bit to ensure contexts are initialized
     setTimeout(() => {
       isLoading = false;
     }, 100);
+  }
+
+  onMount(async () => {
+    loadConfig()
   });
 
   const allowedKeybindModifiers = [
@@ -127,21 +137,63 @@
 
   }
 
-  const saveSettings = async () => {
+  let autoSaveTimeout: ReturnType<typeof setTimeout> | null = null;
+  let isSaving = $state(false);
+  let lastConfigSnapshot = $state("");
+
+  const saveSettings = async (showToast: boolean = true) => {
+    if (isSaving) return;
+
     try {
+      isSaving = true;
       await sanitizeConfig();
       await electronApi.invoke("config.save", JSON.stringify(neuzosConfig));
-      toast.success("Settings saved successfully!", { position: "top-right" , duration: 1000});
+
+      // Update snapshot after successful save
+      lastConfigSnapshot = JSON.stringify(neuzosConfig);
+
+      if (showToast) {
+        toast.success("Settings saved successfully!", {position: "top-right", duration: 1000});
+      }
     } catch (error) {
       console.error("Failed to save settings:", error);
-      toast.error("Failed to save settings. Please try again.",{ position: "top-right"});
+      toast.error("Failed to save settings. Please try again.", {position: "top-right"});
+    } finally {
+      isSaving = false;
     }
   };
+
+  const autoSave = () => {
+    if (!neuzosConfig.autoSaveSettings || isLoading || isSaving) return;
+
+    // Clear existing timeout
+    if (autoSaveTimeout) {
+      clearTimeout(autoSaveTimeout);
+    }
+
+    // Debounce auto-save by 500ms
+    autoSaveTimeout = setTimeout(() => {
+      saveSettings(false); // Don't show toast for auto-save
+    }, 500);
+  };
+
+  // Watch for config changes and trigger auto-save
+  $effect(() => {
+    // Create a deep snapshot of the config to detect any changes
+    const currentSnapshot = JSON.stringify(neuzosConfig);
+
+    // Only trigger auto-save if config actually changed and we're not loading/saving
+    if (currentSnapshot !== lastConfigSnapshot && !isLoading && !isSaving && lastConfigSnapshot !== "") {
+      untrack(() => {
+        autoSave();
+      });
+    }
+  })
 
 
 </script>
 <ModeWatcher/>
-<Toaster />
+<Toaster/>
 {#if isLoading}
   <div class="w-full h-full flex items-center justify-center bg-background">
     <div class="flex flex-col items-center gap-4">
@@ -166,10 +218,27 @@
 
           </div>
           <div class="flex-1"></div>
-          <div class="px-0.5 py-0.5">
-            <Button size="xs" class="text-xs px-4 py-1.5 h-auto " onclick={saveSettings}>
-              Save Settings
+          <div class="flex items-center gap-2 px-0.5 py-0.5">
+            {#if !neuzosConfig.autoSaveSettings}
+
+            <Button
+              size="xs"
+              variant="outline"
+              class="text-xs px-4 py-1.5 h-auto"
+              onclick={() => loadConfig()}
+              disabled={isLoading || isSaving}
+            >
+              Reload Settings
             </Button>
+              <Button
+                size="xs"
+                class="text-xs px-4 py-1.5 h-auto"
+                onclick={() => saveSettings()}
+                disabled={isSaving}
+              >
+                Save Settings
+              </Button>
+            {/if}
           </div>
 
         </Tabs.List>
@@ -185,7 +254,7 @@
         <Tabs.Content value="session-actions" class="h-full overflow-y-auto">
           <SessionActionsSettings/>
         </Tabs.Content>
-          <Tabs.Content value="general" class="h-full overflow-y-auto">
+        <Tabs.Content value="general" class="h-full overflow-y-auto">
           <GeneralSettings/>
         </Tabs.Content>
         <Tabs.Content value="launch" class="h-full overflow-y-auto">
