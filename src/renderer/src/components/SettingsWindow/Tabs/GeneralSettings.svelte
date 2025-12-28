@@ -19,6 +19,8 @@
   let userAgentValue = $state("");
   let defaultUserAgent = $state("");
   let appDataPath = $state("");
+  let currentWindowWidth = $state(0);
+  let currentWindowHeight = $state(0);
 
   // Initialize window config if it doesn't exist
   if (!neuzosConfig.window) {
@@ -26,6 +28,14 @@
   }
   if (!neuzosConfig.window.main) {
     neuzosConfig.window.main = {
+      width: 1200,
+      height: 800,
+      zoom: 1.0,
+      maximized: false
+    };
+  }
+  if (!neuzosConfig.window.settings) {
+    neuzosConfig.window.settings = {
       width: 1200,
       height: 800,
       zoom: 1.0,
@@ -76,7 +86,44 @@
       userAgentEnabled = false;
       userAgentValue = defaultUserAgent;
     }
+
+    // Get initial window dimensions
+    updateWindowDimensions();
   });
+
+  // Handle window resize with $effect for proper cleanup
+  $effect(() => {
+    const handleResize = updateWindowDimensions;
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  });
+
+  // Update current window dimensions
+  function updateWindowDimensions() {
+    currentWindowWidth = window.innerWidth;
+    currentWindowHeight = window.innerHeight;
+  }
+
+  // Apply current dimensions to main window settings
+  function applyToMainWindow() {
+    handleMainWindowWidth(currentWindowWidth);
+    handleMainWindowHeight(currentWindowHeight);
+  }
+
+  // Apply current dimensions to settings window settings
+  function applyToSettingsWindow() {
+    handleSettingsWindowWidth(currentWindowWidth);
+    handleSettingsWindowHeight(currentWindowHeight);
+  }
+
+  // Apply current dimensions to session window settings
+  function applyToSessionWindow() {
+    handleSessionWindowWidth(currentWindowWidth);
+    handleSessionWindowHeight(currentWindowHeight);
+  }
 
   // Handle opening app data folder
   async function handleOpenAppDataFolder() {
@@ -160,6 +207,31 @@
     if (!neuzosConfig.window) neuzosConfig.window = {};
     if (!neuzosConfig.window.main) neuzosConfig.window.main = {width: 1200, height: 800, zoom: 1.0, maximized: false};
     neuzosConfig.window.main.maximized = enabled;
+  }
+
+  // Handle settings window settings
+  function handleSettingsWindowWidth(value: number) {
+    if (!neuzosConfig.window) neuzosConfig.window = {};
+    if (!neuzosConfig.window.settings) neuzosConfig.window.settings = {width: 1200, height: 800, zoom: 1.0, maximized: false};
+    neuzosConfig.window.settings.width = value;
+  }
+
+  function handleSettingsWindowHeight(value: number) {
+    if (!neuzosConfig.window) neuzosConfig.window = {};
+    if (!neuzosConfig.window.settings) neuzosConfig.window.settings = {width: 1200, height: 800, zoom: 1.0, maximized: false};
+    neuzosConfig.window.settings.height = value;
+  }
+
+  function handleSettingsWindowZoom(value: number) {
+    if (!neuzosConfig.window) neuzosConfig.window = {};
+    if (!neuzosConfig.window.settings) neuzosConfig.window.settings = {width: 1200, height: 800, zoom: 1.0, maximized: false};
+    neuzosConfig.window.settings.zoom = value;
+  }
+
+  function handleSettingsWindowMaximized(enabled: boolean) {
+    if (!neuzosConfig.window) neuzosConfig.window = {};
+    if (!neuzosConfig.window.settings) neuzosConfig.window.settings = {width: 1200, height: 800, zoom: 1.0, maximized: false};
+    neuzosConfig.window.settings.maximized = enabled;
   }
 
   // Handle session window settings
@@ -252,10 +324,48 @@
         </p>
       </div>
 
-      <div class="flex gap-4 w-full">
+      <!-- Current Window Dimensions Display -->
+      <div class="bg-muted/50 rounded-lg p-3 space-y-2">
+        <div class="flex items-center justify-between">
+          <div class="space-y-0.5">
+            <Label class="text-xs font-medium">Current Settings Window Size</Label>
+            <p class="text-xs text-muted-foreground">
+              {currentWindowWidth} × {currentWindowHeight} px
+            </p>
+          </div>
+          <div class="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              class="text-xs px-3 h-7"
+              onclick={applyToMainWindow}
+            >
+              Apply to Main
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              class="text-xs px-3 h-7"
+              onclick={applyToSettingsWindow}
+            >
+              Apply to Settings
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              class="text-xs px-3 h-7"
+              onclick={applyToSessionWindow}
+            >
+              Apply to Session
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-3 gap-4 w-full">
         <!-- Main Window Column -->
-        <div class="space-y-3 flex-1">
-          <h4 class="text-sm font-medium">Main Window / Session Launcher</h4>
+        <div class="space-y-3">
+          <h4 class="text-sm font-medium">Main Window</h4>
           <div class="space-y-2">
             <div class="grid grid-cols-2 gap-2">
               <div class="space-y-1">
@@ -316,10 +426,71 @@
           </div>
         </div>
 
-        <Separator orientation="vertical" class="h-full"/>
+        <!-- Settings Window Column -->
+        <div class="space-y-3">
+          <h4 class="text-sm font-medium">Settings Window</h4>
+          <div class="space-y-2">
+            <div class="grid grid-cols-2 gap-2">
+              <div class="space-y-1">
+                <Label for="settings-window-width" class="text-xs">Width</Label>
+                <Input
+                  id="settings-window-width"
+                  type="number"
+                  min="400"
+                  max="3840"
+                  value={neuzosConfig.window?.settings?.width ?? 1200}
+                  oninput={(e) => {
+                    const target = e.target as HTMLInputElement;
+                    handleSettingsWindowWidth(parseInt(target.value, 10));
+                  }}
+                  class="h-8 text-sm"
+                />
+              </div>
+              <div class="space-y-1">
+                <Label for="settings-window-height" class="text-xs">Height</Label>
+                <Input
+                  id="settings-window-height"
+                  type="number"
+                  min="300"
+                  max="2160"
+                  value={neuzosConfig.window?.settings?.height ?? 800}
+                  oninput={(e) => {
+                    const target = e.target as HTMLInputElement;
+                    handleSettingsWindowHeight(parseInt(target.value, 10));
+                  }}
+                  class="h-8 text-sm"
+                />
+              </div>
+            </div>
+            <div class="space-y-1">
+              <Label for="settings-window-zoom" class="text-xs">Zoom (%)</Label>
+              <Input
+                id="settings-window-zoom"
+                type="number"
+                min="25"
+                max="300"
+                step="5"
+                value={Math.round((neuzosConfig.window?.settings?.zoom ?? 1.0) * 100)}
+                oninput={(e) => {
+                  const target = e.target as HTMLInputElement;
+                  handleSettingsWindowZoom(parseInt(target.value, 10) / 100);
+                }}
+                class="h-8 text-sm"
+              />
+            </div>
+            <div class="flex items-center justify-between pt-1">
+              <Label for="settings-window-maximized" class="text-xs">Start Maximized</Label>
+              <Switch
+                id="settings-window-maximized"
+                checked={neuzosConfig.window?.settings?.maximized ?? false}
+                onCheckedChange={handleSettingsWindowMaximized}
+              />
+            </div>
+          </div>
+        </div>
 
         <!-- Session Window Column -->
-        <div class="space-y-3 flex-1">
+        <div class="space-y-3">
           <h4 class="text-sm font-medium">Session Window</h4>
           <div class="space-y-2">
             <div class="grid grid-cols-2 gap-2">

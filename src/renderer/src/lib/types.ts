@@ -78,6 +78,12 @@ export type NeuzConfig = {
       zoom: number;
       maximized: boolean;
     },
+    settings: {
+      width: number;
+      height: number;
+      zoom: number;
+      maximized: boolean;
+    },
     session: {
       width: number;
       height: number;
