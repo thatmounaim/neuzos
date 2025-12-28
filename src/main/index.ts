@@ -167,7 +167,9 @@ const allowedEventKeybinds = {
     ],
   }
 }
-const configDirectoryPath = join(app.getPath("userData"), "/neuzos_config/");
+
+const userDataPath = app.getPath("userData");
+const configDirectoryPath = join(userDataPath, "/neuzos_config/");
 
 if (!app.getPath("userData").includes("neuzos_config")) {
   fs.mkdirSync(configDirectoryPath, {recursive: true});
@@ -911,6 +913,20 @@ function registerSessionKeybinds(mode: LaunchMode) {
       } catch (e) {
         // Fallback user agent if the above fails
         return 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+      }
+    })
+
+    ipcMain.handle('app.get_app_data_path', async () => {
+      return userDataPath;
+    })
+
+    ipcMain.handle('app.open_app_data_folder', async () => {
+      try {
+        await shell.openPath(userDataPath);
+        return true;
+      } catch (e) {
+        console.error('Failed to open app data folder:', e);
+        return false;
       }
     })
 
