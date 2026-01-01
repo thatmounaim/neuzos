@@ -99,7 +99,10 @@ function parseLaunchArgs(config: any): LaunchArgs {
 let launchArgs: LaunchArgs;
 
 let neuzosConfig: any = null;
-const defaultNeuzosConfig = {
+
+const defaultNeuzosConfig: any = {
+  window: undefined,
+  autoSaveSettings: false,
   defaultLaunchMode: "normal",
   chromium: {
     commandLineSwitches: [
@@ -164,7 +167,9 @@ const allowedEventKeybinds = {
     ],
   }
 }
-const configDirectoryPath = join(app.getPath("userData"), "/neuzos_config/");
+
+const userDataPath = app.getPath("userData");
+const configDirectoryPath = join(userDataPath, "/neuzos_config/");
 
 if (!app.getPath("userData").includes("neuzos_config")) {
   fs.mkdirSync(configDirectoryPath, {recursive: true});
@@ -200,7 +205,22 @@ function loadConfig(reload: boolean = false): Promise<any> {
           const conf = fs.readFileSync(configPath, "utf8");
           neuzosConfig = JSON.parse(conf);
           console.log("Merging possible missing fields from default config");
+
+          // Deep merge for window config to ensure all window types (main, settings, session) exist
+          const loadedWindow = neuzosConfig.window;
           neuzosConfig = {...defaultNeuzosConfig, ...neuzosConfig};
+
+          // Deep merge window config specifically
+          if (loadedWindow) {
+            neuzosConfig.window = {
+              ...defaultNeuzosConfig.window,
+              ...loadedWindow,
+              main: {...(defaultNeuzosConfig.window?.main || {}), ...(loadedWindow.main || {})},
+              settings: {...(defaultNeuzosConfig.window?.settings || {}), ...(loadedWindow.settings || {})},
+              session: {...(defaultNeuzosConfig.window?.session || {}), ...(loadedWindow.session || {})}
+            };
+          }
+
           checkKeybinds()
           saveConfig(neuzosConfig);
           resolve(neuzosConfig);
@@ -219,21 +239,10 @@ function createSettingsWindow(): void {
     return;
   }
 
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const toPixels = (units: number) => {
-    return Math.floor(units / primaryDisplay.scaleFactor);
-  };
-
-  const {width, height} = primaryDisplay.workAreaSize;
-  const aspectRatio = width / height;
-
-  const windowWidth = aspectRatio >= 2 ? width / 2 : width - width / 12;
-  const windowHeight = height - height / 12;
-
   // Create smaller window for settings
   settingsWindow = new BrowserWindow({
-    width: toPixels(windowWidth),
-    height: toPixels(windowHeight),
+    width: neuzosConfig.window.settings.width,
+    height: neuzosConfig.window.settings.height,
     show: false,
     frame: false,
     autoHideMenuBar: true,
@@ -241,7 +250,8 @@ function createSettingsWindow(): void {
     webPreferences: {
       contextIsolation: true,
       preload: join(__dirname, "../preload/index.js"),
-      sandbox: false
+      sandbox: false,
+      zoomFactor: neuzosConfig.window.settings.zoom ?? 1.0,
     }
   });
 
@@ -255,6 +265,14 @@ function createSettingsWindow(): void {
 
   settingsWindow.on("ready-to-show", () => {
     settingsWindow?.show();
+    settingsWindow?.webContents.setZoomFactor(neuzosConfig.window.settings.zoom);
+
+    // Maximize if configured - must happen after show() with slight delay
+    if (neuzosConfig.window.settings.maximized) {
+      setImmediate(() => {
+        settingsWindow?.maximize();
+      });
+    }
   });
 
   settingsWindow.on("closed", () => {
@@ -280,15 +298,10 @@ function createSessionLauncherWindow(): void {
     return;
   }
 
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const toPixels = (units: number) => {
-    return Math.floor(units / primaryDisplay.scaleFactor);
-  };
-
   // Small window for session launcher
   sessionWindow = new BrowserWindow({
-    width: toPixels(600),
-    height: toPixels(400),
+    width: 600,
+    height: 400,
     show: false,
     frame: false,
     autoHideMenuBar: true,
@@ -297,7 +310,8 @@ function createSessionLauncherWindow(): void {
     webPreferences: {
       contextIsolation: true,
       preload: join(__dirname, "../preload/index.js"),
-      sandbox: false
+      sandbox: false,
+      zoomFactor: neuzosConfig.window.main.zoom ?? 1.0,
     }
   });
 
@@ -316,6 +330,7 @@ function createSessionLauncherWindow(): void {
 
   sessionWindow.on("ready-to-show", () => {
     sessionWindow?.show();
+    sessionWindow?.webContents.setZoomFactor(neuzosConfig.window.main.zoom)
   });
 
   sessionWindow.on("closed", () => {
@@ -363,20 +378,13 @@ function createSessionWindow(mode: LaunchMode, sessionId: string): void {
     return;
   }
 
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const toPixels = (units: number) => {
-    return Math.floor(units / primaryDisplay.scaleFactor);
-  };
-
-  const {width, height} = primaryDisplay.workAreaSize;
-
   // Determine if we should start fullscreen
   const startFullscreen = mode === 'focus_fullscreen';
 
   // Create the session window
   sessionWindow = new BrowserWindow({
-    width: toPixels(width),
-    height: toPixels(height),
+    width: neuzosConfig.window.session.width,
+    height: neuzosConfig.window.session.height,
     show: false,
     frame: false,
     autoHideMenuBar: true,
@@ -387,7 +395,8 @@ function createSessionWindow(mode: LaunchMode, sessionId: string): void {
       preload: join(__dirname, "../preload/index.js"),
       sandbox: false,
       webviewTag: true,
-      partition: `persist:${sessionId}`
+      partition: `persist:${sessionId}`,
+      zoomFactor: neuzosConfig.window.session.zoom ?? 1.0,
     }
   });
 
@@ -419,6 +428,14 @@ function createSessionWindow(mode: LaunchMode, sessionId: string): void {
 
   sessionWindow.on("ready-to-show", () => {
     sessionWindow?.show();
+    sessionWindow?.webContents.setZoomFactor(neuzosConfig.window.session.zoom);
+
+    // Maximize if configured and not starting in fullscreen - must happen after show() with slight delay
+    if (!startFullscreen && neuzosConfig.window.session.maximized) {
+      setImmediate(() => {
+        sessionWindow?.maximize();
+      });
+    }
   });
 
   sessionWindow.on("closed", () => {
@@ -456,20 +473,11 @@ function createMainWindow(): void {
     mainWindow.focus();
     return;
   }
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const toPixels = (units: number) => {
-    return Math.floor(units / primaryDisplay.scaleFactor);
-  };
 
-  const {width, height} = primaryDisplay.workAreaSize;
-  const aspectRatio = width / height;
-
-  const windowWidth = aspectRatio >= 2 ? width / 2 : width - width / 12;
-  const windowHeight = height - height / 12;
   // Create the browser window.
   mainWindow = new BrowserWindow({
-    width: toPixels(windowWidth),
-    height: toPixels(windowHeight),
+    width: neuzosConfig.window.main.width,
+    height: neuzosConfig.window.main.height,
     show: false,
     frame: false,
     autoHideMenuBar: true,
@@ -478,7 +486,8 @@ function createMainWindow(): void {
       contextIsolation: true,
       preload: join(__dirname, "../preload/index.js"),
       sandbox: false,
-      webviewTag: true
+      webviewTag: true,
+      zoomFactor: neuzosConfig.window.main.zoom ?? 1.0,
     }
   });
 
@@ -508,6 +517,14 @@ function createMainWindow(): void {
 
   mainWindow.on("ready-to-show", () => {
     mainWindow?.show();
+    mainWindow?.webContents.setZoomFactor(neuzosConfig.window.main.zoom);
+
+    // Maximize if configured - must happen after show() with slight delay
+    if (neuzosConfig.window.main.maximized) {
+      setImmediate(() => {
+        mainWindow?.maximize();
+      });
+    }
   });
 
   mainWindow.on("closed", () => {
@@ -802,7 +819,7 @@ function registerSessionKeybinds(mode: LaunchMode) {
       settingsWindow?.minimize();
     });
 
-    ipcMain.on("settings_window.minimize", () => {
+    ipcMain.on("settings_window.maximize", () => {
       if (settingsWindow?.isMaximized()) {
         settingsWindow?.unmaximize();
       } else {
@@ -928,6 +945,87 @@ function registerSessionKeybinds(mode: LaunchMode) {
         return 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
       }
     })
+
+    ipcMain.handle('app.get_app_data_path', async () => {
+      return userDataPath;
+    })
+
+    ipcMain.handle('app.open_app_data_folder', async () => {
+      try {
+        await shell.openPath(userDataPath);
+        return true;
+      } catch (e) {
+        console.error('Failed to open app data folder:', e);
+        return false;
+      }
+    })
+
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const {width: defaultScreenWidth, height: defaultScreenHeight} = primaryDisplay.workAreaSize;
+    const aspectRatio = defaultScreenWidth / defaultScreenHeight;
+    const defaultWindowWidth = aspectRatio >= 2 ? defaultScreenWidth / 2 : defaultScreenWidth - defaultScreenWidth / 12;
+    const defaultWindowHeight = defaultScreenHeight - (defaultScreenHeight / 12);
+
+    // Ensure window config exists
+    // Calculate default window sizes
+    const defaultMainWindowConfig = {
+      width: defaultWindowWidth,
+      height: defaultWindowHeight,
+      maximized: false,
+      zoom: 1.0
+    };
+
+    const defaultSessionWindowConfig = {
+      width: defaultWindowWidth,
+      height: defaultWindowHeight,
+      maximized: false,
+      zoom: 1.0
+    };
+
+    // Settings window should be slightly smaller by default
+    const defaultSettingsWindowConfig = {
+      width: Math.floor(defaultWindowWidth * 0.85),
+      height: Math.floor(defaultWindowHeight * 0.85),
+      maximized: false,
+      zoom: 1.0
+    };
+
+    // Ensure defaultNeuzosConfig has window config
+    if (!defaultNeuzosConfig.window) {
+      defaultNeuzosConfig.window = {
+        main: defaultMainWindowConfig,
+        settings: defaultSettingsWindowConfig,
+        session: defaultSessionWindowConfig
+      };
+    }
+
+    // Merge neuzosConfig with defaults (user config takes precedence)
+    neuzosConfig = {...defaultNeuzosConfig, ...neuzosConfig};
+
+    // Ensure window object exists before accessing sub-properties
+    if (!neuzosConfig.window) {
+      neuzosConfig.window = {};
+    }
+
+    // Merge window config at the top level
+    neuzosConfig.window = {...defaultNeuzosConfig.window, ...neuzosConfig.window};
+
+    // Ensure each window sub-config exists and merge with defaults
+    // This handles old configs that might not have all three window types (main, settings, session)
+    neuzosConfig.window.main = {
+      ...defaultNeuzosConfig.window.main,
+      ...(neuzosConfig.window.main || {})
+    };
+
+    neuzosConfig.window.settings = {
+      ...defaultNeuzosConfig.window.settings,
+      ...(neuzosConfig.window.settings || {})
+    };
+
+    neuzosConfig.window.session = {
+      ...defaultNeuzosConfig.window.session,
+      ...(neuzosConfig.window.session || {})
+    };
 
     // Handle different launch modes
     switch (launchArgs.mode) {

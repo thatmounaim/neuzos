@@ -202,6 +202,7 @@
           <Table.Head class="w-[100px]">Icon</Table.Head>
           <Table.Head class="w-1/3">Label</Table.Head>
           <Table.Head class="w-auto">Lock</Table.Head>
+          <Table.Head class="w-auto">Direction</Table.Head>
           <Table.Head class="w-2/3">Sessions</Table.Head>
           <Table.Head></Table.Head>
 
@@ -289,19 +290,31 @@
               />
             </Table.Cell>
             <Table.Cell class="py-3">
-              <Toggle class="border" aria-label="toggle bold" pressed={layout.locked} onPressedChange={(v) => {
+              <Toggle class="border" aria-label="toggle lock" pressed={layout.locked} onPressedChange={(v) => {
                   layout.locked = v
                 }}
               >
                 <Lock class="size-4"/>
               </Toggle>
             </Table.Cell>
+            <Table.Cell class="py-3">
+              <Button
+                variant={layout.columnFirst ? "default" : "outline"}
+                size="xs"
+                class="text-xs min-w-[80px]"
+                onclick={() => {
+                  layout.columnFirst = !layout.columnFirst
+                }}
+              >
+                {layout.columnFirst ? "Columns" : "Rows"}
+              </Button>
+            </Table.Cell>
             <Table.Cell class="w-1/2 py-3">
-              <div class="flex flex-col gap-2">
+              <div class="flex {layout.columnFirst ? 'flex-row' : 'flex-col'} gap-2">
                 {#each layout.rows ?? [] as row, ridx (ridx)}
                   {@const popoverKey = `${layout.id}-${ridx}`}
                   {@const isPopoverOpen = addColumnPopoverStates[popoverKey] ?? false}
-                  <div class="flex items-center gap-2">
+                  <div class="flex {layout.columnFirst ? 'flex-col' : 'flex-row'} items-center gap-2">
                     {#each row.sessionIds ?? [] as sessionId,sidx (sidx)}
                       {@const session = neuzosConfig.sessions.find(s => s.id === sessionId)}
                       <div class="flex items-center gap-1">
@@ -362,7 +375,7 @@
                       layout.rows.splice(ridx, 1)
                     }}>
                       <Trash class="size-3"/>
-                      Delete Row
+                      Delete {layout.columnFirst ? "Column" : "Row"}
                     </Button>
                   </div>
 
@@ -374,7 +387,7 @@
                       })
                     }}>
                   <Plus/>
-                  Add Row
+                  Add {layout.columnFirst ? "Column" : "Row"}
                 </Button>
 
               </div>
