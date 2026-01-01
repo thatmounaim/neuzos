@@ -16,11 +16,11 @@
           ? 'z-[39]'
           : 'z-[0] hidden'} overflow-hidden"
     >
-      <Resizable.PaneGroup direction="vertical" class="h-full w-full" autoSaveId={'rows_' + layout.id}>
+      <Resizable.PaneGroup direction={layout.columnFirst ? "horizontal" : "vertical"} class="h-full w-full" autoSaveId={(layout.columnFirst ? 'cols_' : 'rows_') + layout.id}>
         {#each layout.rows as row, rowIndex}
           {#if row.sessionIds.length > 0}
             <Resizable.Pane>
-              <Resizable.PaneGroup direction="horizontal" autoSaveId={'cells_' + row.sessionIds[0]}>
+              <Resizable.PaneGroup direction={layout.columnFirst ? "vertical" : "horizontal"} autoSaveId={(layout.columnFirst ? 'cells_' : 'cells_') + row.sessionIds[0]}>
                 {#each row.sessionIds as sessionId, cellIndex}
                   {@const session = mainWindowState.sessions.find((s) => s.id === sessionId)}
                   <Resizable.Pane>
