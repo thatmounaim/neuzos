@@ -10,9 +10,12 @@
   import {createCooldownsContext, setCooldownsContext} from '$lib/contexts/cooldownsContext';
   import {setElectronContext} from '$lib/contexts/electronContext';
   import {setNeuzosBridgeContext} from '$lib/contexts/neuzosBridgeContext';
+  import {Button} from "$lib/components/ui/button";
+  import {Minimize} from '@lucide/svelte';
 
 
   let isLoading = $state(true);
+  let isFullscreen = $state(false);
 
   setElectronContext(window.electron.ipcRenderer);
   setNeuzosBridgeContext(neuzosBridge);
@@ -29,6 +32,26 @@
 
   let mainWindowState: MainWindowState = $state({
     config: {
+      window: {
+        main: {
+          width: 1200,
+          height: 800,
+          zoom: 1.0,
+          maximized: false
+        },
+        settings: {
+          width: 1200,
+          height: 800,
+          zoom: 1.0,
+          maximized: false
+        },
+        session: {
+          width: 1024,
+          height: 768,
+          zoom: 1.0,
+          maximized: false
+        }
+      },
       sessions: [],
       layouts: [],
       chromium: {
@@ -39,12 +62,17 @@
       sessionActions: [],
       defaultLaunchMode: 'normal',
       userAgent: undefined,
+      autoSaveSettings: false,
       changed: false,
       titleBarButtons: {
         darkModeToggle: true,
         fullscreenToggle: true,
         keybindToggle: true
       },
+      fullscreen: {
+        hideTitleBarInMainWindow: false,
+        hideTitleBarInSessionLayouts: false
+      }
     },
     sessions: [],
     layouts: [],
@@ -228,6 +256,10 @@
     mainWindowState.config.defaultLaunchMode = newConfig.defaultLaunchMode
     mainWindowState.config.userAgent = newConfig.userAgent || undefined
     mainWindowState.config.titleBarButtons = newConfig.titleBarButtons
+    mainWindowState.config.fullscreen = newConfig.fullscreen || {
+      hideTitleBarInMainWindow: false,
+      hideTitleBarInSessionLayouts: false
+    }
   })
 
   const reloadNeuzos = () => {
@@ -249,6 +281,11 @@
 
   addEventListener('resize', () => {
     mainWindowState.doCalculationUpdatesRng = Math.random()
+  })
+
+  // Listen for fullscreen state changes
+  electronApi.on('event.fullscreen_changed', (_, fullscreen: boolean) => {
+    isFullscreen = fullscreen
   })
 
   setContext('mainWindowState', mainWindowState)
@@ -274,8 +311,22 @@
   </div>
 {:else}
   <SharedEvents/>
-  <div class="w-full h-full flex flex-col border-2">
-    <MainBar/>
+  <div class="w-full h-full flex flex-col border-2 relative">
+    {#if !isFullscreen || !mainWindowState.config.fullscreen?.hideTitleBarInMainWindow}
+      <MainBar/>
+    {/if}
     <MainSectionsContainer/>
+
+    <!-- Floating Exit Fullscreen Button -->
+    {#if isFullscreen && mainWindowState.config.fullscreen?.hideTitleBarInMainWindow}
+      <Button
+        size="icon-sm"
+        variant="secondary"
+        class="absolute top-2 right-2 z-50 shadow-lg"
+        onclick={() => neuzosBridge.mainWindow.fullscreenToggle()}
+      >
+        <Minimize class="size-4"/>
+      </Button>
+    {/if}
   </div>
 {/if}

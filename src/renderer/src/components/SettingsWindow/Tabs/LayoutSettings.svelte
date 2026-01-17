@@ -203,6 +203,7 @@
           <Table.Head class="w-1/3">Label</Table.Head>
           <Table.Head class="w-auto">Lock</Table.Head>
           <Table.Head class="w-auto">Direction</Table.Head>
+          <Table.Head class="w-auto">Auto Focus</Table.Head>
           <Table.Head class="w-2/3">Sessions</Table.Head>
           <Table.Head></Table.Head>
 
@@ -308,6 +309,18 @@
               >
                 {layout.columnFirst ? "Columns" : "Rows"}
               </Button>
+            </Table.Cell>
+            <Table.Cell class="py-3">
+              <Toggle
+                class="border"
+                aria-label="toggle auto focus"
+                pressed={layout.autoFocus ?? true}
+                onPressedChange={(v) => {
+                  layout.autoFocus = v
+                }}
+              >
+                <span class="text-xs px-1">{layout.autoFocus ?? true ? "On" : "Off"}</span>
+              </Toggle>
             </Table.Cell>
             <Table.Cell class="w-1/2 py-3">
               <div class="flex {layout.columnFirst ? 'flex-row' : 'flex-col'} gap-2">

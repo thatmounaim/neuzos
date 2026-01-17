@@ -5,7 +5,7 @@
   import Button from '../../lib/components/ui/button/button.svelte'
   import {neuzosBridge} from "$lib/core";
 
-  let {session, onUpdate, autofocusEnabled = $bindable(), layoutId, src, userAgent}: {
+  let {session, onUpdate, autofocusEnabled, layoutId, src, userAgent}: {
     session: NeuzSession
     layoutId: string
     onUpdate: (sessionId: string) => void
