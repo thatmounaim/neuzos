@@ -52,7 +52,6 @@
     } else {
       console.error("Failed to load session data");
     }
-    })
   });
 
   function closeWindow() {
