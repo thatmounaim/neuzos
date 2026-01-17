@@ -60,6 +60,14 @@
     };
   }
 
+  // Initialize fullscreen config if it doesn't exist
+  if (!neuzosConfig.fullscreen) {
+    neuzosConfig.fullscreen = {
+      hideTitleBarInMainWindow: false,
+      hideTitleBarInSessionLayouts: false
+    };
+  }
+
   // Get the default user agent when component mounts
   onMount(async () => {
     // Get the default user agent from Electron's webContents
