@@ -60,6 +60,14 @@
     };
   }
 
+  // Initialize fullscreen config if it doesn't exist
+  if (!neuzosConfig.fullscreen) {
+    neuzosConfig.fullscreen = {
+      hideTitleBarInMainWindow: false,
+      hideTitleBarInSessionLayouts: false
+    };
+  }
+
   // Get the default user agent when component mounts
   onMount(async () => {
     // Get the default user agent from Electron's webContents
@@ -182,6 +190,27 @@
   // Handle auto-save toggle
   function handleAutoSaveToggle(enabled: boolean) {
     neuzosConfig.autoSaveSettings = enabled;
+  }
+
+  // Handle fullscreen settings
+  function handleHideTitleBarInMainWindow(enabled: boolean) {
+    if (!neuzosConfig.fullscreen) {
+      neuzosConfig.fullscreen = {
+        hideTitleBarInMainWindow: false,
+        hideTitleBarInSessionLayouts: false
+      };
+    }
+    neuzosConfig.fullscreen.hideTitleBarInMainWindow = enabled;
+  }
+
+  function handleHideTitleBarInSessionLayouts(enabled: boolean) {
+    if (!neuzosConfig.fullscreen) {
+      neuzosConfig.fullscreen = {
+        hideTitleBarInMainWindow: false,
+        hideTitleBarInSessionLayouts: false
+      };
+    }
+    neuzosConfig.fullscreen.hideTitleBarInSessionLayouts = enabled;
   }
 
   // Handle main window settings
@@ -663,6 +692,48 @@
             id="keybind-toggle"
             checked={neuzosConfig.titleBarButtons?.keybindToggle ?? true}
             onCheckedChange={handleKeybindToggle}
+          />
+        </div>
+      </div>
+    </div>
+
+    <Separator/>
+
+    <!-- Fullscreen Behavior Section -->
+    <div class="space-y-3">
+      <div class="space-y-1">
+        <h3 class="text-base font-semibold">Fullscreen Behavior</h3>
+        <p class="text-sm text-muted-foreground">
+          Configure how fullscreen mode behaves in different window types.
+        </p>
+      </div>
+
+      <div class="space-y-2">
+        <div class="flex items-center justify-between py-2">
+          <div class="space-y-0.5">
+            <Label for="hide-titlebar-main" class="text-sm font-medium">Hide Title Bar in Main Window Fullscreen</Label>
+            <p class="text-xs text-muted-foreground">
+              When enabled, the title bar will be hidden in fullscreen mode with a floating exit button
+            </p>
+          </div>
+          <Switch
+            id="hide-titlebar-main"
+            checked={neuzosConfig.fullscreen?.hideTitleBarInMainWindow ?? false}
+            onCheckedChange={handleHideTitleBarInMainWindow}
+          />
+        </div>
+
+        <div class="flex items-center justify-between py-2">
+          <div class="space-y-0.5">
+            <Label for="hide-titlebar-session" class="text-sm font-medium">Hide Title Bar in Session Layouts Fullscreen</Label>
+            <p class="text-xs text-muted-foreground">
+              When enabled, the title bar will be hidden in fullscreen session layouts with a floating exit button
+            </p>
+          </div>
+          <Switch
+            id="hide-titlebar-session"
+            checked={neuzosConfig.fullscreen?.hideTitleBarInSessionLayouts ?? false}
+            onCheckedChange={handleHideTitleBarInSessionLayouts}
           />
         </div>
       </div>

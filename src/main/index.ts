@@ -456,6 +456,15 @@ function createSessionWindow(mode: LaunchMode, sessionId: string): void {
     registerSessionKeybinds(mode);
   });
 
+  // Track fullscreen state changes
+  sessionWindow.on("enter-full-screen", () => {
+    sessionWindow?.webContents.send("event.fullscreen_changed", true);
+  });
+
+  sessionWindow.on("leave-full-screen", () => {
+    sessionWindow?.webContents.send("event.fullscreen_changed", false);
+  });
+
   sessionWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url);
     return {action: "deny"};
@@ -543,6 +552,15 @@ function createMainWindow(): void {
 
   mainWindow.on("focus", () => {
     registerKeybinds()
+  });
+
+  // Track fullscreen state changes
+  mainWindow.on("enter-full-screen", () => {
+    mainWindow?.webContents.send("event.fullscreen_changed", true);
+  });
+
+  mainWindow.on("leave-full-screen", () => {
+    mainWindow?.webContents.send("event.fullscreen_changed", false);
   });
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -792,7 +810,9 @@ function registerSessionKeybinds(mode: LaunchMode) {
     ipcMain.on("session_window.fullscreen_toggle", () => {
       const mode = (sessionWindow as any)?.sessionData?.mode;
       if (mode === 'session') {
-        sessionWindow?.setFullScreen(!sessionWindow?.isFullScreen());
+        const newFullscreenState = !sessionWindow?.isFullScreen();
+        sessionWindow?.setFullScreen(newFullscreenState);
+        // Event will be sent by enter-full-screen/leave-full-screen handlers
       } else if (mode === 'focus_fullscreen') {
         // Keep fullscreen
         if (!sessionWindow?.isFullScreen()) {
@@ -821,7 +841,9 @@ function registerSessionKeybinds(mode: LaunchMode) {
     });
 
     ipcMain.on("main_window.fullscreen_toggle", () => {
-      mainWindow?.setFullScreen(!mainWindow?.isFullScreen())
+      const newFullscreenState = !mainWindow?.isFullScreen();
+      mainWindow?.setFullScreen(newFullscreenState);
+      // Event will be sent by enter-full-screen/leave-full-screen handlers
     })
 
     ipcMain.on("main_window.minimize", () => {

@@ -41,7 +41,11 @@
       fullscreenToggle: true,
       keybindToggle: true
     },
-    autoSaveSettings: false
+    autoSaveSettings: false,
+    fullscreen: {
+      hideTitleBarInMainWindow: false,
+      hideTitleBarInSessionLayouts: false
+    }
   });
 
   const electronApi = window.electron.ipcRenderer;
@@ -62,6 +66,10 @@
     neuzosConfig.titleBarButtons = conf.titleBarButtons;
     neuzosConfig.window = conf.window;
     neuzosConfig.autoSaveSettings = conf.autoSaveSettings ?? false;
+    neuzosConfig.fullscreen = conf.fullscreen ?? {
+      hideTitleBarInMainWindow: false,
+      hideTitleBarInSessionLayouts: false
+    };
 
     // Initialize snapshot after config is loaded
     lastConfigSnapshot = JSON.stringify(neuzosConfig);

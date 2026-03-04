@@ -30,6 +30,7 @@ export type NeuzLayout = {
   }[]
   locked?: boolean
   columnFirst?: boolean
+  autoFocus?: boolean
 }
 
 export type MainWindowState = {
@@ -129,5 +130,9 @@ export type NeuzConfig = {
     darkModeToggle: boolean;
     fullscreenToggle: boolean;
     keybindToggle: boolean;
+  };
+  fullscreen?: {
+    hideTitleBarInMainWindow: boolean;
+    hideTitleBarInSessionLayouts: boolean;
   };
 }
