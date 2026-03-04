@@ -17,6 +17,7 @@
     minHeight?: number;
     maxWidth?: number;
     maxHeight?: number;
+    bounds?: { left: number; top: number; right: number; bottom: number } | null;
     onClose?: () => void;
     onHide?: () => void;
     closable?: boolean;
@@ -39,6 +40,7 @@
     minHeight = 150,
     maxWidth = Infinity,
     maxHeight = Infinity,
+    bounds = null,
     onClose,
     onHide,
     closable = true,
@@ -89,6 +91,9 @@
       } catch (e) {
         console.error('Failed to parse stored window state:', e);
       }
+    } else {
+      // No stored state yet — persist defaults immediately so lock/read-pos always works
+      persistState();
     }
   });
 
@@ -125,21 +130,27 @@
       let newX = e.clientX - dragStartX;
       let newY = e.clientY - dragStartY;
 
-      // Get viewport dimensions
-      const viewportWidth = window.innerWidth;
-      const viewportHeight = window.innerHeight;
+      if (bounds) {
+        // Constrain within session pane bounds
+        newX = Math.max(bounds.left, Math.min(newX, bounds.right - width));
+        newY = Math.max(bounds.top, Math.min(newY, bounds.bottom - height));
+      } else {
+        // Get viewport dimensions
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
 
-      // Prevent going offscreen - keep at least 50px of the window visible
-      const minVisiblePx = 50;
+        // Prevent going offscreen - keep at least 50px of the window visible
+        const minVisiblePx = 50;
 
-      // Left boundary
-      newX = Math.max(-width + minVisiblePx, newX);
-      // Right boundary
-      newX = Math.min(viewportWidth - minVisiblePx, newX);
-      // Top boundary (never allow title bar to go above viewport)
-      newY = Math.max(0, newY);
-      // Bottom boundary
-      newY = Math.min(viewportHeight - minVisiblePx, newY);
+        // Left boundary
+        newX = Math.max(-width + minVisiblePx, newX);
+        // Right boundary
+        newX = Math.min(viewportWidth - minVisiblePx, newX);
+        // Top boundary (never allow title bar to go above viewport)
+        newY = Math.max(0, newY);
+        // Bottom boundary
+        newY = Math.min(viewportHeight - minVisiblePx, newY);
+      }
 
       x = newX;
       y = newY;

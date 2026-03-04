@@ -1,9 +1,11 @@
 <script lang="ts">
-  import {getContext, onMount} from 'svelte'
+  import {getContext, onMount, tick} from 'svelte'
   import type {MainWindowState, NeuzSession} from "$lib/types";
   import type {WebviewTag} from 'electron'
   import Button from '../../lib/components/ui/button/button.svelte'
   import {neuzosBridge} from "$lib/core";
+
+  const webviewPreloadPath: string = (window as any)._preloadPaths?.webview ?? '';
 
   let {session, onUpdate, autofocusEnabled = $bindable(), layoutId, src, userAgent}: {
     session: NeuzSession
@@ -63,9 +65,23 @@ window.open = function(...args) {
 `)
     koreanLinkFixed = true;
   }
-  export const startClient = () => {
+  export const startClient = async () => {
     started = true
     onUpdate(session.id)
+    // Wait for Svelte to render the <webview> element, then attach ipc-message listener
+    await tick();
+    const webviewEl = getWebview();
+    if (webviewEl) {
+      webviewEl.addEventListener('ipc-message', (event: Event) => {
+        const e = event as any;
+        if (e.channel !== 'keydown') return;
+        const key: string = e.args?.[0];
+        if (!key) return;
+        document.dispatchEvent(new CustomEvent('neuz:keydown', {
+          detail: { sessionId: session.id, key }
+        }));
+      });
+    }
   }
 
   export const stopClient = () => {
@@ -246,6 +262,7 @@ window.open = function(...args) {
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
   class="w-full h-full relative"
+  data-session-id={session.id}
   onmouseenter={() => {
     focus()
   }}
@@ -264,6 +281,7 @@ window.open = function(...args) {
         onload={() => onUpdate(session.id)}
         {partition}
         useragent={userAgent}
+        preload={webviewPreloadPath}
       ></webview>
     {:else}
       <div

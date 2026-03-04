@@ -6,6 +6,7 @@
   import MiniBrowserDropdownItem from '../Builtin/MiniBrowser/DropdownItem.svelte';
   import ActionPadDropdownItem from '../Builtin/ActionPad/DropdownItem.svelte';
   import ActionPinDropdownItem from '../Builtin/ActionPin/DropdownItem.svelte';
+  import CooldownOverlayDropdownItem from '../Builtin/CooldownOverlay/DropdownItem.svelte';
 
   const widgetsContext = getWidgetsContext();
 </script>
@@ -17,6 +18,7 @@
   <DropdownMenu.Separator />
   <ActionPinDropdownItem />
   <ActionPadDropdownItem />
+  <CooldownOverlayDropdownItem />
 </DropdownMenu.Group>
 
 {#if widgetsContext.widgets.length === 0}

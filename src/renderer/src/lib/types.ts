@@ -71,6 +71,23 @@ export type SessionActions = {
   actions: SessionAction[];
 }
 
+export type CooldownOverlaySkill = {
+  skillId: number;
+  ingameKey: string;
+  castTime: number;
+  cooldown: number;
+}
+
+export type CooldownOverlayConfig = {
+  id: string;
+  sessionId: string;
+  classId: number;
+  skills: CooldownOverlaySkill[];
+  orientation: 'horizontal' | 'vertical' | 'grid';
+  gridCols?: number;
+  opacity?: number; // locked-mode opacity 10–100, default 80
+}
+
 export type NeuzConfig = {
   window?: {
     main: {
@@ -107,6 +124,7 @@ export type NeuzConfig = {
     args?: string[]
   }[]
   sessionActions: SessionActions[];
+  cooldownOverlays?: CooldownOverlayConfig[];
   titleBarButtons: {
     darkModeToggle: boolean;
     fullscreenToggle: boolean;

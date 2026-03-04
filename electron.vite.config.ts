@@ -1,6 +1,6 @@
 import {defineConfig, externalizeDepsPlugin} from 'electron-vite'
 import {svelte} from '@sveltejs/vite-plugin-svelte'
-import path from "path";
+import path, {resolve} from "path";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
@@ -8,7 +8,15 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()]
   },
   preload: {
-    plugins: [externalizeDepsPlugin()]
+    plugins: [externalizeDepsPlugin()],
+    build: {
+      rollupOptions: {
+        input: {
+          index: resolve('src/preload/index.ts'),
+          webview: resolve('src/preload/webview.ts'),
+        }
+      }
+    }
   },
   renderer: {
     plugins: [tailwindcss(),svelte()],

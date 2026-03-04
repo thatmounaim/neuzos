@@ -10,9 +10,13 @@
   import {createCooldownsContext, setCooldownsContext} from '$lib/contexts/cooldownsContext';
   import {setElectronContext} from '$lib/contexts/electronContext';
   import {setNeuzosBridgeContext} from '$lib/contexts/neuzosBridgeContext';
+  import {createFlyffRegistryContext, setFlyffRegistryContext} from '$lib/contexts/flyffRegistryContext.svelte';
+  import FlyffRegistryBuilder from './components/Shared/FlyffRegistryBuilder.svelte';
+import {flyffRegistry} from '$lib/core';
 
 
   let isLoading = $state(true);
+  let showRegistryBuilder = $state(false);
 
   setElectronContext(window.electron.ipcRenderer);
   setNeuzosBridgeContext(neuzosBridge);
@@ -24,6 +28,10 @@
   // Create and set the cooldowns context at the app level
   const cooldownsContext = createCooldownsContext();
   setCooldownsContext(cooldownsContext);
+
+  // Create and set the flyff registry context
+  const flyffRegistryContext = createFlyffRegistryContext();
+  setFlyffRegistryContext(flyffRegistryContext);
 
   initElectronApi(window.electron.ipcRenderer)
 
@@ -116,6 +124,11 @@
         neuzClient.stopClient()
       }
     })
+    // Destroy cooldown overlay widgets for this session
+    for (const widget of widgetsContext.getWidgetsByType('widget.builtin.cooldown_overlay')) {
+      const cfg = mainWindowState.config.cooldownOverlays?.find(c => c.id === widget.data?.overlayId);
+      if (cfg?.sessionId === sessionId) widgetsContext.destroyWidget(widget.id);
+    }
   })
 
   electronApi.on('event.start_session', (_, sessionId: string, layoutId: string) => {
@@ -123,6 +136,13 @@
     setTimeout(() => {
       mainWindowState.sessionsLayoutsRef[sessionId]?.layouts[layoutId].startClient()
     }, 100)
+    // Create cooldown overlay widgets for this session (if not already open)
+    for (const overlay of mainWindowState.config.cooldownOverlays ?? []) {
+      if (overlay.sessionId !== sessionId) continue;
+      const exists = widgetsContext.getWidgetsByType('widget.builtin.cooldown_overlay')
+        .some(w => w.data?.overlayId === overlay.id);
+      if (!exists) widgetsContext.createWidget('widget.builtin.cooldown_overlay', { overlayId: overlay.id });
+    }
   })
 
   electronApi.on('event.send_session_action', (_, sessionId: string, actionId: string) => {
@@ -244,6 +264,10 @@
   electronApi.on('event.reload_config', async (_) => {
     neuzosBridge.layouts.closeAll()
     mainWindowState.config.changed = false
+    // Destroy all cooldown overlay widgets (sessions are being torn down)
+    for (const widget of widgetsContext.getWidgetsByType('widget.builtin.cooldown_overlay')) {
+      widgetsContext.destroyWidget(widget.id);
+    }
     reloadNeuzos()
   })
 
@@ -258,6 +282,16 @@
     neuzosBridge.layouts.closeAll()
     mainWindowState.config = await electronApi.invoke('config.load', true)
     reloadNeuzos()
+
+    // Check if the flyff registry is built; if so load it, otherwise prompt to build
+    const registryExists = await flyffRegistry.check();
+    if (registryExists) {
+      const registry = await flyffRegistry.load();
+      if (registry) flyffRegistryContext.setRegistry(registry);
+    } else {
+      showRegistryBuilder = true;
+    }
+
     // Wait a bit to ensure all contexts are properly initialized
     setTimeout(() => {
       isLoading = false
@@ -278,4 +312,7 @@
     <MainBar/>
     <MainSectionsContainer/>
   </div>
+  {#if showRegistryBuilder}
+    <FlyffRegistryBuilder onDone={() => { showRegistryBuilder = false; }} />
+  {/if}
 {/if}
