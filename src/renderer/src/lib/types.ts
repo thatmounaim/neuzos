@@ -72,6 +72,18 @@ export type SessionActions = {
   actions: SessionAction[];
 }
 
+export type NeuzKeybind = {
+  key: string;
+  event: string;
+  args?: string[];
+}
+
+export type NeuzKeyBindProfile = {
+  id: string;
+  name: string;
+  keybinds: NeuzKeybind[];
+}
+
 export type NeuzConfig = {
   window?: {
     main: {
@@ -102,11 +114,9 @@ export type NeuzConfig = {
   sessions: NeuzSession[]
   layouts: NeuzLayout[]
   defaultLayouts: string[]
-  keyBinds: {
-    key: string,
-    event: string,
-    args?: string[]
-  }[]
+  keyBindProfiles: NeuzKeyBindProfile[]
+  activeKeyBindProfileId?: string | null
+  keyBinds: NeuzKeybind[]
   sessionActions: SessionActions[];
   titleBarButtons: {
     darkModeToggle: boolean;
