@@ -126,6 +126,8 @@ const defaultNeuzosConfig: any = {
   sessions: [],
   layouts: [],
   defaultLayouts: [],
+  keyBindProfiles: [],
+  activeKeyBindProfileId: null,
   keyBinds: [
     {
       "key": "CommandOrControl+Tab",
@@ -578,7 +580,27 @@ function createMainWindow(): void {
 }
 
 function checkKeybinds() {
-  neuzosConfig.keyBinds = neuzosConfig.keyBinds.filter((bind) => {
+  // Ensure keyBindProfiles array exists
+  if (!neuzosConfig.keyBindProfiles) {
+    neuzosConfig.keyBindProfiles = [];
+  }
+
+  // If no profiles exist, create a default one
+  if (neuzosConfig.keyBindProfiles.length === 0) {
+    neuzosConfig.keyBindProfiles.push({
+      id: "default",
+      name: "Default",
+      keybinds: [],
+    });
+  }
+
+  // Ensure activeKeyBindProfileId is set to a valid profile
+  const profileIds = neuzosConfig.keyBindProfiles.map((p: any) => p.id);
+  if (!neuzosConfig.activeKeyBindProfileId || !profileIds.includes(neuzosConfig.activeKeyBindProfileId)) {
+    neuzosConfig.activeKeyBindProfileId = neuzosConfig.keyBindProfiles[0].id;
+  }
+
+  neuzosConfig.keyBinds = neuzosConfig.keyBinds.filter((bind: any) => {
     return Object.keys(allowedEventKeybinds).includes(bind.event);
   })
 
@@ -593,6 +615,29 @@ function checkKeybinds() {
   })
 }
 
+function dispatchKeybindEvent(bind: any) {
+  switch (bind.event) {
+    case "fullscreen_toggle":
+      mainWindow?.setFullScreen(!mainWindow?.isFullScreen());
+      break;
+    case "layout_swap":
+      mainWindow?.webContents.send("event.layout_swap");
+      break;
+    case "layout_switch":
+      if (bind.args?.length > 0)
+        mainWindow?.webContents.send("event.layout_switch", ...(bind.args ?? []));
+      break;
+    case "send_session_action":
+      if (bind.args?.length > 1)
+        mainWindow?.webContents.send("event.send_session_action", ...(bind.args ?? []));
+      break;
+    case "custom_event":
+      if (bind.args?.length > 1)
+        mainWindow?.webContents.send(bind.args[0], bind.args[1]);
+      break;
+  }
+}
+
 function registerKeybinds() {
   globalShortcut.unregisterAll()
 
@@ -601,38 +646,25 @@ function registerKeybinds() {
     return;
   }
 
-  neuzosConfig.keyBinds.forEach((bind) => {
+  // Collect all binds: global first, then active profile
+  const activeProfile = neuzosConfig.keyBindProfiles?.find(
+    (p: any) => p.id === neuzosConfig.activeKeyBindProfileId
+  );
+  const profileBinds: any[] = activeProfile?.keybinds ?? [];
+  const allBinds: any[] = [...neuzosConfig.keyBinds, ...profileBinds];
+
+  allBinds.forEach((bind) => {
+    if (!bind.key) return;
     try {
-      globalShortcut.register(bind.key, () => {
-        switch (bind.event) {
-          case "fullscreen_toggle":
-            mainWindow?.setFullScreen(!mainWindow?.isFullScreen())
-            break
-          case "layout_swap":
-            mainWindow?.webContents.send("event.layout_swap");
-            break
-          case "layout_switch":
-            if (bind.args.length > 0)
-              mainWindow?.webContents.send("event.layout_switch", ...(bind.args ?? []));
-            break
-          case "send_session_action":
-            if (bind.args.length > 1)
-              mainWindow?.webContents.send("event.send_session_action", ...(bind.args ?? []));
-            break
-          case "custom_event":
-            if (bind.args.length > 1)
-              mainWindow?.webContents.send(bind.args[0], bind.args[1]);
-            break
-        }
-      })
+      globalShortcut.register(bind.key, () => dispatchKeybindEvent(bind));
     } catch (e) {
       dialog.showErrorBox("Failed to register keybind", "Please fix your config manually found at \n" + join(configDirectoryPath, "/config.json"));
       globalShortcut.unregisterAll();
-      exitCount = 3
+      exitCount = 3;
       app.quit();
-      return
+      return;
     }
-  })
+  });
 }
 
 function registerSessionKeybinds(mode: LaunchMode) {
@@ -1000,8 +1032,21 @@ function registerSessionKeybinds(mode: LaunchMode) {
     ipcMain.handle("config.save", async (_, config: any) => {
       saveConfig(JSON.parse(config));
       neuzosConfig = JSON.parse(config);
-      checkKeybinds()
+      checkKeybinds();
+      registerKeybinds();
       mainWindow?.webContents?.send("event.config_changed", config);
+    });
+
+    ipcMain.handle("keybinds.swap_profile", async (_, profileId: string) => {
+      const profile = neuzosConfig.keyBindProfiles?.find((p: any) => p.id === profileId);
+      if (!profile) return { success: false, error: "Profile not found" };
+
+      neuzosConfig.activeKeyBindProfileId = profileId;
+      saveConfig(neuzosConfig);
+      registerKeybinds();
+      mainWindow?.webContents?.send("event.active_keybind_profile_changed", profileId);
+
+      return { success: true, profileId };
     });
 
     ipcMain.handle("config.get_available_command_line_switches", async () => {

@@ -119,11 +119,9 @@ export type NeuzConfig = {
   sessions: NeuzSession[]
   layouts: NeuzLayout[]
   defaultLayouts: string[]
-  keyBinds: {
-    key: string,
-    event: string,
-    args?: string[]
-  }[]
+  keyBindProfiles: NeuzKeyBindProfile[]
+  activeKeyBindProfileId?: string | null
+  keyBinds: NeuzKeybind[]
   sessionActions: SessionActions[];
   cooldownOverlays?: CooldownOverlayConfig[];
   titleBarButtons: {
