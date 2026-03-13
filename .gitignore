@@ -10,3 +10,5 @@ ref
 *.log*
 src/renderer/src/lib/widgets/testing
 .idea
+.claude
+CLAUDE.md

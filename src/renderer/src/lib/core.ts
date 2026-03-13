@@ -87,4 +87,24 @@ export const neuzosBridge = {
   }
 }
 
+export const flyffRegistry = {
+  check: (): Promise<boolean> => {
+    return electronApi?.invoke('registry.check') ?? Promise.resolve(false);
+  },
+  load: (): Promise<any | null> => {
+    return electronApi?.invoke('registry.load') ?? Promise.resolve(null);
+  },
+  build: (): Promise<{ success: boolean; registry?: any; error?: string }> => {
+    return electronApi?.invoke('registry.build') ?? Promise.resolve({ success: false });
+  },
+  rebuild: (): Promise<{ success: boolean; registry?: any; error?: string }> => {
+    return electronApi?.invoke('registry.rebuild') ?? Promise.resolve({ success: false });
+  },
+  onProgress: (callback: (progress: any) => void): (() => void) => {
+    const listener = (_: any, progress: any) => callback(progress);
+    electronApi?.on('registry:progress', listener);
+    return () => electronApi?.removeListener?.('registry:progress', listener);
+  },
+};
+
 export type NeuzosBridge = typeof neuzosBridge;

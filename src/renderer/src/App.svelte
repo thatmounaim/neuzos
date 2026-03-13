@@ -10,11 +10,15 @@
   import {createCooldownsContext, setCooldownsContext} from '$lib/contexts/cooldownsContext';
   import {setElectronContext} from '$lib/contexts/electronContext';
   import {setNeuzosBridgeContext} from '$lib/contexts/neuzosBridgeContext';
+  import {createFlyffRegistryContext, setFlyffRegistryContext} from '$lib/contexts/flyffRegistryContext.svelte';
+  import FlyffRegistryBuilder from './components/Shared/FlyffRegistryBuilder.svelte';
+import {flyffRegistry} from '$lib/core';
   import {Button} from "$lib/components/ui/button";
   import {Minimize} from '@lucide/svelte';
 
 
   let isLoading = $state(true);
+  let showRegistryBuilder = $state(false);
   let isFullscreen = $state(false);
 
   setElectronContext(window.electron.ipcRenderer);
@@ -27,6 +31,10 @@
   // Create and set the cooldowns context at the app level
   const cooldownsContext = createCooldownsContext();
   setCooldownsContext(cooldownsContext);
+
+  // Create and set the flyff registry context
+  const flyffRegistryContext = createFlyffRegistryContext();
+  setFlyffRegistryContext(flyffRegistryContext);
 
   initElectronApi(window.electron.ipcRenderer)
 
@@ -295,6 +303,16 @@
     neuzosBridge.layouts.closeAll()
     mainWindowState.config = await electronApi.invoke('config.load', true)
     reloadNeuzos()
+
+    // Check if the flyff registry is built; if so load it, otherwise prompt to build
+    const registryExists = await flyffRegistry.check();
+    if (registryExists) {
+      const registry = await flyffRegistry.load();
+      if (registry) flyffRegistryContext.setRegistry(registry);
+    } else {
+      showRegistryBuilder = true;
+    }
+
     // Wait a bit to ensure all contexts are properly initialized
     setTimeout(() => {
       isLoading = false
@@ -329,4 +347,7 @@
       </Button>
     {/if}
   </div>
+  {#if showRegistryBuilder}
+    <FlyffRegistryBuilder onDone={() => { showRegistryBuilder = false; }} />
+  {/if}
 {/if}

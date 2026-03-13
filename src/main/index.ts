@@ -1,9 +1,16 @@
-import {app, shell, BrowserWindow, Menu, dialog, session, ipcMain, globalShortcut, screen} from "electron";
+import {app, shell, BrowserWindow, Menu, dialog, session, ipcMain, globalShortcut, screen, protocol} from "electron";
 import {join} from "path";
 import {electronApp, optimizer, is} from "@electron-toolkit/utils";
 import icon from "../../resources/icon.png?asset";
 import * as fs from "node:fs";
 import {rimraf} from "rimraf";
+import {buildRegistry, checkRegistry, loadRegistry, type ProgressEvent} from "./flyff-registry";
+
+// Register custom protocol for serving flyff registry assets (icons etc.)
+// Must be called before app is ready
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'flyff-asset', privileges: { standard: true, secure: true, corsEnabled: true, supportFetchAPI: true } },
+]);
 
 // Performance Presets System
 app.commandLine.appendSwitch("enable-features", "GlobalShortcutsPortal");
@@ -172,6 +179,7 @@ const allowedEventKeybinds = {
 
 const userDataPath = app.getPath("userData");
 const configDirectoryPath = join(userDataPath, "/neuzos_config/");
+const registryDirectoryPath = join(userDataPath, "flyff-registry");
 
 if (!app.getPath("userData").includes("neuzos_config")) {
   fs.mkdirSync(configDirectoryPath, {recursive: true});
@@ -731,6 +739,72 @@ function registerSessionKeybinds(mode: LaunchMode) {
     // and ignore CommandOrControl + R in production.
     app.on("browser-window-created", (_, window) => {
       optimizer.watchWindowShortcuts(window);
+    });
+
+    // ── Flyff registry custom protocol ──────────────────────────────────────
+    // Serves downloaded icons and assets from userData/flyff-registry/
+    protocol.handle('flyff-asset', (request) => {
+      const rawPath = request.url.replace('flyff-asset://', '');
+      const decoded = decodeURIComponent(rawPath);
+      const filePath = join(registryDirectoryPath, decoded);
+      if (!fs.existsSync(filePath)) {
+        return new Response(null, { status: 404 });
+      }
+      const data = fs.readFileSync(filePath);
+      const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
+      const mime =
+        ext === 'png' ? 'image/png' :
+        ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' :
+        ext === 'webp' ? 'image/webp' :
+        ext === 'json' ? 'application/json' :
+        'application/octet-stream';
+      return new Response(data, { status: 200, headers: { 'Content-Type': mime } });
+    });
+
+    // ── Flyff registry IPC handlers ─────────────────────────────────────────
+    ipcMain.handle('registry.check', () => {
+      return checkRegistry(registryDirectoryPath);
+    });
+
+    ipcMain.handle('registry.load', () => {
+      return loadRegistry(registryDirectoryPath);
+    });
+
+    ipcMain.handle('registry.build', async (_event) => {
+      fs.mkdirSync(registryDirectoryPath, { recursive: true });
+      const onProgress = (progress: ProgressEvent) => {
+        BrowserWindow.getAllWindows().forEach(win => {
+          win.webContents.send('registry:progress', progress);
+        });
+      };
+      try {
+        const registry = await buildRegistry(registryDirectoryPath, onProgress);
+        return { success: true, registry };
+      } catch (err: any) {
+        return { success: false, error: err?.message ?? String(err) };
+      }
+    });
+
+    // Key tracking is handled in the renderer via the webview preload script.
+    // The preload (src/preload/webview.ts) sends keydown events to the embedder
+    // via ipcRenderer.sendToHost → NeuzClient dispatches 'neuz:keydown' on document
+    // → CooldownOverlay Widget.svelte listens and starts cooldowns.
+
+    ipcMain.handle('registry.rebuild', async () => {
+      // Delete existing registry and rebuild
+      const registryPath = join(registryDirectoryPath, 'registry.json');
+      if (fs.existsSync(registryPath)) fs.unlinkSync(registryPath);
+      const onProgress = (progress: ProgressEvent) => {
+        BrowserWindow.getAllWindows().forEach(win => {
+          win.webContents.send('registry:progress', progress);
+        });
+      };
+      try {
+        const registry = await buildRegistry(registryDirectoryPath, onProgress);
+        return { success: true, registry };
+      } catch (err: any) {
+        return { success: false, error: err?.message ?? String(err) };
+      }
     });
 
     // Setup IPC handlers for session launcher
