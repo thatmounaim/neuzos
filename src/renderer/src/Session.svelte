@@ -14,6 +14,7 @@
     Volume,
     VolumeOff,
     Square,
+    Minimize,
   } from '@lucide/svelte'
   import {Separator} from "$lib/components/ui/separator";
 
@@ -30,6 +31,7 @@
   } | null = $state(null);
 
   let webview: WebviewTag | undefined = $state(undefined);
+  let isFullscreen = $state(false);
   const electronApi = window.electron.ipcRenderer;
 
   onMount(async () => {
@@ -42,21 +44,14 @@
       console.error("Failed to load config:", e);
     }
 
-    if (!sessionData) {
+    if (sessionData) {
+      // Listen for fullscreen state changes
+      electronApi.on('event.fullscreen_changed', (_, fullscreen: boolean) => {
+        isFullscreen = fullscreen
+      })
+    } else {
       console.error("Failed to load session data");
-      return;
     }
-
-    // Listen for fullscreen changes
-    const handleFullscreenChange = () => {
-      // We can track fullscreen state if needed
-    };
-
-    window.addEventListener('resize', handleFullscreenChange);
-
-    return () => {
-      window.removeEventListener('resize', handleFullscreenChange);
-    };
   });
 
   function closeWindow() {
@@ -176,9 +171,9 @@ window.open = function(...args) {
 
 <ModeWatcher/>
 
-<div class="w-screen h-screen flex flex-col bg-background text-foreground">
-  <!-- Title Bar (hidden in focus_fullscreen mode) -->
-  {#if sessionData?.mode !== 'focus_fullscreen'}
+<div class="w-screen h-screen flex flex-col bg-background text-foreground relative">
+  <!-- Title Bar (hidden in focus_fullscreen mode or when fullscreen with hide setting enabled) -->
+  {#if sessionData?.mode !== 'focus_fullscreen' && (!isFullscreen || !neuzosConfig?.fullscreen?.hideTitleBarInSessionLayouts)}
     <div class="flex items-center justify-between px-2 bg-card border-b border-border min-h-8">
       <div class="flex flex-1 items-center gap-2 cursor-grab active:cursor-grabbing select-none"
            style="-webkit-app-region: drag;">
@@ -267,4 +262,16 @@ window.open = function(...args) {
       </div>
     {/if}
   </div>
+
+  <!-- Floating Exit Fullscreen Button -->
+  {#if isFullscreen && neuzosConfig?.fullscreen?.hideTitleBarInSessionLayouts && sessionData?.mode === 'session'}
+    <Button
+      size="icon-sm"
+      variant="secondary"
+      class="absolute top-2 right-2 z-50 shadow-lg"
+      onclick={toggleFullscreen}
+    >
+      <Minimize class="size-4"/>
+    </Button>
+  {/if}
 </div>

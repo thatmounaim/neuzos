@@ -1,20 +1,51 @@
 <script lang="ts">
   import { getWidgetsContext } from "$lib/contexts/widgetsContext.svelte";
-  import { getContext } from "svelte";
+  import { getContext, onMount } from "svelte";
   import { Button } from "$lib/components/ui/button";
   import { Swords, X } from "@lucide/svelte";
   import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
   import type { MainWindowState } from "$lib/types";
 
+  const ACTION_PIN_WIDGET_TYPE = "widget.builtin.action_pin";
+  const ACTION_PIN_AUTOLOAD_KEY = "widgets.actionPin.autoLoadLatest";
+
   const widgetsContext = getWidgetsContext();
   const mainWindowState = getContext<MainWindowState>("mainWindowState");
 
+  let autoLoadLatestPins = $state(false);
+  let didInitAutoLoadPreference = false;
+
   function createWidget(sessionId: string) {
-    widgetsContext.createWidget("widget.builtin.action_pin", { sessionId });
+    widgetsContext.createWidget(ACTION_PIN_WIDGET_TYPE, { sessionId });
   }
 
   function destroyWidget(id: string) {
     widgetsContext.destroyWidget(id);
+  }
+
+  function readAutoLoadPreference(): boolean {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    const raw = window.localStorage.getItem(ACTION_PIN_AUTOLOAD_KEY);
+    if (raw === null) {
+      return false;
+    }
+
+    try {
+      return Boolean(JSON.parse(raw));
+    } catch {
+      return raw === "true";
+    }
+  }
+
+  function writeAutoLoadPreference(enabled: boolean) {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(ACTION_PIN_AUTOLOAD_KEY, JSON.stringify(enabled));
   }
 
   // Get all sessions that have actions configured
@@ -32,7 +63,7 @@
       }) || []
   );
 
-  const widgets = $derived(widgetsContext.getWidgetsByType("widget.builtin.action_pin"));
+  const widgets = $derived(widgetsContext.getWidgetsByType(ACTION_PIN_WIDGET_TYPE));
 
   // Get sessions that don't already have an action pin (for the creation dropdown)
   const availableSessionsForActionPin = $derived(
@@ -41,6 +72,19 @@
       return !existingPin;
     })
   );
+
+  onMount(() => {
+    autoLoadLatestPins = readAutoLoadPreference();
+    didInitAutoLoadPreference = true;
+  });
+
+  $effect(() => {
+    if (!didInitAutoLoadPreference) {
+      return;
+    }
+
+    writeAutoLoadPreference(autoLoadLatestPins);
+  });
 </script>
 
 {#if allSessionsWithActions.length > 0}
@@ -50,6 +94,10 @@
       <span>Action Pins</span>
     </DropdownMenu.SubTrigger>
     <DropdownMenu.SubContent class="min-w-44">
+      <DropdownMenu.CheckboxItem bind:checked={autoLoadLatestPins}>
+        Persist last used pins
+      </DropdownMenu.CheckboxItem>
+      <DropdownMenu.Separator />
       {#if availableSessionsForActionPin.length > 0}
         {#each availableSessionsForActionPin as sessionInfo}
           <DropdownMenu.Item onclick={() => createWidget(sessionInfo.id)}>
@@ -71,7 +119,7 @@
           {@const sessionInfo = allSessionsWithActions.find(s => s.id === widget.data?.sessionId)}
           <div class="flex items-center justify-between px-2 py-1.5 text-sm gap-2">
             <div class="flex items-center gap-2">
-             <img class="w-4 h-4 mr-2" src="icons/{sessionInfo.icon}.png" alt="" />
+              <img class="w-4 h-4 mr-2" src="icons/{sessionInfo?.icon || 'misc/browser'}.png" alt="" />
               <span class="text-xs">{sessionInfo?.label || 'Unknown'}</span>
             </div>
             <div class="flex items-center gap-1">

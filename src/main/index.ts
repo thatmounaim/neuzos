@@ -1,9 +1,16 @@
-import {app, shell, BrowserWindow, Menu, dialog, session, ipcMain, globalShortcut, screen} from "electron";
+import {app, shell, BrowserWindow, Menu, dialog, session, ipcMain, globalShortcut, screen, protocol} from "electron";
 import {join} from "path";
 import {electronApp, optimizer, is} from "@electron-toolkit/utils";
 import icon from "../../resources/icon.png?asset";
 import * as fs from "node:fs";
 import {rimraf} from "rimraf";
+import {buildRegistry, checkRegistry, loadRegistry, type ProgressEvent} from "./flyff-registry";
+
+// Register custom protocol for serving flyff registry assets (icons etc.)
+// Must be called before app is ready
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'flyff-asset', privileges: { standard: true, secure: true, corsEnabled: true, supportFetchAPI: true } },
+]);
 
 // Performance Presets System
 app.commandLine.appendSwitch("enable-features", "GlobalShortcutsPortal");
@@ -119,6 +126,8 @@ const defaultNeuzosConfig: any = {
   sessions: [],
   layouts: [],
   defaultLayouts: [],
+  keyBindProfiles: [],
+  activeKeyBindProfileId: null,
   keyBinds: [
     {
       "key": "CommandOrControl+Tab",
@@ -170,6 +179,7 @@ const allowedEventKeybinds = {
 
 const userDataPath = app.getPath("userData");
 const configDirectoryPath = join(userDataPath, "/neuzos_config/");
+const registryDirectoryPath = join(userDataPath, "flyff-registry");
 
 if (!app.getPath("userData").includes("neuzos_config")) {
   fs.mkdirSync(configDirectoryPath, {recursive: true});
@@ -448,6 +458,15 @@ function createSessionWindow(mode: LaunchMode, sessionId: string): void {
     registerSessionKeybinds(mode);
   });
 
+  // Track fullscreen state changes
+  sessionWindow.on("enter-full-screen", () => {
+    sessionWindow?.webContents.send("event.fullscreen_changed", true);
+  });
+
+  sessionWindow.on("leave-full-screen", () => {
+    sessionWindow?.webContents.send("event.fullscreen_changed", false);
+  });
+
   sessionWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url);
     return {action: "deny"};
@@ -537,6 +556,15 @@ function createMainWindow(): void {
     registerKeybinds()
   });
 
+  // Track fullscreen state changes
+  mainWindow.on("enter-full-screen", () => {
+    mainWindow?.webContents.send("event.fullscreen_changed", true);
+  });
+
+  mainWindow.on("leave-full-screen", () => {
+    mainWindow?.webContents.send("event.fullscreen_changed", false);
+  });
+
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url);
     return {action: "deny"};
@@ -552,7 +580,27 @@ function createMainWindow(): void {
 }
 
 function checkKeybinds() {
-  neuzosConfig.keyBinds = neuzosConfig.keyBinds.filter((bind) => {
+  // Ensure keyBindProfiles array exists
+  if (!neuzosConfig.keyBindProfiles) {
+    neuzosConfig.keyBindProfiles = [];
+  }
+
+  // If no profiles exist, create a default one
+  if (neuzosConfig.keyBindProfiles.length === 0) {
+    neuzosConfig.keyBindProfiles.push({
+      id: "default",
+      name: "Default",
+      keybinds: [],
+    });
+  }
+
+  // Ensure activeKeyBindProfileId is set to a valid profile
+  const profileIds = neuzosConfig.keyBindProfiles.map((p: any) => p.id);
+  if (!neuzosConfig.activeKeyBindProfileId || !profileIds.includes(neuzosConfig.activeKeyBindProfileId)) {
+    neuzosConfig.activeKeyBindProfileId = neuzosConfig.keyBindProfiles[0].id;
+  }
+
+  neuzosConfig.keyBinds = neuzosConfig.keyBinds.filter((bind: any) => {
     return Object.keys(allowedEventKeybinds).includes(bind.event);
   })
 
@@ -567,6 +615,29 @@ function checkKeybinds() {
   })
 }
 
+function dispatchKeybindEvent(bind: any) {
+  switch (bind.event) {
+    case "fullscreen_toggle":
+      mainWindow?.setFullScreen(!mainWindow?.isFullScreen());
+      break;
+    case "layout_swap":
+      mainWindow?.webContents.send("event.layout_swap");
+      break;
+    case "layout_switch":
+      if (bind.args?.length > 0)
+        mainWindow?.webContents.send("event.layout_switch", ...(bind.args ?? []));
+      break;
+    case "send_session_action":
+      if (bind.args?.length > 1)
+        mainWindow?.webContents.send("event.send_session_action", ...(bind.args ?? []));
+      break;
+    case "custom_event":
+      if (bind.args?.length > 1)
+        mainWindow?.webContents.send(bind.args[0], bind.args[1]);
+      break;
+  }
+}
+
 function registerKeybinds() {
   globalShortcut.unregisterAll()
 
@@ -575,38 +646,25 @@ function registerKeybinds() {
     return;
   }
 
-  neuzosConfig.keyBinds.forEach((bind) => {
+  // Collect all binds: global first, then active profile
+  const activeProfile = neuzosConfig.keyBindProfiles?.find(
+    (p: any) => p.id === neuzosConfig.activeKeyBindProfileId
+  );
+  const profileBinds: any[] = activeProfile?.keybinds ?? [];
+  const allBinds: any[] = [...neuzosConfig.keyBinds, ...profileBinds];
+
+  allBinds.forEach((bind) => {
+    if (!bind.key) return;
     try {
-      globalShortcut.register(bind.key, () => {
-        switch (bind.event) {
-          case "fullscreen_toggle":
-            mainWindow?.setFullScreen(!mainWindow?.isFullScreen())
-            break
-          case "layout_swap":
-            mainWindow?.webContents.send("event.layout_swap");
-            break
-          case "layout_switch":
-            if (bind.args.length > 0)
-              mainWindow?.webContents.send("event.layout_switch", ...(bind.args ?? []));
-            break
-          case "send_session_action":
-            if (bind.args.length > 1)
-              mainWindow?.webContents.send("event.send_session_action", ...(bind.args ?? []));
-            break
-          case "custom_event":
-            if (bind.args.length > 1)
-              mainWindow?.webContents.send(bind.args[0], bind.args[1]);
-            break
-        }
-      })
+      globalShortcut.register(bind.key, () => dispatchKeybindEvent(bind));
     } catch (e) {
       dialog.showErrorBox("Failed to register keybind", "Please fix your config manually found at \n" + join(configDirectoryPath, "/config.json"));
       globalShortcut.unregisterAll();
-      exitCount = 3
+      exitCount = 3;
       app.quit();
-      return
+      return;
     }
-  })
+  });
 }
 
 function registerSessionKeybinds(mode: LaunchMode) {
@@ -683,6 +741,72 @@ function registerSessionKeybinds(mode: LaunchMode) {
       optimizer.watchWindowShortcuts(window);
     });
 
+    // ── Flyff registry custom protocol ──────────────────────────────────────
+    // Serves downloaded icons and assets from userData/flyff-registry/
+    protocol.handle('flyff-asset', (request) => {
+      const rawPath = request.url.replace('flyff-asset://', '');
+      const decoded = decodeURIComponent(rawPath);
+      const filePath = join(registryDirectoryPath, decoded);
+      if (!fs.existsSync(filePath)) {
+        return new Response(null, { status: 404 });
+      }
+      const data = fs.readFileSync(filePath);
+      const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
+      const mime =
+        ext === 'png' ? 'image/png' :
+        ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' :
+        ext === 'webp' ? 'image/webp' :
+        ext === 'json' ? 'application/json' :
+        'application/octet-stream';
+      return new Response(data, { status: 200, headers: { 'Content-Type': mime } });
+    });
+
+    // ── Flyff registry IPC handlers ─────────────────────────────────────────
+    ipcMain.handle('registry.check', () => {
+      return checkRegistry(registryDirectoryPath);
+    });
+
+    ipcMain.handle('registry.load', () => {
+      return loadRegistry(registryDirectoryPath);
+    });
+
+    ipcMain.handle('registry.build', async (_event) => {
+      fs.mkdirSync(registryDirectoryPath, { recursive: true });
+      const onProgress = (progress: ProgressEvent) => {
+        BrowserWindow.getAllWindows().forEach(win => {
+          win.webContents.send('registry:progress', progress);
+        });
+      };
+      try {
+        const registry = await buildRegistry(registryDirectoryPath, onProgress);
+        return { success: true, registry };
+      } catch (err: any) {
+        return { success: false, error: err?.message ?? String(err) };
+      }
+    });
+
+    // Key tracking is handled in the renderer via the webview preload script.
+    // The preload (src/preload/webview.ts) sends keydown events to the embedder
+    // via ipcRenderer.sendToHost → NeuzClient dispatches 'neuz:keydown' on document
+    // → CooldownOverlay Widget.svelte listens and starts cooldowns.
+
+    ipcMain.handle('registry.rebuild', async () => {
+      // Delete existing registry and rebuild
+      const registryPath = join(registryDirectoryPath, 'registry.json');
+      if (fs.existsSync(registryPath)) fs.unlinkSync(registryPath);
+      const onProgress = (progress: ProgressEvent) => {
+        BrowserWindow.getAllWindows().forEach(win => {
+          win.webContents.send('registry:progress', progress);
+        });
+      };
+      try {
+        const registry = await buildRegistry(registryDirectoryPath, onProgress);
+        return { success: true, registry };
+      } catch (err: any) {
+        return { success: false, error: err?.message ?? String(err) };
+      }
+    });
+
     // Setup IPC handlers for session launcher
     ipcMain.handle("session_launcher.get_sessions", async () => {
       return neuzosConfig.sessions.filter((s: any) => s.partitionOverwrite !== "browser");
@@ -718,7 +842,9 @@ function registerSessionKeybinds(mode: LaunchMode) {
     ipcMain.on("session_window.fullscreen_toggle", () => {
       const mode = (sessionWindow as any)?.sessionData?.mode;
       if (mode === 'session') {
-        sessionWindow?.setFullScreen(!sessionWindow?.isFullScreen());
+        const newFullscreenState = !sessionWindow?.isFullScreen();
+        sessionWindow?.setFullScreen(newFullscreenState);
+        // Event will be sent by enter-full-screen/leave-full-screen handlers
       } else if (mode === 'focus_fullscreen') {
         // Keep fullscreen
         if (!sessionWindow?.isFullScreen()) {
@@ -747,7 +873,9 @@ function registerSessionKeybinds(mode: LaunchMode) {
     });
 
     ipcMain.on("main_window.fullscreen_toggle", () => {
-      mainWindow?.setFullScreen(!mainWindow?.isFullScreen())
+      const newFullscreenState = !mainWindow?.isFullScreen();
+      mainWindow?.setFullScreen(newFullscreenState);
+      // Event will be sent by enter-full-screen/leave-full-screen handlers
     })
 
     ipcMain.on("main_window.minimize", () => {
@@ -904,8 +1032,21 @@ function registerSessionKeybinds(mode: LaunchMode) {
     ipcMain.handle("config.save", async (_, config: any) => {
       saveConfig(JSON.parse(config));
       neuzosConfig = JSON.parse(config);
-      checkKeybinds()
+      checkKeybinds();
+      registerKeybinds();
       mainWindow?.webContents?.send("event.config_changed", config);
+    });
+
+    ipcMain.handle("keybinds.swap_profile", async (_, profileId: string) => {
+      const profile = neuzosConfig.keyBindProfiles?.find((p: any) => p.id === profileId);
+      if (!profile) return { success: false, error: "Profile not found" };
+
+      neuzosConfig.activeKeyBindProfileId = profileId;
+      saveConfig(neuzosConfig);
+      registerKeybinds();
+      mainWindow?.webContents?.send("event.active_keybind_profile_changed", profileId);
+
+      return { success: true, profileId };
     });
 
     ipcMain.handle("config.get_available_command_line_switches", async () => {

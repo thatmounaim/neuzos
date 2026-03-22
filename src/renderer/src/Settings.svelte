@@ -34,6 +34,8 @@
       commandLineSwitches: []
     },
     defaultLayouts: [],
+    keyBindProfiles: [],
+    activeKeyBindProfileId: null,
     keyBinds: [],
     sessionActions: [],
     titleBarButtons: {
@@ -41,7 +43,11 @@
       fullscreenToggle: true,
       keybindToggle: true
     },
-    autoSaveSettings: false
+    autoSaveSettings: false,
+    fullscreen: {
+      hideTitleBarInMainWindow: false,
+      hideTitleBarInSessionLayouts: false
+    }
   });
 
   const electronApi = window.electron.ipcRenderer;
@@ -57,11 +63,17 @@
     neuzosConfig.chromium = conf.chromium;
     neuzosConfig.defaultLayouts = conf.defaultLayouts;
     neuzosConfig.keyBinds = conf.keyBinds;
+    neuzosConfig.keyBindProfiles = conf.keyBindProfiles || [];
+    neuzosConfig.activeKeyBindProfileId = conf.activeKeyBindProfileId ?? null;
     neuzosConfig.sessionActions = conf.sessionActions || [];
     neuzosConfig.userAgent = conf.userAgent;
     neuzosConfig.titleBarButtons = conf.titleBarButtons;
     neuzosConfig.window = conf.window;
     neuzosConfig.autoSaveSettings = conf.autoSaveSettings ?? false;
+    neuzosConfig.fullscreen = conf.fullscreen ?? {
+      hideTitleBarInMainWindow: false,
+      hideTitleBarInSessionLayouts: false
+    };
 
     // Initialize snapshot after config is loaded
     lastConfigSnapshot = JSON.stringify(neuzosConfig);
@@ -134,6 +146,47 @@
       return !allowedKeybindModifiers.includes(bind.key);
     })
 
+    // Ensure keyBindProfiles exists
+    if (!neuzosConfig.keyBindProfiles) {
+      neuzosConfig.keyBindProfiles = [];
+    }
+
+    // If no profiles exist, create a default one
+    if (neuzosConfig.keyBindProfiles.length === 0) {
+      neuzosConfig.keyBindProfiles.push({ id: "default", name: "Default", keybinds: [] });
+    }
+
+    // Ensure activeKeyBindProfileId points to a valid profile
+    const profileIds = neuzosConfig.keyBindProfiles.map(p => p.id);
+    if (!neuzosConfig.activeKeyBindProfileId || !profileIds.includes(neuzosConfig.activeKeyBindProfileId)) {
+      neuzosConfig.activeKeyBindProfileId = neuzosConfig.keyBindProfiles[0].id;
+    }
+
+    // Build the set of global keybind keys for conflict checking
+    const globalKeys = new Set(neuzosConfig.keyBinds.map(b => b.key.toLowerCase()));
+
+    neuzosConfig.keyBindProfiles = neuzosConfig.keyBindProfiles.map(profile => {
+      let keybinds = profile.keybinds;
+
+      // Trim, lowercase, strip trailing +
+      keybinds = keybinds.map(b => ({ ...b, key: b.key.trim().toLowerCase() }));
+
+      // Filter empty key / empty event / modifier-only / trailing +
+      keybinds = keybinds.filter(b =>
+        b.key !== "" &&
+        b.event !== "" &&
+        !b.key.endsWith("+") &&
+        !allowedKeybindModifiers.includes(b.key)
+      );
+
+      // Remove duplicates within the profile (same key+event)
+      keybinds = [...new Map(keybinds.map(b => [b.key + b.event, b])).values()];
+
+      // Remove keybinds whose key is already taken by a global keybind
+      keybinds = keybinds.filter(b => !globalKeys.has(b.key));
+
+      return { ...profile, keybinds };
+    });
 
   }
 

@@ -10,9 +10,16 @@
   import {createCooldownsContext, setCooldownsContext} from '$lib/contexts/cooldownsContext';
   import {setElectronContext} from '$lib/contexts/electronContext';
   import {setNeuzosBridgeContext} from '$lib/contexts/neuzosBridgeContext';
+  import {createFlyffRegistryContext, setFlyffRegistryContext} from '$lib/contexts/flyffRegistryContext.svelte';
+  import FlyffRegistryBuilder from './components/Shared/FlyffRegistryBuilder.svelte';
+import {flyffRegistry} from '$lib/core';
+  import {Button} from "$lib/components/ui/button";
+  import {Minimize} from '@lucide/svelte';
 
 
   let isLoading = $state(true);
+  let showRegistryBuilder = $state(false);
+  let isFullscreen = $state(false);
 
   setElectronContext(window.electron.ipcRenderer);
   setNeuzosBridgeContext(neuzosBridge);
@@ -25,10 +32,34 @@
   const cooldownsContext = createCooldownsContext();
   setCooldownsContext(cooldownsContext);
 
+  // Create and set the flyff registry context
+  const flyffRegistryContext = createFlyffRegistryContext();
+  setFlyffRegistryContext(flyffRegistryContext);
+
   initElectronApi(window.electron.ipcRenderer)
 
   let mainWindowState: MainWindowState = $state({
     config: {
+      window: {
+        main: {
+          width: 1200,
+          height: 800,
+          zoom: 1.0,
+          maximized: false
+        },
+        settings: {
+          width: 1200,
+          height: 800,
+          zoom: 1.0,
+          maximized: false
+        },
+        session: {
+          width: 1024,
+          height: 768,
+          zoom: 1.0,
+          maximized: false
+        }
+      },
       sessions: [],
       layouts: [],
       chromium: {
@@ -39,12 +70,17 @@
       sessionActions: [],
       defaultLaunchMode: 'normal',
       userAgent: undefined,
+      autoSaveSettings: false,
       changed: false,
       titleBarButtons: {
         darkModeToggle: true,
         fullscreenToggle: true,
         keybindToggle: true
       },
+      fullscreen: {
+        hideTitleBarInMainWindow: false,
+        hideTitleBarInSessionLayouts: false
+      }
     },
     sessions: [],
     layouts: [],
@@ -228,6 +264,10 @@
     mainWindowState.config.defaultLaunchMode = newConfig.defaultLaunchMode
     mainWindowState.config.userAgent = newConfig.userAgent || undefined
     mainWindowState.config.titleBarButtons = newConfig.titleBarButtons
+    mainWindowState.config.fullscreen = newConfig.fullscreen || {
+      hideTitleBarInMainWindow: false,
+      hideTitleBarInSessionLayouts: false
+    }
   })
 
   const reloadNeuzos = () => {
@@ -251,6 +291,11 @@
     mainWindowState.doCalculationUpdatesRng = Math.random()
   })
 
+  // Listen for fullscreen state changes
+  electronApi.on('event.fullscreen_changed', (_, fullscreen: boolean) => {
+    isFullscreen = fullscreen
+  })
+
   setContext('mainWindowState', mainWindowState)
 
 
@@ -258,6 +303,16 @@
     neuzosBridge.layouts.closeAll()
     mainWindowState.config = await electronApi.invoke('config.load', true)
     reloadNeuzos()
+
+    // Check if the flyff registry is built; if so load it, otherwise prompt to build
+    const registryExists = await flyffRegistry.check();
+    if (registryExists) {
+      const registry = await flyffRegistry.load();
+      if (registry) flyffRegistryContext.setRegistry(registry);
+    } else {
+      showRegistryBuilder = true;
+    }
+
     // Wait a bit to ensure all contexts are properly initialized
     setTimeout(() => {
       isLoading = false
@@ -274,8 +329,27 @@
   </div>
 {:else}
   <SharedEvents/>
-  <div class="w-full h-full flex flex-col border-2">
-    <MainBar/>
+  <div class="w-full h-full flex flex-col border-2 relative">
+    {#if !isFullscreen || !mainWindowState.config.fullscreen?.hideTitleBarInMainWindow}
+      <MainBar/>
+    {/if}
     <MainSectionsContainer/>
+
+    <!-- Floating Exit Fullscreen Button -->
+    {#if isFullscreen && mainWindowState.config.fullscreen?.hideTitleBarInMainWindow}
+      <Button
+        size="icon-sm"
+        variant="secondary"
+        class="absolute top-2 right-2 z-50 shadow-lg"
+        onclick={() => neuzosBridge.mainWindow.fullscreenToggle()}
+      >
+        <Minimize class="size-4"/>
+      </Button>
+    {/if}
   </div>
+  <!--
+  {#if showRegistryBuilder}
+    <FlyffRegistryBuilder onDone={() => { showRegistryBuilder = false; }} />
+  {/if}
+  -->
 {/if}

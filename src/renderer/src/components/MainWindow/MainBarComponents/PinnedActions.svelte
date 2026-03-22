@@ -1,5 +1,5 @@
 <script lang="ts">
-  import {getContext} from 'svelte';
+  import {getContext, onMount} from 'svelte';
   import {Swords} from '@lucide/svelte';
   import {Separator} from '$lib/components/ui/separator';
   import {Button} from '$lib/components/ui/button';
@@ -10,6 +10,14 @@
   const mainWindowState = getContext<MainWindowState>('mainWindowState');
   const cooldownsContext = getCooldownsContext();
   const widgetsContext = getWidgetsContext();
+
+  const ACTION_PIN_WIDGET_TYPE = 'widget.builtin.action_pin';
+  const ACTION_PIN_STORAGE_KEY = 'widgets.actionPin.latestPins';
+  const ACTION_PIN_AUTOLOAD_KEY = 'widgets.actionPin.autoLoadLatest';
+
+  let didInitPinPersistence = false;
+  let didRestoreLatestPins = false;
+  let initialSavedLatestPinSessionIds: string[] = [];
 
   // Force reactivity for cooldown updates
   let cooldownTrigger = $state(0);
@@ -36,11 +44,110 @@
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   }
 
+  function getSessionsWithActions(): string[] {
+    return (
+      mainWindowState.config.sessionActions
+        ?.filter(sa => Array.isArray(sa.actions) && sa.actions.length > 0)
+        .map(sa => sa.sessionId) ?? []
+    );
+  }
+
+  function readAutoLoadLatestPins(): boolean {
+    if (typeof window === 'undefined') return false;
+
+    const raw = window.localStorage.getItem(ACTION_PIN_AUTOLOAD_KEY);
+    if (raw === null) return false;
+
+    try {
+      return Boolean(JSON.parse(raw));
+    } catch {
+      return raw === 'true';
+    }
+  }
+
+  function readSavedLatestPinSessionIds(): string[] {
+    if (typeof window === 'undefined') return [];
+
+    const raw = window.localStorage.getItem(ACTION_PIN_STORAGE_KEY);
+    if (!raw) return [];
+
+    try {
+      const parsed = JSON.parse(raw);
+
+      // Backward compatibility with previous object shape.
+      if (Array.isArray(parsed)) {
+        return [...new Set(parsed.filter((id): id is string => typeof id === 'string'))];
+      }
+
+      if (parsed && typeof parsed === 'object' && Array.isArray((parsed as { sessionIds?: unknown }).sessionIds)) {
+        return [
+          ...new Set(
+            (parsed as { sessionIds: unknown[] }).sessionIds.filter((id): id is string => typeof id === 'string')
+          )
+        ];
+      }
+
+      return [];
+    } catch {
+      return [];
+    }
+  }
+
+  function writeSavedLatestPinSessionIds(sessionIds: string[]) {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(ACTION_PIN_STORAGE_KEY, JSON.stringify([...new Set(sessionIds)]));
+  }
+
+  const actionPinWidgets = $derived(
+    widgetsContext.widgets.filter(w => w.type === ACTION_PIN_WIDGET_TYPE && w.data?.sessionId)
+  );
+
+  const validSessionIdsWithActions = $derived(getSessionsWithActions());
+
+  onMount(() => {
+    initialSavedLatestPinSessionIds = readSavedLatestPinSessionIds();
+    didInitPinPersistence = true;
+  });
+
+  $effect(() => {
+    if (!didInitPinPersistence) return;
+
+    const currentPinnedSessionIds = [
+      ...new Set(
+        widgetsContext
+          .getWidgetsByType(ACTION_PIN_WIDGET_TYPE)
+          .map(widget => widget.data?.sessionId)
+          .filter((sessionId): sessionId is string => typeof sessionId === 'string')
+      )
+    ];
+
+    writeSavedLatestPinSessionIds(currentPinnedSessionIds);
+  });
+
+  $effect(() => {
+    if (!didInitPinPersistence || didRestoreLatestPins) return;
+
+    const validSessionIds = new Set(validSessionIdsWithActions);
+    if (validSessionIds.size === 0) return;
+    if (!readAutoLoadLatestPins()) {
+      didRestoreLatestPins = true;
+      return;
+    }
+
+    const savedSessionIds = initialSavedLatestPinSessionIds.filter(sessionId => validSessionIds.has(sessionId));
+    for (const sessionId of savedSessionIds) {
+      const alreadyPinned = actionPinWidgets.some(widget => widget.data?.sessionId === sessionId);
+      if (!alreadyPinned) {
+        widgetsContext.createWidget(ACTION_PIN_WIDGET_TYPE, {sessionId});
+      }
+    }
+
+    didRestoreLatestPins = true;
+  });
+
   // Get all pinned actions from sessions that have action pad widgets (even if hidden)
   const pinnedActionsToShow = $derived.by(() => {
-    const actionPadWidgets = widgetsContext.widgets.filter(w =>
-      w.type === 'widget.builtin.action_pin' && w.data?.sessionId
-    );
+    const actionPadWidgets = actionPinWidgets;
 
     const result: Array<{
       sessionId: string;

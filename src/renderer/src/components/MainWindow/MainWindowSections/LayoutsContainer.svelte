@@ -5,8 +5,6 @@
   import NeuzClient from "../../Shared/NeuzClient.svelte";
 
   const mainWindowState = getContext<MainWindowState>('mainWindowState');
-
-  let autofocusEnabled: boolean = true;
 </script>
 
 {#each mainWindowState.layouts as layout (layout.id)}
@@ -26,7 +24,7 @@
                   <Resizable.Pane>
                     <NeuzClient
                       layoutId={layout.id}
-                      bind:autofocusEnabled
+                      autofocusEnabled={layout.autoFocus ?? true}
                       session={mainWindowState.sessions.find((s) => {
                             return s.id === sessionId
                           })}

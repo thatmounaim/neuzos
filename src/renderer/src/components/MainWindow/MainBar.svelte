@@ -17,9 +17,12 @@
     ChevronLeft,
     ChevronRight,
     RefreshCw,
-    Fullscreen
+    Fullscreen,
+    Keyboard,
+    KeyboardOff,
+    Check
   } from '@lucide/svelte'
-  import {getContext} from "svelte";
+  import {getContext, onMount} from "svelte";
   import type {MainWindowState, NeuzSession} from "$lib/types";
   import * as Dialog from '$lib/components/ui/dialog'
   import * as ContextMenu from '$lib/components/ui/context-menu'
@@ -27,13 +30,36 @@
   import * as Card from '$lib/components/ui/card'
   import {getNeuzosBridgeContext} from "$lib/contexts/neuzosBridgeContext";
   import {getElectronContext} from "$lib/contexts/electronContext";
-
+  import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
   import {cn} from "$lib/utils";
   import {Separator} from "$lib/components/ui/separator";
   import PinnedActions from "./MainBarComponents/PinnedActions.svelte";
   import WidgetsButton from "./MainBarComponents/WidgetsButton.svelte";
   import ThemeToggle from "./MainBarComponents/ThemeToggle.svelte";
-  import ShortcutsToggle from "../Shared/ShortcutsToggle.svelte";
+
+  // ...existing code...
+
+  let shortcutsEnabled = $state(true);
+
+  onMount(async () => {
+    try {
+      const state = await electronApi.invoke("shortcuts.get_state");
+      shortcutsEnabled = state.mainWindow;
+    } catch (e) {
+      console.error("Failed to get shortcuts state:", e);
+    }
+    electronApi.on("event.shortcuts_state_changed", (_: any, newEnabled: boolean) => {
+      shortcutsEnabled = newEnabled;
+    });
+    electronApi.on("event.active_keybind_profile_changed", (_: any, profileId: string) => {
+      mainWindowState.config.activeKeyBindProfileId = profileId;
+    });
+  });
+
+  async function swapProfile(profileId: string) {
+    await electronApi.invoke("keybinds.swap_profile", profileId);
+    mainWindowState.config.activeKeyBindProfileId = profileId;
+  }
 
   const neuzosBridge = getNeuzosBridgeContext();
   const mainWindowState = getContext<MainWindowState>('mainWindowState');
@@ -390,7 +416,46 @@
 
   <WidgetsButton/>
   {#if mainWindowState.config.titleBarButtons.keybindToggle}
-    <ShortcutsToggle window="main" onToggle={(enabled) => neuzosBridge.mainWindow.toggleShortcuts(enabled)}/>
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger>
+        <Button
+          size="icon-xs"
+          variant="outline"
+          class="cursor-pointer"
+          title="Keybind Profiles"
+        >
+          {#if shortcutsEnabled}
+            <Keyboard class="size-3.5"/>
+          {:else}
+            <KeyboardOff class="size-3.5"/>
+          {/if}
+        </Button>
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Content align="end" class="w-48">
+        <DropdownMenu.Item
+          onclick={() => neuzosBridge.mainWindow.toggleShortcuts(!shortcutsEnabled)}
+          class="gap-2"
+        >
+          {#if shortcutsEnabled}
+            <KeyboardOff class="size-4"/>
+            Disable Keybinds
+          {:else}
+            <Keyboard class="size-4"/>
+            Enable Keybinds
+          {/if}
+        </DropdownMenu.Item>
+        {#if (mainWindowState.config.keyBindProfiles?.length ?? 0) > 0}
+          <DropdownMenu.Separator/>
+          {#each mainWindowState.config.keyBindProfiles ?? [] as profile (profile.id)}
+            {@const isActive = mainWindowState.config.activeKeyBindProfileId === profile.id}
+            <DropdownMenu.Item onclick={() => swapProfile(profile.id)} class="gap-2">
+              <Check class="size-4 {isActive ? 'opacity-100' : 'opacity-0'}"/>
+              {profile.name}
+            </DropdownMenu.Item>
+          {/each}
+        {/if}
+      </DropdownMenu.Content>
+    </DropdownMenu.Root>
   {/if}
   {#if mainWindowState.config.titleBarButtons.darkModeToggle}
     <ThemeToggle/>
