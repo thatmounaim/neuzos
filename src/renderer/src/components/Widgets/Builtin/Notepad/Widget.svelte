@@ -17,7 +17,8 @@
     List,
     Code,
     NotebookPen,
-    Eye
+    Eye,
+    Settings
   } from '@lucide/svelte';
   import * as Tabs from '$lib/components/ui/tabs';
 
@@ -53,6 +54,12 @@
   }
 
   type EditorMode = 'wysiwyg' | 'raw' | 'preview';
+  type TabLayoutMode = 'horizontal' | 'vertical';
+
+  interface PersistedNotepadState {
+    files?: NotepadFile[];
+    tabLayoutMode?: TabLayoutMode;
+  }
 
   type MarkdownBlock =
     | { type: 'heading'; level: number; text: string }
@@ -96,24 +103,38 @@
   const TODO_START_MARKER = '$startTodo';
   const TODO_END_MARKER = '$endTodo';
 
-  // Load files from localStorage
-  function loadFiles(): NotepadFile[] {
+  function loadPersistedState(): PersistedNotepadState | null {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        return parsed.files || [];
-      }
+      if (!stored) return null;
+      return JSON.parse(stored) as PersistedNotepadState;
     } catch (e) {
-      console.error('Failed to load notepad files:', e);
+      console.error('Failed to load notepad state:', e);
+      return null;
+    }
+  }
+
+  // Load files from localStorage
+  function loadFiles(): NotepadFile[] {
+    const parsed = loadPersistedState();
+    if (parsed?.files && parsed.files.length > 0) {
+      return parsed.files;
     }
     return [{ id: '1', name: 'Untitled', content: '' }];
+  }
+
+  function loadTabLayoutMode(): TabLayoutMode {
+    const parsed = loadPersistedState();
+    return parsed?.tabLayoutMode === 'vertical' ? 'vertical' : 'horizontal';
   }
 
   // Save files to localStorage
   function saveFiles() {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ files: files }));
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ files, tabLayoutMode } satisfies PersistedNotepadState)
+      );
     } catch (e) {
       console.error('Failed to save notepad files:', e);
     }
@@ -300,6 +321,7 @@
 
   const initialFiles = loadFiles();
   let files = $state<NotepadFile[]>(initialFiles);
+  let tabLayoutMode = $state<TabLayoutMode>(loadTabLayoutMode());
   let activeFileId = $state<string>(initialFiles[0]?.id || '1');
   let blocksByFile = $state<Record<string, NotepadBlock[]>>(hydrateBlocks(initialFiles));
   let textSelectionByFile = $state<Record<string, TextSelectionState | null>>({});
@@ -311,6 +333,7 @@
   let rawEditorRef: HTMLDivElement | null = null;
   let textEditorRefs = $state<Record<string, HTMLDivElement | null>>({});
   let previewTodoCollapsedByFile = $state<Record<string, Record<string, boolean>>>({});
+  let settingsOpen = $state<boolean>(false);
 
   function normalizeEditableText(content: string | null | undefined): string {
     return (content ?? '').replace(/\u00a0/g, ' ');
@@ -1007,6 +1030,12 @@
     setEditorMode(lastEditModeByFile[activeFileId] ?? 'wysiwyg');
   }
 
+  function setTabLayoutMode(mode: TabLayoutMode) {
+    tabLayoutMode = mode;
+    settingsOpen = false;
+    saveFiles();
+  }
+
   function updateActiveTextBlock(
     transformer: (content: string, start: number, end: number) => TextTransformResult | string
   ) {
@@ -1517,14 +1546,59 @@
     onHide={onHide}
   >
     {#snippet titleSnippet()}
-      <div class="flex items-center gap-2">
-        <StickyNote size={16} />
-        <span>Notepad - {activeFile?.name || 'Untitled'}</span>
+      <div class="flex w-full items-center justify-between gap-2">
+        <div class="flex min-w-0 items-center gap-2">
+          <StickyNote size={16} />
+          <span class="truncate">Notepad - {activeFile?.name || 'Untitled'}</span>
+        </div>
+
+        <div class="relative" onmousedown={(e) => e.stopPropagation()}>
+          <Button
+            size="icon"
+            variant={settingsOpen ? 'secondary' : 'ghost'}
+            class="h-7 w-7"
+            onclick={(e) => {
+              e.stopPropagation();
+              settingsOpen = !settingsOpen;
+            }}
+            title="Settings"
+          >
+            <Settings class="h-4 w-4" />
+          </Button>
+
+          {#if settingsOpen}
+            <div
+              class="absolute right-0 top-8 z-30 w-44 rounded-md border border-border bg-popover p-2 shadow-md"
+              onmousedown={(e) => e.stopPropagation()}
+            >
+              <div class="mb-2 text-xs font-medium text-muted-foreground">Tab layout</div>
+              <div class="space-y-1">
+                <Button
+                  size="sm"
+                  variant={tabLayoutMode === 'horizontal' ? 'secondary' : 'ghost'}
+                  class="h-7 w-full justify-start"
+                  onclick={() => setTabLayoutMode('horizontal')}
+                >
+                  Horizontal
+                </Button>
+                <Button
+                  size="sm"
+                  variant={tabLayoutMode === 'vertical' ? 'secondary' : 'ghost'}
+                  class="h-7 w-full justify-start"
+                  onclick={() => setTabLayoutMode('vertical')}
+                >
+                  Vertical
+                </Button>
+              </div>
+            </div>
+          {/if}
+        </div>
       </div>
     {/snippet}
 
     <div class="flex flex-col h-full -m-3">
-      <Tabs.Root value={activeFileId} onValueChange={handleTabChange} class="flex flex-col h-full">
+      <Tabs.Root value={activeFileId} onValueChange={handleTabChange} class="flex flex-col h-full min-h-0">
+        {#if tabLayoutMode === 'horizontal'}
         <!-- Tabs List with Add Button -->
         <div class="flex items-center border-b border-border bg-muted/30 shrink-0">
           <Button
@@ -1625,6 +1699,95 @@
             <Plus class="h-4 w-4" />
           </Button>
         </div>
+        {/if}
+
+        <div class={tabLayoutMode === 'vertical' ? 'flex flex-1 min-h-0' : 'flex flex-col flex-1 min-h-0'}>
+          {#if tabLayoutMode === 'vertical'}
+            <div class="w-56 border-r border-border bg-muted/20 flex flex-col min-h-0">
+              <div class="flex items-center justify-between px-2 py-2 border-b border-border shrink-0">
+                <span class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Files</span>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  class="h-7 w-7"
+                  onclick={createNewFile}
+                  title="New File"
+                >
+                  <Plus class="h-3.5 w-3.5" />
+                </Button>
+              </div>
+
+              <div class="flex-1 overflow-y-auto p-1">
+                <Tabs.List class="flex h-auto w-full flex-col items-stretch gap-0.5 rounded-none bg-transparent p-0">
+                  {#each files as file (file.id)}
+                    <Tabs.Trigger
+                      value={file.id}
+                      class="group relative flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-left text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-foreground"
+                    >
+                      {#if editingFileId === file.id}
+                        <div class="flex w-full items-center gap-1">
+                          <Input
+                            value={editingFileName}
+                            onmousedown={(e) => e.stopPropagation()}
+                            oninput={(e) => editingFileName = e.currentTarget.value}
+                            onkeydown={(e) => {
+                              if (e.key === 'Enter') finishEditingName();
+                              if (e.key === 'Escape') cancelEditingName();
+                            }}
+                            class="h-6 w-full px-2 text-xs"
+                            autofocus
+                          />
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            class="h-5 w-5"
+                            onmousedown={(e) => e.stopPropagation()}
+                            onclick={finishEditingName}
+                          >
+                            <Check class="h-3 w-3" />
+                          </Button>
+                        </div>
+                      {:else}
+                        <div class="flex min-w-0 flex-1 items-center justify-between gap-1">
+                          <span class="min-w-0 flex-1 truncate">{file.name}</span>
+                          <div class="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              class="h-5 w-5"
+                              onclick={(e) => {
+                                e.stopPropagation();
+                                startEditingName(file.id, file.name);
+                              }}
+                              title="Rename"
+                            >
+                              <Edit2 class="h-3 w-3" />
+                            </Button>
+                            {#if files.length > 1}
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                class="h-5 w-5 hover:bg-destructive hover:text-destructive-foreground"
+                                onclick={(e) => {
+                                  e.stopPropagation();
+                                  deleteFile(file.id);
+                                }}
+                                title="Delete"
+                              >
+                                <X class="h-3 w-3" />
+                              </Button>
+                            {/if}
+                          </div>
+                        </div>
+                      {/if}
+                    </Tabs.Trigger>
+                  {/each}
+                </Tabs.List>
+              </div>
+            </div>
+          {/if}
+
+          <div class="flex flex-1 min-h-0 min-w-0 flex-col">
 
         <div class="shrink-0 border-b border-border bg-muted/20 px-3 py-2 flex items-center justify-between gap-3">
           <div class="flex items-center gap-1 rounded-md border border-border bg-background p-1">
@@ -1648,31 +1811,33 @@
             </Button>
           </div>
 
-          {#if activeEditorMode === 'wysiwyg'}
-            <div class="flex items-center gap-1 rounded-md border border-border bg-background p-1">
-              <Button size="icon" variant="ghost" class="h-7 w-7" onmousedown={(e) => e.preventDefault()} onclick={() => runToolbarAction(() => wrapSelection('**'))} title="Bold">
-                <Bold class="h-3.5 w-3.5" />
-              </Button>
-              <Button size="icon" variant="ghost" class="h-7 w-7" onmousedown={(e) => e.preventDefault()} onclick={() => runToolbarAction(() => wrapSelection('*'))} title="Italic">
-                <Italic class="h-3.5 w-3.5" />
-              </Button>
-              <Button size="icon" variant="ghost" class="h-7 w-7" onmousedown={(e) => e.preventDefault()} onclick={() => runToolbarAction(applyUnderline)} title="Underline">
-                <Underline class="h-3.5 w-3.5" />
-              </Button>
-              <Button size="icon" variant="ghost" class="h-7 w-7" onmousedown={(e) => e.preventDefault()} onclick={() => runToolbarAction(applyHeading)} title="Heading">
-                <Heading class="h-3.5 w-3.5" />
-              </Button>
-              <Button size="icon" variant="ghost" class="h-7 w-7" onmousedown={(e) => e.preventDefault()} onclick={() => runToolbarAction(applyBulletList)} title="List">
-                <List class="h-3.5 w-3.5" />
-              </Button>
-              <Button size="icon" variant="ghost" class="h-7 w-7" onmousedown={(e) => e.preventDefault()} onclick={() => runToolbarAction(() => wrapSelection('`'))} title="Inline Code">
-                <Code class="h-3.5 w-3.5" />
-              </Button>
-              <Button size="icon" variant="secondary" class="h-7 w-7" onmousedown={(e) => e.preventDefault()} onclick={() => runToolbarAction(() => insertTodoBlock())} title="Insert Todo Block">
-                <Check class="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          {/if}
+          <div class="relative flex items-center gap-2">
+            {#if activeEditorMode === 'wysiwyg'}
+              <div class="flex items-center gap-1 rounded-md border border-border bg-background p-1">
+                <Button size="icon" variant="ghost" class="h-7 w-7" onmousedown={(e) => e.preventDefault()} onclick={() => runToolbarAction(() => wrapSelection('**'))} title="Bold">
+                  <Bold class="h-3.5 w-3.5" />
+                </Button>
+                <Button size="icon" variant="ghost" class="h-7 w-7" onmousedown={(e) => e.preventDefault()} onclick={() => runToolbarAction(() => wrapSelection('*'))} title="Italic">
+                  <Italic class="h-3.5 w-3.5" />
+                </Button>
+                <Button size="icon" variant="ghost" class="h-7 w-7" onmousedown={(e) => e.preventDefault()} onclick={() => runToolbarAction(applyUnderline)} title="Underline">
+                  <Underline class="h-3.5 w-3.5" />
+                </Button>
+                <Button size="icon" variant="ghost" class="h-7 w-7" onmousedown={(e) => e.preventDefault()} onclick={() => runToolbarAction(applyHeading)} title="Heading">
+                  <Heading class="h-3.5 w-3.5" />
+                </Button>
+                <Button size="icon" variant="ghost" class="h-7 w-7" onmousedown={(e) => e.preventDefault()} onclick={() => runToolbarAction(applyBulletList)} title="List">
+                  <List class="h-3.5 w-3.5" />
+                </Button>
+                <Button size="icon" variant="ghost" class="h-7 w-7" onmousedown={(e) => e.preventDefault()} onclick={() => runToolbarAction(() => wrapSelection('`'))} title="Inline Code">
+                  <Code class="h-3.5 w-3.5" />
+                </Button>
+                <Button size="icon" variant="secondary" class="h-7 w-7" onmousedown={(e) => e.preventDefault()} onclick={() => runToolbarAction(() => insertTodoBlock())} title="Insert Todo Block">
+                  <Check class="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            {/if}
+          </div>
         </div>
 
         <div class="relative flex-1 overflow-auto p-3 space-y-3 bg-background/40">
@@ -1885,6 +2050,8 @@
               {/if}
             {/each}
           {/if}
+        </div>
+          </div>
         </div>
       </Tabs.Root>
     </div>
