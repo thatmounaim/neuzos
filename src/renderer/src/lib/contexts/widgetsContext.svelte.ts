@@ -8,6 +8,8 @@ export type WidgetType =
   | 'widget.builtin.notepad'
   | 'widget.builtin.mini_browser'
   | 'widget.builtin.action_pad'
+  | 'widget.builtin.action_pin'
+  | 'widget.builtin.floating_session'
   | 'widget.custom.example'
   | string
 // Add more widget types here following the pattern: widget.namespace.name

@@ -114,7 +114,7 @@ const defaultNeuzosConfig: any = {
   chromium: {
     commandLineSwitches: [
       "force_high_performance_gpu",
-      "disable-frame-rate-limit",
+      //"disable-frame-rate-limit",
       "enable-accelerated-2d-canvas",
       "enable-gpu-rasterization",
       "enable-oop-rasterization",

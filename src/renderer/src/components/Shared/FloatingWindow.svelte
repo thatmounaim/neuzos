@@ -27,6 +27,7 @@
     class?: string;
     children?: Snippet;
     titleSnippet?: Snippet;
+    backgroundTransparency?: number
   }
 
   let {
@@ -49,7 +50,8 @@
     resizable = true,
     class: className = '',
     children,
-    titleSnippet
+    titleSnippet,
+    backgroundTransparency = 100,
   }: Props = $props();
 
   let x = $state(defaultX);
@@ -74,6 +76,9 @@
   // Compute if this window is active
   const isActive = $derived(windowContext.activeWindowId === windowId);
   const zIndex = $derived(isActive ? 'z-[41]' : 'z-40');
+  const backgroundOpacity = $derived(
+    Math.max(0, Math.min(100, Number.isFinite(Number(backgroundTransparency)) ? Number(backgroundTransparency) : 100))
+  );
 
   // Load persisted state
   onMount(() => {
@@ -246,7 +251,7 @@
 </script>
 
 <div
-  class="absolute bg-background border border-border rounded-lg shadow-md flex flex-col overflow-hidden {zIndex} {className}"
+  class="absolute border border-border rounded-lg shadow-md flex flex-col overflow-hidden {zIndex} {className}"
   style="left: {x}px; top: {y}px; width: {width}px; height: {isMinimized ? 'auto' : height + 'px'};"
   onclick={() => windowContext.setActiveWindow(windowId)}
   role="dialog"
@@ -254,7 +259,8 @@
   tabindex="-1"
 >
   <div
-    class="bg-muted border-b border-border px-3 py-2 flex items-center justify-between cursor-move select-none min-h-9"
+    class="border-b border-border px-3 py-2 flex items-center justify-between cursor-move select-none min-h-9"
+    style="background-color: color-mix(in oklab, var(--muted) {backgroundOpacity}%, transparent);"
     onmousedown={handleMouseDown}
     role="button"
     tabindex="0"
@@ -310,7 +316,10 @@
     </div>
   </div>
 
-  <div class="flex-1 overflow-auto p-3" style="display: {isMinimized ? 'none' : 'block'};">
+  <div
+    class="flex-1 overflow-auto p-3"
+    style="display: {isMinimized ? 'none' : 'block'}; background-color: color-mix(in oklab, var(--background) {backgroundOpacity}%, transparent);"
+  >
     {@render children?.()}
   </div>
 
@@ -334,5 +343,4 @@
     <div class="absolute bottom-0 right-0 w-3 h-3 cursor-nwse-resize z-10" onmousedown={(e) => startResize('se', e)}></div>
   {/if}
 </div>
-
 

@@ -1,9 +1,9 @@
 <script lang="ts">
   import FloatingWindow from '../../../Shared/FloatingWindow.svelte';
-  import { Swords } from '@lucide/svelte';
-  import { getContext } from 'svelte';
-  import type { MainWindowState, SessionAction } from '$lib/types';
-  import { getCooldownsContext } from '$lib/contexts/cooldownsContext';
+  import {Swords} from '@lucide/svelte';
+  import {getContext} from 'svelte';
+  import type {MainWindowState, SessionAction} from '$lib/types';
+  import {getCooldownsContext} from '$lib/contexts/cooldownsContext';
 
   interface Props {
     visible?: boolean;
@@ -12,7 +12,7 @@
     data?: { sessionId?: string };
   }
 
-  let { visible = true, onClose, onHide, data }: Props = $props();
+  let {visible = true, onClose, onHide, data}: Props = $props();
 
   const mainWindowState = getContext<MainWindowState>('mainWindowState');
   const cooldownsContext = getCooldownsContext();
@@ -69,7 +69,42 @@
   const WIDGET_IDENTIFIER = 'widget.builtin.action_pad';
   const STORAGE_KEY = WIDGET_IDENTIFIER + `rows-${sessionId}`;
   const PERSIST_ID = WIDGET_IDENTIFIER + 'session-' + sessionId;
+  const TRANSPARENCY_STORAGE_KEY = `${PERSIST_ID}-background-transparency`;
+  const DEFAULT_BACKGROUND_TRANSPARENCY = 100;
+
   let rows = $state<{ id: string; actionIds: string[] }[]>(loadRowsFromStorage());
+  let backgroundTransparency = $state(loadBackgroundTransparency());
+
+  function sanitizeTransparency(value: unknown): number {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return DEFAULT_BACKGROUND_TRANSPARENCY;
+    return Math.max(0, Math.min(100, Math.round(parsed)));
+  }
+
+  function loadBackgroundTransparency(): number {
+    try {
+      const stored = localStorage.getItem(TRANSPARENCY_STORAGE_KEY);
+      if (stored !== null) {
+        return sanitizeTransparency(stored);
+      }
+    } catch (e) {
+      console.error('Failed to load Action Pad transparency:', e);
+    }
+    return DEFAULT_BACKGROUND_TRANSPARENCY;
+  }
+
+  function saveBackgroundTransparency(value: number) {
+    try {
+      localStorage.setItem(TRANSPARENCY_STORAGE_KEY, String(sanitizeTransparency(value)));
+    } catch (e) {
+      console.error('Failed to save Action Pad transparency:', e);
+    }
+  }
+
+  function updateBackgroundTransparency(value: string) {
+    backgroundTransparency = sanitizeTransparency(value);
+    saveBackgroundTransparency(backgroundTransparency);
+  }
 
   function loadRowsFromStorage(): { id: string; actionIds: string[] }[] {
     try {
@@ -85,7 +120,7 @@
       console.error('Failed to load rows:', e);
     }
     // Default: all actions in one row
-    return [{ id: 'default', actionIds: [] }];
+    return [{id: 'default', actionIds: []}];
   }
 
   function saveRowsToStorage() {
@@ -128,7 +163,7 @@
   });
 
   function addRow() {
-    rows = [...rows, { id: `row-${Date.now()}`, actionIds: [] }];
+    rows = [...rows, {id: `row-${Date.now()}`, actionIds: []}];
     saveRowsToStorage();
   }
 
@@ -208,8 +243,8 @@
     // Find all actions with the same category (excluding the one that was just triggered)
     const categoryActions = sessionActionsData.actions.filter(
       a => a.id !== excludeActionId &&
-           a.cooldownCategory &&
-           a.cooldownCategory.trim() === category.trim()
+        a.cooldownCategory &&
+        a.cooldownCategory.trim() === category.trim()
     );
 
     // Start cooldown for each action in the category
@@ -240,13 +275,16 @@
 {#snippet customTitleSnippet()}
   <div class="flex items-center gap-2">
     <span>Action Pad - {sessionLabel}</span>
-    <button
-      class="ml-auto text-xs px-2 py-0.5 rounded border border-border hover:bg-accent transition-colors"
-      onclick={() => { isEditMode = !isEditMode; }}
-      onmousedown={(e) => e.stopPropagation()}
-    >
-      {isEditMode ? 'Done' : 'Edit'}
-    </button>
+    <div class="ml-auto flex items-center gap-2">
+
+      <button
+        class="text-xs px-2 py-0.5 rounded border border-border hover:bg-accent transition-colors"
+        onclick={() => { isEditMode = !isEditMode; }}
+        onmousedown={(e) => e.stopPropagation()}
+      >
+        {isEditMode ? 'Done' : 'Edit'}
+      </button>
+    </div>
   </div>
 {/snippet}
 
@@ -262,17 +300,42 @@
     {onHide}
     resizable={true}
     titleSnippet={customTitleSnippet}
+    backgroundTransparency={backgroundTransparency}
   >
     <div class="h-full w-full p-3 overflow-auto">
       {#if actions.length === 0}
         <div class="flex flex-col items-center justify-center h-full text-center gap-2">
-          <Swords class="h-12 w-12 text-muted-foreground opacity-50" />
+          <Swords class="h-12 w-12 text-muted-foreground opacity-50"/>
           <p class="text-sm text-muted-foreground">No actions configured</p>
           <p class="text-xs text-muted-foreground">
             Configure actions in Settings → Session Actions
           </p>
         </div>
       {:else}
+        {#if isEditMode}
+          <div class="flex flex-col gap-2 mb-2">
+          <span class="text-xs text-muted-foreground">
+            Opacity
+          </span>
+            <div class="flex items-center justify-between mb-2">
+              <input
+                id="action-pad-transparency"
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value={backgroundTransparency}
+                class="w-full accent-primary"
+                onmousedown={(e) => e.stopPropagation()}
+                oninput={(e) => updateBackgroundTransparency(e.currentTarget.value)}
+              />
+              <span class="w-9 text-right text-[10px] text-muted-foreground" onmousedown={(e) => e.stopPropagation()}>
+          {backgroundTransparency}%
+        </span>
+            </div>
+          </div>
+
+        {/if}
         <div class="flex flex-col gap-3">
           {#each organizedActions as row (row.id)}
             <div class="action-row">
@@ -294,7 +357,8 @@
 
               <div class="flex flex-wrap gap-2">
                 {#if row.actions.length === 0 && isEditMode}
-                  <div class="empty-row-placeholder text-xs text-muted-foreground italic px-3 py-2 border border-dashed border-border rounded">
+                  <div
+                    class="empty-row-placeholder text-xs text-muted-foreground italic px-3 py-2 border border-dashed border-border rounded">
                     Empty row - assign actions using the dropdown below each skill
                   </div>
                 {/if}
@@ -319,7 +383,7 @@
                             class="w-full h-full object-contain p-1 {state.isCasting ? 'brightness-150' : ''}"
                           />
                         {:else}
-                          <Swords class="h-8 w-8 {state.isCasting ? 'brightness-150' : ''}" />
+                          <Swords class="h-8 w-8 {state.isCasting ? 'brightness-150' : ''}"/>
                         {/if}
 
                         <!-- Radial cooldown overlay -->
@@ -328,7 +392,7 @@
                             <svg class="w-full h-full" viewBox="0 0 48 48">
                               <defs>
                                 <mask id="cooldown-mask-{action.id}">
-                                  <rect width="48" height="48" fill="white" />
+                                  <rect width="48" height="48" fill="white"/>
                                   <path
                                     d="M24,24 L24,0 A24,24 0 {cooldownAngle > 180 ? '1' : '0'},1 {24 + 24 * Math.sin(cooldownAngle * Math.PI / 180)},{24 - 24 * Math.cos(cooldownAngle * Math.PI / 180)} Z"
                                     fill="black"
@@ -352,7 +416,8 @@
 
                         <!-- Cooldown Timer Display - positioned above overlays -->
                         {#if state.cooldownProgress > 0 && state.cooldownEndTime > 0}
-                          <div class="absolute bottom-0 left-0 right-0 text-center text-[10px] font-bold text-white bg-black/60 px-0.5 pointer-events-none leading-tight z-10">
+                          <div
+                            class="absolute bottom-0 left-0 right-0 text-center text-[10px] font-bold text-white bg-black/60 px-0.5 pointer-events-none leading-tight z-10">
                             {formatCooldownTime(state.cooldownEndTime)}
                           </div>
                         {/if}
