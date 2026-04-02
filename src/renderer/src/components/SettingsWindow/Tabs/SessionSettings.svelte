@@ -19,6 +19,7 @@
   import type {NeuzConfig} from "$lib/types";
   import {getContext} from "svelte";
   import {Button} from "$lib/components/ui/button";
+  import {Switch} from "$lib/components/ui/switch";
   import {neuzosBridge} from "$lib/core";
 
   const sessionIcons: string[] = [
@@ -70,7 +71,8 @@
       label: 'Unnamed Session',
       icon: {
         slug: 'jobs/vagrant'
-      }
+      },
+      floatable: false
     })
   }
   const deleteSession = (sessionId: string) => {
@@ -103,6 +105,7 @@
           <Table.Head class=""></Table.Head>
           <Table.Head class="w-[100px]">Icon</Table.Head>
           <Table.Head class="w-1/2">Label</Table.Head>
+          <Table.Head class="w-[110px] text-center">Floatable</Table.Head>
           <Table.Head class="w-1/2">Launch URL Overwrite</Table.Head>
           <Table.Head>Session ID</Table.Head>
           <Table.Head>Actions</Table.Head>
@@ -188,6 +191,14 @@
                 }
               }}
               />
+            </Table.Cell>
+            <Table.Cell>
+              <div class="flex items-center justify-center">
+                <Switch
+                  checked={session.floatable ?? false}
+                  onCheckedChange={(checked) => { session.floatable = checked; }}
+                />
+              </div>
             </Table.Cell>
             <Table.Cell class="w-1/2">
               <div class="flex items-center gap-2">

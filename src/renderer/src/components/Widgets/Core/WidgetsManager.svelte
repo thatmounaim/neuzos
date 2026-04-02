@@ -4,6 +4,7 @@
   import NotepadWidget from "../Builtin/Notepad/Widget.svelte";
   import MiniBrowserWidget from "../Builtin/MiniBrowser/Widget.svelte";
   import ActionPadWidget from "../Builtin/ActionPad/Widget.svelte";
+  import FloatingSessionWidget from "../Builtin/FloatingSession/Widget.svelte";
   // Get the widgets context from App
   const widgetsContext = getWidgetsContext();
 </script>
@@ -32,6 +33,13 @@
     />
   {:else if widget.type === 'widget.builtin.action_pad'}
     <ActionPadWidget
+      visible={widget.visible}
+      data={widget.data}
+      onClose={() => widgetsContext.destroyWidget(widget.id)}
+      onHide={() => widgetsContext.hideWidget(widget.id)}
+    />
+  {:else if widget.type === 'widget.builtin.floating_session'}
+    <FloatingSessionWidget
       visible={widget.visible}
       data={widget.data}
       onClose={() => widgetsContext.destroyWidget(widget.id)}

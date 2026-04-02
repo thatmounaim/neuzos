@@ -13,6 +13,7 @@ export type NeuzSession = {
   id: string;
   label: string
   icon: NeuzIcon;
+  floatable?: boolean;
   srcOverwrite?: string;
   partitionOverwrite?: string;
 }

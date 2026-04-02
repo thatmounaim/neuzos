@@ -6,7 +6,7 @@
   import MiniBrowserDropdownItem from '../Builtin/MiniBrowser/DropdownItem.svelte';
   import ActionPadDropdownItem from '../Builtin/ActionPad/DropdownItem.svelte';
   import ActionPinDropdownItem from '../Builtin/ActionPin/DropdownItem.svelte';
-
+  import FloatingSessionDropdownItem from '../Builtin/FloatingSession/DropdownItem.svelte';
   const widgetsContext = getWidgetsContext();
 </script>
 
@@ -17,6 +17,7 @@
   <DropdownMenu.Separator />
   <ActionPinDropdownItem />
   <ActionPadDropdownItem />
+  <FloatingSessionDropdownItem />
 </DropdownMenu.Group>
 
 {#if widgetsContext.widgets.length === 0}
