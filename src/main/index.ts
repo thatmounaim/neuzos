@@ -112,7 +112,16 @@ const defaultNeuzosConfig: any = {
   autoSaveSettings: false,
   defaultLaunchMode: "normal",
   chromium: {
-    commandLineSwitches: []
+    commandLineSwitches: [
+      "force_high_performance_gpu",
+      //"disable-frame-rate-limit",
+      "enable-accelerated-2d-canvas",
+      "enable-gpu-rasterization",
+      "enable-oop-rasterization",
+      "ignore-gpu-blocklist",
+      "max-active-webgl-contexts=16",
+      "enable-gpu-memory-buffer-compositor-resources",
+    ]
   },
   sessions: [],
   layouts: [],
