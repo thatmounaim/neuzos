@@ -538,10 +538,6 @@ function createMainWindow(): void {
     mainWindow?.show();
     mainWindow?.webContents.setZoomFactor(neuzosConfig.window.main.zoom);
 
-    if (is.dev) {
-      mainWindow?.webContents.openDevTools();
-    }
-
     // Maximize if configured - must happen after show() with slight delay
     if (neuzosConfig.window.main.maximized) {
       setImmediate(() => {
