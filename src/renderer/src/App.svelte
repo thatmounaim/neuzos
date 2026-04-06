@@ -1,7 +1,7 @@
 <script lang="ts">
   import {ModeWatcher} from "mode-watcher";
   import MainBar from "./components/MainWindow/MainBar.svelte";
-  import {onMount, setContext} from "svelte";
+  import {onMount, setContext, untrack} from "svelte";
   import {neuzosBridge, initElectronApi} from "$lib/core";
   import type {MainWindowState} from "$lib/types";
   import MainSectionsContainer from "./components/MainWindow/MainSectionsContainer.svelte";
@@ -11,6 +11,8 @@
   import {setElectronContext} from '$lib/contexts/electronContext';
   import {setNeuzosBridgeContext} from '$lib/contexts/neuzosBridgeContext';
   import {createFlyffRegistryContext, setFlyffRegistryContext} from '$lib/contexts/flyffRegistryContext.svelte';
+  import {createQuestPanelContext, setQuestPanelContext} from '$lib/contexts/questPanelContext.svelte';
+  import {createTodoContext, setTodoContext} from '$lib/contexts/todoContext.svelte';
   import FlyffRegistryBuilder from './components/Shared/FlyffRegistryBuilder.svelte';
 import {flyffRegistry} from '$lib/core';
   import {Button} from "$lib/components/ui/button";
@@ -35,6 +37,21 @@ import {flyffRegistry} from '$lib/core';
   // Create and set the flyff registry context
   const flyffRegistryContext = createFlyffRegistryContext();
   setFlyffRegistryContext(flyffRegistryContext);
+
+  // Create and set the quest panel context
+  const questPanelContext = createQuestPanelContext();
+  setQuestPanelContext(questPanelContext);
+
+  // Create and set the todo checklist context
+  const todoContext = createTodoContext();
+  setTodoContext(todoContext);
+
+  $effect(() => {
+    const charId = questPanelContext.activeCharacterId;
+    untrack(() => {
+      todoContext.switchCharacter(charId);
+    });
+  });
 
   initElectronApi(window.electron.ipcRenderer)
 
@@ -347,9 +364,5 @@ import {flyffRegistry} from '$lib/core';
       </Button>
     {/if}
   </div>
-  <!--
-  {#if showRegistryBuilder}
-    <FlyffRegistryBuilder onDone={() => { showRegistryBuilder = false; }} />
-  {/if}
-  -->
+
 {/if}

@@ -36,6 +36,8 @@
   import PinnedActions from "./MainBarComponents/PinnedActions.svelte";
   import WidgetsButton from "./MainBarComponents/WidgetsButton.svelte";
   import ThemeToggle from "./MainBarComponents/ThemeToggle.svelte";
+  import {getQuestPanelContext} from "$lib/contexts/questPanelContext.svelte";
+  import {ScrollText} from '@lucide/svelte';
 
   // ...existing code...
 
@@ -64,6 +66,7 @@
   const neuzosBridge = getNeuzosBridgeContext();
   const mainWindowState = getContext<MainWindowState>('mainWindowState');
   const electronApi = getElectronContext();
+  const questPanel = getQuestPanelContext();
 
   const openSettings = () => {
     neuzosBridge.settingsWindow.open()
@@ -414,6 +417,15 @@
     </Button>
   {/if}
 
+  <Button
+    size="icon-xs"
+    variant={questPanel.isOpen ? 'secondary' : 'outline'}
+    onclick={() => questPanel.toggle()}
+    class="cursor-pointer"
+    title="Quest Log"
+  >
+    <ScrollText class="size-3.5"/>
+  </Button>
   <WidgetsButton/>
   {#if mainWindowState.config.titleBarButtons.keybindToggle}
     <DropdownMenu.Root>
