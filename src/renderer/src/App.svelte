@@ -364,5 +364,10 @@ import {flyffRegistry} from '$lib/core';
       </Button>
     {/if}
   </div>
-
+<!--
+  // NOTE: Do not remove this, its a reminder to use when registry will be used
+ {#if showRegistryBuilder}
+    <FlyffRegistryBuilder onDone={() => { showRegistryBuilder = false; }} />
+  {/if}
+  -->
 {/if}
