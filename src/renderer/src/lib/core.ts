@@ -75,6 +75,9 @@ export const neuzosBridge = {
     },
     clearStorage: (sessionId: string) => {
       electronApi?.send("session.clear_storage", sessionId);
+    },
+    setSyncReceiver: (sessionId: string | null) => {
+      electronApi?.invoke("config.set_sync_receiver", sessionId);
     }
   },
   sessionWindow: {
