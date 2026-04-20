@@ -1060,10 +1060,13 @@ function registerSessionKeybinds(mode: LaunchMode) {
     ipcMain.handle("config.export", async (event) => {
       try {
         const parentWindow = BrowserWindow.fromWebContents(event.sender) ?? mainWindow
-        const saveResult = await dialog.showSaveDialog(parentWindow ?? undefined, {
+        const saveOptions = {
           defaultPath: `neuzos-config-export-${new Date().toISOString().slice(0, 10)}.json`,
           filters: [{name: 'JSON', extensions: ['json']}],
-        });
+        };
+        const saveResult = await (parentWindow
+          ? dialog.showSaveDialog(parentWindow, saveOptions)
+          : dialog.showSaveDialog(saveOptions));
 
         if (saveResult.canceled || !saveResult.filePath) {
           return {success: false, error: 'canceled'};
@@ -1087,10 +1090,14 @@ function registerSessionKeybinds(mode: LaunchMode) {
 
     ipcMain.handle("config.import", async (event) => {
       try {
-        const openResult = await dialog.showOpenDialog(BrowserWindow.fromWebContents(event.sender) ?? mainWindow ?? undefined, {
-          properties: ['openFile'],
+        const openWindow = BrowserWindow.fromWebContents(event.sender) ?? mainWindow;
+        const openOptions = {
+          properties: ['openFile' as const],
           filters: [{name: 'JSON', extensions: ['json']}],
-        });
+        };
+        const openResult = await (openWindow
+          ? dialog.showOpenDialog(openWindow, openOptions)
+          : dialog.showOpenDialog(openOptions));
 
         if (openResult.canceled || openResult.filePaths.length === 0) {
           return {valid: false, error: 'canceled'};
