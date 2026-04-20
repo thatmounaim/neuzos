@@ -107,6 +107,24 @@ let launchArgs: LaunchArgs;
 
 let neuzosConfig: any = null;
 
+type ConfigExportPayload = {
+  schemaVersion: 1;
+  exportedAt: string;
+  sessionActions: any[];
+  keyBinds: any[];
+  keyBindProfiles: any[];
+  activeKeyBindProfileId: string | null;
+};
+
+type ConfigImportResult =
+  | { valid: true; payload: ConfigExportPayload; warnings: string[] }
+  | { valid: false; error: string };
+
+type ConfigApplyImportArgs = {
+  payload: ConfigExportPayload;
+  mode: 'replace' | 'merge';
+};
+
 const defaultNeuzosConfig: any = {
   window: undefined,
   autoSaveSettings: false,
@@ -139,6 +157,7 @@ const defaultNeuzosConfig: any = {
     }
   ],
   sessionActions: [],
+  sessionZoomLevels: {},
   titleBarButtons: {
     darkModeToggle: true,
     fullscreenToggle: true,
@@ -219,6 +238,7 @@ function loadConfig(reload: boolean = false): Promise<any> {
           // Deep merge for window config to ensure all window types (main, settings, session) exist
           const loadedWindow = neuzosConfig.window;
           neuzosConfig = {...defaultNeuzosConfig, ...neuzosConfig};
+          neuzosConfig.sessionZoomLevels = neuzosConfig.sessionZoomLevels ?? {};
 
           // Deep merge window config specifically
           if (loadedWindow) {
@@ -1035,6 +1055,242 @@ function registerSessionKeybinds(mode: LaunchMode) {
       checkKeybinds();
       registerKeybinds();
       mainWindow?.webContents?.send("event.config_changed", config);
+    });
+
+    ipcMain.handle("config.export", async (event) => {
+      try {
+        const parentWindow = BrowserWindow.fromWebContents(event.sender) ?? mainWindow
+        const saveResult = await dialog.showSaveDialog(parentWindow ?? undefined, {
+          defaultPath: `neuzos-config-export-${new Date().toISOString().slice(0, 10)}.json`,
+          filters: [{name: 'JSON', extensions: ['json']}],
+        });
+
+        if (saveResult.canceled || !saveResult.filePath) {
+          return {success: false, error: 'canceled'};
+        }
+
+        const payload: ConfigExportPayload = {
+          schemaVersion: 1,
+          exportedAt: new Date().toISOString(),
+          sessionActions: JSON.parse(JSON.stringify(neuzosConfig.sessionActions ?? [])),
+          keyBinds: JSON.parse(JSON.stringify(neuzosConfig.keyBinds ?? [])),
+          keyBindProfiles: JSON.parse(JSON.stringify(neuzosConfig.keyBindProfiles ?? [])),
+          activeKeyBindProfileId: neuzosConfig.activeKeyBindProfileId ?? null,
+        };
+
+        await fs.promises.writeFile(saveResult.filePath, JSON.stringify(payload, null, 2), 'utf8');
+        return {success: true, filePath: saveResult.filePath};
+      } catch (error: any) {
+        return {success: false, error: error?.message ?? String(error)};
+      }
+    });
+
+    ipcMain.handle("config.import", async (event) => {
+      try {
+        const openResult = await dialog.showOpenDialog(BrowserWindow.fromWebContents(event.sender) ?? mainWindow ?? undefined, {
+          properties: ['openFile'],
+          filters: [{name: 'JSON', extensions: ['json']}],
+        });
+
+        if (openResult.canceled || openResult.filePaths.length === 0) {
+          return {valid: false, error: 'canceled'};
+        }
+
+        const filePath = openResult.filePaths[0];
+        const stats = await fs.promises.stat(filePath);
+        if (stats.size > 5 * 1024 * 1024) {
+          return {valid: false, error: 'Import file exceeds 5 MB limit.'};
+        }
+
+        const rawText = await fs.promises.readFile(filePath, 'utf8');
+        let parsed: any;
+        try {
+          parsed = JSON.parse(rawText);
+        } catch (error: any) {
+          return {valid: false, error: `Invalid JSON: ${error?.message ?? String(error)}`};
+        }
+
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          return {valid: false, error: 'Invalid config file: expected a JSON object.'};
+        }
+
+        const importedSchemaVersion = parsed.schemaVersion;
+
+        const requiredFields: Array<[string, string]> = [
+          ['schemaVersion', 'number'],
+          ['exportedAt', 'string'],
+          ['sessionActions', 'array'],
+          ['keyBinds', 'array'],
+          ['keyBindProfiles', 'array'],
+          ['activeKeyBindProfileId', 'string|null'],
+        ];
+
+        for (const [fieldName, fieldType] of requiredFields) {
+          if (!(fieldName in parsed)) {
+            return {valid: false, error: `Missing required field: ${fieldName}`};
+          }
+          const value = parsed[fieldName];
+          const isArray = fieldType === 'array' && Array.isArray(value);
+          const isString = fieldType === 'string' && typeof value === 'string';
+          const isNumber = fieldType === 'number' && typeof value === 'number' && Number.isFinite(value);
+          const isStringOrNull = fieldType === 'string|null' && (typeof value === 'string' || value === null);
+          if (!(isArray || isString || isNumber || isStringOrNull)) {
+            return {valid: false, error: `Invalid field type for ${fieldName}: expected ${fieldType}`};
+          }
+        }
+
+        const payload: ConfigExportPayload = {
+          schemaVersion: 1,
+          exportedAt: parsed.exportedAt,
+          sessionActions: parsed.sessionActions,
+          keyBinds: parsed.keyBinds,
+          keyBindProfiles: parsed.keyBindProfiles,
+          activeKeyBindProfileId: parsed.activeKeyBindProfileId,
+        };
+
+        const warnings: string[] = [];
+        if (importedSchemaVersion > 1) {
+          warnings.push(`Imported schema version ${importedSchemaVersion} is newer than this app.`);
+        }
+
+        const knownSessionIds = new Set((neuzosConfig.sessions ?? []).map((session: any) => session.id));
+        const orphanedSessionIds = [...new Set((payload.sessionActions ?? [])
+          .map((action: any) => action?.sessionId)
+          .filter((sessionId: any) => typeof sessionId === 'string' && sessionId !== '' && !knownSessionIds.has(sessionId)))];
+        if (orphanedSessionIds.length > 0) {
+          warnings.push(`Imported session actions reference unknown session IDs: ${orphanedSessionIds.join(', ')}`);
+        }
+
+        return {valid: true, payload, warnings} satisfies ConfigImportResult;
+      } catch (error: any) {
+        return {valid: false, error: error?.message ?? String(error)};
+      }
+    });
+
+    ipcMain.handle("config.apply_import", async (_, args: ConfigApplyImportArgs) => {
+      try {
+        const payload = args?.payload;
+        const mode = args?.mode;
+        if (!payload || (mode !== 'replace' && mode !== 'merge')) {
+          return {success: false, error: 'Invalid import payload.'};
+        }
+
+        if (mode === 'replace') {
+          neuzosConfig.sessionActions = JSON.parse(JSON.stringify(payload.sessionActions ?? []));
+          neuzosConfig.keyBinds = JSON.parse(JSON.stringify(payload.keyBinds ?? []));
+          neuzosConfig.keyBindProfiles = JSON.parse(JSON.stringify(payload.keyBindProfiles ?? []));
+          neuzosConfig.activeKeyBindProfileId = payload.activeKeyBindProfileId ?? null;
+        } else {
+          let addedActions = 0, addedBinds = 0, addedProfiles = 0;
+
+          // sessionActions is SessionActions[] — each entry is { sessionId, actions[] }
+          // Merge by sessionId: if the session group doesn't exist yet, add it whole.
+          // If it does exist, deep-merge individual actions by action id.
+          const existingSessionActions = [...(neuzosConfig.sessionActions ?? [])];
+          const existingSessionMap = new Map(existingSessionActions.map((sa: any) => [sa?.sessionId, sa]));
+          for (const importSA of (payload.sessionActions ?? [])) {
+            const existing = existingSessionMap.get(importSA?.sessionId);
+            if (!existing) {
+              // New session group — add wholesale
+              existingSessionActions.push(JSON.parse(JSON.stringify(importSA)));
+              existingSessionMap.set(importSA?.sessionId, importSA);
+              addedActions++;
+            } else {
+              // Session group already exists — deep-merge individual actions by id
+              const existingActions: any[] = existing.actions ?? [];
+              const existingActionIds = new Set(existingActions.map((a: any) => a?.id));
+              for (const action of (importSA?.actions ?? [])) {
+                if (action?.id && !existingActionIds.has(action.id)) {
+                  existingActions.push(JSON.parse(JSON.stringify(action)));
+                  existingActionIds.add(action.id);
+                  addedActions++;
+                }
+              }
+              existing.actions = existingActions;
+            }
+          }
+          neuzosConfig.sessionActions = existingSessionActions;
+
+          const existingKeyBinds = [...(neuzosConfig.keyBinds ?? [])];
+          const existingKeyBindKeys = new Set(existingKeyBinds.map((bind: any) => String(bind?.key ?? '').trim().toLowerCase()));
+          for (const bind of (payload.keyBinds ?? [])) {
+            const normalizedKey = String(bind?.key ?? '').trim().toLowerCase();
+            if (normalizedKey && !existingKeyBindKeys.has(normalizedKey)) {
+              existingKeyBinds.push(JSON.parse(JSON.stringify(bind)));
+              existingKeyBindKeys.add(normalizedKey);
+              addedBinds++;
+            }
+          }
+          neuzosConfig.keyBinds = existingKeyBinds;
+
+          const existingProfiles = [...(neuzosConfig.keyBindProfiles ?? [])];
+          const existingProfileMap = new Map(existingProfiles.map((p: any) => [p?.id, p]));
+          for (const importProfile of (payload.keyBindProfiles ?? [])) {
+            const existingProfile = existingProfileMap.get(importProfile?.id);
+            if (!existingProfile) {
+              // New profile — add it wholesale
+              existingProfiles.push(JSON.parse(JSON.stringify(importProfile)));
+              existingProfileMap.set(importProfile?.id, importProfile);
+              addedProfiles++;
+            } else {
+              // Profile already exists — deep-merge its keybinds
+              const existingProfileKeybinds: any[] = existingProfile.keybinds ?? [];
+              const existingBindKeys = new Set(
+                existingProfileKeybinds.map((b: any) => String(b?.key ?? '').trim().toLowerCase())
+              );
+              let innerAdded = 0;
+              for (const bind of (importProfile?.keybinds ?? [])) {
+                const normalizedKey = String(bind?.key ?? '').trim().toLowerCase();
+                if (normalizedKey && !existingBindKeys.has(normalizedKey)) {
+                  existingProfileKeybinds.push(JSON.parse(JSON.stringify(bind)));
+                  existingBindKeys.add(normalizedKey);
+                  innerAdded++;
+                }
+              }
+              existingProfile.keybinds = existingProfileKeybinds;
+              addedProfiles += innerAdded;
+            }
+          }
+          neuzosConfig.keyBindProfiles = existingProfiles;
+
+          if (!neuzosConfig.activeKeyBindProfileId) {
+            neuzosConfig.activeKeyBindProfileId = payload.activeKeyBindProfileId ?? null;
+          }
+
+          saveConfig(neuzosConfig);
+          checkKeybinds();
+          registerKeybinds();
+          mainWindow?.webContents?.send("event.config_changed", JSON.stringify(neuzosConfig));
+          return {success: true, added: {actions: addedActions, binds: addedBinds, profiles: addedProfiles}};
+        }
+
+        saveConfig(neuzosConfig);
+        checkKeybinds();
+        registerKeybinds();
+        mainWindow?.webContents?.send("event.config_changed", JSON.stringify(neuzosConfig));
+        return {success: true};
+      } catch (error: any) {
+        return {success: false, error: error?.message ?? String(error)};
+      }
+    });
+
+    ipcMain.handle("config.set_session_zoom", async (_, sessionId: string, zoomLevel: number) => {
+      try {
+        if (typeof sessionId !== 'string' || sessionId.trim() === '') {
+          return {success: false, error: 'Invalid session ID.'};
+        }
+        if (typeof zoomLevel !== 'number' || !Number.isFinite(zoomLevel) || zoomLevel < 0.5 || zoomLevel > 1.5) {
+          return {success: false, error: 'Invalid zoom level.'};
+        }
+
+        neuzosConfig.sessionZoomLevels = neuzosConfig.sessionZoomLevels ?? {};
+        neuzosConfig.sessionZoomLevels[sessionId] = zoomLevel;
+        saveConfig(neuzosConfig);
+        mainWindow?.webContents?.send("event.config_changed", JSON.stringify(neuzosConfig));
+        return {success: true};
+      } catch (error: any) {
+        return {success: false, error: error?.message ?? String(error)};
+      }
     });
 
     ipcMain.handle("keybinds.swap_profile", async (_, profileId: string) => {

@@ -85,6 +85,7 @@ import {flyffRegistry} from '$lib/core';
       defaultLayouts: [],
       keyBinds: [],
       sessionActions: [],
+      sessionZoomLevels: {},
       defaultLaunchMode: 'normal',
       userAgent: undefined,
       autoSaveSettings: false,
@@ -278,6 +279,7 @@ import {flyffRegistry} from '$lib/core';
     mainWindowState.config.chromium.commandLineSwitches = newConfig.chromium.commandLineSwitches
     mainWindowState.config.keyBinds = newConfig.keyBinds
     mainWindowState.config.sessionActions = newConfig.sessionActions || []
+    mainWindowState.config.sessionZoomLevels = newConfig.sessionZoomLevels ?? {}
     mainWindowState.config.defaultLaunchMode = newConfig.defaultLaunchMode
     mainWindowState.config.userAgent = newConfig.userAgent || undefined
     mainWindowState.config.titleBarButtons = newConfig.titleBarButtons

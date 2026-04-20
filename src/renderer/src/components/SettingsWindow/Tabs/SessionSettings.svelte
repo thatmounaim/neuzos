@@ -58,6 +58,19 @@
     neuzosBridge.sessions.clearStorage(sessionId)
   }
 
+  const clampZoom = (value: number) => Math.min(1.5, Math.max(0.5, Math.round(value * 20) / 20))
+
+  const getSessionZoom = (sessionId: string) => {
+    return neuzosConfig.sessionZoomLevels?.[sessionId] ?? 1.0
+  }
+
+  const setSessionZoom = (sessionId: string, value: number) => {
+    const zoom = clampZoom(value)
+    neuzosConfig.sessionZoomLevels = neuzosConfig.sessionZoomLevels ?? {}
+    neuzosConfig.sessionZoomLevels[sessionId] = zoom
+    void neuzosBridge.sessions.setZoom(sessionId, zoom)
+  }
+
   const clearAllCache = () => {
     neuzosConfig.sessions.forEach(session => {
       neuzosBridge.sessions.clearCache(session.id)
@@ -106,6 +119,7 @@
           <Table.Head class="w-[100px]">Icon</Table.Head>
           <Table.Head class="w-1/2">Label</Table.Head>
           <Table.Head class="w-[110px] text-center">Floatable</Table.Head>
+          <Table.Head class="w-[260px]">Zoom</Table.Head>
           <Table.Head class="w-1/2">Launch URL Overwrite</Table.Head>
           <Table.Head>Session ID</Table.Head>
           <Table.Head>Actions</Table.Head>
@@ -198,6 +212,28 @@
                   checked={session.floatable ?? false}
                   onCheckedChange={(checked) => { session.floatable = checked; }}
                 />
+              </div>
+            </Table.Cell>
+            <Table.Cell class="w-[260px]">
+              <div class="flex items-center gap-3">
+                <input
+                  class="w-full accent-primary"
+                  type="range"
+                  min="0.5"
+                  max="1.5"
+                  step="0.05"
+                  value={getSessionZoom(session.id)}
+                  oninput={(event) => {
+                    const value = Number((event.currentTarget as HTMLInputElement).value)
+                    setSessionZoom(session.id, value)
+                  }}
+                />
+                <span class="w-14 text-right text-xs font-medium tabular-nums text-muted-foreground">
+                  {(getSessionZoom(session.id) * 100).toFixed(0)}%
+                </span>
+                <Button variant="outline" size="sm" onclick={() => setSessionZoom(session.id, 1)}>
+                  Reset
+                </Button>
               </div>
             </Table.Cell>
             <Table.Cell class="w-1/2">

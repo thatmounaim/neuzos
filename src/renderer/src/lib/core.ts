@@ -1,4 +1,5 @@
 import type {IpcRenderer} from "@electron-toolkit/preload";
+import type {ConfigApplyImportArgs, ConfigExportPayload, ConfigImportResult} from "$lib/types";
 
 let electronApi: IpcRenderer | undefined = undefined;
 
@@ -75,6 +76,20 @@ export const neuzosBridge = {
     },
     clearStorage: (sessionId: string) => {
       electronApi?.send("session.clear_storage", sessionId);
+    },
+    setZoom: (sessionId: string, zoomLevel: number) => {
+      return electronApi?.invoke("config.set_session_zoom", sessionId, zoomLevel) ?? Promise.resolve({success: false, error: "Electron API unavailable"});
+    }
+  },
+  backup: {
+    export: (): Promise<{ success: boolean; filePath?: string; error?: string }> => {
+      return electronApi?.invoke("config.export") ?? Promise.resolve({success: false, error: "Electron API unavailable"});
+    },
+    import: (): Promise<ConfigImportResult> => {
+      return electronApi?.invoke("config.import") ?? Promise.resolve({valid: false, error: "Electron API unavailable"});
+    },
+    applyImport: (payload: ConfigExportPayload, mode: ConfigApplyImportArgs["mode"]): Promise<{ success: boolean; error?: string; added?: { actions: number; binds: number; profiles: number } }> => {
+      return electronApi?.invoke("config.apply_import", {payload, mode} satisfies ConfigApplyImportArgs) ?? Promise.resolve({success: false, error: "Electron API unavailable"});
     }
   },
   sessionWindow: {

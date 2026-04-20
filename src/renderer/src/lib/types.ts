@@ -9,6 +9,8 @@ export type NeuzIcon = {
   filter?: IconFilter;
 }
 
+export type SessionHealthStatus = 'healthy' | 'crashed' | 'load-failed' | 'unresponsive';
+
 export type NeuzSession = {
   id: string;
   label: string
@@ -50,11 +52,31 @@ export type MainWindowState = {
   doCalculationUpdatesRng: number
   sessionsLayoutsRef: {
     [key: string]: {
+      healthStatus?: SessionHealthStatus;
+      healthDetail?: string;
       layouts: {
         [key: string]: Partial<NeuzClient>
       }
     }
   }
+}
+
+export type ConfigExportPayload = {
+  schemaVersion: 1;
+  exportedAt: string;
+  sessionActions: SessionActions[];
+  keyBinds: NeuzKeybind[];
+  keyBindProfiles: NeuzKeyBindProfile[];
+  activeKeyBindProfileId: string | null;
+}
+
+export type ConfigImportResult =
+  | { valid: true; payload: ConfigExportPayload; warnings: string[] }
+  | { valid: false; error: string }
+
+export type ConfigApplyImportArgs = {
+  payload: ConfigExportPayload;
+  mode: 'replace' | 'merge';
 }
 
 export type SessionAction = {
@@ -119,6 +141,7 @@ export type NeuzConfig = {
   activeKeyBindProfileId?: string | null
   keyBinds: NeuzKeybind[]
   sessionActions: SessionActions[];
+  sessionZoomLevels?: { [sessionId: string]: number };
   titleBarButtons: {
     darkModeToggle: boolean;
     fullscreenToggle: boolean;
