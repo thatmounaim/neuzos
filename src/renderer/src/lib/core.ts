@@ -1,4 +1,5 @@
 import type {IpcRenderer} from "@electron-toolkit/preload";
+import type {ViewerWindowConfig, ViewerWindowType} from "./types";
 
 let electronApi: IpcRenderer | undefined = undefined;
 
@@ -83,6 +84,31 @@ export const neuzosBridge = {
     },
     toggleShortcuts: (enabled: boolean) => {
       electronApi?.send("session_window.toggle_shortcuts", enabled);
+    }
+  },
+  viewerWindow: {
+    open: (type: ViewerWindowType) => {
+      electronApi?.send('viewer_window.open', type);
+    },
+    close: () => {
+      electronApi?.send('viewer_window.close');
+    },
+    minimize: () => {
+      electronApi?.send('viewer_window.minimize');
+    },
+    setAlwaysOnTop: (alwaysOnTop: boolean) => {
+      electronApi?.send('viewer_window.set_always_on_top', alwaysOnTop);
+    },
+    getConfig: (): Promise<{ type: ViewerWindowType; config: ViewerWindowConfig } | { error: string }> => {
+      return electronApi?.invoke('viewer_window.get_config') ?? Promise.resolve({ error: 'Electron API unavailable' });
+    }
+  },
+  sidebarPanel: {
+    getSide: (): Promise<'left' | 'right'> => {
+      return electronApi?.invoke('sidebar_panel.get_side') ?? Promise.resolve('left');
+    },
+    setSide: (side: 'left' | 'right') => {
+      electronApi?.send('sidebar_panel.set_side', side);
     }
   }
 }

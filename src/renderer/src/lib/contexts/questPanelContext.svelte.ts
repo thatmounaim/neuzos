@@ -1,4 +1,5 @@
-import { getContext, setContext } from 'svelte';
+import { getContext, onMount, setContext } from 'svelte';
+import { neuzosBridge } from '$lib/core';
 
 const QUEST_PANEL_CONTEXT_KEY = Symbol('questPanel');
 const STORAGE_KEY = 'questPanel';
@@ -104,6 +105,7 @@ function loadPersistedState(): PersistedState {
 
 export interface QuestPanelContext {
   readonly isOpen: boolean;
+  readonly sidebarSide: 'left' | 'right';
   readonly characters: CharacterState[];
   readonly activeCharacterId: string | null;
   readonly flyffClass: FlyffClassName | null;
@@ -117,6 +119,7 @@ export interface QuestPanelContext {
   toggle: () => void;
   open: () => void;
   close: () => void;
+  setSidebarSide: (side: 'left' | 'right') => void;
   // Character management
   addCharacter: (name: string, flyffClass: FlyffClassName) => void;
   removeCharacter: (id: string) => void;
@@ -147,11 +150,22 @@ export function createQuestPanelContext(): QuestPanelContext {
   const persisted = loadPersistedState();
 
   let isOpen = $state(false);
+  let sidebarSide = $state<'left' | 'right'>('left');
   let characters = $state<CharacterState[]>(persisted.characters.map(c => ({ ...c })));
   let activeCharacterId = $state<string | null>(persisted.activeCharacterId);
   let recommendationFilters = $state<Record<string, boolean>>({ ...persisted.recommendationFilters });
   let levelAppropriateOnly = $state(persisted.levelAppropriateOnly);
   let fwcFilterEnabled = $state(persisted.fwcFilterEnabled);
+
+  onMount(() => {
+    neuzosBridge.sidebarPanel.getSide()
+      .then((side) => {
+        sidebarSide = side;
+      })
+      .catch((error) => {
+        console.warn('[QuestPanel] Failed to load sidebar side from config:', error);
+      });
+  });
 
   // Derived index for the active character -- we use a getter pattern to avoid $derived proxy issues
   function getActiveChar(): CharacterState | null {
@@ -199,6 +213,7 @@ export function createQuestPanelContext(): QuestPanelContext {
 
   return {
     get isOpen() { return isOpen; },
+    get sidebarSide() { return sidebarSide; },
     get characters() { return characters; },
     get activeCharacterId() { return activeCharacterId; },
     get flyffClass() { return getActiveChar()?.flyffClass ?? null; },
@@ -215,6 +230,10 @@ export function createQuestPanelContext(): QuestPanelContext {
     },
     open() { isOpen = true; },
     close() { isOpen = false; },
+    setSidebarSide(side: 'left' | 'right') {
+      sidebarSide = side;
+      neuzosBridge.sidebarPanel.setSide(side);
+    },
 
     // -- Character management --
     addCharacter(name: string, flyffClass: FlyffClassName) {

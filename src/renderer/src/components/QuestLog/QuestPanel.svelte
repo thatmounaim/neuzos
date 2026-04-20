@@ -1,10 +1,9 @@
 <script lang="ts">
   import { fly } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
-  import { X, Search, Plus, Minus, Settings2, Trash2, Pencil, Check, ChevronDown, ChevronRight } from '@lucide/svelte';
+  import { X, Search, Plus, Minus, Settings2, Trash2, Pencil, Check, ChevronDown, ChevronRight, PanelLeft, PanelRight } from '@lucide/svelte';
   import { Button } from '$lib/components/ui/button';
   import { Input } from '$lib/components/ui/input';
-  import { Badge } from '$lib/components/ui/badge';
   import * as ContextMenu from '$lib/components/ui/context-menu';
   import { getQuestPanelContext, RECOMMENDATION_CATEGORIES, type FlyffClassName } from '$lib/contexts/questPanelContext.svelte';
   import { quests as allQuests, type Quest } from '$lib/data/quests';
@@ -45,8 +44,6 @@
 
   const filteredQuestlines = $derived.by(() => {
     const level = questPanel.level;
-    // Read completedQuestKeys to establish reactive dependency
-    const completed = questPanel.completedQuestKeys;
     const fwcEnabled = questPanel.fwcFilterEnabled;
     let questsToShow: Quest[];
 
@@ -111,8 +108,8 @@
 </script>
 
 <div
-  class="flex flex-col h-full w-80 border-l border-border/60 bg-background absolute right-0 top-0 bottom-0 z-40 shadow-lg"
-  transition:fly={{ x: 320, duration: 250, easing: cubicOut }}
+  class="flex flex-col h-full w-80 border-border/60 bg-background absolute top-0 bottom-0 z-40 shadow-lg {questPanel.sidebarSide === 'right' ? 'left-0 right-auto border-r border-l-0' : 'right-0 left-auto border-l border-r-0'}"
+  transition:fly={{ x: questPanel.sidebarSide === 'right' ? -320 : 320, duration: 250, easing: cubicOut }}
 >
   <!-- Character Tabs (always visible) -->
   <div class="flex items-center gap-2 px-2 py-1.5 border-b border-border overflow-x-auto">
@@ -212,6 +209,19 @@
       <span class="text-sm font-semibold">Quest Log</span>
     </button>
     <div class="flex items-center gap-1">
+      <Button
+        size="icon"
+        variant="ghost"
+        class="size-6"
+        onclick={() => questPanel.setSidebarSide(questPanel.sidebarSide === 'left' ? 'right' : 'left')}
+        title={questPanel.sidebarSide === 'left' ? 'Move sidebar to right' : 'Move sidebar to left'}
+      >
+        {#if questPanel.sidebarSide === 'left'}
+          <PanelRight class="size-3.5" />
+        {:else}
+          <PanelLeft class="size-3.5" />
+        {/if}
+      </Button>
       <Button size="icon" variant={showSettings ? 'secondary' : 'ghost'} class="size-6" onclick={() => showSettings = !showSettings}>
         <Settings2 class="size-3.5" />
       </Button>
