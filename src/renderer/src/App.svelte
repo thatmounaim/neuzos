@@ -13,6 +13,7 @@
   import {createFlyffRegistryContext, setFlyffRegistryContext} from '$lib/contexts/flyffRegistryContext.svelte';
   import {createQuestPanelContext, setQuestPanelContext} from '$lib/contexts/questPanelContext.svelte';
   import {createTodoContext, setTodoContext} from '$lib/contexts/todoContext.svelte';
+  import {createUIActionContext, setUIActionContext} from '$lib/contexts/uiActionContext.svelte';
   import FlyffRegistryBuilder from './components/Shared/FlyffRegistryBuilder.svelte';
 import {flyffRegistry} from '$lib/core';
   import {Button} from "$lib/components/ui/button";
@@ -46,11 +47,40 @@ import {flyffRegistry} from '$lib/core';
   const todoContext = createTodoContext();
   setTodoContext(todoContext);
 
+  // Create and set the UI action dispatcher context
+  const uiActionContext = createUIActionContext();
+  setUIActionContext(uiActionContext);
+
   $effect(() => {
     const charId = questPanelContext.activeCharacterId;
     untrack(() => {
       todoContext.switchCharacter(charId);
     });
+  });
+
+  $effect(() => {
+    const activeProfile = mainWindowState.config.keyBindProfiles?.find(
+      (profile) => profile.id === mainWindowState.config.activeKeyBindProfileId
+    );
+    const gamepadBinds = activeProfile?.keybinds.filter(bind => bind.key.startsWith('Gamepad') && bind.event.startsWith('ui.')) ?? [];
+
+    uiActionContext.startGamepadPoll(gamepadBinds);
+
+    return () => {
+      uiActionContext.stopGamepadPoll();
+    };
+  });
+
+  onMount(() => {
+    const onUiActionFired = (_: any, payload: { actionId: string }) => {
+      uiActionContext.dispatch(payload.actionId);
+    };
+
+    electronApi.on('event.ui_action_fired', onUiActionFired);
+
+    return () => {
+      electronApi.removeListener('event.ui_action_fired', onUiActionFired);
+    };
   });
 
   initElectronApi(window.electron.ipcRenderer)

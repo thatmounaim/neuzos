@@ -1,4 +1,5 @@
 import type {IpcRenderer} from "@electron-toolkit/preload";
+import type {UIActionDescriptor} from "$lib/types";
 
 let electronApi: IpcRenderer | undefined = undefined;
 
@@ -83,6 +84,11 @@ export const neuzosBridge = {
     },
     toggleShortcuts: (enabled: boolean) => {
       electronApi?.send("session_window.toggle_shortcuts", enabled);
+    }
+  },
+  uiActions: {
+    getRegistry: (): Promise<UIActionDescriptor[]> => {
+      return electronApi?.invoke("config.get_available_ui_actions") ?? Promise.resolve([]);
     }
   }
 }

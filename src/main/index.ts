@@ -5,6 +5,7 @@ import icon from "../../resources/icon.png?asset";
 import * as fs from "node:fs";
 import {rimraf} from "rimraf";
 import {buildRegistry, checkRegistry, loadRegistry, type ProgressEvent} from "./flyff-registry";
+import type {UIActionDescriptor} from "../renderer/src/lib/types";
 
 // Register custom protocol for serving flyff registry assets (icons etc.)
 // Must be called before app is ready
@@ -176,6 +177,14 @@ const allowedEventKeybinds = {
     ],
   }
 }
+
+const allowedUiActionKeybinds: Record<string, UIActionDescriptor> = {
+  "ui.toggle_quest_log": {
+    id: "ui.toggle_quest_log",
+    label: "Toggle Quest Log",
+    category: "Interface",
+  },
+};
 
 const userDataPath = app.getPath("userData");
 const configDirectoryPath = join(userDataPath, "/neuzos_config/");
@@ -600,9 +609,23 @@ function checkKeybinds() {
     neuzosConfig.activeKeyBindProfileId = neuzosConfig.keyBindProfiles[0].id;
   }
 
+  const allowedKeybindEvents = new Set([
+    ...Object.keys(allowedEventKeybinds),
+    ...Object.keys(allowedUiActionKeybinds),
+  ]);
+
   neuzosConfig.keyBinds = neuzosConfig.keyBinds.filter((bind: any) => {
-    return Object.keys(allowedEventKeybinds).includes(bind.event);
+    return allowedKeybindEvents.has(bind.event);
   })
+
+  const activeProfile = neuzosConfig.keyBindProfiles.find(
+    (profile: any) => profile.id === neuzosConfig.activeKeyBindProfileId
+  );
+  if (activeProfile) {
+    activeProfile.keybinds = activeProfile.keybinds.filter((bind: any) => {
+      return allowedKeybindEvents.has(bind.event);
+    });
+  }
 
   // filter empty keybinds
   neuzosConfig.keyBinds = neuzosConfig.keyBinds.filter((bind) => {
@@ -616,6 +639,11 @@ function checkKeybinds() {
 }
 
 function dispatchKeybindEvent(bind: any) {
+  if (bind.event?.startsWith("ui.")) {
+    mainWindow?.webContents.send("event.ui_action_fired", {actionId: bind.event});
+    return;
+  }
+
   switch (bind.event) {
     case "fullscreen_toggle":
       mainWindow?.setFullScreen(!mainWindow?.isFullScreen());
@@ -1056,6 +1084,10 @@ function registerSessionKeybinds(mode: LaunchMode) {
     ipcMain.handle("config.get_available_event_keybinds", async () => {
       return allowedEventKeybinds;
     })
+
+    ipcMain.handle("config.get_available_ui_actions", async () => {
+      return Object.values(allowedUiActionKeybinds);
+    });
 
     ipcMain.handle('fetch.flyff_news', async () => {
       try {

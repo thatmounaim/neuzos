@@ -6,4 +6,3 @@ tsconfig.json
 tsconfig.*.json
 .github/
 .specify/
-specs/
