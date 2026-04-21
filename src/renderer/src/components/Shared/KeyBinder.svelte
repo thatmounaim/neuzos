@@ -6,11 +6,12 @@
     actionId: string;
     currentKey: string;
     conflictLabel?: string;
+    keyboardOnly?: boolean;
     onBind: (key: string) => boolean | void;
     onCancel: () => void;
   };
 
-  let {actionId, currentKey, conflictLabel, onBind, onCancel}: Props = $props();
+  let {actionId, currentKey, conflictLabel, keyboardOnly = false, onBind, onCancel}: Props = $props();
 
   let open = $state(false);
   let isRecording = $state(false);
@@ -205,7 +206,7 @@
   $effect(() => {
     if (!open || !isRecording) {
       stopGamepadLoop();
-      return;
+      return () => {};
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -288,12 +289,16 @@
     };
 
     window.addEventListener("keydown", handleKeyDown, true);
-    window.addEventListener("mousedown", handleMouseDown, true);
-    gamepadRafId = requestAnimationFrame(pollGamepads);
+    if (!keyboardOnly) {
+      window.addEventListener("mousedown", handleMouseDown, true);
+      gamepadRafId = requestAnimationFrame(pollGamepads);
+    }
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown, true);
-      window.removeEventListener("mousedown", handleMouseDown, true);
+      if (!keyboardOnly) {
+        window.removeEventListener("mousedown", handleMouseDown, true);
+      }
       stopGamepadLoop();
     };
   });

@@ -16,17 +16,10 @@
   const ACTION_PIN_AUTOLOAD_KEY = 'widgets.actionPin.autoLoadLatest';
 
   let didInitPinPersistence = false;
-  let didRestoreLatestPins = false;
   let initialSavedLatestPinSessionIds: string[] = [];
 
   // Force reactivity for cooldown updates
   let cooldownTrigger = $state(0);
-  $effect(() => {
-    const unsubscribe = cooldownsContext.subscribe(() => {
-      cooldownTrigger++;
-    });
-    return () => unsubscribe();
-  });
 
   // Helper to get action state that depends on cooldownTrigger for reactivity
   function getActionStateReactive(sessionId: string, actionId: string) {
@@ -105,8 +98,32 @@
   const validSessionIdsWithActions = $derived(getSessionsWithActions());
 
   onMount(() => {
+    const unsubscribe = cooldownsContext.subscribe(() => {
+      cooldownTrigger++;
+    });
+
     initialSavedLatestPinSessionIds = readSavedLatestPinSessionIds();
     didInitPinPersistence = true;
+
+    const validSessionIds = new Set(validSessionIdsWithActions);
+    if (validSessionIds.size > 0 && readAutoLoadLatestPins()) {
+      const existingPinnedSessionIds = new Set(
+        actionPinWidgets
+          .map(widget => widget.data?.sessionId)
+          .filter((sessionId): sessionId is string => typeof sessionId === 'string')
+      );
+
+      const savedSessionIds = initialSavedLatestPinSessionIds.filter(sessionId => validSessionIds.has(sessionId));
+      for (const sessionId of savedSessionIds) {
+        if (!existingPinnedSessionIds.has(sessionId)) {
+          widgetsContext.createWidget(ACTION_PIN_WIDGET_TYPE, {sessionId});
+        }
+      }
+    }
+
+    return () => {
+      unsubscribe();
+    };
   });
 
   $effect(() => {
@@ -122,27 +139,6 @@
     ];
 
     writeSavedLatestPinSessionIds(currentPinnedSessionIds);
-  });
-
-  $effect(() => {
-    if (!didInitPinPersistence || didRestoreLatestPins) return;
-
-    const validSessionIds = new Set(validSessionIdsWithActions);
-    if (validSessionIds.size === 0) return;
-    if (!readAutoLoadLatestPins()) {
-      didRestoreLatestPins = true;
-      return;
-    }
-
-    const savedSessionIds = initialSavedLatestPinSessionIds.filter(sessionId => validSessionIds.has(sessionId));
-    for (const sessionId of savedSessionIds) {
-      const alreadyPinned = actionPinWidgets.some(widget => widget.data?.sessionId === sessionId);
-      if (!alreadyPinned) {
-        widgetsContext.createWidget(ACTION_PIN_WIDGET_TYPE, {sessionId});
-      }
-    }
-
-    didRestoreLatestPins = true;
   });
 
   // Get all pinned actions from sessions that have action pad widgets (even if hidden)

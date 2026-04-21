@@ -5,7 +5,13 @@ import icon from "../../resources/icon.png?asset";
 import * as fs from "node:fs";
 import {rimraf} from "rimraf";
 import {buildRegistry, checkRegistry, loadRegistry, type ProgressEvent} from "./flyff-registry";
-import type {UIActionDescriptor} from "../renderer/src/lib/types";
+
+type UIActionDescriptor = {
+  id: string;
+  label: string;
+  category: string;
+  defaultKey?: string;
+};
 
 // Register custom protocol for serving flyff registry assets (icons etc.)
 // Must be called before app is ready
@@ -519,6 +525,18 @@ function createMainWindow(): void {
     }
   });
 
+  mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
+    console.log(`[renderer:${level}] ${message} (${sourceId}:${line})`);
+  });
+
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    console.error('Main window render process gone:', details.reason, details.exitCode);
+  });
+
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+    console.error('Main window failed to load:', errorCode, errorDescription, validatedURL);
+  });
+
   mainWindow.on("close", (event) => {
     // Always unregister shortcuts when main window is closing
     globalShortcut.unregisterAll();
@@ -683,14 +701,14 @@ function registerKeybinds() {
 
   allBinds.forEach((bind) => {
     if (!bind.key) return;
+    const normalizedKey = String(bind.key).toLowerCase();
+    if (normalizedKey.startsWith('mouse') || normalizedKey.startsWith('gamepad')) {
+      return;
+    }
     try {
       globalShortcut.register(bind.key, () => dispatchKeybindEvent(bind));
     } catch (e) {
-      dialog.showErrorBox("Failed to register keybind", "Please fix your config manually found at \n" + join(configDirectoryPath, "/config.json"));
-      globalShortcut.unregisterAll();
-      exitCount = 3;
-      app.quit();
-      return;
+      console.warn("Skipping invalid keybind:", bind.key, bind.event, e);
     }
   });
 }
@@ -940,6 +958,14 @@ function registerSessionKeybinds(mode: LaunchMode) {
         globalShortcut.unregisterAll();
       }
       win?.webContents.send("event.shortcuts_state_changed", enabled);
+    });
+
+    ipcMain.on("keybinds.dispatch", (_, bind: any) => {
+      try {
+        dispatchKeybindEvent(bind);
+      } catch (e) {
+        console.warn("Failed to dispatch keybind from renderer:", bind?.key, bind?.event, e);
+      }
     });
 
     ipcMain.on("session_window.toggle_shortcuts", (event, enabled: boolean) => {

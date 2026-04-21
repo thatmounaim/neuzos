@@ -70,8 +70,9 @@
   const questPanel = getQuestPanelContext();
   const uiActionContext = getUIActionContext();
 
-  $effect(() => {
+  onMount(() => {
     uiActionContext.register('ui.toggle_quest_log', () => questPanel.toggle());
+
     return () => {
       uiActionContext.unregister('ui.toggle_quest_log');
     };

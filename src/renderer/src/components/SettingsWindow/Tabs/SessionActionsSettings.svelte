@@ -10,6 +10,7 @@
   import {Input} from "$lib/components/ui/input";
   import {Switch} from "$lib/components/ui/switch";
   import * as Alert from "$lib/components/ui/alert";
+  import KeyBinder from "../../Shared/KeyBinder.svelte";
   import type {NeuzConfig, SessionActions} from "$lib/types";
   import {Plus, Trash2, ChevronsUpDown, Check, ChevronDown, ChevronUp, AlertCircleIcon} from "@lucide/svelte";
 
@@ -653,6 +654,7 @@
                           <Table.Head class="w-[200px]">Label</Table.Head>
                           <Table.Head class="w-[120px]">Modifier</Table.Head>
                           <Table.Head class="w-[120px]">Key</Table.Head>
+                          <Table.Head class="w-[120px]">Record</Table.Head>
                           <Table.Head class="w-[100px]">Cast Time(s)</Table.Head>
                           <Table.Head class="w-[100px]">Cooldown(s)</Table.Head>
                           <Table.Head class="w-[120px]">CD Category</Table.Head>
@@ -820,6 +822,19 @@
                                   </Command.Root>
                                 </Popover.Content>
                               </Popover.Root>
+                            </Table.Cell>
+
+                            <!-- Record -->
+                            <Table.Cell class="py-3">
+                              <KeyBinder
+                                actionId={action.id}
+                                currentKey={action.ingameKey}
+                                onBind={(key) => {
+                                  action.ingameKey = key;
+                                  return true;
+                                }}
+                                onCancel={() => {}}
+                              />
                             </Table.Cell>
 
                             <!-- Cast Time -->

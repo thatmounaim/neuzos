@@ -424,6 +424,7 @@
                             <Table.Head class="font-bold w-[60px]">Order</Table.Head>
                             <Table.Head class="font-bold">Modifier</Table.Head>
                             <Table.Head class="font-bold">Key</Table.Head>
+                            <Table.Head class="font-bold">Record</Table.Head>
                             <Table.Head class="font-bold">Event</Table.Head>
                             <Table.Head class="w-full"></Table.Head>
                             <Table.Head></Table.Head>
@@ -496,6 +497,15 @@
                                     </Command.Root>
                                   </Popover.Content>
                                 </Popover.Root>
+                              </Table.Cell>
+                              <!-- Record (KeyBinder) -->
+                              <Table.Cell>
+                                <KeyBinder
+                                  actionId={keyBind.event}
+                                  currentKey={keyBind.key}
+                                  onBind={(capturedKey) => { keyBind.key = capturedKey; return true; }}
+                                  onCancel={() => {}}
+                                />
                               </Table.Cell>
                               <!-- Event label -->
                               <Table.Cell class="text-sm text-muted-foreground">{eventInfo?.label}</Table.Cell>
@@ -790,6 +800,7 @@
             <Table.Head class="font-bold w-[60px]">Order</Table.Head>
             <Table.Head class="font-bold">Modifier</Table.Head>
             <Table.Head class="font-bold">Key</Table.Head>
+                          <Table.Head class="font-bold">Record</Table.Head>
             <Table.Head class="font-bold">Event</Table.Head>
             <Table.Head class="w-full"></Table.Head>
             <Table.Head class="font-bold"></Table.Head>
@@ -862,6 +873,17 @@
                       </Command.Root>
                     </Popover.Content>
                   </Popover.Root>
+                </Table.Cell>
+                <Table.Cell>
+                  <KeyBinder
+                    actionId={keyBind.event}
+                    currentKey={keyBind.key}
+                    onBind={(key) => {
+                      keyBind.key = key;
+                      return true;
+                    }}
+                    onCancel={() => {}}
+                  />
                 </Table.Cell>
                 <Table.Cell class="text-sm text-muted-foreground">{eventInfo?.label}</Table.Cell>
                 <Table.Cell>

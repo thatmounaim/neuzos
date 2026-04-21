@@ -1,5 +1,5 @@
 import type {IpcRenderer} from "@electron-toolkit/preload";
-import type {UIActionDescriptor} from "$lib/types";
+import type {NeuzKeybind, UIActionDescriptor} from "$lib/types";
 
 let electronApi: IpcRenderer | undefined = undefined;
 
@@ -59,6 +59,12 @@ export const neuzosBridge = {
     },
     closeAll: () => {
       electronApi?.send("tabs.close_all");
+    }
+  },
+  keybinds: {
+    dispatch: (bind: NeuzKeybind) => {
+      // Spread into a plain object to avoid Svelte $state Proxy serialization error
+      electronApi?.send("keybinds.dispatch", { key: bind.key, event: bind.event, args: bind.args });
     }
   },
   sessions: {
