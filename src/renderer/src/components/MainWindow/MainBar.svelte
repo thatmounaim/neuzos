@@ -42,8 +42,6 @@
   import {getQuestPanelContext} from "$lib/contexts/questPanelContext.svelte";
   import {ScrollText} from '@lucide/svelte';
 
-  // ...existing code...
-
   let shortcutsEnabled = $state(true);
 
   onMount(async () => {
@@ -173,6 +171,7 @@
 
 
   function getIconPath(session: NeuzSession): string {
+    if (!session?.icon?.slug) return 'icons/misc/unknown.png';
     return `icons/${session.icon.slug}.png`;
   }
 
@@ -224,7 +223,7 @@
                 <Button variant="outline" size="sm" class="flex gap-2 justify-start items-center"
                         disabled={disabledAdd}
                         onclick={() => addLayout(layTab.id)}>
-                  <img class="w-6 h-6" src="icons/{layTab.icon.slug}.png" alt=""/> {layTab.label}
+                  <img class="w-6 h-6" src="icons/{layTab.icon?.slug ?? 'misc/unknown'}.png" alt=""/> {layTab.label}
                 </Button>
               {/each}
             </div>
@@ -287,6 +286,7 @@
     {/if}
     {#each mainWindowState.tabs.layoutOrder as layoutId (layoutId)}
       {@const layTab = mainWindowState.layouts.find(l => l.id === layoutId)}
+      {#if !layTab}{:else}
       {@const disabledSwitch = mainWindowState.tabs.activeLayoutId === layoutId}
 
       <ContextMenu.Root>
@@ -371,6 +371,7 @@
           {#each layTab.rows as row,idx (idx)}
             {#each row.sessionIds as sessionId (sessionId)}
               {@const session = mainWindowState.sessions.find(s => s.id === sessionId)}
+              {#if !session}{:else}
               <ContextMenu.Sub>
                 <ContextMenu.SubTrigger>
                   <div class="flex items-center gap-2 justify-between w-full">
@@ -443,10 +444,12 @@
                   </ContextMenu.Item>
                 </ContextMenu.SubContent>
               </ContextMenu.Sub>
+              {/if}
             {/each}
           {/each}
         </ContextMenu.Content>
       </ContextMenu.Root>
+      {/if}
     {/each}
   </div>
   <div

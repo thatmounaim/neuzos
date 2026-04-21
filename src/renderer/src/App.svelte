@@ -361,7 +361,18 @@
         mainWindowState.config,
       )
       mainWindowState.config = loadedConfig
-      reloadNeuzos()
+
+      // Populate runtime sessions/layouts synchronously so MainBar renders safely.
+      // reloadNeuzos() uses setTimeout(50ms) which creates a race with isLoading=false.
+      const loadedLayouts = loadedConfig.layouts ?? []
+      const validLayoutIds = new Set(loadedLayouts.map((l: any) => l.id))
+      const validDefaultLayouts = (loadedConfig.defaultLayouts ?? []).filter((id: string) => validLayoutIds.has(id))
+      mainWindowState.sessions = JSON.parse(JSON.stringify(loadedConfig.sessions ?? []))
+      mainWindowState.layouts = JSON.parse(JSON.stringify(loadedLayouts))
+      mainWindowState.tabs.layoutsIds = JSON.parse(JSON.stringify(validDefaultLayouts))
+      mainWindowState.tabs.layoutOrder = JSON.parse(JSON.stringify(validDefaultLayouts))
+      mainWindowState.tabs.activeLayoutId = 'home'
+      mainWindowState.tabs.previousLayoutId = null
 
       // Load the registry in the background so the app UI can appear even if it fails.
       void (async () => {
@@ -376,12 +387,10 @@
         }
       })()
     } catch (error) {
-      console.error('Failed to initialize app:', error);
+      console.error('[App] onMount error:', error);
     } finally {
       // Always dismiss the loading screen — never leave the user stuck
-      setTimeout(() => {
-        isLoading = false
-      }, 500)
+      isLoading = false
     }
   })
 </script>
