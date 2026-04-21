@@ -53,6 +53,29 @@
 
   initElectronApi(window.electron.ipcRenderer)
 
+  async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string, fallback: T): Promise<T> {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+    try {
+      return await Promise.race([
+        promise,
+        new Promise<T>((resolve) => {
+          timeoutId = setTimeout(() => {
+            console.warn(`${label} timed out after ${timeoutMs}ms, continuing with fallback state`);
+            resolve(fallback);
+          }, timeoutMs);
+        }),
+      ]);
+    } catch (error) {
+      console.error(`${label} failed:`, error);
+      return fallback;
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    }
+  }
+
   let mainWindowState: MainWindowState = $state({
     config: {
       window: {
@@ -331,19 +354,27 @@
   onMount(async () => {
     try {
       neuzosBridge.layouts.closeAll()
-      mainWindowState.config = await electronApi.invoke('config.load', true)
+      const loadedConfig = await withTimeout(
+        electronApi.invoke('config.load', true),
+        10000,
+        'config.load',
+        mainWindowState.config,
+      )
+      mainWindowState.config = loadedConfig
       reloadNeuzos()
 
-      // Check if the flyff registry is built; if so load it, otherwise prompt to build
-      try {
-        const registryExists = await flyffRegistry.check();
-        if (registryExists) {
-          const registry = await flyffRegistry.load();
-          if (registry) flyffRegistryContext.setRegistry(registry);
+      // Load the registry in the background so the app UI can appear even if it fails.
+      void (async () => {
+        try {
+          const registryExists = await withTimeout(flyffRegistry.check(), 5000, 'registry.check', false);
+          if (registryExists) {
+            const registry = await withTimeout(flyffRegistry.load(), 5000, 'registry.load', null);
+            if (registry) flyffRegistryContext.setRegistry(registry);
+          }
+        } catch (registryError) {
+          console.warn('Flyff registry load failed, continuing without it:', registryError);
         }
-      } catch (registryError) {
-        console.warn('Flyff registry load failed, continuing without it:', registryError);
-      }
+      })()
     } catch (error) {
       console.error('Failed to initialize app:', error);
     } finally {
