@@ -353,7 +353,6 @@
 
   onMount(async () => {
     try {
-      neuzosBridge.layouts.closeAll()
       const loadedConfig = await withTimeout(
         electronApi.invoke('config.load', true),
         10000,
