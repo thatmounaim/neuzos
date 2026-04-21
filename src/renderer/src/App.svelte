@@ -13,14 +13,12 @@
   import {createFlyffRegistryContext, setFlyffRegistryContext} from '$lib/contexts/flyffRegistryContext.svelte';
   import {createQuestPanelContext, setQuestPanelContext} from '$lib/contexts/questPanelContext.svelte';
   import {createTodoContext, setTodoContext} from '$lib/contexts/todoContext.svelte';
-  import FlyffRegistryBuilder from './components/Shared/FlyffRegistryBuilder.svelte';
-import {flyffRegistry} from '$lib/core';
+  import {flyffRegistry} from '$lib/core';
   import {Button} from "$lib/components/ui/button";
   import {Minimize} from '@lucide/svelte';
 
 
   let isLoading = $state(true);
-  let showRegistryBuilder = $state(false);
   let isFullscreen = $state(false);
 
   setElectronContext(window.electron.ipcRenderer);
@@ -86,6 +84,8 @@ import {flyffRegistry} from '$lib/core';
       keyBinds: [],
       sessionActions: [],
       sessionZoomLevels: {},
+      keyBindProfiles: [],
+      activeKeyBindProfileId: null,
       defaultLaunchMode: 'normal',
       userAgent: undefined,
       autoSaveSettings: false,
@@ -287,6 +287,16 @@ import {flyffRegistry} from '$lib/core';
       hideTitleBarInMainWindow: false,
       hideTitleBarInSessionLayouts: false
     }
+    // Imperatively push new zoom levels to all running webviews.
+    // The reactive $effect in NeuzClient is unreliable for cross-component deep mutations.
+    const zoomLevels = mainWindowState.config.sessionZoomLevels
+    Object.entries(mainWindowState.sessionsLayoutsRef).forEach(([sessionId, sessionRef]: [string, any]) => {
+      const zoom = zoomLevels[sessionId] ?? 1.0
+      const layouts = sessionRef?.layouts
+      if (layouts) {
+        Object.values(layouts).forEach((ref: any) => ref.setZoom?.(zoom))
+      }
+    })
   })
 
   const reloadNeuzos = () => {
@@ -328,8 +338,6 @@ import {flyffRegistry} from '$lib/core';
     if (registryExists) {
       const registry = await flyffRegistry.load();
       if (registry) flyffRegistryContext.setRegistry(registry);
-    } else {
-      showRegistryBuilder = true;
     }
 
     // Wait a bit to ensure all contexts are properly initialized

@@ -1,5 +1,5 @@
 import type {IpcRenderer} from "@electron-toolkit/preload";
-import type {ConfigApplyImportArgs, ConfigExportPayload, ConfigImportResult} from "$lib/types";
+import type {ConfigApplyImportArgsV2, ConfigExportPayloadV2, ConfigImportResult, ConfigImportPayload, ExportCategory} from "$lib/types";
 
 let electronApi: IpcRenderer | undefined = undefined;
 
@@ -82,14 +82,14 @@ export const neuzosBridge = {
     }
   },
   backup: {
-    export: (): Promise<{ success: boolean; filePath?: string; error?: string }> => {
-      return electronApi?.invoke("config.export") ?? Promise.resolve({success: false, error: "Electron API unavailable"});
+    export: (payload: ConfigExportPayloadV2): Promise<{ success: boolean; filePath?: string; error?: string }> => {
+      return electronApi?.invoke("config.export", payload) ?? Promise.resolve({success: false, error: "Electron API unavailable"});
     },
     import: (): Promise<ConfigImportResult> => {
       return electronApi?.invoke("config.import") ?? Promise.resolve({valid: false, error: "Electron API unavailable"});
     },
-    applyImport: (payload: ConfigExportPayload, mode: ConfigApplyImportArgs["mode"]): Promise<{ success: boolean; error?: string; added?: { actions: number; binds: number; profiles: number } }> => {
-      return electronApi?.invoke("config.apply_import", {payload, mode} satisfies ConfigApplyImportArgs) ?? Promise.resolve({success: false, error: "Electron API unavailable"});
+    applyImport: (payload: ConfigImportPayload, mode: ConfigApplyImportArgsV2["mode"], categories: ExportCategory[]): Promise<{ success: boolean; error?: string; added?: { actions: number; binds: number; profiles: number } }> => {
+      return electronApi?.invoke("config.apply_import", {payload, mode, categories} satisfies ConfigApplyImportArgsV2) ?? Promise.resolve({success: false, error: "Electron API unavailable"});
     }
   },
   sessionWindow: {

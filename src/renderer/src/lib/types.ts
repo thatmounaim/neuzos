@@ -70,13 +70,61 @@ export type ConfigExportPayload = {
   activeKeyBindProfileId: string | null;
 }
 
+export type ExportCategory =
+  | 'keybinds'
+  | 'session-actions'
+  | 'ui-layout'
+  | 'general-settings'
+  | 'quest-log'
+
+export type ConfigExportPayloadV2 = {
+  schemaVersion: 2;
+  exportedAt: string;
+  categories: ExportCategory[];
+  _sanitized?: true;
+
+  keyBinds?: NeuzKeybind[];
+  keyBindProfiles?: NeuzKeyBindProfile[];
+  activeKeyBindProfileId?: string | null;
+  sessionActions?: SessionActions[];
+  window?: NeuzConfig['window'];
+  sessionZoomLevels?: Record<string, number>;
+  fullscreen?: NeuzConfig['fullscreen'];
+  autoSaveSettings?: boolean;
+  defaultLaunchMode?: NeuzConfig['defaultLaunchMode'];
+  userAgent?: string;
+  titleBarButtons?: NeuzConfig['titleBarButtons'];
+  questLogTemplates?: never[];
+}
+
+export type ConfigImportPayload = ConfigExportPayload | ConfigExportPayloadV2;
+
 export type ConfigImportResult =
-  | { valid: true; payload: ConfigExportPayload; warnings: string[] }
+  | { valid: true; payload: ConfigImportPayload; warnings: string[] }
   | { valid: false; error: string }
 
-export type ConfigApplyImportArgs = {
-  payload: ConfigExportPayload;
+export type ConfigApplyImportArgsV2 = {
+  payload: ConfigImportPayload;
   mode: 'replace' | 'merge';
+  categories: ExportCategory[];
+}
+
+export type ConfigApplyImportArgs = ConfigApplyImportArgsV2;
+
+export type CategoryPreviewResult = {
+  category: ExportCategory;
+  foundInFile: boolean;
+  type: 'list' | 'object';
+  newCount?: number;
+  conflictCount?: number;
+  totalCount?: number;
+  skippedSessionIds?: string[];
+  willReplace?: boolean;
+}
+
+export type SanitizationResult = {
+  payload: ConfigExportPayloadV2;
+  sanitized: boolean;
 }
 
 export type SessionAction = {
