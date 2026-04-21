@@ -329,21 +329,29 @@
 
 
   onMount(async () => {
-    neuzosBridge.layouts.closeAll()
-    mainWindowState.config = await electronApi.invoke('config.load', true)
-    reloadNeuzos()
+    try {
+      neuzosBridge.layouts.closeAll()
+      mainWindowState.config = await electronApi.invoke('config.load', true)
+      reloadNeuzos()
 
-    // Check if the flyff registry is built; if so load it, otherwise prompt to build
-    const registryExists = await flyffRegistry.check();
-    if (registryExists) {
-      const registry = await flyffRegistry.load();
-      if (registry) flyffRegistryContext.setRegistry(registry);
+      // Check if the flyff registry is built; if so load it, otherwise prompt to build
+      try {
+        const registryExists = await flyffRegistry.check();
+        if (registryExists) {
+          const registry = await flyffRegistry.load();
+          if (registry) flyffRegistryContext.setRegistry(registry);
+        }
+      } catch (registryError) {
+        console.warn('Flyff registry load failed, continuing without it:', registryError);
+      }
+    } catch (error) {
+      console.error('Failed to initialize app:', error);
+    } finally {
+      // Always dismiss the loading screen — never leave the user stuck
+      setTimeout(() => {
+        isLoading = false
+      }, 500)
     }
-
-    // Wait a bit to ensure all contexts are properly initialized
-    setTimeout(() => {
-      isLoading = false
-    }, 500)
   })
 </script>
 <ModeWatcher/>

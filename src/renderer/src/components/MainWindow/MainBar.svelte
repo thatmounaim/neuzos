@@ -20,7 +20,10 @@
     Fullscreen,
     Keyboard,
     KeyboardOff,
-    Check
+    Check,
+    ZoomIn,
+    ZoomOut,
+    RotateCcw
   } from '@lucide/svelte'
   import {getContext, onMount} from "svelte";
   import type {MainWindowState, NeuzSession} from "$lib/types";
@@ -148,6 +151,24 @@
 
   const reloadConfing = () => {
     neuzosBridge.mainWindow.reloadConfig()
+  }
+
+  const clampZoom = (value: number) => Math.min(1.5, Math.max(0.5, Math.round(value * 20) / 20))
+
+  const getSessionZoom = (sessionId: string): number => {
+    return mainWindowState.config.sessionZoomLevels?.[sessionId] ?? 1.0
+  }
+
+  const setSessionZoom = (sessionId: string, value: number) => {
+    const clamped = clampZoom(value)
+    mainWindowState.config.sessionZoomLevels = mainWindowState.config.sessionZoomLevels ?? {}
+    mainWindowState.config.sessionZoomLevels[sessionId] = clamped
+    // Imperatively apply to all running webviews for this session (reactive chain is unreliable)
+    const layouts = mainWindowState.sessionsLayoutsRef[sessionId]?.layouts
+    if (layouts) {
+      Object.values(layouts).forEach((ref: any) => ref.setZoom?.(clamped))
+    }
+    void neuzosBridge.sessions.setZoom(sessionId, clamped)
   }
 
 
@@ -393,6 +414,31 @@
                     <div class="flex items-center gap-2">
                       <RefreshCcw class="h-4"/>
                       Restart
+                    </div>
+                  </ContextMenu.Item>
+                  <ContextMenu.Separator/>
+                  <ContextMenu.Item
+                    onclick={() => setSessionZoom(sessionId, getSessionZoom(sessionId) - 0.05)}
+                    disabled={getSessionZoom(sessionId) <= 0.5}>
+                    <div class="flex items-center gap-2">
+                      <ZoomOut class="h-4"/>
+                      Zoom Out
+                    </div>
+                  </ContextMenu.Item>
+                  <ContextMenu.Item
+                    onclick={() => setSessionZoom(sessionId, getSessionZoom(sessionId) + 0.05)}
+                    disabled={getSessionZoom(sessionId) >= 1.5}>
+                    <div class="flex items-center gap-2">
+                      <ZoomIn class="h-4"/>
+                      Zoom In
+                    </div>
+                  </ContextMenu.Item>
+                  <ContextMenu.Item
+                    onclick={() => setSessionZoom(sessionId, 1.0)}
+                    disabled={getSessionZoom(sessionId) === 1.0}>
+                    <div class="flex items-center gap-2">
+                      <RotateCcw class="h-4"/>
+                      Reset Zoom ({(getSessionZoom(sessionId) * 100).toFixed(0)}%)
                     </div>
                   </ContextMenu.Item>
                 </ContextMenu.SubContent>

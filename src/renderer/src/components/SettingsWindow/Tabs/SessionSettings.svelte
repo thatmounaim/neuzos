@@ -119,7 +119,7 @@
           <Table.Head class="w-[100px]">Icon</Table.Head>
           <Table.Head class="w-1/2">Label</Table.Head>
           <Table.Head class="w-[110px] text-center">Floatable</Table.Head>
-          <Table.Head class="w-[260px]">Zoom</Table.Head>
+          <Table.Head class="w-[300px]">Zoom</Table.Head>
           <Table.Head class="w-1/2">Launch URL Overwrite</Table.Head>
           <Table.Head>Session ID</Table.Head>
           <Table.Head>Actions</Table.Head>
@@ -214,10 +214,10 @@
                 />
               </div>
             </Table.Cell>
-            <Table.Cell class="w-[260px]">
-              <div class="flex items-center gap-3">
+            <Table.Cell class="w-[300px]">
+              <div class="flex flex-col gap-2">
                 <input
-                  class="w-full accent-primary"
+                  class="w-full h-2 accent-primary cursor-pointer rounded-full"
                   type="range"
                   min="0.5"
                   max="1.5"
@@ -228,12 +228,24 @@
                     setSessionZoom(session.id, value)
                   }}
                 />
-                <span class="w-14 text-right text-xs font-medium tabular-nums text-muted-foreground">
-                  {(getSessionZoom(session.id) * 100).toFixed(0)}%
-                </span>
-                <Button variant="outline" size="sm" onclick={() => setSessionZoom(session.id, 1)}>
-                  Reset
-                </Button>
+                <div class="flex items-center gap-2">
+                  <Input
+                    class="h-9 w-24 shrink-0 text-sm text-center tabular-nums"
+                    type="number"
+                    min="50"
+                    max="150"
+                    step="5"
+                    value={Math.round(getSessionZoom(session.id) * 100)}
+                    oninput={(event) => {
+                      const value = Number((event.currentTarget as HTMLInputElement).value)
+                      setSessionZoom(session.id, value / 100)
+                    }}
+                  />
+                  <span class="text-xs text-muted-foreground shrink-0">%</span>
+                  <Button variant="outline" size="sm" class="shrink-0" onclick={() => setSessionZoom(session.id, 1)}>
+                    Reset
+                  </Button>
+                </div>
               </div>
             </Table.Cell>
             <Table.Cell class="w-1/2">
@@ -249,7 +261,8 @@
                     </Button>
                   {/if}
                   <Input class="h-9 text-sm w-full" bind:value={session.srcOverwrite} oninput={(e) => {
-                  if (e.target.value.length == 0 || e.target.value === ' ') {
+                    const target = e.currentTarget as HTMLInputElement
+                    if (target.value.length == 0 || target.value === ' ') {
                     delete(session.srcOverwrite)
                     delete(session.partitionOverwrite)
                   }

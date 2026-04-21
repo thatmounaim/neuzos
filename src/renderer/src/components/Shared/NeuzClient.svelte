@@ -1,5 +1,5 @@
 <script lang="ts">
-  import {getContext, onDestroy, onMount} from 'svelte'
+  import {getContext, onMount} from 'svelte'
   import {AlertTriangle, Loader2} from '@lucide/svelte'
   import type {MainWindowState, NeuzSession, SessionHealthStatus} from "$lib/types";
   import type {WebviewTag} from 'electron'
@@ -21,12 +21,7 @@
   let started: boolean = $state(false)
   let webview: WebviewTag | HTMLElement = $state()
   let muted: boolean = $state(false)
-
-  let isHovered = $state(false)
-  let hoverHideTimer: ReturnType<typeof setTimeout> | null = null
-
   const mainWindowState = getContext<MainWindowState>('mainWindowState')
-  let zoomLevel: number = $state(mainWindowState.config.sessionZoomLevels?.[session.id] ?? 1.0)
 
   const ensureSessionState = () => {
     const sessionState = mainWindowState.sessionsLayoutsRef[session.id] ??= {
@@ -51,26 +46,14 @@
     setSessionHealth('healthy', '')
   }
 
-  const clampZoom = (value: number) => Math.min(1.5, Math.max(0.5, Math.round(value * 20) / 20))
-
-  const persistZoom = (value: number) => {
-    const clamped = clampZoom(value)
-    zoomLevel = clamped
-    mainWindowState.config.sessionZoomLevels = mainWindowState.config.sessionZoomLevels ?? {}
-    mainWindowState.config.sessionZoomLevels[session.id] = clamped
-    getWebview()?.setZoomFactor(clamped)
-    void neuzosBridge.sessions.setZoom(session.id, clamped)
-  }
-
+  // Apply zoom reactively. Read config directly in the effect so Svelte 5 tracks the
+  // deep property access. Using $derived was unreliable here because the webview bind:this
+  // transitions through undefined (div→undefined→webview) on session start, causing the
+  // effect to take an early-return path that drops $derived from the dependency graph.
   $effect(() => {
-    const storedZoom = mainWindowState.config.sessionZoomLevels?.[session.id] ?? 1.0
-    if (storedZoom !== zoomLevel) {
-      zoomLevel = storedZoom
-    }
-  })
-
-  $effect(() => {
-    getWebview()?.setZoomFactor(zoomLevel)
+    const wv = webview?.tagName === 'WEBVIEW' ? (webview as WebviewTag) : null
+    if (!wv) return
+    wv.setZoomFactor(mainWindowState.config.sessionZoomLevels?.[session.id] ?? 1.0)
   })
 
   let healthStatus = $derived(mainWindowState.sessionsLayoutsRef[session.id]?.healthStatus ?? 'healthy')
@@ -93,6 +76,9 @@
       isMuted,
       getWebview,
       sendKey,
+      setZoom: (zoom: number) => {
+        getWebview()?.setZoomFactor(zoom)
+      },
     };
 
     mainWindowState.sessionsLayoutsRef[session.id].layouts[layoutId] = exposedRef
@@ -116,7 +102,6 @@ window.open = function(...args) {
   export const startClient = () => {
     started = true
     onUpdate(session.id)
-    zoomLevel = mainWindowState.config.sessionZoomLevels?.[session.id] ?? zoomLevel
   }
 
   export const stopClient = () => {
@@ -297,9 +282,13 @@ window.open = function(...args) {
   // Attach/detach webview event listeners via $effect so they bind as soon as the <webview> element
   // exists, eliminating the tick()-based race where did-fail-load could fire before listeners attached.
   $effect(() => {
-    if (!started) return
+    if (!started) {
+      return undefined
+    }
     const webviewEl = getWebview()
-    if (!webviewEl) return
+    if (!webviewEl) {
+      return undefined
+    }
 
     const onIpcMessage = (event: Event) => {
       const e = event as any
@@ -340,7 +329,7 @@ window.open = function(...args) {
     // so we use it only for re-applying zoom, not for clearing health.
     const onDidNavigate = () => clearSessionHealth()
     const onDidFinishLoad = () => {
-      getWebview()?.setZoomFactor(zoomLevel)
+      getWebview()?.setZoomFactor(mainWindowState.config.sessionZoomLevels?.[session.id] ?? 1.0)
     }
 
     const onUnresponsive = () => setSessionHealth('unresponsive', '')
@@ -365,9 +354,6 @@ window.open = function(...args) {
     }
   })
 
-  onDestroy(() => {
-    if (hoverHideTimer) clearTimeout(hoverHideTimer)
-  })
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -376,28 +362,10 @@ window.open = function(...args) {
   data-session-id={session.id}
   onmouseenter={() => {
     focus()
-    if (hoverHideTimer) { clearTimeout(hoverHideTimer); hoverHideTimer = null }
-    isHovered = true
-  }}
-  onmouseleave={() => {
-    hoverHideTimer = setTimeout(() => { isHovered = false }, 800)
   }}
 >
   {#if partition !== ''}
     {#if started}
-      <!-- Zoom toolbar: hover-only, compact, bottom-right (top-right reserved for session status indicator) -->
-      <div
-        class="absolute bottom-2 right-2 z-30 flex items-center gap-0.5 rounded border border-border/60 bg-background/80 px-1 py-0.5 shadow backdrop-blur-sm transition-opacity duration-200"
-        class:opacity-0={!isHovered}
-        class:pointer-events-none={!isHovered}
-      >
-        <Button variant="ghost" size="xs" class="h-5 w-5 p-0 text-xs" onclick={() => persistZoom(zoomLevel - 0.05)} disabled={zoomLevel <= 0.5}>−</Button>
-        <span class="min-w-8 text-center text-[11px] tabular-nums">{(zoomLevel * 100).toFixed(0)}%</span>
-        <Button variant="ghost" size="xs" class="h-5 w-5 p-0 text-xs" onclick={() => persistZoom(zoomLevel + 0.05)} disabled={zoomLevel >= 1.5}>+</Button>
-        {#if zoomLevel !== 1}
-          <Button variant="ghost" size="xs" class="h-5 px-1 text-[11px]" onclick={() => persistZoom(1)}>↺</Button>
-        {/if}
-      </div>
       {#if src.startsWith('https://flyff.wemadeconnect.com') && !koreanLinkFixed}
         <Button class="z-50 absolute bottom-2 right-2" size="xs" onclick={koreanLinkFix}>
           KR Fix - Once Logged & Page is Fully Loaded Press This Button
