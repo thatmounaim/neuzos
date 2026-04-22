@@ -1,5 +1,6 @@
 import { getContext, onMount, setContext } from 'svelte';
 import { neuzosBridge } from '$lib/core';
+import type { NeuzIcon } from '$lib/types';
 
 const QUEST_PANEL_CONTEXT_KEY = Symbol('questPanel');
 const STORAGE_KEY = 'questPanel';
@@ -31,6 +32,7 @@ export type FlyffClassName = 'Mercenary' | 'Assist' | 'Magician' | 'Acrobat';
 interface CharacterState {
   id: string;
   name: string;
+  icon: NeuzIcon | null;
   flyffClass: FlyffClassName | null;
   level: number | null;
   completedQuests: string[];
@@ -46,10 +48,11 @@ interface PersistedState {
   fwcFilterEnabled: boolean;
 }
 
-function createDefaultCharacter(name: string, flyffClass: FlyffClassName | null = null): CharacterState {
+function createDefaultCharacter(name: string, flyffClass: FlyffClassName | null = null, icon: NeuzIcon | null = null): CharacterState {
   return {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
     name,
+    icon,
     flyffClass,
     level: null,
     completedQuests: [],
@@ -67,6 +70,7 @@ function loadPersistedState(): PersistedState {
         ? parsed.characters.map((c: any) => ({
             id: c.id ?? Date.now().toString(36),
             name: c.name ?? 'Character',
+            icon: c.icon ?? null,
             flyffClass: c.flyffClass ?? null,
             level: c.level ?? null,
             completedQuests: Array.isArray(c.completedQuests) ? c.completedQuests : [],
@@ -121,7 +125,7 @@ export interface QuestPanelContext {
   close: () => void;
   setSidebarSide: (side: 'left' | 'right') => void;
   // Character management
-  addCharacter: (name: string, flyffClass: FlyffClassName) => void;
+  addCharacter: (name: string, flyffClass: FlyffClassName, icon: NeuzIcon | null) => void;
   removeCharacter: (id: string) => void;
   renameCharacter: (id: string, name: string) => void;
   setCharacterClass: (id: string, flyffClass: FlyffClassName) => void;
@@ -182,6 +186,7 @@ export function createQuestPanelContext(): QuestPanelContext {
         characters: characters.map(c => ({
           id: c.id,
           name: c.name,
+          icon: c.icon ?? null,
           flyffClass: c.flyffClass,
           level: c.level,
           completedQuests: [...c.completedQuests],
@@ -236,8 +241,8 @@ export function createQuestPanelContext(): QuestPanelContext {
     },
 
     // -- Character management --
-    addCharacter(name: string, flyffClass: FlyffClassName) {
-      const char = createDefaultCharacter(name, flyffClass);
+    addCharacter(name: string, flyffClass: FlyffClassName, icon: NeuzIcon | null) {
+      const char = createDefaultCharacter(name, flyffClass, icon);
       characters = [...characters, char];
       activeCharacterId = char.id;
       save();
