@@ -12,6 +12,7 @@
   } from '@lucide/svelte'
 
   import {Input} from '$lib/components/ui/input'
+  import * as Tooltip from '$lib/components/ui/tooltip'
   import * as Command from '$lib/components/ui/command'
   import * as Popover from '$lib/components/ui/popover'
   import * as Table from '$lib/components/ui/table'
@@ -88,14 +89,25 @@
       floatable: false
     })
   }
-  const deleteSession = (sessionId: string) => {
-    clearStorage(sessionId)
-    neuzosConfig.sessions = neuzosConfig.sessions.filter(s => s.id !== sessionId)
-  }
 
   let clearCacheOpenModal: string | null = $state(null)
   let clearStorageOpenModal: string | null = $state(null)
   let clearAllCacheOpenModal: boolean = $state(false)
+  let deleteSessionModal: string | null = $state(null)
+  let deleteErrorModal: { sessionLabel: string; error: string } | null = $state(null)
+  let deletingSessionId: string | null = $state(null)
+
+  const deleteSession = async (sessionId: string, sessionLabel: string) => {
+    deletingSessionId = sessionId
+    deleteSessionModal = null
+    const result = await neuzosBridge.sessions.deleteSession(sessionId)
+    deletingSessionId = null
+    if (result.success) {
+      neuzosConfig.sessions = neuzosConfig.sessions.filter(s => s.id !== sessionId)
+    } else {
+      deleteErrorModal = { sessionLabel, error: result.error ?? 'Unknown error' }
+    }
+  }
 
   // Track icon popover state for each session
   let iconPopoverStates: { [sessionId: string]: boolean } = $state({});
@@ -278,91 +290,112 @@
             </Table.Cell>
             <Table.Cell class="text-xs">{session.id}</Table.Cell>
             <Table.Cell>
-              <div class="flex gap-2 items-center">
-                <AlertDialog.Root open={clearCacheOpenModal === session.id} onOpenChange={(open) => {
-                  clearCacheOpenModal = open ? session.id : null;
-                }}>
-                  <AlertDialog.Trigger>
-                    <Button variant="outline" size="icon" class="h-8 w-8">
-                      <FileX class="h-4 w-4"/>
-                    </Button>
-                  </AlertDialog.Trigger>
-                  <AlertDialog.Content>
-                    <AlertDialog.Header>
-                      <AlertDialog.Title>Clear "{session.label}" session's cache.</AlertDialog.Title>
-                      <AlertDialog.Description>
-                        This action will clear the cache for <b>"{session.label}"</b> even without
-                        saving your changes later on.<br/>
+              <Tooltip.Provider>
+                <div class="flex gap-2 items-center">
+                  <AlertDialog.Root open={clearCacheOpenModal === session.id} onOpenChange={(open) => {
+                    clearCacheOpenModal = open ? session.id : null;
+                  }}>
+                    <Tooltip.Root>
+                      <Tooltip.Trigger>
+                        <AlertDialog.Trigger>
+                          <Button variant="outline" size="icon" class="h-8 w-8">
+                            <FileX class="h-4 w-4"/>
+                          </Button>
+                        </AlertDialog.Trigger>
+                      </Tooltip.Trigger>
+                      <Tooltip.Content>Clear cache</Tooltip.Content>
+                    </Tooltip.Root>
+                    <AlertDialog.Content>
+                      <AlertDialog.Header>
+                        <AlertDialog.Title>Clear "{session.label}" session's cache.</AlertDialog.Title>
+                        <AlertDialog.Description>
+                          This action will clear the cache for <b>"{session.label}"</b> even without
+                          saving your changes later on.<br/>
 
-                        Your session data will still be saved
-                      </AlertDialog.Description>
-                    </AlertDialog.Header>
-                    <AlertDialog.Footer>
-                      <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
-                      <AlertDialog.Action
-                        onclick={() => {
-                        clearCache(session.id)
-                        clearCacheOpenModal = null
-                      }}>Clear Cache
-                      </AlertDialog.Action
-                      >
-                    </AlertDialog.Footer>
-                  </AlertDialog.Content>
-                </AlertDialog.Root>
-                <AlertDialog.Root open={clearStorageOpenModal === session.id} onOpenChange={(open) => {
-                  clearStorageOpenModal = open ? session.id : null;
-                }}>
-                  <AlertDialog.Trigger>
-                    <Button variant="outline" size="icon" class="h-8 w-8">
-                      <HardDrive class="h-4 w-4"/>
-                    </Button>
-                  </AlertDialog.Trigger>
-                  <AlertDialog.Content>
-                    <AlertDialog.Header>
-                      <AlertDialog.Title>Clear "{session.label}" session's data.</AlertDialog.Title>
-                      <AlertDialog.Description>
-                        This action will still clear any session data for <b>"{session.label}"</b> even
-                        without saving your changes later on.
-                      </AlertDialog.Description>
-                    </AlertDialog.Header>
-                    <AlertDialog.Footer>
-                      <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
-                      <AlertDialog.Action
-                        onclick={() => {
-                        clearStorage(session.id)
-                        clearStorageOpenModal = null
-                      }}>Clear Data
-                      </AlertDialog.Action
-                      >
-                    </AlertDialog.Footer>
-                  </AlertDialog.Content>
-                </AlertDialog.Root>
-                <AlertDialog.Root>
-                  <AlertDialog.Trigger>
-                    <Button variant="outline" size="icon" class="h-8 w-8 hover:bg-destructive hover:text-destructive-foreground">
-                      <Trash class="h-4 w-4"/>
-                    </Button>
-                  </AlertDialog.Trigger>
-                  <AlertDialog.Content>
-                    <AlertDialog.Header>
-                      <AlertDialog.Title>Delete session "{session.label}" ?</AlertDialog.Title>
-                      <AlertDialog.Description>
-                        This action will still clear any session data for <b>"{session.label}"</b> even
-                        without saving your changes later on.
-                      </AlertDialog.Description>
-                    </AlertDialog.Header>
-                    <AlertDialog.Footer>
-                      <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
-                      <AlertDialog.Action
-                        onclick={() => {
-                        deleteSession(session.id)
-                      }}>Delete
-                      </AlertDialog.Action
-                      >
-                    </AlertDialog.Footer>
-                  </AlertDialog.Content>
-                </AlertDialog.Root>
-              </div>
+                          Your session data will still be saved
+                        </AlertDialog.Description>
+                      </AlertDialog.Header>
+                      <AlertDialog.Footer>
+                        <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+                        <AlertDialog.Action
+                          onclick={() => {
+                          clearCache(session.id)
+                          clearCacheOpenModal = null
+                        }}>Clear Cache
+                        </AlertDialog.Action>
+                      </AlertDialog.Footer>
+                    </AlertDialog.Content>
+                  </AlertDialog.Root>
+                  <AlertDialog.Root open={clearStorageOpenModal === session.id} onOpenChange={(open) => {
+                    clearStorageOpenModal = open ? session.id : null;
+                  }}>
+                    <Tooltip.Root>
+                      <Tooltip.Trigger>
+                        <AlertDialog.Trigger>
+                          <Button variant="outline" size="icon" class="h-8 w-8">
+                            <HardDrive class="h-4 w-4"/>
+                          </Button>
+                        </AlertDialog.Trigger>
+                      </Tooltip.Trigger>
+                      <Tooltip.Content>Clear session data</Tooltip.Content>
+                    </Tooltip.Root>
+                    <AlertDialog.Content>
+                      <AlertDialog.Header>
+                        <AlertDialog.Title>Clear "{session.label}" session's data.</AlertDialog.Title>
+                        <AlertDialog.Description>
+                          This action will still clear any session data for <b>"{session.label}"</b> even
+                          without saving your changes later on.
+                        </AlertDialog.Description>
+                      </AlertDialog.Header>
+                      <AlertDialog.Footer>
+                        <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+                        <AlertDialog.Action
+                          onclick={() => {
+                          clearStorage(session.id)
+                          clearStorageOpenModal = null
+                        }}>Clear Data
+                        </AlertDialog.Action>
+                      </AlertDialog.Footer>
+                    </AlertDialog.Content>
+                  </AlertDialog.Root>
+                  <AlertDialog.Root open={deleteSessionModal === session.id} onOpenChange={(open) => {
+                    deleteSessionModal = open ? session.id : null;
+                  }}>
+                    <Tooltip.Root>
+                      <Tooltip.Trigger>
+                        <AlertDialog.Trigger>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            class="h-8 w-8 hover:bg-destructive hover:text-destructive-foreground"
+                            disabled={deletingSessionId === session.id}
+                          >
+                            <Trash class="h-4 w-4"/>
+                          </Button>
+                        </AlertDialog.Trigger>
+                      </Tooltip.Trigger>
+                      <Tooltip.Content>Delete session</Tooltip.Content>
+                    </Tooltip.Root>
+                    <AlertDialog.Content>
+                      <AlertDialog.Header>
+                        <AlertDialog.Title>Delete session "{session.label}"?</AlertDialog.Title>
+                        <AlertDialog.Description>
+                          This will <b>permanently delete</b> all data for <b>"{session.label}"</b>.<br/><br/>
+                          If this session is currently running it will be stopped first. This cannot be undone.
+                        </AlertDialog.Description>
+                      </AlertDialog.Header>
+                      <AlertDialog.Footer>
+                        <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+                        <AlertDialog.Action
+                          class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          onclick={() => deleteSession(session.id, session.label)}
+                        >Delete
+                        </AlertDialog.Action>
+                      </AlertDialog.Footer>
+                    </AlertDialog.Content>
+                  </AlertDialog.Root>
+                </div>
+              </Tooltip.Provider>
             </Table.Cell>
           </Table.Row>
         {/each}
@@ -413,3 +446,18 @@
     </div>
   </Card.Footer>
 </Card.Root>
+
+<!-- Delete session error dialog -->
+<AlertDialog.Root open={deleteErrorModal !== null} onOpenChange={(open) => { if (!open) deleteErrorModal = null; }}>
+  <AlertDialog.Content>
+    <AlertDialog.Header>
+      <AlertDialog.Title>Failed to delete "{deleteErrorModal?.sessionLabel}"</AlertDialog.Title>
+      <AlertDialog.Description>
+        {deleteErrorModal?.error}
+      </AlertDialog.Description>
+    </AlertDialog.Header>
+    <AlertDialog.Footer>
+      <AlertDialog.Action onclick={() => { deleteErrorModal = null }}>OK</AlertDialog.Action>
+    </AlertDialog.Footer>
+  </AlertDialog.Content>
+</AlertDialog.Root>
