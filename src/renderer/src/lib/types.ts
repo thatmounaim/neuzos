@@ -130,6 +130,7 @@ export type NeuzConfig = {
   keyBindProfiles: NeuzKeyBindProfile[]
   activeKeyBindProfileId?: string | null
   keyBinds: NeuzKeybind[]
+  syncReceiverSessionId?: string | null
   sessionActions: SessionActions[];
   titleBarButtons: {
     darkModeToggle: boolean;
