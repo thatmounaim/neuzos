@@ -7,6 +7,13 @@ import * as fs from "node:fs";
 import {rimraf} from "rimraf";
 import {buildRegistry, checkRegistry, loadRegistry, type ProgressEvent} from "./flyff-registry";
 
+type UIActionDescriptor = {
+  id: string;
+  label: string;
+  category: string;
+  defaultKey?: string;
+};
+
 // Register custom protocol for serving flyff registry assets (icons etc.)
 // Must be called before app is ready
 protocol.registerSchemesAsPrivileged([
@@ -216,6 +223,14 @@ const allowedEventKeybinds = {
     ],
   }
 }
+
+const allowedUiActionKeybinds: Record<string, UIActionDescriptor> = {
+  "ui.toggle_quest_log": {
+    id: "ui.toggle_quest_log",
+    label: "Toggle Quest Log",
+    category: "Interface",
+  },
+};
 
 const userDataPath = app.getPath("userData");
 const configDirectoryPath = join(userDataPath, "/neuzos_config/");
@@ -753,6 +768,18 @@ function createMainWindow(): void {
     }
   });
 
+  mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
+    console.log(`[renderer:${level}] ${message} (${sourceId}:${line})`);
+  });
+
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    console.error('Main window render process gone:', details.reason, details.exitCode);
+  });
+
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+    console.error('Main window failed to load:', errorCode, errorDescription, validatedURL);
+  });
+
   mainWindow.on("close", (event) => {
     // Always unregister shortcuts when main window is closing
     globalShortcut.unregisterAll();
@@ -851,9 +878,23 @@ function checkKeybinds() {
     neuzosConfig.activeKeyBindProfileId = neuzosConfig.keyBindProfiles[0].id;
   }
 
+  const allowedKeybindEvents = new Set([
+    ...Object.keys(allowedEventKeybinds),
+    ...Object.keys(allowedUiActionKeybinds),
+  ]);
+
   neuzosConfig.keyBinds = neuzosConfig.keyBinds.filter((bind: any) => {
-    return Object.keys(allowedEventKeybinds).includes(bind.event);
+    return allowedKeybindEvents.has(bind.event);
   })
+
+  const activeProfile = neuzosConfig.keyBindProfiles.find(
+    (profile: any) => profile.id === neuzosConfig.activeKeyBindProfileId
+  );
+  if (activeProfile) {
+    activeProfile.keybinds = activeProfile.keybinds.filter((bind: any) => {
+      return allowedKeybindEvents.has(bind.event);
+    });
+  }
 
   // filter empty keybinds
   neuzosConfig.keyBinds = neuzosConfig.keyBinds.filter((bind) => {
@@ -867,6 +908,11 @@ function checkKeybinds() {
 }
 
 function dispatchKeybindEvent(bind: any) {
+  if (bind.event?.startsWith("ui.")) {
+    mainWindow?.webContents.send("event.ui_action_fired", {actionId: bind.event});
+    return;
+  }
+
   switch (bind.event) {
     case "fullscreen_toggle":
       mainWindow?.setFullScreen(!mainWindow?.isFullScreen());
@@ -910,14 +956,14 @@ function registerKeybinds() {
 
   allBinds.forEach((bind) => {
     if (!bind.key) return;
+    const normalizedKey = String(bind.key).toLowerCase();
+    if (normalizedKey.startsWith('mouse') || normalizedKey.startsWith('gamepad')) {
+      return;
+    }
     try {
       globalShortcut.register(bind.key, () => dispatchKeybindEvent(bind));
     } catch (e) {
-      dialog.showErrorBox("Failed to register keybind", "Please fix your config manually found at \n" + join(configDirectoryPath, "/config.json"));
-      globalShortcut.unregisterAll();
-      exitCount = 3;
-      app.quit();
-      return;
+      console.warn("Skipping invalid keybind:", bind.key, bind.event, e);
     }
   });
 }
@@ -1169,6 +1215,14 @@ function registerSessionKeybinds(mode: LaunchMode) {
       win?.webContents.send("event.shortcuts_state_changed", enabled);
     });
 
+    ipcMain.on("keybinds.dispatch", (_, bind: any) => {
+      try {
+        dispatchKeybindEvent(bind);
+      } catch (e) {
+        console.warn("Failed to dispatch keybind from renderer:", bind?.key, bind?.event, e);
+      }
+    });
+
     ipcMain.on("session_window.toggle_shortcuts", (event, enabled: boolean) => {
       sessionWindowShortcutsEnabled = enabled;
       const win = BrowserWindow.fromWebContents(event.sender);
@@ -1405,6 +1459,10 @@ function registerSessionKeybinds(mode: LaunchMode) {
     ipcMain.handle("config.get_available_event_keybinds", async () => {
       return allowedEventKeybinds;
     })
+
+    ipcMain.handle("config.get_available_ui_actions", async () => {
+      return Object.values(allowedUiActionKeybinds);
+    });
 
     ipcMain.handle('fetch.flyff_news', async () => {
       try {

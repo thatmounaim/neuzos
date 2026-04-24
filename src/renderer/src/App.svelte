@@ -13,9 +13,18 @@
   import {createFlyffRegistryContext, setFlyffRegistryContext} from '$lib/contexts/flyffRegistryContext.svelte';
   import {createQuestPanelContext, setQuestPanelContext} from '$lib/contexts/questPanelContext.svelte';
   import {createTodoContext, setTodoContext} from '$lib/contexts/todoContext.svelte';
+  import {createUIActionContext, setUIActionContext} from '$lib/contexts/uiActionContext.svelte';
 import {flyffRegistry} from '$lib/core';
   import {Button} from "$lib/components/ui/button";
   import {Minimize} from '@lucide/svelte';
+
+  addEventListener('error', (event) => {
+    console.error('[window.error]', event.error?.stack ?? event.message);
+  });
+
+  addEventListener('unhandledrejection', (event) => {
+    console.error('[window.unhandledrejection]', event.reason?.stack ?? event.reason);
+  });
 
 
   let isLoading = $state(true);
@@ -44,12 +53,9 @@ import {flyffRegistry} from '$lib/core';
   const todoContext = createTodoContext();
   setTodoContext(todoContext);
 
-  $effect(() => {
-    const charId = questPanelContext.activeCharacterId;
-    untrack(() => {
-      todoContext.switchCharacter(charId);
-    });
-  });
+  // Create and set the UI action dispatcher context
+  const uiActionContext = createUIActionContext();
+  setUIActionContext(uiActionContext);
 
   initElectronApi(window.electron.ipcRenderer)
 
@@ -82,6 +88,7 @@ import {flyffRegistry} from '$lib/core';
       },
       defaultLayouts: [],
       keyBindProfiles: [],
+      activeKeyBindProfileId: null,
       keyBinds: [],
       syncReceiverSessionId: null,
       sessionActions: [],
@@ -310,6 +317,8 @@ import {flyffRegistry} from '$lib/core';
     mainWindowState.config.defaultLayouts = newConfig.defaultLayouts
     mainWindowState.config.chromium.commandLineSwitches = newConfig.chromium.commandLineSwitches
     mainWindowState.config.keyBinds = newConfig.keyBinds
+    mainWindowState.config.keyBindProfiles = newConfig.keyBindProfiles || []
+    mainWindowState.config.activeKeyBindProfileId = newConfig.activeKeyBindProfileId ?? null
     mainWindowState.config.syncReceiverSessionId = newConfig.syncReceiverSessionId ?? null
     mainWindowState.config.sessionActions = newConfig.sessionActions || []
     mainWindowState.config.defaultLaunchMode = newConfig.defaultLaunchMode
@@ -350,23 +359,77 @@ import {flyffRegistry} from '$lib/core';
 
   setContext('mainWindowState', mainWindowState)
 
+  onMount(() => {
+    const onUiActionFired = (_: any, payload: { actionId: string }) => {
+      uiActionContext.dispatch(payload.actionId);
+    };
+
+    const dispatchRendererBind = (bind: { key: string; event: string; args?: string[] }) => {
+      neuzosBridge.keybinds.dispatch(bind);
+    };
+
+    const getAllKeybinds = () => {
+      const activeProfile = mainWindowState.config.keyBindProfiles?.find(
+        (profile) => profile.id === mainWindowState.config.activeKeyBindProfileId
+      );
+
+      return [...(mainWindowState.config.keyBinds ?? []), ...(activeProfile?.keybinds ?? [])];
+    };
+
+    const refreshGamepadPolling = () => {
+      const gamepadBinds = getAllKeybinds().filter(bind => bind.key.startsWith('Gamepad'));
+
+      uiActionContext.startGamepadPoll(gamepadBinds, dispatchRendererBind);
+    };
+
+    const refreshMouseListener = () => {
+      const mouseBinds = getAllKeybinds().filter(bind => {
+        const k = bind.key.toLowerCase();
+        return k === 'middle' || k === 'mouse4' || k === 'mouse5';
+      });
+
+      uiActionContext.startMouseListener(mouseBinds, dispatchRendererBind);
+    };
+
+    electronApi.on('event.ui_action_fired', onUiActionFired);
+    electronApi.on('event.config_changed', refreshGamepadPolling);
+    electronApi.on('event.config_changed', refreshMouseListener);
+    electronApi.on('event.active_keybind_profile_changed', refreshGamepadPolling);
+    electronApi.on('event.active_keybind_profile_changed', refreshMouseListener);
+    refreshGamepadPolling();
+    refreshMouseListener();
+
+    return () => {
+      electronApi.removeListener('event.ui_action_fired', onUiActionFired);
+      electronApi.removeListener('event.config_changed', refreshGamepadPolling);
+      electronApi.removeListener('event.config_changed', refreshMouseListener);
+      electronApi.removeListener('event.active_keybind_profile_changed', refreshGamepadPolling);
+      electronApi.removeListener('event.active_keybind_profile_changed', refreshMouseListener);
+      uiActionContext.stopGamepadPoll();
+      uiActionContext.stopMouseListener();
+    };
+  });
 
   onMount(async () => {
-    neuzosBridge.layouts.closeAll()
-    mainWindowState.config = await electronApi.invoke('config.load', true)
-    reloadNeuzos()
+    try {
+      neuzosBridge.layouts.closeAll()
+      mainWindowState.config = await electronApi.invoke('config.load', true)
+      reloadNeuzos()
 
-    // Check if the flyff registry is built; if so load it, otherwise prompt to build
-    const registryExists = await flyffRegistry.check();
-    if (registryExists) {
-      const registry = await flyffRegistry.load();
-      if (registry) flyffRegistryContext.setRegistry(registry);
+      // Check if the flyff registry is built; if so load it, otherwise prompt to build
+      const registryExists = await flyffRegistry.check();
+      if (registryExists) {
+        const registry = await flyffRegistry.load();
+        if (registry) flyffRegistryContext.setRegistry(registry);
+      }
+    } catch (e) {
+      console.error('Failed to initialize NeuzOS:', e)
+    } finally {
+      // Wait a bit to ensure all contexts are properly initialized
+      setTimeout(() => {
+        isLoading = false
+      }, 500)
     }
-
-    // Wait a bit to ensure all contexts are properly initialized
-    setTimeout(() => {
-      isLoading = false
-    }, 500)
   })
 </script>
 <ModeWatcher/>

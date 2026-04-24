@@ -39,6 +39,7 @@
   import WidgetsButton from "./MainBarComponents/WidgetsButton.svelte";
   import ThemeToggle from "./MainBarComponents/ThemeToggle.svelte";
   import {getQuestPanelContext} from "$lib/contexts/questPanelContext.svelte";
+  import {getUIActionContext} from "$lib/contexts/uiActionContext.svelte";
   import {ScrollText} from '@lucide/svelte';
 
   // ...existing code...
@@ -69,6 +70,15 @@
   const mainWindowState = getContext<MainWindowState>('mainWindowState');
   const electronApi = getElectronContext();
   const questPanel = getQuestPanelContext();
+  const uiActionContext = getUIActionContext();
+
+  onMount(() => {
+    uiActionContext.register('ui.toggle_quest_log', () => questPanel.toggle());
+
+    return () => {
+      uiActionContext.unregister('ui.toggle_quest_log');
+    };
+  });
 
   const openSettings = () => {
     neuzosBridge.settingsWindow.open()

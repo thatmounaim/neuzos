@@ -83,6 +83,15 @@ export type SessionActions = {
   actions: SessionAction[];
 }
 
+export type UIActionDescriptor = {
+  id: string;
+  label: string;
+  category: string;
+  defaultKey?: string;
+};
+
+export type UIActionHandler = () => void;
+
 export type NeuzKeybind = {
   key: string;
   event: string;
