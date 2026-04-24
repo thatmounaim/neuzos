@@ -184,22 +184,16 @@ window.open = function(...args) {
       .replace(/\bsuper\b/gi, 'Meta')
       .replace(/\boption\b/gi, 'Alt')
 
-    console.log('🔑 Original key:', key, '→ Normalized:', normalizedKey)
 
-    // Parse the key string (e.g., "Ctrl+F1", "Alt+A", "F5")
     const parts = normalizedKey.split('+').map(k => k.trim())
     let mainKey = parts[parts.length - 1]
     const modifierParts = parts.slice(0, -1).map(m => m.toLowerCase())
-
-    console.log('📋 Parts:', parts, '→ Modifiers:', modifierParts, '→ MainKey:', mainKey)
 
     const hasCtrl = modifierParts.some(m => m === 'ctrl' || m === 'control')
     const hasAlt = modifierParts.some(m => m === 'alt' || m === 'altgr')
     const hasShift = modifierParts.some(m => m === 'shift')
     const hasMeta = modifierParts.some(m => m === 'meta')
     const hasCmd = modifierParts.some(m => m === 'cmd' || m === 'command')
-
-    console.log('🎯 Parsed:', 'mainKey:', mainKey, 'Ctrl:', hasCtrl, 'Alt:', hasAlt, 'Shift:', hasShift, 'Meta:', hasMeta, 'Cmd:', hasCmd)
 
     // Convert key to keyCode for sendInputEvent
     const getKeyCode = (key: string): string => {
@@ -234,7 +228,6 @@ window.open = function(...args) {
     if (hasMeta) modifiers.push('meta')
     if (hasCmd) modifiers.push('cmd')
 
-    console.log('⌨️ Sending with sendInputEvent:', keyCode, 'modifiers:', modifiers)
 
     try {
       // Press modifiers first
@@ -291,8 +284,6 @@ window.open = function(...args) {
           webviewElement.sendInputEvent({ type: 'keyUp', keyCode: 'Control', modifiers: [] })
         }
       }, 50)
-
-      console.log('✅ Key sent successfully:', key)
     } catch (e) {
       console.error('❌ Error sending key:', e)
     }

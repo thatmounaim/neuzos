@@ -1032,8 +1032,14 @@ function dispatchKeybindEvent(bind: any) {
         mainWindow?.webContents.send("event.send_to_receiver", bind.args[0]);
       break;
     case "custom_event":
-      if (bind.args?.length > 1)
-        mainWindow?.webContents.send(bind.args[0], bind.args[1]);
+      if (bind.args?.length > 1) {
+        // Allowlist: only permit known safe custom renderer event channel names
+        const allowedCustomEvents = new Set(['event.custom_action', 'event.user_command']);
+        const channel = String(bind.args[0]);
+        if (allowedCustomEvents.has(channel)) {
+          mainWindow?.webContents.send(channel, bind.args[1]);
+        }
+      }
       break;
   }
 }
@@ -1143,14 +1149,19 @@ function registerSessionKeybinds(mode: LaunchMode) {
 
     // ── Flyff registry custom protocol ──────────────────────────────────────
     // Serves downloaded icons and assets from userData/flyff-registry/
-    protocol.handle('flyff-asset', (request) => {
+    protocol.handle('flyff-asset', async (request) => {
       const rawPath = request.url.replace('flyff-asset://', '');
       const decoded = decodeURIComponent(rawPath);
-      const filePath = join(registryDirectoryPath, decoded);
+      const registryBase = path.resolve(registryDirectoryPath);
+      const filePath = path.resolve(registryBase, decoded);
+      // Path traversal guard: resolved path must stay inside registryDirectoryPath
+      if (filePath !== registryBase && !filePath.startsWith(registryBase + path.sep)) {
+        return new Response(null, { status: 403 });
+      }
       if (!fs.existsSync(filePath)) {
         return new Response(null, { status: 404 });
       }
-      const data = fs.readFileSync(filePath);
+      const data = await fs.promises.readFile(filePath);
       const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
       const mime =
         ext === 'png' ? 'image/png' :
@@ -1489,19 +1500,19 @@ function registerSessionKeybinds(mode: LaunchMode) {
       win?.webContents.send("event.stop_session", sessionId);
       const sess = session.fromPartition("persist:" + sessionId);
       await sess.clearStorageData();
-      // delete partition folder
+      // delete partition folder — validate sessionId to prevent path traversal
       try {
-        if (sessionId) {
-          const partitionFolderPath = join(app.getPath("userData"), "/Partitions", sessionId);
-          if (partitionFolderPath && partitionFolderPath.startsWith(app.getPath("userData"))) {
+        if (typeof sessionId === 'string' && /^[a-zA-Z0-9_\-]+$/.test(sessionId)) {
+          const partitionsBase = path.resolve(join(app.getPath("userData"), "Partitions"));
+          const partitionFolderPath = path.resolve(partitionsBase, sessionId);
+          if (partitionFolderPath.startsWith(partitionsBase + path.sep)) {
             rimraf.sync(partitionFolderPath, {
               maxRetries: 2
             });
           }
         }
-
       } catch (err) {
-        console.log("Partition folder not found");
+        console.warn("Failed to delete partition folder:", err);
       }
     });
 
@@ -1522,8 +1533,9 @@ function registerSessionKeybinds(mode: LaunchMode) {
     });
 
     ipcMain.handle("config.save", async (_, config: any) => {
-      saveConfig(JSON.parse(config));
-      neuzosConfig = JSON.parse(config);
+      const parsed = JSON.parse(config);
+      saveConfig(parsed);
+      neuzosConfig = parsed;
       checkKeybinds();
       registerKeybinds();
       mainWindow?.webContents?.send("event.config_changed", config);
@@ -1822,7 +1834,7 @@ function registerSessionKeybinds(mode: LaunchMode) {
               didModify = true;
             }
           }
-          if (incomingPayload.userAgent !== undefined) {
+          if (typeof incomingPayload.userAgent === 'string' && incomingPayload.userAgent.length <= 1024) {
             neuzosConfig.userAgent = incomingPayload.userAgent;
             didModify = true;
           }
@@ -1939,8 +1951,12 @@ function registerSessionKeybinds(mode: LaunchMode) {
           }
         });
 
-        const userAgent = testWindow.webContents.getUserAgent();
-        testWindow.destroy();
+        let userAgent: string;
+        try {
+          userAgent = testWindow.webContents.getUserAgent();
+        } finally {
+          testWindow.destroy();
+        }
 
         return userAgent;
       } catch (e) {
