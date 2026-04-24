@@ -23,6 +23,7 @@ export default defineConfig({
           index: path.resolve(__dirname, 'src/renderer/index.html'),
           settings: path.resolve(__dirname, 'src/renderer/settings.html'),
           session: path.resolve(__dirname, 'src/renderer/session.html'),
+          viewer: path.resolve(__dirname, 'src/renderer/viewer.html'),
           session_launcher: path.resolve(__dirname, 'src/renderer/session_launcher.html'),
         },
       }

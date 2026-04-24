@@ -1,5 +1,6 @@
 import type {IpcRenderer} from "@electron-toolkit/preload";
 import type {NeuzKeybind, UIActionDescriptor} from "$lib/types";
+import type {ViewerWindowConfig, ViewerWindowType} from "./types";
 
 let electronApi: IpcRenderer | undefined = undefined;
 
@@ -82,6 +83,9 @@ export const neuzosBridge = {
     },
     clearStorage: (sessionId: string) => {
       electronApi?.send("session.clear_storage", sessionId);
+    },
+    setSyncReceiver: (sessionId: string | null) => {
+      electronApi?.invoke("config.set_sync_receiver", sessionId);
     }
   },
   sessionWindow: {
@@ -95,6 +99,30 @@ export const neuzosBridge = {
   uiActions: {
     getRegistry: (): Promise<UIActionDescriptor[]> => {
       return electronApi?.invoke("config.get_available_ui_actions") ?? Promise.resolve([]);
+  },
+  viewerWindow: {
+    open: (type: ViewerWindowType) => {
+      electronApi?.send('viewer_window.open', type);
+    },
+    close: () => {
+      electronApi?.send('viewer_window.close');
+    },
+    minimize: () => {
+      electronApi?.send('viewer_window.minimize');
+    },
+    setAlwaysOnTop: (alwaysOnTop: boolean) => {
+      electronApi?.send('viewer_window.set_always_on_top', alwaysOnTop);
+    },
+    getConfig: (): Promise<{ type: ViewerWindowType; config: ViewerWindowConfig } | { error: string }> => {
+      return electronApi?.invoke('viewer_window.get_config') ?? Promise.resolve({ error: 'Electron API unavailable' });
+    }
+  },
+  sidebarPanel: {
+    getSide: (): Promise<'left' | 'right'> => {
+      return electronApi?.invoke('sidebar_panel.get_side') ?? Promise.resolve('left');
+    },
+    setSide: (side: 'left' | 'right') => {
+      electronApi?.send('sidebar_panel.set_side', side);
     }
   }
 }

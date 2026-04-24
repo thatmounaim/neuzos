@@ -1,7 +1,7 @@
 <script lang="ts">
   import {ModeWatcher} from "mode-watcher";
   import MainBar from "./components/MainWindow/MainBar.svelte";
-  import {onMount, setContext} from "svelte";
+  import {onDestroy, onMount, setContext, untrack} from "svelte";
   import {neuzosBridge, initElectronApi} from "$lib/core";
   import type {MainWindowState} from "$lib/types";
   import MainSectionsContainer from "./components/MainWindow/MainSectionsContainer.svelte";
@@ -90,6 +90,7 @@ import {flyffRegistry} from '$lib/core';
       keyBindProfiles: [],
       activeKeyBindProfileId: null,
       keyBinds: [],
+      syncReceiverSessionId: null,
       sessionActions: [],
       defaultLaunchMode: 'normal',
       userAgent: undefined,
@@ -119,14 +120,24 @@ import {flyffRegistry} from '$lib/core';
   })
 
   const electronApi = window.electron.ipcRenderer;
+  const cleanupListeners: Array<() => void> = []
 
-  electronApi.on('event.layout_add', (_, layoutId: string) => {
+  const listen = (channel: string, listener: (...args: any[]) => void) => {
+    electronApi.on(channel, listener)
+    cleanupListeners.push(() => electronApi.removeListener(channel, listener))
+  }
+
+  onDestroy(() => {
+    cleanupListeners.forEach((cleanup) => cleanup())
+  })
+
+  listen('event.layout_add', (_, layoutId: string) => {
     console.log("layout_add", layoutId)
     mainWindowState.tabs.layoutsIds.push(layoutId)
     mainWindowState.tabs.layoutOrder.push(layoutId)
   })
 
-  electronApi.on('event.layout_switch', (_, layoutId: string) => {
+  listen('event.layout_switch', (_, layoutId: string) => {
     console.log("layout_switch", layoutId)
     mainWindowState.tabs.previousLayoutId = mainWindowState.tabs.activeLayoutId
     mainWindowState.tabs.activeLayoutId = layoutId
@@ -140,7 +151,7 @@ import {flyffRegistry} from '$lib/core';
     mainWindowState.tabs.layoutOrder = mainWindowState.tabs.layoutOrder.filter(id => id !== layoutId)
   }
 
-  electronApi.on('event.layout_close_all', (_) => {
+  listen('event.layout_close_all', (_) => {
     mainWindowState.tabs.previousLayoutId = null
     mainWindowState.tabs.activeLayoutId = 'home'
     mainWindowState.tabs.layoutsIds.forEach(layoutId => {
@@ -150,12 +161,12 @@ import {flyffRegistry} from '$lib/core';
   })
 
 
-  electronApi.on('event.layout_close', (_, layoutId: string) => {
+  listen('event.layout_close', (_, layoutId: string) => {
     console.log("layout_close", layoutId)
     closeLayout(layoutId)
   })
 
-  electronApi.on('event.layout_swap', (_) => {
+  listen('event.layout_swap', (_) => {
     const activeLayoutId = mainWindowState.tabs.activeLayoutId
     const previousLayoutId = mainWindowState.tabs.previousLayoutId
     if (previousLayoutId) {
@@ -165,7 +176,7 @@ import {flyffRegistry} from '$lib/core';
     }
   })
 
-  electronApi.on('event.stop_session', (_, sessionId: string) => {
+  listen('event.stop_session', (_, sessionId: string) => {
     console.log("stop_session", sessionId)
     Object.keys(mainWindowState.sessionsLayoutsRef[sessionId]?.layouts).forEach(layoutId => {
       console.log("stop_session", sessionId, " for layout", layoutId)
@@ -177,14 +188,14 @@ import {flyffRegistry} from '$lib/core';
     })
   })
 
-  electronApi.on('event.start_session', (_, sessionId: string, layoutId: string) => {
+  listen('event.start_session', (_, sessionId: string, layoutId: string) => {
     neuzosBridge.sessions.stop(sessionId)
     setTimeout(() => {
       mainWindowState.sessionsLayoutsRef[sessionId]?.layouts[layoutId].startClient()
     }, 100)
   })
 
-  electronApi.on('event.send_session_action', (_, sessionId: string, actionId: string) => {
+  listen('event.send_session_action', (_, sessionId: string, actionId: string) => {
     console.log("send_session_action", sessionId, actionId)
 
     // Check if action is ready (not casting or on cooldown)
@@ -275,7 +286,30 @@ import {flyffRegistry} from '$lib/core';
     }
   }
 
-  electronApi.on('event.config_changed', (_, cfg: string) => {
+  function sendKeyToReceiverSession(sessionId: string, ingameKey: string) {
+    const sessionLayouts = mainWindowState.sessionsLayoutsRef[sessionId]?.layouts
+    if (!sessionLayouts) return
+
+    const activeClient = Object.values(sessionLayouts).find((client: any) => {
+      return client?.isStarted?.() && client?.sendKey
+    }) as any
+
+    if (!activeClient) return
+
+    activeClient.sendKey(ingameKey)
+  }
+
+  listen('event.send_to_receiver', (_, ingameKey: string) => {
+    const receiverId = mainWindowState.config.syncReceiverSessionId
+    if (!receiverId) return
+    sendKeyToReceiverSession(receiverId, ingameKey)
+  })
+
+  listen('event.sync_receiver_changed', (_, sessionId: string | null) => {
+    mainWindowState.config.syncReceiverSessionId = sessionId
+  })
+
+  listen('event.config_changed', (_, cfg: string) => {
     mainWindowState.config.changed = true
     const newConfig = JSON.parse(cfg)
     mainWindowState.config.sessions = newConfig.sessions
@@ -285,10 +319,12 @@ import {flyffRegistry} from '$lib/core';
     mainWindowState.config.keyBinds = newConfig.keyBinds
     mainWindowState.config.keyBindProfiles = newConfig.keyBindProfiles || []
     mainWindowState.config.activeKeyBindProfileId = newConfig.activeKeyBindProfileId ?? null
+    mainWindowState.config.syncReceiverSessionId = newConfig.syncReceiverSessionId ?? null
     mainWindowState.config.sessionActions = newConfig.sessionActions || []
     mainWindowState.config.defaultLaunchMode = newConfig.defaultLaunchMode
     mainWindowState.config.userAgent = newConfig.userAgent || undefined
     mainWindowState.config.titleBarButtons = newConfig.titleBarButtons
+    mainWindowState.config.window = newConfig.window
     mainWindowState.config.fullscreen = newConfig.fullscreen || {
       hideTitleBarInMainWindow: false,
       hideTitleBarInSessionLayouts: false
@@ -306,7 +342,7 @@ import {flyffRegistry} from '$lib/core';
     }, 50)
   }
 
-  electronApi.on('event.reload_config', async (_) => {
+  listen('event.reload_config', async (_) => {
     neuzosBridge.layouts.closeAll()
     mainWindowState.config.changed = false
     reloadNeuzos()
@@ -317,7 +353,7 @@ import {flyffRegistry} from '$lib/core';
   })
 
   // Listen for fullscreen state changes
-  electronApi.on('event.fullscreen_changed', (_, fullscreen: boolean) => {
+  listen('event.fullscreen_changed', (_, fullscreen: boolean) => {
     isFullscreen = fullscreen
   })
 

@@ -5,4 +5,7 @@ LICENSE.md
 tsconfig.json
 tsconfig.*.json
 .github/
+node_modules/
 .specify/
+specs/
+

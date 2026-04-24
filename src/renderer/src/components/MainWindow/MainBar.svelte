@@ -20,7 +20,9 @@
     Fullscreen,
     Keyboard,
     KeyboardOff,
-    Check
+    Check,
+    BookOpen,
+    Globe
   } from '@lucide/svelte'
   import {getContext, onMount} from "svelte";
   import type {MainWindowState, NeuzSession} from "$lib/types";
@@ -80,6 +82,14 @@
 
   const openSettings = () => {
     neuzosBridge.settingsWindow.open()
+  }
+
+  const openNaviGuide = () => {
+    neuzosBridge.viewerWindow.open('navi_guide')
+  }
+
+  const openFlyffipedia = () => {
+    neuzosBridge.viewerWindow.open('flyffipedia')
   }
 
 
@@ -426,6 +436,13 @@
       <RefreshCw class="size-3.5"/>
     </Button>
   {/if}
+
+  <Button size="icon-xs" variant="outline" onclick={openNaviGuide} class="cursor-pointer" title="Open Navi's Guide">
+    <BookOpen class="size-3.5"/>
+  </Button>
+  <Button size="icon-xs" variant="outline" onclick={openFlyffipedia} class="cursor-pointer" title="Open Flyffipedia">
+    <Globe class="size-3.5"/>
+  </Button>
 
   <Button
     size="icon-xs"
