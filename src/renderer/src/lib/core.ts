@@ -84,6 +84,9 @@ export const neuzosBridge = {
     clearStorage: (sessionId: string) => {
       electronApi?.send("session.clear_storage", sessionId);
     },
+    deleteSession: (sessionId: string): Promise<{ success: boolean; error?: string }> => {
+      return electronApi?.invoke("session.delete", sessionId) ?? Promise.resolve({ success: false, error: "Electron API unavailable" });
+    },
     setZoom: (sessionId: string, zoomLevel: number) => {
       return electronApi?.invoke("config.set_session_zoom", sessionId, zoomLevel) ?? Promise.resolve({success: false, error: "Electron API unavailable"});
     },

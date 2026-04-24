@@ -1516,6 +1516,43 @@ function registerSessionKeybinds(mode: LaunchMode) {
       }
     });
 
+    ipcMain.handle("session.delete", async function (_event, sessionId: string): Promise<{ success: boolean; error?: string }> {
+      if (typeof sessionId !== 'string' || !/^[a-zA-Z0-9_\-]+$/.test(sessionId)) {
+        return { success: false, error: "Invalid session ID." };
+      }
+      // Stop the session in the renderer (fire-and-forget to main window)
+      mainWindow?.webContents.send("event.stop_session", sessionId);
+      // Wait for the webview process to release file handles (Windows needs this)
+      await new Promise(resolve => setTimeout(resolve, 2500));
+      // Clear Electron session storage
+      try {
+        const sess = session.fromPartition("persist:" + sessionId);
+        await sess.clearStorageData();
+      } catch (_err) {
+        // Non-fatal — partition may already be gone
+      }
+      // Delete partition folder with retries to handle delayed handle release
+      const partitionsBase = path.resolve(join(app.getPath("userData"), "Partitions"));
+      const partitionFolderPath = path.resolve(partitionsBase, sessionId);
+      if (!partitionFolderPath.startsWith(partitionsBase + path.sep)) {
+        return { success: false, error: "Path validation failed." };
+      }
+      const maxAttempts = 5;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          await rimraf(partitionFolderPath);
+          return { success: true };
+        } catch (err: any) {
+          if (attempt < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 800));
+          } else {
+            return { success: false, error: `Could not delete session data: ${err?.message ?? String(err)}` };
+          }
+        }
+      }
+      return { success: true };
+    });
+
     ipcMain.on("session.clear_cache", async function (event, sessionId: string) {
       const win = BrowserWindow.fromWebContents(event.sender);
       win?.webContents.send("event.stop_session", sessionId);
