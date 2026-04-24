@@ -138,6 +138,7 @@ const defaultNeuzosConfig: any = {
       "event": "fullscreen_toggle"
     }
   ],
+  syncReceiverSessionId: null,
   sessionActions: [],
   titleBarButtons: {
     darkModeToggle: true,
@@ -166,6 +167,12 @@ const allowedEventKeybinds = {
     args: [
       "session_id",
       "action_id"
+    ],
+  },
+  "send_to_receiver": {
+    label: "Send Key to Active Receiver",
+    args: [
+      "ingame_key"
     ],
   },
   "custom_event": {
@@ -631,6 +638,10 @@ function dispatchKeybindEvent(bind: any) {
       if (bind.args?.length > 1)
         mainWindow?.webContents.send("event.send_session_action", ...(bind.args ?? []));
       break;
+    case "send_to_receiver":
+      if (bind.args?.length > 0)
+        mainWindow?.webContents.send("event.send_to_receiver", bind.args[0]);
+      break;
     case "custom_event":
       if (bind.args?.length > 1)
         mainWindow?.webContents.send(bind.args[0], bind.args[1]);
@@ -1035,6 +1046,16 @@ function registerSessionKeybinds(mode: LaunchMode) {
       checkKeybinds();
       registerKeybinds();
       mainWindow?.webContents?.send("event.config_changed", config);
+    });
+
+    ipcMain.handle("config.set_sync_receiver", async (_, sessionId: string | null) => {
+      try {
+        neuzosConfig.syncReceiverSessionId = sessionId ?? null;
+        saveConfig(neuzosConfig);
+        mainWindow?.webContents?.send("event.sync_receiver_changed", sessionId ?? null);
+      } catch (err) {
+        console.error("Failed to update sync receiver:", err);
+      }
     });
 
     ipcMain.handle("keybinds.swap_profile", async (_, profileId: string) => {

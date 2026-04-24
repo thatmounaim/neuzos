@@ -12,3 +12,6 @@ src/renderer/src/lib/widgets/testing
 .idea
 .claude
 CLAUDE.md
+.github
+.specify
+specs/001-sync-caster/
