@@ -21,6 +21,9 @@
     Keyboard,
     KeyboardOff,
     Check,
+    ZoomIn,
+    ZoomOut,
+    RotateCcw,
     BookOpen,
     Globe
   } from '@lucide/svelte'
@@ -41,8 +44,6 @@
   import {getQuestPanelContext} from "$lib/contexts/questPanelContext.svelte";
   import {getUIActionContext} from "$lib/contexts/uiActionContext.svelte";
   import {ScrollText} from '@lucide/svelte';
-
-  // ...existing code...
 
   let shortcutsEnabled = $state(true);
 
@@ -170,8 +171,27 @@
     neuzosBridge.mainWindow.reloadConfig()
   }
 
+  const clampZoom = (value: number) => Math.min(1.5, Math.max(0.5, Math.round(value * 20) / 20))
+
+  const getSessionZoom = (sessionId: string): number => {
+    return mainWindowState.config.sessionZoomLevels?.[sessionId] ?? 1.0
+  }
+
+  const setSessionZoom = (sessionId: string, value: number) => {
+    const clamped = clampZoom(value)
+    mainWindowState.config.sessionZoomLevels = mainWindowState.config.sessionZoomLevels ?? {}
+    mainWindowState.config.sessionZoomLevels[sessionId] = clamped
+    // Imperatively apply to all running webviews for this session (reactive chain is unreliable)
+    const layouts = mainWindowState.sessionsLayoutsRef[sessionId]?.layouts
+    if (layouts) {
+      Object.values(layouts).forEach((ref: any) => ref.setZoom?.(clamped))
+    }
+    void neuzosBridge.sessions.setZoom(sessionId, clamped)
+  }
+
 
   function getIconPath(session: NeuzSession): string {
+    if (!session?.icon?.slug) return 'icons/misc/unknown.png';
     return `icons/${session.icon.slug}.png`;
   }
 
@@ -223,7 +243,7 @@
                 <Button variant="outline" size="sm" class="flex gap-2 justify-start items-center"
                         disabled={disabledAdd}
                         onclick={() => addLayout(layTab.id)}>
-                  <img class="w-6 h-6" src="icons/{layTab.icon.slug}.png" alt=""/> {layTab.label}
+                  <img class="w-6 h-6" src="icons/{layTab.icon?.slug ?? 'misc/unknown'}.png" alt=""/> {layTab.label}
                 </Button>
               {/each}
             </div>
@@ -286,6 +306,7 @@
     {/if}
     {#each mainWindowState.tabs.layoutOrder as layoutId (layoutId)}
       {@const layTab = mainWindowState.layouts.find(l => l.id === layoutId)}
+      {#if !layTab}{:else}
       {@const disabledSwitch = mainWindowState.tabs.activeLayoutId === layoutId}
 
       <ContextMenu.Root>
@@ -370,6 +391,7 @@
           {#each layTab.rows as row,idx (idx)}
             {#each row.sessionIds as sessionId (sessionId)}
               {@const session = mainWindowState.sessions.find(s => s.id === sessionId)}
+              {#if !session}{:else}
               <ContextMenu.Sub>
                 <ContextMenu.SubTrigger>
                   <div class="flex items-center gap-2 justify-between w-full">
@@ -415,12 +437,39 @@
                       Restart
                     </div>
                   </ContextMenu.Item>
+                  <ContextMenu.Separator/>
+                  <ContextMenu.Item
+                    onclick={() => setSessionZoom(sessionId, getSessionZoom(sessionId) - 0.05)}
+                    disabled={getSessionZoom(sessionId) <= 0.5}>
+                    <div class="flex items-center gap-2">
+                      <ZoomOut class="h-4"/>
+                      Zoom Out
+                    </div>
+                  </ContextMenu.Item>
+                  <ContextMenu.Item
+                    onclick={() => setSessionZoom(sessionId, getSessionZoom(sessionId) + 0.05)}
+                    disabled={getSessionZoom(sessionId) >= 1.5}>
+                    <div class="flex items-center gap-2">
+                      <ZoomIn class="h-4"/>
+                      Zoom In
+                    </div>
+                  </ContextMenu.Item>
+                  <ContextMenu.Item
+                    onclick={() => setSessionZoom(sessionId, 1.0)}
+                    disabled={getSessionZoom(sessionId) === 1.0}>
+                    <div class="flex items-center gap-2">
+                      <RotateCcw class="h-4"/>
+                      Reset Zoom ({(getSessionZoom(sessionId) * 100).toFixed(0)}%)
+                    </div>
+                  </ContextMenu.Item>
                 </ContextMenu.SubContent>
               </ContextMenu.Sub>
+              {/if}
             {/each}
           {/each}
         </ContextMenu.Content>
       </ContextMenu.Root>
+      {/if}
     {/each}
   </div>
   <div

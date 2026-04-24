@@ -9,6 +9,8 @@ export type NeuzIcon = {
   filter?: IconFilter;
 }
 
+export type SessionHealthStatus = 'healthy' | 'crashed' | 'load-failed' | 'unresponsive';
+
 export type NeuzSession = {
   id: string;
   label: string
@@ -60,11 +62,79 @@ export type MainWindowState = {
   doCalculationUpdatesRng: number
   sessionsLayoutsRef: {
     [key: string]: {
+      healthStatus?: SessionHealthStatus;
+      healthDetail?: string;
       layouts: {
         [key: string]: Partial<NeuzClient>
       }
     }
   }
+}
+
+export type ConfigExportPayload = {
+  schemaVersion: 1;
+  exportedAt: string;
+  sessionActions: SessionActions[];
+  keyBinds: NeuzKeybind[];
+  keyBindProfiles: NeuzKeyBindProfile[];
+  activeKeyBindProfileId: string | null;
+}
+
+export type ExportCategory =
+  | 'keybinds'
+  | 'session-actions'
+  | 'ui-layout'
+  | 'general-settings'
+  | 'quest-log'
+
+export type ConfigExportPayloadV2 = {
+  schemaVersion: 2;
+  exportedAt: string;
+  categories: ExportCategory[];
+  _sanitized?: true;
+
+  keyBinds?: NeuzKeybind[];
+  keyBindProfiles?: NeuzKeyBindProfile[];
+  activeKeyBindProfileId?: string | null;
+  sessionActions?: SessionActions[];
+  window?: NeuzConfig['window'];
+  sessionZoomLevels?: Record<string, number>;
+  fullscreen?: NeuzConfig['fullscreen'];
+  autoSaveSettings?: boolean;
+  defaultLaunchMode?: NeuzConfig['defaultLaunchMode'];
+  userAgent?: string;
+  titleBarButtons?: NeuzConfig['titleBarButtons'];
+  questLogTemplates?: never[];
+}
+
+export type ConfigImportPayload = ConfigExportPayload | ConfigExportPayloadV2;
+
+export type ConfigImportResult =
+  | { valid: true; payload: ConfigImportPayload; warnings: string[] }
+  | { valid: false; error: string }
+
+export type ConfigApplyImportArgsV2 = {
+  payload: ConfigImportPayload;
+  mode: 'replace' | 'merge';
+  categories: ExportCategory[];
+}
+
+export type ConfigApplyImportArgs = ConfigApplyImportArgsV2;
+
+export type CategoryPreviewResult = {
+  category: ExportCategory;
+  foundInFile: boolean;
+  type: 'list' | 'object';
+  newCount?: number;
+  conflictCount?: number;
+  totalCount?: number;
+  skippedSessionIds?: string[];
+  willReplace?: boolean;
+}
+
+export type SanitizationResult = {
+  payload: ConfigExportPayloadV2;
+  sanitized: boolean;
 }
 
 export type SessionAction = {
@@ -141,6 +211,7 @@ export type NeuzConfig = {
   keyBinds: NeuzKeybind[]
   syncReceiverSessionId?: string | null
   sessionActions: SessionActions[];
+  sessionZoomLevels?: { [sessionId: string]: number };
   titleBarButtons: {
     darkModeToggle: boolean;
     fullscreenToggle: boolean;

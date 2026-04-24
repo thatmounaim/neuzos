@@ -1,6 +1,7 @@
 <script lang="ts">
-  import {getContext, onMount, tick} from 'svelte'
-  import type {MainWindowState, NeuzSession} from "$lib/types";
+  import {getContext, onMount} from 'svelte'
+  import {AlertTriangle, Loader2} from '@lucide/svelte'
+  import type {MainWindowState, NeuzSession, SessionHealthStatus} from "$lib/types";
   import type {WebviewTag} from 'electron'
   import Button from '../../lib/components/ui/button/button.svelte'
   import {neuzosBridge} from "$lib/core";
@@ -21,8 +22,6 @@
   let started: boolean = $state(false)
   let webview: WebviewTag | HTMLElement = $state()
   let muted: boolean = $state(false)
-
-
   const mainWindowState = getContext<MainWindowState>('mainWindowState')
   const isReceiver = $derived(mainWindowState.config.syncReceiverSessionId === session.id)
 
@@ -30,17 +29,62 @@
     neuzosBridge.sessions.setSyncReceiver(isReceiver ? null : session.id)
   }
 
+  const ensureSessionState = () => {
+    const sessionState = mainWindowState.sessionsLayoutsRef[session.id] ??= {
+      layouts: {},
+      healthStatus: 'healthy',
+      healthDetail: ''
+    }
+
+    sessionState.healthStatus ??= 'healthy'
+    sessionState.healthDetail ??= ''
+
+    return sessionState
+  }
+
+  const setSessionHealth = (status: SessionHealthStatus, detail: string = '') => {
+    const sessionState = ensureSessionState()
+    sessionState.healthStatus = status
+    sessionState.healthDetail = detail
+  }
+
+  const clearSessionHealth = () => {
+    setSessionHealth('healthy', '')
+  }
+
+  // Apply zoom reactively. Read config directly in the effect so Svelte 5 tracks the
+  // deep property access. Using $derived was unreliable here because the webview bind:this
+  // transitions through undefined (div→undefined→webview) on session start, causing the
+  // effect to take an early-return path that drops $derived from the dependency graph.
+  $effect(() => {
+    const wv = webview?.tagName === 'WEBVIEW' ? (webview as WebviewTag) : null
+    if (!wv) return
+    initZoom(wv, 3)
+  })
+
+  const initZoom = (wv: WebviewTag, retryLeft: number) => {
+    try {
+      wv.setZoomFactor(mainWindowState.config.sessionZoomLevels?.[session.id] ?? 1.0)
+    } catch (e) {
+      console.log('Failed to set zoom, retrying...', e)
+      if (retryLeft > 0) {
+        setTimeout(() => initZoom(wv, retryLeft - 1), 1000)
+      } else {
+        console.error('Failed to set zoom after multiple retries')
+      }
+    }
+  }
+
+  let healthStatus = $derived(mainWindowState.sessionsLayoutsRef[session.id]?.healthStatus ?? 'healthy')
+  let healthDetail = $derived(mainWindowState.sessionsLayoutsRef[session.id]?.healthDetail ?? '')
+
   onMount(() => {
     if (session.partitionOverwrite) {
       partition = `persist:${session.partitionOverwrite}`
     } else {
       partition = `persist:${session.id}`
     }
-    if (!Object.keys(mainWindowState.sessionsLayoutsRef).includes(session.id)) {
-      mainWindowState.sessionsLayoutsRef[session.id] = {
-        layouts: {}
-      }
-    }
+    ensureSessionState()
 
     const exposedRef = {
       startClient,
@@ -51,6 +95,9 @@
       isMuted,
       getWebview,
       sendKey,
+      setZoom: (zoom: number) => {
+        getWebview()?.setZoomFactor(zoom)
+      },
     };
 
     mainWindowState.sessionsLayoutsRef[session.id].layouts[layoutId] = exposedRef
@@ -71,29 +118,16 @@ window.open = function(...args) {
 `)
     koreanLinkFixed = true;
   }
-  export const startClient = async () => {
+  export const startClient = () => {
     started = true
     onUpdate(session.id)
-    // Wait for Svelte to render the <webview> element, then attach ipc-message listener
-    await tick();
-    const webviewEl = getWebview();
-    if (webviewEl) {
-      webviewEl.addEventListener('ipc-message', (event: Event) => {
-        const e = event as any;
-        if (e.channel !== 'keydown') return;
-        const key: string = e.args?.[0];
-        if (!key) return;
-        document.dispatchEvent(new CustomEvent('neuz:keydown', {
-          detail: { sessionId: session.id, key }
-        }));
-      });
-    }
   }
 
   export const stopClient = () => {
+    clearSessionHealth()
     started = false
     onUpdate(session.id)
-    koreanLinkFixed = false;
+    koreanLinkFixed = false
   }
 
   export const isStarted = () => {
@@ -263,6 +297,82 @@ window.open = function(...args) {
       console.error('❌ Error sending key:', e)
     }
   }
+
+  // Attach/detach webview event listeners via $effect so they bind as soon as the <webview> element
+  // exists, eliminating the tick()-based race where did-fail-load could fire before listeners attached.
+  $effect(() => {
+    if (!started) {
+      return undefined
+    }
+    const webviewEl = getWebview()
+    if (!webviewEl) {
+      return undefined
+    }
+
+    const onIpcMessage = (event: Event) => {
+      const e = event as any
+      if (e.channel !== 'keydown') return
+      const key: string = e.args?.[0]
+      if (!key) return
+      document.dispatchEvent(new CustomEvent('neuz:keydown', {
+        detail: { sessionId: session.id, key }
+      }))
+    }
+
+    const onRenderProcessGone = (event: Event) => {
+      const e = event as any
+      const reasonMap: Record<string, string> = {
+        killed:            'The process was killed (e.g. by the OS or task manager)',
+        crashed:           'The renderer process crashed unexpectedly',
+        oom:               'The renderer ran out of memory',
+        'launch-failed':   'The renderer process failed to start',
+        'integrity-failure':'Code integrity checks failed',
+      }
+      const rawReason: string = e?.reason ?? 'crashed'
+      const detail = reasonMap[rawReason] ?? `Process exited: ${rawReason}`
+      setSessionHealth('crashed', detail)
+    }
+
+    const onDidFailLoad = (event: Event) => {
+      const e = event as any
+      // errorCode -3 is ERR_ABORTED (intentional navigation cancel) — skip
+      if (e?.errorCode === -3) return
+      const description = e?.errorDescription
+        ? `${e.errorCode}: ${e.errorDescription}`
+        : String(e?.errorCode ?? 'load failed')
+      setSessionHealth('load-failed', description)
+    }
+
+    // did-navigate fires ONLY on successful top-level navigations — safe to clear health here.
+    // did-finish-load also fires after failed loads (Electron renders the error page),
+    // so we use it only for re-applying zoom, not for clearing health.
+    const onDidNavigate = () => clearSessionHealth()
+    const onDidFinishLoad = () => {
+      getWebview()?.setZoomFactor(mainWindowState.config.sessionZoomLevels?.[session.id] ?? 1.0)
+    }
+
+    const onUnresponsive = () => setSessionHealth('unresponsive', '')
+    const onResponsive = () => clearSessionHealth()
+
+    webviewEl.addEventListener('ipc-message', onIpcMessage)
+    webviewEl.addEventListener('render-process-gone', onRenderProcessGone)
+    webviewEl.addEventListener('did-fail-load', onDidFailLoad)
+    webviewEl.addEventListener('unresponsive', onUnresponsive)
+    webviewEl.addEventListener('responsive', onResponsive)
+    webviewEl.addEventListener('did-navigate', onDidNavigate)
+    webviewEl.addEventListener('did-finish-load', onDidFinishLoad)
+
+    return () => {
+      webviewEl.removeEventListener('ipc-message', onIpcMessage)
+      webviewEl.removeEventListener('render-process-gone', onRenderProcessGone)
+      webviewEl.removeEventListener('did-fail-load', onDidFailLoad)
+      webviewEl.removeEventListener('unresponsive', onUnresponsive)
+      webviewEl.removeEventListener('responsive', onResponsive)
+      webviewEl.removeEventListener('did-navigate', onDidNavigate)
+      webviewEl.removeEventListener('did-finish-load', onDidFinishLoad)
+    }
+  })
+
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -298,6 +408,29 @@ window.open = function(...args) {
         useragent={userAgent}
         preload={webviewPreloadPath}
       ></webview>
+      {#if healthStatus === 'unresponsive'}
+        <div class="absolute inset-0 z-40 pointer-events-none">
+          <div class="absolute inset-2 rounded-lg ring-2 ring-amber-400/80 animate-pulse"></div>
+          <div class="absolute left-3 top-3 inline-flex items-center gap-2 rounded-full border border-amber-400/50 bg-amber-400/15 px-3 py-1.5 text-xs font-medium text-amber-100 shadow-lg backdrop-blur-sm">
+            <Loader2 class="h-4 w-4 animate-spin" />
+            Webview unresponsive
+          </div>
+        </div>
+      {/if}
+      {#if healthStatus === 'crashed' || healthStatus === 'load-failed'}
+        <div class="absolute inset-0 z-50 flex items-center justify-center bg-background/95 px-4 py-6 backdrop-blur-sm">
+          <div class="w-full max-w-md rounded-xl border border-border bg-card p-6 text-center shadow-2xl">
+            <AlertTriangle class="mx-auto h-12 w-12 text-amber-500" />
+            <h3 class="mt-4 text-lg font-semibold">
+              {healthStatus === 'crashed' ? 'Session crashed' : 'Load failed'}
+            </h3>
+            <p class="mt-2 text-sm text-muted-foreground break-words">{healthDetail}</p>
+            <Button class="mt-6 w-full" onclick={() => getWebview()?.reload()}>
+              {healthStatus === 'crashed' ? 'Reload Session' : 'Retry'}
+            </Button>
+          </div>
+        </div>
+      {/if}
     {:else}
       <div
         bind:this={webview}

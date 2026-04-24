@@ -58,6 +58,19 @@
     neuzosBridge.sessions.clearStorage(sessionId)
   }
 
+  const clampZoom = (value: number) => Math.min(1.5, Math.max(0.5, Math.round(value * 20) / 20))
+
+  const getSessionZoom = (sessionId: string) => {
+    return neuzosConfig.sessionZoomLevels?.[sessionId] ?? 1.0
+  }
+
+  const setSessionZoom = (sessionId: string, value: number) => {
+    const zoom = clampZoom(value)
+    neuzosConfig.sessionZoomLevels = neuzosConfig.sessionZoomLevels ?? {}
+    neuzosConfig.sessionZoomLevels[sessionId] = zoom
+    void neuzosBridge.sessions.setZoom(sessionId, zoom)
+  }
+
   const clearAllCache = () => {
     neuzosConfig.sessions.forEach(session => {
       neuzosBridge.sessions.clearCache(session.id)
@@ -106,6 +119,7 @@
           <Table.Head class="w-[100px]">Icon</Table.Head>
           <Table.Head class="w-1/2">Label</Table.Head>
           <Table.Head class="w-[110px] text-center">Floatable</Table.Head>
+          <Table.Head class="w-[300px]">Zoom</Table.Head>
           <Table.Head class="w-1/2">Launch URL Overwrite</Table.Head>
           <Table.Head>Session ID</Table.Head>
           <Table.Head>Actions</Table.Head>
@@ -200,6 +214,40 @@
                 />
               </div>
             </Table.Cell>
+            <Table.Cell class="w-[300px]">
+              <div class="flex flex-col gap-2">
+                <input
+                  class="w-full h-2 accent-primary cursor-pointer rounded-full"
+                  type="range"
+                  min="0.5"
+                  max="1.5"
+                  step="0.05"
+                  value={getSessionZoom(session.id)}
+                  oninput={(event) => {
+                    const value = Number((event.currentTarget as HTMLInputElement).value)
+                    setSessionZoom(session.id, value)
+                  }}
+                />
+                <div class="flex items-center gap-2">
+                  <Input
+                    class="h-9 w-24 shrink-0 text-sm text-center tabular-nums"
+                    type="number"
+                    min="50"
+                    max="150"
+                    step="5"
+                    value={Math.round(getSessionZoom(session.id) * 100)}
+                    oninput={(event) => {
+                      const value = Number((event.currentTarget as HTMLInputElement).value)
+                      setSessionZoom(session.id, value / 100)
+                    }}
+                  />
+                  <span class="text-xs text-muted-foreground shrink-0">%</span>
+                  <Button variant="outline" size="sm" class="shrink-0" onclick={() => setSessionZoom(session.id, 1)}>
+                    Reset
+                  </Button>
+                </div>
+              </div>
+            </Table.Cell>
             <Table.Cell class="w-1/2">
               <div class="flex items-center gap-2">
                 {#if session.srcOverwrite}
@@ -213,7 +261,8 @@
                     </Button>
                   {/if}
                   <Input class="h-9 text-sm w-full" bind:value={session.srcOverwrite} oninput={(e) => {
-                  if (e.target.value.length == 0 || e.target.value === ' ') {
+                    const target = e.currentTarget as HTMLInputElement
+                    if (target.value.length == 0 || target.value === ' ') {
                     delete(session.srcOverwrite)
                     delete(session.partitionOverwrite)
                   }

@@ -147,6 +147,103 @@ let launchArgs: LaunchArgs;
 
 let neuzosConfig: any = null;
 
+type ConfigExportPayload = {
+  schemaVersion: 1;
+  exportedAt: string;
+  sessionActions: any[];
+  keyBinds: any[];
+  keyBindProfiles: any[];
+  activeKeyBindProfileId: string | null;
+};
+
+type ExportCategory =
+  | 'keybinds'
+  | 'session-actions'
+  | 'ui-layout'
+  | 'general-settings'
+  | 'quest-log';
+
+type ConfigExportPayloadV2 = {
+  schemaVersion: 2;
+  exportedAt: string;
+  categories: ExportCategory[];
+  _sanitized?: true;
+  keyBinds?: any[];
+  keyBindProfiles?: any[];
+  activeKeyBindProfileId?: string | null;
+  sessionActions?: any[];
+  window?: any;
+  sessionZoomLevels?: Record<string, number>;
+  fullscreen?: any;
+  autoSaveSettings?: boolean;
+  defaultLaunchMode?: string;
+  userAgent?: string;
+  titleBarButtons?: any;
+  questLogTemplates?: never[];
+};
+
+type ConfigImportPayload = ConfigExportPayload | ConfigExportPayloadV2;
+
+type ConfigImportResult =
+  | { valid: true; payload: ConfigImportPayload; warnings: string[] }
+  | { valid: false; error: string };
+
+type ConfigApplyImportArgsV2 = {
+  payload: ConfigImportPayload;
+  mode: 'replace' | 'merge';
+  categories: ExportCategory[];
+};
+
+const exportCategoryOrder: ExportCategory[] = ['keybinds', 'session-actions', 'ui-layout', 'general-settings', 'quest-log'];
+const exportCategorySet = new Set<ExportCategory>(exportCategoryOrder);
+
+function isExportCategory(value: unknown): value is ExportCategory {
+  return typeof value === 'string' && exportCategorySet.has(value as ExportCategory);
+}
+
+function normalizeCategories(categories: unknown): ExportCategory[] {
+  if (!Array.isArray(categories)) {
+    return [];
+  }
+
+  return categories.filter(isExportCategory);
+}
+
+function inferPayloadCategories(payload: any): ExportCategory[] {
+  const categories: ExportCategory[] = [];
+
+  if (Array.isArray(payload?.keyBinds) || Array.isArray(payload?.keyBindProfiles) || payload?.activeKeyBindProfileId !== undefined) {
+    categories.push('keybinds');
+  }
+  if (Array.isArray(payload?.sessionActions)) {
+    categories.push('session-actions');
+  }
+  if (payload?.window !== undefined || payload?.sessionZoomLevels !== undefined || payload?.fullscreen !== undefined) {
+    categories.push('ui-layout');
+  }
+  if (payload?.autoSaveSettings !== undefined || payload?.defaultLaunchMode !== undefined || payload?.userAgent !== undefined || payload?.titleBarButtons !== undefined) {
+    categories.push('general-settings');
+  }
+  if (Array.isArray(payload?.questLogTemplates)) {
+    categories.push('quest-log');
+  }
+
+  return categories;
+}
+
+function getPayloadCategories(payload: ConfigImportPayload): ExportCategory[] {
+  if (payload.schemaVersion === 1) {
+    return ['keybinds', 'session-actions'];
+  }
+
+  const explicitCategories = normalizeCategories(payload.categories);
+  return explicitCategories.length > 0 ? explicitCategories : inferPayloadCategories(payload);
+}
+
+function cloneData<T>(value: T): T {
+  return value === undefined ? value : JSON.parse(JSON.stringify(value));
+}
+
 const defaultNeuzosConfig: any = {
   window: undefined,
   autoSaveSettings: false,
@@ -180,6 +277,7 @@ const defaultNeuzosConfig: any = {
   ],
   syncReceiverSessionId: null,
   sessionActions: [],
+  sessionZoomLevels: {},
   titleBarButtons: {
     darkModeToggle: true,
     fullscreenToggle: true,
@@ -274,6 +372,7 @@ function loadConfig(reload: boolean = false): Promise<any> {
           // Deep merge for window config to ensure all window types (main, settings, session) exist
           const loadedWindow = neuzosConfig.window;
           neuzosConfig = {...defaultNeuzosConfig, ...neuzosConfig};
+          neuzosConfig.sessionZoomLevels = neuzosConfig.sessionZoomLevels ?? {};
 
           // Deep merge window config specifically
           if (loadedWindow) {
@@ -1428,6 +1527,362 @@ function registerSessionKeybinds(mode: LaunchMode) {
       checkKeybinds();
       registerKeybinds();
       mainWindow?.webContents?.send("event.config_changed", config);
+    });
+
+    ipcMain.handle("config.export", async (event, payload: ConfigExportPayloadV2) => {
+      try {
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+          return {success: false, error: 'Invalid export payload.'};
+        }
+
+        const parentWindow = BrowserWindow.fromWebContents(event.sender) ?? mainWindow
+        const saveOptions = {
+          defaultPath: `neuzos-config-export-${new Date().toISOString().slice(0, 10)}.json`,
+          filters: [{name: 'JSON', extensions: ['json']}],
+        };
+        const saveResult = await (parentWindow
+          ? dialog.showSaveDialog(parentWindow, saveOptions)
+          : dialog.showSaveDialog(saveOptions));
+
+        if (saveResult.canceled || !saveResult.filePath) {
+          return {success: false, error: 'canceled'};
+        }
+
+        await fs.promises.writeFile(saveResult.filePath, JSON.stringify(payload, null, 2), 'utf8');
+        return {success: true, filePath: saveResult.filePath};
+      } catch (error: any) {
+        return {success: false, error: error?.message ?? String(error)};
+      }
+    });
+
+    ipcMain.handle("config.import", async (event) => {
+      try {
+        const openWindow = BrowserWindow.fromWebContents(event.sender) ?? mainWindow;
+        const openOptions = {
+          properties: ['openFile' as const],
+          filters: [{name: 'JSON', extensions: ['json']}],
+        };
+        const openResult = await (openWindow
+          ? dialog.showOpenDialog(openWindow, openOptions)
+          : dialog.showOpenDialog(openOptions));
+
+        if (openResult.canceled || openResult.filePaths.length === 0) {
+          return {valid: false, error: 'canceled'};
+        }
+
+        const filePath = openResult.filePaths[0];
+        const stats = await fs.promises.stat(filePath);
+        if (stats.size > 5 * 1024 * 1024) {
+          return {valid: false, error: 'Import file exceeds 5 MB limit.'};
+        }
+
+        const rawText = await fs.promises.readFile(filePath, 'utf8');
+        let parsed: any;
+        try {
+          parsed = JSON.parse(rawText);
+        } catch (error: any) {
+          return {valid: false, error: `Invalid JSON: ${error?.message ?? String(error)}`};
+        }
+
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          return {valid: false, error: 'Invalid config file: expected a JSON object.'};
+        }
+
+        const importedSchemaVersion = parsed.schemaVersion;
+        if (typeof importedSchemaVersion !== 'number' || !Number.isFinite(importedSchemaVersion)) {
+          return {valid: false, error: 'Missing or invalid schemaVersion.'};
+        }
+
+        if (typeof parsed.exportedAt !== 'string') {
+          return {valid: false, error: 'Missing or invalid exportedAt.'};
+        }
+
+        let payload: ConfigImportPayload;
+        if (importedSchemaVersion === 1) {
+          const requiredFields: Array<[string, string]> = [
+            ['sessionActions', 'array'],
+            ['keyBinds', 'array'],
+            ['keyBindProfiles', 'array'],
+            ['activeKeyBindProfileId', 'string|null'],
+          ];
+
+          for (const [fieldName, fieldType] of requiredFields) {
+            if (!(fieldName in parsed)) {
+              return {valid: false, error: `Missing required field: ${fieldName}`};
+            }
+            const value = parsed[fieldName];
+            const isArray = fieldType === 'array' && Array.isArray(value);
+            const isString = fieldType === 'string' && typeof value === 'string';
+            const isNumber = fieldType === 'number' && typeof value === 'number' && Number.isFinite(value);
+            const isStringOrNull = fieldType === 'string|null' && (typeof value === 'string' || value === null);
+            if (!(isArray || isString || isNumber || isStringOrNull)) {
+              return {valid: false, error: `Invalid field type for ${fieldName}: expected ${fieldType}`};
+            }
+          }
+
+          payload = {
+            schemaVersion: 1,
+            exportedAt: parsed.exportedAt,
+            sessionActions: parsed.sessionActions,
+            keyBinds: parsed.keyBinds,
+            keyBindProfiles: parsed.keyBindProfiles,
+            activeKeyBindProfileId: parsed.activeKeyBindProfileId,
+          };
+        } else {
+          const categories = normalizeCategories(parsed.categories);
+          payload = {
+            schemaVersion: 2,
+            exportedAt: parsed.exportedAt,
+            categories: categories.length > 0 ? categories : inferPayloadCategories(parsed),
+            ...(Array.isArray(parsed.keyBinds) ? {keyBinds: parsed.keyBinds} : {}),
+            ...(Array.isArray(parsed.keyBindProfiles) ? {keyBindProfiles: parsed.keyBindProfiles} : {}),
+            ...(parsed.activeKeyBindProfileId !== undefined ? {activeKeyBindProfileId: parsed.activeKeyBindProfileId} : {}),
+            ...(Array.isArray(parsed.sessionActions) ? {sessionActions: parsed.sessionActions} : {}),
+            ...(parsed.window !== undefined ? {window: parsed.window} : {}),
+            ...(parsed.sessionZoomLevels !== undefined ? {sessionZoomLevels: parsed.sessionZoomLevels} : {}),
+            ...(parsed.fullscreen !== undefined ? {fullscreen: parsed.fullscreen} : {}),
+            ...(parsed.autoSaveSettings !== undefined ? {autoSaveSettings: parsed.autoSaveSettings} : {}),
+            ...(parsed.defaultLaunchMode !== undefined ? {defaultLaunchMode: parsed.defaultLaunchMode} : {}),
+            ...(parsed.userAgent !== undefined ? {userAgent: parsed.userAgent} : {}),
+            ...(parsed.titleBarButtons !== undefined ? {titleBarButtons: parsed.titleBarButtons} : {}),
+            ...(Array.isArray(parsed.questLogTemplates) ? {questLogTemplates: parsed.questLogTemplates} : {}),
+          };
+        }
+
+        const warnings: string[] = [];
+        if (importedSchemaVersion > 2) {
+          warnings.push(`Imported schema version ${importedSchemaVersion} is newer than this app.`);
+        }
+
+        const knownSessionIds = new Set((neuzosConfig.sessions ?? []).map((session: any) => session.id));
+        const orphanedSessionIds = [...new Set((payload.sessionActions ?? [])
+          .map((action: any) => action?.sessionId)
+          .filter((sessionId: any) => typeof sessionId === 'string' && sessionId !== '' && !knownSessionIds.has(sessionId)))];
+        if (orphanedSessionIds.length > 0) {
+          warnings.push(`Imported session actions reference unknown session IDs: ${orphanedSessionIds.join(', ')}`);
+        }
+
+        return {valid: true, payload, warnings} satisfies ConfigImportResult;
+      } catch (error: any) {
+        return {valid: false, error: error?.message ?? String(error)};
+      }
+    });
+
+    ipcMain.handle("config.apply_import", async (_, args: ConfigApplyImportArgsV2) => {
+      try {
+        const payload = args?.payload;
+        const mode = args?.mode;
+        const requestedCategories = normalizeCategories(args?.categories);
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload) || (mode !== 'replace' && mode !== 'merge') || requestedCategories.length === 0) {
+          return {success: false, error: 'Invalid import payload.'};
+        }
+
+        const payloadCategories = new Set(getPayloadCategories(payload));
+        const categoriesToApply = requestedCategories.filter((category) => payloadCategories.has(category));
+        if (categoriesToApply.length === 0) {
+          return {success: true, added: {actions: 0, binds: 0, profiles: 0}};
+        }
+
+        let addedActions = 0;
+        let addedBinds = 0;
+        let addedProfiles = 0;
+        let didModify = false;
+
+        const applyKeybinds = () => {
+          const incomingPayload = payload as ConfigExportPayloadV2;
+          if (mode === 'replace') {
+            neuzosConfig.keyBinds = cloneData(incomingPayload.keyBinds ?? []);
+            neuzosConfig.keyBindProfiles = cloneData(incomingPayload.keyBindProfiles ?? []);
+            neuzosConfig.activeKeyBindProfileId = incomingPayload.activeKeyBindProfileId ?? null;
+            didModify = true;
+            return;
+          }
+
+          const incomingKeyBinds = incomingPayload.keyBinds ?? [];
+          const incomingProfiles = incomingPayload.keyBindProfiles ?? [];
+
+          const existingKeyBinds = [...(neuzosConfig.keyBinds ?? [])];
+          const existingKeyBindKeys = new Set(existingKeyBinds.map((bind: any) => String(bind?.key ?? '').trim().toLowerCase()));
+          for (const bind of incomingKeyBinds) {
+            const normalizedKey = String(bind?.key ?? '').trim().toLowerCase();
+            if (normalizedKey && !existingKeyBindKeys.has(normalizedKey)) {
+              existingKeyBinds.push(cloneData(bind));
+              existingKeyBindKeys.add(normalizedKey);
+              addedBinds++;
+              didModify = true;
+            }
+          }
+          neuzosConfig.keyBinds = existingKeyBinds;
+
+          const existingProfiles = [...(neuzosConfig.keyBindProfiles ?? [])];
+          const existingProfileMap = new Map(existingProfiles.map((p: any) => [p?.id, p]));
+          for (const importProfile of incomingProfiles) {
+            const existingProfile = existingProfileMap.get(importProfile?.id);
+            if (!existingProfile) {
+              existingProfiles.push(cloneData(importProfile));
+              existingProfileMap.set(importProfile?.id, importProfile);
+              addedProfiles++;
+              didModify = true;
+            } else {
+              const existingProfileKeybinds: any[] = existingProfile.keybinds ?? [];
+              const existingBindKeys = new Set(existingProfileKeybinds.map((b: any) => String(b?.key ?? '').trim().toLowerCase()));
+              let innerAdded = 0;
+              for (const bind of (importProfile?.keybinds ?? [])) {
+                const normalizedKey = String(bind?.key ?? '').trim().toLowerCase();
+                if (normalizedKey && !existingBindKeys.has(normalizedKey)) {
+                  existingProfileKeybinds.push(cloneData(bind));
+                  existingBindKeys.add(normalizedKey);
+                  innerAdded++;
+                }
+              }
+              if (innerAdded > 0) {
+                didModify = true;
+              }
+              existingProfile.keybinds = existingProfileKeybinds;
+              addedProfiles += innerAdded;
+            }
+          }
+          neuzosConfig.keyBindProfiles = existingProfiles;
+
+          if (!neuzosConfig.activeKeyBindProfileId) {
+            neuzosConfig.activeKeyBindProfileId = incomingPayload.activeKeyBindProfileId ?? null;
+            didModify = true;
+          }
+        };
+
+        const applySessionActions = () => {
+          const incomingPayload = payload as ConfigExportPayloadV2;
+          if (mode === 'replace') {
+            neuzosConfig.sessionActions = cloneData(incomingPayload.sessionActions ?? []);
+            didModify = true;
+            return;
+          }
+
+          const existingSessionActions = [...(neuzosConfig.sessionActions ?? [])];
+          const existingSessionMap = new Map(existingSessionActions.map((sa: any) => [sa?.sessionId, sa]));
+          for (const importSA of (incomingPayload.sessionActions ?? [])) {
+            const existing = existingSessionMap.get(importSA?.sessionId);
+            if (!existing) {
+              existingSessionActions.push(cloneData(importSA));
+              existingSessionMap.set(importSA?.sessionId, importSA);
+              addedActions++;
+              didModify = true;
+            } else {
+              const existingActions: any[] = existing.actions ?? [];
+              const existingActionIds = new Set(existingActions.map((a: any) => a?.id));
+              for (const action of (importSA?.actions ?? [])) {
+                if (action?.id && !existingActionIds.has(action.id)) {
+                  existingActions.push(cloneData(action));
+                  existingActionIds.add(action.id);
+                  addedActions++;
+                  didModify = true;
+                }
+              }
+              existing.actions = existingActions;
+            }
+          }
+          neuzosConfig.sessionActions = existingSessionActions;
+        };
+
+        const applyUiLayout = () => {
+          const incomingPayload = payload as ConfigExportPayloadV2;
+          if (incomingPayload.window !== undefined) {
+            neuzosConfig.window = cloneData(incomingPayload.window);
+            didModify = true;
+          }
+
+          if (incomingPayload.sessionZoomLevels !== undefined) {
+            const knownSessionIds = new Set((neuzosConfig.sessions ?? []).map((session: any) => session.id));
+            const filteredZoomLevels: Record<string, number> = {};
+            for (const [sessionId, zoomLevel] of Object.entries(incomingPayload.sessionZoomLevels ?? {})) {
+              if (knownSessionIds.has(sessionId)) {
+                filteredZoomLevels[sessionId] = zoomLevel as number;
+              }
+            }
+            neuzosConfig.sessionZoomLevels = filteredZoomLevels;
+            didModify = true;
+          }
+
+          if (incomingPayload.fullscreen !== undefined) {
+            neuzosConfig.fullscreen = cloneData(incomingPayload.fullscreen);
+            didModify = true;
+          }
+        };
+
+        const applyGeneralSettings = () => {
+          const incomingPayload = payload as ConfigExportPayloadV2;
+          if (incomingPayload.autoSaveSettings !== undefined) {
+            neuzosConfig.autoSaveSettings = incomingPayload.autoSaveSettings;
+            didModify = true;
+          }
+          if (incomingPayload.defaultLaunchMode !== undefined) {
+            const allowedLaunchModes = ['normal', 'session_launcher'];
+            if (allowedLaunchModes.includes(incomingPayload.defaultLaunchMode as string)) {
+              neuzosConfig.defaultLaunchMode = incomingPayload.defaultLaunchMode;
+              didModify = true;
+            }
+          }
+          if (incomingPayload.userAgent !== undefined) {
+            neuzosConfig.userAgent = incomingPayload.userAgent;
+            didModify = true;
+          }
+          if (incomingPayload.titleBarButtons !== undefined) {
+            neuzosConfig.titleBarButtons = cloneData(incomingPayload.titleBarButtons);
+            didModify = true;
+          }
+        };
+
+        for (const category of categoriesToApply) {
+          switch (category) {
+            case 'keybinds':
+              applyKeybinds();
+              break;
+            case 'session-actions':
+              applySessionActions();
+              break;
+            case 'ui-layout':
+              applyUiLayout();
+              break;
+            case 'general-settings':
+              applyGeneralSettings();
+              break;
+            case 'quest-log':
+              break;
+          }
+        }
+
+        if (didModify) {
+          saveConfig(neuzosConfig);
+          checkKeybinds();
+          registerKeybinds();
+          mainWindow?.webContents?.send("event.config_changed", JSON.stringify(neuzosConfig));
+        }
+
+        return mode === 'merge'
+          ? {success: true, added: {actions: addedActions, binds: addedBinds, profiles: addedProfiles}}
+          : {success: true};
+      } catch (error: any) {
+        return {success: false, error: error?.message ?? String(error)};
+      }
+    });
+
+    ipcMain.handle("config.set_session_zoom", async (_, sessionId: string, zoomLevel: number) => {
+      try {
+        if (typeof sessionId !== 'string' || sessionId.trim() === '') {
+          return {success: false, error: 'Invalid session ID.'};
+        }
+        if (typeof zoomLevel !== 'number' || !Number.isFinite(zoomLevel) || zoomLevel < 0.5 || zoomLevel > 1.5) {
+          return {success: false, error: 'Invalid zoom level.'};
+        }
+
+        neuzosConfig.sessionZoomLevels = neuzosConfig.sessionZoomLevels ?? {};
+        neuzosConfig.sessionZoomLevels[sessionId] = zoomLevel;
+        saveConfig(neuzosConfig);
+        mainWindow?.webContents?.send("event.config_changed", JSON.stringify(neuzosConfig));
+        return {success: true};
+      } catch (error: any) {
+        return {success: false, error: error?.message ?? String(error)};
+      }
     });
 
     ipcMain.handle("config.set_sync_receiver", async (_, sessionId: string | null) => {

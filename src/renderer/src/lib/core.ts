@@ -1,5 +1,5 @@
 import type {IpcRenderer} from "@electron-toolkit/preload";
-import type {NeuzKeybind, UIActionDescriptor} from "$lib/types";
+import type {ConfigApplyImportArgsV2, ConfigExportPayloadV2, ConfigImportResult, ConfigImportPayload, ExportCategory, NeuzKeybind, UIActionDescriptor} from "$lib/types";
 import type {ViewerWindowConfig, ViewerWindowType} from "./types";
 
 let electronApi: IpcRenderer | undefined = undefined;
@@ -84,8 +84,22 @@ export const neuzosBridge = {
     clearStorage: (sessionId: string) => {
       electronApi?.send("session.clear_storage", sessionId);
     },
+    setZoom: (sessionId: string, zoomLevel: number) => {
+      return electronApi?.invoke("config.set_session_zoom", sessionId, zoomLevel) ?? Promise.resolve({success: false, error: "Electron API unavailable"});
+    },
     setSyncReceiver: (sessionId: string | null) => {
       electronApi?.invoke("config.set_sync_receiver", sessionId);
+    }
+  },
+  backup: {
+    export: (payload: ConfigExportPayloadV2): Promise<{ success: boolean; filePath?: string; error?: string }> => {
+      return electronApi?.invoke("config.export", payload) ?? Promise.resolve({success: false, error: "Electron API unavailable"});
+    },
+    import: (): Promise<ConfigImportResult> => {
+      return electronApi?.invoke("config.import") ?? Promise.resolve({valid: false, error: "Electron API unavailable"});
+    },
+    applyImport: (payload: ConfigImportPayload, mode: ConfigApplyImportArgsV2["mode"], categories: ExportCategory[]): Promise<{ success: boolean; error?: string; added?: { actions: number; binds: number; profiles: number } }> => {
+      return electronApi?.invoke("config.apply_import", {payload, mode, categories} satisfies ConfigApplyImportArgsV2) ?? Promise.resolve({success: false, error: "Electron API unavailable"});
     }
   },
   sessionWindow: {
