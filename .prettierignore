@@ -4,6 +4,8 @@ pnpm-lock.yaml
 LICENSE.md
 tsconfig.json
 tsconfig.*.json
-.github
-.specify
-specs/001-sync-caster/
+.github/
+node_modules/
+.specify/
+specs/
+

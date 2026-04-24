@@ -34,6 +34,16 @@ export type NeuzLayout = {
   autoFocus?: boolean
 }
 
+export type ViewerWindowType = 'navi_guide' | 'flyffipedia';
+
+export type ViewerWindowConfig = {
+  x: number | null;
+  y: number | null;
+  width: number;
+  height: number;
+  alwaysOnTop: boolean;
+}
+
 export type MainWindowState = {
   config: (NeuzConfig & {
     changed: boolean
@@ -104,7 +114,9 @@ export type NeuzConfig = {
       height: number;
       zoom: number;
       maximized: boolean;
-    }
+    },
+    viewers?: Record<ViewerWindowType, ViewerWindowConfig>;
+    sidebarSide?: 'left' | 'right';
   },
   autoSaveSettings: boolean;
   userAgent?: string;
