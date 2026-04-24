@@ -1,25 +1,33 @@
 <script lang="ts">
   import { fly } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
-  import { X, Search, Plus, Minus, Settings2, Trash2, Pencil, Check, ChevronDown, ChevronRight } from '@lucide/svelte';
+  import { getContext } from 'svelte';
+  import { X, Search, Plus, Minus, Settings2, Trash2, Pencil, Check, ChevronDown, ChevronRight, PanelLeft, PanelRight } from '@lucide/svelte';
   import { Button } from '$lib/components/ui/button';
   import { Input } from '$lib/components/ui/input';
-  import { Badge } from '$lib/components/ui/badge';
+  import * as Popover from '$lib/components/ui/popover';
+  import * as Command from '$lib/components/ui/command';
   import * as ContextMenu from '$lib/components/ui/context-menu';
   import { getQuestPanelContext, RECOMMENDATION_CATEGORIES, type FlyffClassName } from '$lib/contexts/questPanelContext.svelte';
   import { quests as allQuests, type Quest } from '$lib/data/quests';
   import { isQuestInFWCFilter, getRecommendationTextColor } from '$lib/data/questFilters';
+  import type { MainWindowState, NeuzIcon } from '$lib/types';
   import QuestlineGroup from './QuestlineGroup.svelte';
   import TodoChecklist from './TodoChecklist.svelte';
 
   const questPanel = getQuestPanelContext();
+  const mainWindowState = getContext<MainWindowState>('mainWindowState');
 
   let searchFilter = $state('');
   let collapsed = $state(false);
   let showSettings = $state(false);
   let addingCharacter = $state(false);
+  let selectedSessionId = $state<string | null>(null);
+  let sessionComboOpen = $state(false);
+  let classComboOpen = $state(false);
   let newCharName = $state('');
   let newCharClass = $state<FlyffClassName | null>(null);
+  let newCharIcon = $state<NeuzIcon | null>(null);
   let editingCharId = $state<string | null>(null);
   let editCharName = $state('');
 
@@ -36,6 +44,35 @@
     return found ? `icons/${found.icon}.png` : null;
   }
 
+  function clearNewCharacterForm() {
+    selectedSessionId = null;
+    sessionComboOpen = false;
+    classComboOpen = false;
+    newCharName = '';
+    newCharClass = null;
+    newCharIcon = null;
+  }
+
+  function beginNewCharacter() {
+    clearNewCharacterForm();
+    addingCharacter = true;
+  }
+
+  function cancelNewCharacter() {
+    clearNewCharacterForm();
+    addingCharacter = false;
+  }
+
+  function selectSession(sessionId: string) {
+    const session = mainWindowState.sessions.find((entry) => entry.id === sessionId);
+    if (!session) return;
+
+    selectedSessionId = session.id;
+    newCharName = session.label;
+    newCharIcon = session.icon ?? null;
+    sessionComboOpen = false;
+  }
+
   function matchesRecommendation(rec: string): boolean {
     const r = rec.toLowerCase();
     const filters = questPanel.recommendationFilters;
@@ -45,8 +82,6 @@
 
   const filteredQuestlines = $derived.by(() => {
     const level = questPanel.level;
-    // Read completedQuestKeys to establish reactive dependency
-    const completed = questPanel.completedQuestKeys;
     const fwcEnabled = questPanel.fwcFilterEnabled;
     let questsToShow: Quest[];
 
@@ -90,10 +125,8 @@
   function submitNewCharacter() {
     const name = newCharName.trim();
     if (!name || !newCharClass) return;
-    questPanel.addCharacter(name, newCharClass);
-    newCharName = '';
-    newCharClass = null;
-    addingCharacter = false;
+    questPanel.addCharacter(name, newCharClass, newCharIcon);
+    cancelNewCharacter();
   }
 
   function submitRename() {
@@ -111,9 +144,12 @@
 </script>
 
 <div
-  class="flex flex-col h-full w-80 border-l border-border/60 bg-background absolute right-0 top-0 bottom-0 z-40 shadow-lg"
-  transition:fly={{ x: 320, duration: 250, easing: cubicOut }}
+  class="flex flex-col h-full w-80 border-border/60 bg-background absolute top-0 bottom-0 z-40 shadow-lg {questPanel.sidebarSide === 'right' ? 'left-0 right-auto border-r border-l-0' : 'right-0 left-auto border-l border-r-0'}"
+  transition:fly={{ x: questPanel.sidebarSide === 'right' ? -320 : 320, duration: 250, easing: cubicOut }}
 >
+  <!-- TODO Checklist (character-specific) -->
+  <TodoChecklist />
+
   <!-- Character Tabs (always visible) -->
   <div class="flex items-center gap-2 px-2 py-1.5 border-b border-border overflow-x-auto">
     {#each questPanel.characters as char (char.id)}
@@ -138,7 +174,9 @@
               class="text-xs px-2 gap-1"
               onclick={() => switchCharacter(char.id)}
             >
-              {#if char.flyffClass}
+              {#if char.icon?.slug}
+                <img src="icons/{char.icon.slug}.png" alt={char.icon.slug} class="size-3.5" />
+              {:else if char.flyffClass}
                 {@const icon = getClassIcon(char.flyffClass)}
                 {#if icon}
                   <img src={icon} alt={char.flyffClass} class="size-3.5" />
@@ -152,12 +190,10 @@
               <Pencil class="size-3 mr-2" />
               Rename
             </ContextMenu.Item>
-            {#if questPanel.characters.length > 1}
-              <ContextMenu.Item class="text-destructive" onclick={() => { questPanel.removeCharacter(char.id); }}>
-                <Trash2 class="size-3 mr-2" />
-                Delete
-              </ContextMenu.Item>
-            {/if}
+            <ContextMenu.Item class="text-destructive" onclick={() => { questPanel.removeCharacter(char.id); }}>
+              <Trash2 class="size-3 mr-2" />
+              Delete
+            </ContextMenu.Item>
           </ContextMenu.Content>
         </ContextMenu.Root>
       {/if}
@@ -166,40 +202,109 @@
     {#if addingCharacter}
       <div class="flex flex-col gap-1.5 shrink-0 py-0.5">
         <div class="flex items-center gap-0.5">
+          {#if mainWindowState.sessions.length > 0}
+            <Popover.Root bind:open={sessionComboOpen}>
+              <Popover.Trigger class="h-6 w-24 px-2 inline-flex items-center justify-between gap-1 rounded border border-input bg-background text-xs font-medium text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground">
+                <span class="truncate">
+                  {#if selectedSessionId}
+                    {@const selectedSession = mainWindowState.sessions.find((session) => session.id === selectedSessionId)}
+                    {selectedSession?.label ?? 'Session'}
+                  {:else}
+                    Session
+                  {/if}
+                </span>
+                <ChevronDown class="size-3 shrink-0 opacity-60" />
+              </Popover.Trigger>
+              <Popover.Content class="w-64 p-0">
+                <Command.Root shouldFilter={true}>
+                  <Command.Input placeholder="Search sessions..." class="h-10" />
+                  <Command.Empty>No sessions found.</Command.Empty>
+                  <Command.List class="max-h-56">
+                    <Command.Group>
+                      {#each mainWindowState.sessions as session (session.id)}
+                        <Command.Item
+                          value={session.label}
+                          keywords={[session.label.toLowerCase()]}
+                          class="py-2.5"
+                          onSelect={() => selectSession(session.id)}
+                        >
+                          {#if session.icon?.slug}
+                            <img class="size-5 mr-2" src="icons/{session.icon.slug}.png" alt={session.label} />
+                          {/if}
+                          <span class="text-xs truncate">{session.label}</span>
+                        </Command.Item>
+                      {/each}
+                    </Command.Group>
+                  </Command.List>
+                </Command.Root>
+              </Popover.Content>
+            </Popover.Root>
+            {#if selectedSessionId}
+              <Button size="icon" variant="ghost" class="size-5 shrink-0" onclick={() => { selectedSessionId = null; newCharName = ''; newCharIcon = null; }} title="Clear session">
+                <X class="size-3" />
+              </Button>
+            {/if}
+          {:else}
+            <div class="h-6 flex items-center rounded border border-dashed border-border px-2 text-[11px] text-muted-foreground">
+              No sessions configured
+            </div>
+          {/if}
+
           <Input
             type="text"
             placeholder="Name"
             class="h-6 w-20 text-xs"
             bind:value={newCharName}
-            onkeydown={(e) => { if (e.key === 'Enter') submitNewCharacter(); if (e.key === 'Escape') { addingCharacter = false; newCharName = ''; newCharClass = null; } }}
+            onkeydown={(e) => { if (e.key === 'Enter') submitNewCharacter(); if (e.key === 'Escape') { cancelNewCharacter(); } }}
           />
           <Button size="icon" variant="ghost" class="size-5" onclick={submitNewCharacter} disabled={!newCharName.trim() || !newCharClass}>
             <Check class="size-3" />
           </Button>
+          <Button size="icon" variant="ghost" class="size-5" onclick={cancelNewCharacter} title="Cancel">
+            <X class="size-3" />
+          </Button>
         </div>
         <div class="flex items-center gap-1">
-          {#each FLYFF_CLASSES as cls (cls.name)}
-            <button
-              class="size-6 rounded border flex items-center justify-center cursor-pointer transition-colors
-                {newCharClass === cls.name ? 'border-primary bg-primary/20' : 'border-border hover:border-muted-foreground'}"
-              onclick={() => newCharClass = cls.name}
-              onkeydown={(e) => { if (e.key === 'Enter') { newCharClass = cls.name; submitNewCharacter(); } }}
-              title={cls.name}
-            >
-              <img src="icons/{cls.icon}.png" alt={cls.name} class="size-4" />
-            </button>
-          {/each}
+          <Popover.Root bind:open={classComboOpen}>
+            <Popover.Trigger class="h-6 min-w-[90px] px-2 inline-flex items-center justify-between gap-1 rounded border border-input bg-background text-xs font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground {!newCharClass ? 'text-muted-foreground' : 'text-foreground'}">
+              {#if newCharClass}
+                {@const clsInfo = FLYFF_CLASSES.find(c => c.name === newCharClass)}
+                {#if clsInfo}
+                  <img src="icons/{clsInfo.icon}.png" alt={newCharClass} class="size-3.5 shrink-0" />
+                {/if}
+                <span class="truncate">{newCharClass}</span>
+              {:else}
+                <span class="truncate">Class</span>
+              {/if}
+              <ChevronDown class="size-3 shrink-0 opacity-60 ml-auto" />
+            </Popover.Trigger>
+            <Popover.Content class="w-44 p-0">
+              <Command.Root>
+                <Command.List>
+                  <Command.Group>
+                    {#each FLYFF_CLASSES as cls (cls.name)}
+                      <Command.Item
+                        value={cls.name}
+                        class="py-2 cursor-pointer"
+                        onSelect={() => { newCharClass = cls.name; classComboOpen = false; }}
+                      >
+                        <img src="icons/{cls.icon}.png" alt={cls.name} class="size-5 mr-2 shrink-0" />
+                        <span class="text-xs">{cls.name}</span>
+                      </Command.Item>
+                    {/each}
+                  </Command.Group>
+                </Command.List>
+              </Command.Root>
+            </Popover.Content>
+          </Popover.Root>
         </div>
       </div>
     {:else}
-      <Button size="icon" variant="ghost" class="size-5 shrink-0" onclick={() => addingCharacter = true}>
+      <Button size="icon" variant="ghost" class="size-5 shrink-0" onclick={beginNewCharacter}>
         <Plus class="size-3" />
       </Button>
     {/if}
   </div>
-
-  <!-- TODO Checklist (character-specific) -->
-  <TodoChecklist />
 
   <!-- Header -->
   <div class="flex items-center justify-between px-3 py-2 border-b border-border">
@@ -212,6 +317,19 @@
       <span class="text-sm font-semibold">Quest Log</span>
     </button>
     <div class="flex items-center gap-1">
+      <Button
+        size="icon"
+        variant="ghost"
+        class="size-6"
+        onclick={() => questPanel.setSidebarSide(questPanel.sidebarSide === 'left' ? 'right' : 'left')}
+        title={questPanel.sidebarSide === 'left' ? 'Move sidebar to right' : 'Move sidebar to left'}
+      >
+        {#if questPanel.sidebarSide === 'left'}
+          <PanelRight class="size-3.5" />
+        {:else}
+          <PanelLeft class="size-3.5" />
+        {/if}
+      </Button>
       <Button size="icon" variant={showSettings ? 'secondary' : 'ghost'} class="size-6" onclick={() => showSettings = !showSettings}>
         <Settings2 class="size-3.5" />
       </Button>

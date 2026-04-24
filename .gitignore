@@ -12,6 +12,6 @@ src/renderer/src/lib/widgets/testing
 .idea
 .claude
 CLAUDE.md
-.github/
+node_modules/
 .specify/
 specs/

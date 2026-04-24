@@ -36,6 +36,16 @@ export type NeuzLayout = {
   autoFocus?: boolean
 }
 
+export type ViewerWindowType = 'navi_guide' | 'flyffipedia';
+
+export type ViewerWindowConfig = {
+  x: number | null;
+  y: number | null;
+  width: number;
+  height: number;
+  alwaysOnTop: boolean;
+}
+
 export type MainWindowState = {
   config: (NeuzConfig & {
     changed: boolean
@@ -143,6 +153,15 @@ export type SessionActions = {
   actions: SessionAction[];
 }
 
+export type UIActionDescriptor = {
+  id: string;
+  label: string;
+  category: string;
+  defaultKey?: string;
+};
+
+export type UIActionHandler = () => void;
+
 export type NeuzKeybind = {
   key: string;
   event: string;
@@ -174,7 +193,9 @@ export type NeuzConfig = {
       height: number;
       zoom: number;
       maximized: boolean;
-    }
+    },
+    viewers?: Record<ViewerWindowType, ViewerWindowConfig>;
+    sidebarSide?: 'left' | 'right';
   },
   autoSaveSettings: boolean;
   userAgent?: string;
@@ -188,6 +209,7 @@ export type NeuzConfig = {
   keyBindProfiles: NeuzKeyBindProfile[]
   activeKeyBindProfileId?: string | null
   keyBinds: NeuzKeybind[]
+  syncReceiverSessionId?: string | null
   sessionActions: SessionActions[];
   sessionZoomLevels?: { [sessionId: string]: number };
   titleBarButtons: {

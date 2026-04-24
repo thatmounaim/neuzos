@@ -23,7 +23,9 @@
     Check,
     ZoomIn,
     ZoomOut,
-    RotateCcw
+    RotateCcw,
+    BookOpen,
+    Globe
   } from '@lucide/svelte'
   import {getContext, onMount} from "svelte";
   import type {MainWindowState, NeuzSession} from "$lib/types";
@@ -40,6 +42,7 @@
   import WidgetsButton from "./MainBarComponents/WidgetsButton.svelte";
   import ThemeToggle from "./MainBarComponents/ThemeToggle.svelte";
   import {getQuestPanelContext} from "$lib/contexts/questPanelContext.svelte";
+  import {getUIActionContext} from "$lib/contexts/uiActionContext.svelte";
   import {ScrollText} from '@lucide/svelte';
 
   let shortcutsEnabled = $state(true);
@@ -68,9 +71,26 @@
   const mainWindowState = getContext<MainWindowState>('mainWindowState');
   const electronApi = getElectronContext();
   const questPanel = getQuestPanelContext();
+  const uiActionContext = getUIActionContext();
+
+  onMount(() => {
+    uiActionContext.register('ui.toggle_quest_log', () => questPanel.toggle());
+
+    return () => {
+      uiActionContext.unregister('ui.toggle_quest_log');
+    };
+  });
 
   const openSettings = () => {
     neuzosBridge.settingsWindow.open()
+  }
+
+  const openNaviGuide = () => {
+    neuzosBridge.viewerWindow.open('navi_guide')
+  }
+
+  const openFlyffipedia = () => {
+    neuzosBridge.viewerWindow.open('flyffipedia')
   }
 
 
@@ -465,6 +485,13 @@
       <RefreshCw class="size-3.5"/>
     </Button>
   {/if}
+
+  <Button size="icon-xs" variant="outline" onclick={openNaviGuide} class="cursor-pointer" title="Open Navi's Guide">
+    <BookOpen class="size-3.5"/>
+  </Button>
+  <Button size="icon-xs" variant="outline" onclick={openFlyffipedia} class="cursor-pointer" title="Open Flyffipedia">
+    <Globe class="size-3.5"/>
+  </Button>
 
   <Button
     size="icon-xs"

@@ -1,7 +1,7 @@
 <script lang="ts">
   import {ModeWatcher} from "mode-watcher";
   import MainBar from "./components/MainWindow/MainBar.svelte";
-  import {onMount, setContext, untrack} from "svelte";
+  import {onDestroy, onMount, setContext, untrack} from "svelte";
   import {neuzosBridge, initElectronApi} from "$lib/core";
   import type {MainWindowState} from "$lib/types";
   import MainSectionsContainer from "./components/MainWindow/MainSectionsContainer.svelte";
@@ -13,9 +13,18 @@
   import {createFlyffRegistryContext, setFlyffRegistryContext} from '$lib/contexts/flyffRegistryContext.svelte';
   import {createQuestPanelContext, setQuestPanelContext} from '$lib/contexts/questPanelContext.svelte';
   import {createTodoContext, setTodoContext} from '$lib/contexts/todoContext.svelte';
+  import {createUIActionContext, setUIActionContext} from '$lib/contexts/uiActionContext.svelte';
   import {flyffRegistry} from '$lib/core';
   import {Button} from "$lib/components/ui/button";
   import {Minimize} from '@lucide/svelte';
+
+  addEventListener('error', (event) => {
+    console.error('[window.error]', event.error?.stack ?? event.message);
+  });
+
+  addEventListener('unhandledrejection', (event) => {
+    console.error('[window.unhandledrejection]', event.reason?.stack ?? event.reason);
+  });
 
 
   let isLoading = $state(true);
@@ -44,12 +53,9 @@
   const todoContext = createTodoContext();
   setTodoContext(todoContext);
 
-  $effect(() => {
-    const charId = questPanelContext.activeCharacterId;
-    untrack(() => {
-      todoContext.switchCharacter(charId);
-    });
-  });
+  // Create and set the UI action dispatcher context
+  const uiActionContext = createUIActionContext();
+  setUIActionContext(uiActionContext);
 
   initElectronApi(window.electron.ipcRenderer)
 
@@ -104,7 +110,10 @@
         commandLineSwitches: [],
       },
       defaultLayouts: [],
+      keyBindProfiles: [],
+      activeKeyBindProfileId: null,
       keyBinds: [],
+      syncReceiverSessionId: null,
       sessionActions: [],
       sessionZoomLevels: {},
       keyBindProfiles: [],
@@ -137,14 +146,24 @@
   })
 
   const electronApi = window.electron.ipcRenderer;
+  const cleanupListeners: Array<() => void> = []
 
-  electronApi.on('event.layout_add', (_, layoutId: string) => {
+  const listen = (channel: string, listener: (...args: any[]) => void) => {
+    electronApi.on(channel, listener)
+    cleanupListeners.push(() => electronApi.removeListener(channel, listener))
+  }
+
+  onDestroy(() => {
+    cleanupListeners.forEach((cleanup) => cleanup())
+  })
+
+  listen('event.layout_add', (_, layoutId: string) => {
     console.log("layout_add", layoutId)
     mainWindowState.tabs.layoutsIds.push(layoutId)
     mainWindowState.tabs.layoutOrder.push(layoutId)
   })
 
-  electronApi.on('event.layout_switch', (_, layoutId: string) => {
+  listen('event.layout_switch', (_, layoutId: string) => {
     console.log("layout_switch", layoutId)
     mainWindowState.tabs.previousLayoutId = mainWindowState.tabs.activeLayoutId
     mainWindowState.tabs.activeLayoutId = layoutId
@@ -158,7 +177,7 @@
     mainWindowState.tabs.layoutOrder = mainWindowState.tabs.layoutOrder.filter(id => id !== layoutId)
   }
 
-  electronApi.on('event.layout_close_all', (_) => {
+  listen('event.layout_close_all', (_) => {
     mainWindowState.tabs.previousLayoutId = null
     mainWindowState.tabs.activeLayoutId = 'home'
     mainWindowState.tabs.layoutsIds.forEach(layoutId => {
@@ -168,12 +187,12 @@
   })
 
 
-  electronApi.on('event.layout_close', (_, layoutId: string) => {
+  listen('event.layout_close', (_, layoutId: string) => {
     console.log("layout_close", layoutId)
     closeLayout(layoutId)
   })
 
-  electronApi.on('event.layout_swap', (_) => {
+  listen('event.layout_swap', (_) => {
     const activeLayoutId = mainWindowState.tabs.activeLayoutId
     const previousLayoutId = mainWindowState.tabs.previousLayoutId
     if (previousLayoutId) {
@@ -183,7 +202,7 @@
     }
   })
 
-  electronApi.on('event.stop_session', (_, sessionId: string) => {
+  listen('event.stop_session', (_, sessionId: string) => {
     console.log("stop_session", sessionId)
     Object.keys(mainWindowState.sessionsLayoutsRef[sessionId]?.layouts).forEach(layoutId => {
       console.log("stop_session", sessionId, " for layout", layoutId)
@@ -195,14 +214,14 @@
     })
   })
 
-  electronApi.on('event.start_session', (_, sessionId: string, layoutId: string) => {
+  listen('event.start_session', (_, sessionId: string, layoutId: string) => {
     neuzosBridge.sessions.stop(sessionId)
     setTimeout(() => {
       mainWindowState.sessionsLayoutsRef[sessionId]?.layouts[layoutId].startClient()
     }, 100)
   })
 
-  electronApi.on('event.send_session_action', (_, sessionId: string, actionId: string) => {
+  listen('event.send_session_action', (_, sessionId: string, actionId: string) => {
     console.log("send_session_action", sessionId, actionId)
 
     // Check if action is ready (not casting or on cooldown)
@@ -293,7 +312,30 @@
     }
   }
 
-  electronApi.on('event.config_changed', (_, cfg: string) => {
+  function sendKeyToReceiverSession(sessionId: string, ingameKey: string) {
+    const sessionLayouts = mainWindowState.sessionsLayoutsRef[sessionId]?.layouts
+    if (!sessionLayouts) return
+
+    const activeClient = Object.values(sessionLayouts).find((client: any) => {
+      return client?.isStarted?.() && client?.sendKey
+    }) as any
+
+    if (!activeClient) return
+
+    activeClient.sendKey(ingameKey)
+  }
+
+  listen('event.send_to_receiver', (_, ingameKey: string) => {
+    const receiverId = mainWindowState.config.syncReceiverSessionId
+    if (!receiverId) return
+    sendKeyToReceiverSession(receiverId, ingameKey)
+  })
+
+  listen('event.sync_receiver_changed', (_, sessionId: string | null) => {
+    mainWindowState.config.syncReceiverSessionId = sessionId
+  })
+
+  listen('event.config_changed', (_, cfg: string) => {
     mainWindowState.config.changed = true
     const newConfig = JSON.parse(cfg)
     mainWindowState.config.sessions = newConfig.sessions
@@ -301,11 +343,15 @@
     mainWindowState.config.defaultLayouts = newConfig.defaultLayouts
     mainWindowState.config.chromium.commandLineSwitches = newConfig.chromium.commandLineSwitches
     mainWindowState.config.keyBinds = newConfig.keyBinds
+    mainWindowState.config.keyBindProfiles = newConfig.keyBindProfiles || []
+    mainWindowState.config.activeKeyBindProfileId = newConfig.activeKeyBindProfileId ?? null
+    mainWindowState.config.syncReceiverSessionId = newConfig.syncReceiverSessionId ?? null
     mainWindowState.config.sessionActions = newConfig.sessionActions || []
     mainWindowState.config.sessionZoomLevels = newConfig.sessionZoomLevels ?? {}
     mainWindowState.config.defaultLaunchMode = newConfig.defaultLaunchMode
     mainWindowState.config.userAgent = newConfig.userAgent || undefined
     mainWindowState.config.titleBarButtons = newConfig.titleBarButtons
+    mainWindowState.config.window = newConfig.window
     mainWindowState.config.fullscreen = newConfig.fullscreen || {
       hideTitleBarInMainWindow: false,
       hideTitleBarInSessionLayouts: false
@@ -333,7 +379,7 @@
     }, 50)
   }
 
-  electronApi.on('event.reload_config', async (_) => {
+  listen('event.reload_config', async (_) => {
     neuzosBridge.layouts.closeAll()
     mainWindowState.config.changed = false
     reloadNeuzos()
@@ -344,12 +390,62 @@
   })
 
   // Listen for fullscreen state changes
-  electronApi.on('event.fullscreen_changed', (_, fullscreen: boolean) => {
+  listen('event.fullscreen_changed', (_, fullscreen: boolean) => {
     isFullscreen = fullscreen
   })
 
   setContext('mainWindowState', mainWindowState)
 
+  onMount(() => {
+    const onUiActionFired = (_: any, payload: { actionId: string }) => {
+      uiActionContext.dispatch(payload.actionId);
+    };
+
+    const dispatchRendererBind = (bind: { key: string; event: string; args?: string[] }) => {
+      neuzosBridge.keybinds.dispatch(bind);
+    };
+
+    const getAllKeybinds = () => {
+      const activeProfile = mainWindowState.config.keyBindProfiles?.find(
+        (profile) => profile.id === mainWindowState.config.activeKeyBindProfileId
+      );
+
+      return [...(mainWindowState.config.keyBinds ?? []), ...(activeProfile?.keybinds ?? [])];
+    };
+
+    const refreshGamepadPolling = () => {
+      const gamepadBinds = getAllKeybinds().filter(bind => bind.key.startsWith('Gamepad'));
+
+      uiActionContext.startGamepadPoll(gamepadBinds, dispatchRendererBind);
+    };
+
+    const refreshMouseListener = () => {
+      const mouseBinds = getAllKeybinds().filter(bind => {
+        const k = bind.key.toLowerCase();
+        return k === 'middle' || k === 'mouse4' || k === 'mouse5';
+      });
+
+      uiActionContext.startMouseListener(mouseBinds, dispatchRendererBind);
+    };
+
+    electronApi.on('event.ui_action_fired', onUiActionFired);
+    electronApi.on('event.config_changed', refreshGamepadPolling);
+    electronApi.on('event.config_changed', refreshMouseListener);
+    electronApi.on('event.active_keybind_profile_changed', refreshGamepadPolling);
+    electronApi.on('event.active_keybind_profile_changed', refreshMouseListener);
+    refreshGamepadPolling();
+    refreshMouseListener();
+
+    return () => {
+      electronApi.removeListener('event.ui_action_fired', onUiActionFired);
+      electronApi.removeListener('event.config_changed', refreshGamepadPolling);
+      electronApi.removeListener('event.config_changed', refreshMouseListener);
+      electronApi.removeListener('event.active_keybind_profile_changed', refreshGamepadPolling);
+      electronApi.removeListener('event.active_keybind_profile_changed', refreshMouseListener);
+      uiActionContext.stopGamepadPoll();
+      uiActionContext.stopMouseListener();
+    };
+  });
 
   onMount(async () => {
     try {
@@ -421,10 +517,4 @@
       </Button>
     {/if}
   </div>
-<!--
-  // NOTE: Do not remove this, its a reminder to use when registry will be used
- {#if showRegistryBuilder}
-    <FlyffRegistryBuilder onDone={() => { showRegistryBuilder = false; }} />
-  {/if}
-  -->
 {/if}

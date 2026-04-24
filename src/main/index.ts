@@ -1,10 +1,18 @@
 import {app, shell, BrowserWindow, Menu, dialog, session, ipcMain, globalShortcut, screen, protocol} from "electron";
 import {join} from "path";
+import {pathToFileURL} from "url";
 import {electronApp, optimizer, is} from "@electron-toolkit/utils";
 import icon from "../../resources/icon.png?asset";
 import * as fs from "node:fs";
 import {rimraf} from "rimraf";
 import {buildRegistry, checkRegistry, loadRegistry, type ProgressEvent} from "./flyff-registry";
+
+type UIActionDescriptor = {
+  id: string;
+  label: string;
+  category: string;
+  defaultKey?: string;
+};
 
 // Register custom protocol for serving flyff registry assets (icons etc.)
 // Must be called before app is ready
@@ -63,6 +71,38 @@ const allowedCommandLineSwitches = [
 let mainWindow: BrowserWindow | null = null;
 let settingsWindow: BrowserWindow | null = null;
 let sessionWindow: BrowserWindow | null = null;
+
+type ViewerWindowType = 'navi_guide' | 'flyffipedia';
+type SidebarSide = 'left' | 'right';
+
+type ViewerWindowConfig = {
+  x: number | null;
+  y: number | null;
+  width: number;
+  height: number;
+  alwaysOnTop: boolean;
+};
+
+type ViewerWindowBounds = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+const viewerWindowTypes: ViewerWindowType[] = ['navi_guide', 'flyffipedia'];
+const defaultViewerWindowConfig: ViewerWindowConfig = {
+  x: null,
+  y: null,
+  width: 1100,
+  height: 700,
+  alwaysOnTop: true,
+};
+
+const defaultSidebarSide: SidebarSide = 'left';
+
+const viewerWindows: Map<ViewerWindowType, BrowserWindow> = new Map();
+const viewerBoundsSaveTimers: Map<ViewerWindowType, ReturnType<typeof setTimeout>> = new Map();
 
 let exitCount: number = 0;
 let mainWindowShortcutsEnabled: boolean = true;
@@ -235,6 +275,7 @@ const defaultNeuzosConfig: any = {
       "event": "fullscreen_toggle"
     }
   ],
+  syncReceiverSessionId: null,
   sessionActions: [],
   sessionZoomLevels: {},
   titleBarButtons: {
@@ -266,6 +307,12 @@ const allowedEventKeybinds = {
       "action_id"
     ],
   },
+  "send_to_receiver": {
+    label: "Send Key to Active Receiver",
+    args: [
+      "ingame_key"
+    ],
+  },
   "custom_event": {
     label: "Custom Event",
     args: [
@@ -274,6 +321,14 @@ const allowedEventKeybinds = {
     ],
   }
 }
+
+const allowedUiActionKeybinds: Record<string, UIActionDescriptor> = {
+  "ui.toggle_quest_log": {
+    id: "ui.toggle_quest_log",
+    label: "Toggle Quest Log",
+    category: "Interface",
+  },
+};
 
 const userDataPath = app.getPath("userData");
 const configDirectoryPath = join(userDataPath, "/neuzos_config/");
@@ -326,7 +381,20 @@ function loadConfig(reload: boolean = false): Promise<any> {
               ...loadedWindow,
               main: {...(defaultNeuzosConfig.window?.main || {}), ...(loadedWindow.main || {})},
               settings: {...(defaultNeuzosConfig.window?.settings || {}), ...(loadedWindow.settings || {})},
-              session: {...(defaultNeuzosConfig.window?.session || {}), ...(loadedWindow.session || {})}
+              session: {...(defaultNeuzosConfig.window?.session || {}), ...(loadedWindow.session || {})},
+              viewers: {
+                ...(defaultNeuzosConfig.window?.viewers || {}),
+                ...(loadedWindow.viewers || {}),
+                navi_guide: {
+                  ...defaultViewerWindowConfig,
+                  ...(loadedWindow.viewers?.navi_guide || {}),
+                },
+                flyffipedia: {
+                  ...defaultViewerWindowConfig,
+                  ...(loadedWindow.viewers?.flyffipedia || {}),
+                },
+              },
+              sidebarSide: loadedWindow.sidebarSide || defaultSidebarSide,
             };
           }
 
@@ -339,6 +407,196 @@ function loadConfig(reload: boolean = false): Promise<any> {
       }
     }
   });
+}
+
+function createDefaultViewerWindowConfigs(): Record<ViewerWindowType, ViewerWindowConfig> {
+  return {
+    navi_guide: {...defaultViewerWindowConfig},
+    flyffipedia: {...defaultViewerWindowConfig},
+  };
+}
+
+function ensureViewerWindowState(): Record<ViewerWindowType, ViewerWindowConfig> {
+  if (!neuzosConfig.window) {
+    neuzosConfig.window = {};
+  }
+
+  if (!neuzosConfig.window.viewers) {
+    neuzosConfig.window.viewers = createDefaultViewerWindowConfigs();
+  }
+
+  for (const type of viewerWindowTypes) {
+    neuzosConfig.window.viewers[type] = {
+      ...defaultViewerWindowConfig,
+      ...(neuzosConfig.window.viewers[type] || {}),
+    };
+  }
+
+  if (!neuzosConfig.window.sidebarSide) {
+    neuzosConfig.window.sidebarSide = defaultSidebarSide;
+  }
+
+  return neuzosConfig.window.viewers;
+}
+
+function getViewerWindowConfig(type: ViewerWindowType): ViewerWindowConfig {
+  const viewers = ensureViewerWindowState();
+  return viewers[type] ?? {...defaultViewerWindowConfig};
+}
+
+function getViewerWindowTypeFromWindow(win: BrowserWindow | null): ViewerWindowType | null {
+  if (!win) {
+    return null;
+  }
+
+  for (const [type, viewerWindow] of viewerWindows.entries()) {
+    if (viewerWindow === win) {
+      return type;
+    }
+  }
+
+  return (win as any).viewerType ?? null;
+}
+
+function isViewerWindowBoundsVisible(bounds: { x: number; y: number; width: number; height: number }): boolean {
+  const displays = screen.getAllDisplays();
+  return displays.some(display => {
+    const area = display.workArea;
+    const horizontalOverlap = bounds.x < area.x + area.width && bounds.x + bounds.width > area.x;
+    const verticalOverlap = bounds.y < area.y + area.height && bounds.y + bounds.height > area.y;
+    return horizontalOverlap && verticalOverlap;
+  });
+}
+
+function getSanitizedViewerBounds(type: ViewerWindowType): Partial<ViewerWindowBounds> {
+  const viewerConfig = getViewerWindowConfig(type);
+
+  if (viewerConfig.x === null || viewerConfig.y === null) {
+    return {};
+  }
+
+  const bounds = {
+    x: viewerConfig.x,
+    y: viewerConfig.y,
+    width: viewerConfig.width,
+    height: viewerConfig.height,
+  };
+
+  if (!isViewerWindowBoundsVisible(bounds)) {
+    return {};
+  }
+
+  return bounds;
+}
+
+function persistViewerWindowBounds(type: ViewerWindowType, win: BrowserWindow): void {
+  const bounds = win.getBounds();
+  const viewers = ensureViewerWindowState();
+  viewers[type] = {
+    ...defaultViewerWindowConfig,
+    ...viewers[type],
+    x: bounds.x,
+    y: bounds.y,
+    width: bounds.width,
+    height: bounds.height,
+    alwaysOnTop: win.isAlwaysOnTop(),
+  };
+  saveConfig(neuzosConfig);
+}
+
+function scheduleViewerWindowBoundsSave(type: ViewerWindowType, win: BrowserWindow): void {
+  const existingTimer = viewerBoundsSaveTimers.get(type);
+  if (existingTimer) {
+    clearTimeout(existingTimer);
+  }
+
+  const timer = setTimeout(() => {
+    if (!win.isDestroyed()) {
+      persistViewerWindowBounds(type, win);
+    }
+    viewerBoundsSaveTimers.delete(type);
+  }, 200);
+
+  viewerBoundsSaveTimers.set(type, timer);
+}
+
+function createViewerWindow(type: ViewerWindowType): BrowserWindow | null {
+  const existingWindow = viewerWindows.get(type);
+  if (existingWindow && !existingWindow.isDestroyed()) {
+    existingWindow.focus();
+    return existingWindow;
+  }
+
+  const viewerConfig = getViewerWindowConfig(type);
+  const viewerBounds = getSanitizedViewerBounds(type);
+
+  const window = new BrowserWindow({
+    width: viewerConfig.width,
+    height: viewerConfig.height,
+    show: false,
+    frame: false,
+    autoHideMenuBar: true,
+    ...(viewerBounds.x !== undefined && viewerBounds.y !== undefined ? {x: viewerBounds.x, y: viewerBounds.y} : {}),
+    ...(process.platform === 'linux' ? {icon} : {}),
+    webPreferences: {
+      contextIsolation: true,
+      preload: join(__dirname, "../preload/index.js"),
+      sandbox: false,
+      webviewTag: true,
+      zoomFactor: 1.0,
+    }
+  });
+
+  (window as any).viewerType = type;
+  viewerWindows.set(type, window);
+
+  const cleanup = () => {
+    const timer = viewerBoundsSaveTimers.get(type);
+    if (timer) {
+      clearTimeout(timer);
+      viewerBoundsSaveTimers.delete(type);
+    }
+
+    if (!window.isDestroyed()) {
+      persistViewerWindowBounds(type, window);
+    }
+
+    if (viewerWindows.get(type) === window) {
+      viewerWindows.delete(type);
+    }
+  };
+
+  window.on('move', () => scheduleViewerWindowBoundsSave(type, window));
+  window.on('resize', () => scheduleViewerWindowBoundsSave(type, window));
+  window.on('closed', cleanup);
+
+  window.on('ready-to-show', () => {
+    const config = getViewerWindowConfig(type);
+    if (config.alwaysOnTop) {
+      window.setAlwaysOnTop(true, 'screen-saver');
+    }
+
+    if (viewerBounds.x === undefined || viewerBounds.y === undefined) {
+      window.center();
+    }
+
+    window.show();
+  });
+
+  window.webContents.setWindowOpenHandler((details) => {
+    shell.openExternal(details.url);
+    return {action: 'deny'};
+  });
+
+  const viewerUrl = is.dev && process.env["ELECTRON_RENDERER_URL"]
+    ? `${process.env["ELECTRON_RENDERER_URL"]}/viewer.html?type=${type}`
+    : `${pathToFileURL(join(__dirname, "../renderer/viewer.html")).href}?type=${type}`;
+
+  window.webContents.loadURL(viewerUrl).catch((error) => {
+    console.error('Failed to load viewer window:', error);
+  });
+
+  return window;
 }
 
 
@@ -609,6 +867,18 @@ function createMainWindow(): void {
     }
   });
 
+  mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
+    console.log(`[renderer:${level}] ${message} (${sourceId}:${line})`);
+  });
+
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    console.error('Main window render process gone:', details.reason, details.exitCode);
+  });
+
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+    console.error('Main window failed to load:', errorCode, errorDescription, validatedURL);
+  });
+
   mainWindow.on("close", (event) => {
     // Always unregister shortcuts when main window is closing
     globalShortcut.unregisterAll();
@@ -649,6 +919,14 @@ function createMainWindow(): void {
     // Ensure shortcuts are unregistered when window is destroyed
     globalShortcut.unregisterAll();
     mainWindow = null;
+
+    // Close all viewer windows so they don't orphan the process
+    for (const [, win] of viewerWindows) {
+      if (!win.isDestroyed()) {
+        win.destroy();
+      }
+    }
+    viewerWindows.clear();
   });
 
   mainWindow.on("focus", () => {
@@ -699,9 +977,23 @@ function checkKeybinds() {
     neuzosConfig.activeKeyBindProfileId = neuzosConfig.keyBindProfiles[0].id;
   }
 
+  const allowedKeybindEvents = new Set([
+    ...Object.keys(allowedEventKeybinds),
+    ...Object.keys(allowedUiActionKeybinds),
+  ]);
+
   neuzosConfig.keyBinds = neuzosConfig.keyBinds.filter((bind: any) => {
-    return Object.keys(allowedEventKeybinds).includes(bind.event);
+    return allowedKeybindEvents.has(bind.event);
   })
+
+  const activeProfile = neuzosConfig.keyBindProfiles.find(
+    (profile: any) => profile.id === neuzosConfig.activeKeyBindProfileId
+  );
+  if (activeProfile) {
+    activeProfile.keybinds = activeProfile.keybinds.filter((bind: any) => {
+      return allowedKeybindEvents.has(bind.event);
+    });
+  }
 
   // filter empty keybinds
   neuzosConfig.keyBinds = neuzosConfig.keyBinds.filter((bind) => {
@@ -715,6 +1007,11 @@ function checkKeybinds() {
 }
 
 function dispatchKeybindEvent(bind: any) {
+  if (bind.event?.startsWith("ui.")) {
+    mainWindow?.webContents.send("event.ui_action_fired", {actionId: bind.event});
+    return;
+  }
+
   switch (bind.event) {
     case "fullscreen_toggle":
       mainWindow?.setFullScreen(!mainWindow?.isFullScreen());
@@ -729,6 +1026,10 @@ function dispatchKeybindEvent(bind: any) {
     case "send_session_action":
       if (bind.args?.length > 1)
         mainWindow?.webContents.send("event.send_session_action", ...(bind.args ?? []));
+      break;
+    case "send_to_receiver":
+      if (bind.args?.length > 0)
+        mainWindow?.webContents.send("event.send_to_receiver", bind.args[0]);
       break;
     case "custom_event":
       if (bind.args?.length > 1)
@@ -754,14 +1055,14 @@ function registerKeybinds() {
 
   allBinds.forEach((bind) => {
     if (!bind.key) return;
+    const normalizedKey = String(bind.key).toLowerCase();
+    if (normalizedKey.startsWith('mouse') || normalizedKey.startsWith('gamepad')) {
+      return;
+    }
     try {
       globalShortcut.register(bind.key, () => dispatchKeybindEvent(bind));
     } catch (e) {
-      dialog.showErrorBox("Failed to register keybind", "Please fix your config manually found at \n" + join(configDirectoryPath, "/config.json"));
-      globalShortcut.unregisterAll();
-      exitCount = 3;
-      app.quit();
-      return;
+      console.warn("Skipping invalid keybind:", bind.key, bind.event, e);
     }
   });
 }
@@ -1013,6 +1314,14 @@ function registerSessionKeybinds(mode: LaunchMode) {
       win?.webContents.send("event.shortcuts_state_changed", enabled);
     });
 
+    ipcMain.on("keybinds.dispatch", (_, bind: any) => {
+      try {
+        dispatchKeybindEvent(bind);
+      } catch (e) {
+        console.warn("Failed to dispatch keybind from renderer:", bind?.key, bind?.event, e);
+      }
+    });
+
     ipcMain.on("session_window.toggle_shortcuts", (event, enabled: boolean) => {
       sessionWindowShortcutsEnabled = enabled;
       const win = BrowserWindow.fromWebContents(event.sender);
@@ -1023,6 +1332,90 @@ function registerSessionKeybinds(mode: LaunchMode) {
         globalShortcut.unregisterAll();
       }
       win?.webContents.send("event.shortcuts_state_changed", enabled);
+    });
+
+    ipcMain.on('viewer_window.open', (_event, type: ViewerWindowType) => {
+      try {
+        if (!viewerWindowTypes.includes(type)) return;
+        createViewerWindow(type);
+      } catch (error) {
+        console.error('Failed to open viewer window:', error);
+      }
+    });
+
+    ipcMain.on('viewer_window.close', (event) => {
+      try {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        win?.close();
+      } catch (error) {
+        console.error('Failed to close viewer window:', error);
+      }
+    });
+
+    ipcMain.on('viewer_window.minimize', (event) => {
+      try {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        win?.minimize();
+      } catch (error) {
+        console.error('Failed to minimize viewer window:', error);
+      }
+    });
+
+    ipcMain.on('viewer_window.set_always_on_top', (event, alwaysOnTop: boolean) => {
+      try {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        const type = getViewerWindowTypeFromWindow(win);
+        if (!win || !type) return;
+
+        if (alwaysOnTop) {
+          win.setAlwaysOnTop(true, 'screen-saver');
+        } else {
+          win.setAlwaysOnTop(false);
+        }
+        const viewers = ensureViewerWindowState();
+        viewers[type] = {
+          ...getViewerWindowConfig(type),
+          alwaysOnTop,
+        };
+        saveConfig(neuzosConfig);
+      } catch (error) {
+        console.error('Failed to update always-on-top state:', error);
+      }
+    });
+
+    ipcMain.handle('viewer_window.get_config', (event) => {
+      try {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        const type = getViewerWindowTypeFromWindow(win);
+        if (!type) {
+          return { error: 'Viewer window type not found' };
+        }
+
+        return {
+          type,
+          config: getViewerWindowConfig(type),
+        };
+      } catch (error: any) {
+        return { error: error?.message ?? String(error) };
+      }
+    });
+
+    ipcMain.handle('sidebar_panel.get_side', () => {
+      ensureViewerWindowState();
+      return neuzosConfig.window.sidebarSide || defaultSidebarSide;
+    });
+
+    ipcMain.on('sidebar_panel.set_side', (event, side: SidebarSide) => {
+      try {
+        if (side !== 'left' && side !== 'right') return;
+        ensureViewerWindowState();
+        neuzosConfig.window.sidebarSide = side;
+        saveConfig(neuzosConfig);
+        const win = BrowserWindow.fromWebContents(event.sender);
+        win?.webContents.send('event.sidebar_side_changed', side);
+      } catch (error) {
+        console.error('Failed to persist sidebar side:', error);
+      }
     });
 
     ipcMain.handle("shortcuts.get_state", () => {
@@ -1492,6 +1885,16 @@ function registerSessionKeybinds(mode: LaunchMode) {
       }
     });
 
+    ipcMain.handle("config.set_sync_receiver", async (_, sessionId: string | null) => {
+      try {
+        neuzosConfig.syncReceiverSessionId = sessionId ?? null;
+        saveConfig(neuzosConfig);
+        mainWindow?.webContents?.send("event.sync_receiver_changed", sessionId ?? null);
+      } catch (err) {
+        console.error("Failed to update sync receiver:", err);
+      }
+    });
+
     ipcMain.handle("keybinds.swap_profile", async (_, profileId: string) => {
       const profile = neuzosConfig.keyBindProfiles?.find((p: any) => p.id === profileId);
       if (!profile) return { success: false, error: "Profile not found" };
@@ -1511,6 +1914,10 @@ function registerSessionKeybinds(mode: LaunchMode) {
     ipcMain.handle("config.get_available_event_keybinds", async () => {
       return allowedEventKeybinds;
     })
+
+    ipcMain.handle("config.get_available_ui_actions", async () => {
+      return Object.values(allowedUiActionKeybinds);
+    });
 
     ipcMain.handle('fetch.flyff_news', async () => {
       try {
@@ -1591,7 +1998,9 @@ function registerSessionKeybinds(mode: LaunchMode) {
       defaultNeuzosConfig.window = {
         main: defaultMainWindowConfig,
         settings: defaultSettingsWindowConfig,
-        session: defaultSessionWindowConfig
+        session: defaultSessionWindowConfig,
+        viewers: createDefaultViewerWindowConfigs(),
+        sidebarSide: defaultSidebarSide,
       };
     }
 
@@ -1622,6 +2031,24 @@ function registerSessionKeybinds(mode: LaunchMode) {
       ...defaultNeuzosConfig.window.session,
       ...(neuzosConfig.window.session || {})
     };
+
+    neuzosConfig.window.viewers = {
+      ...defaultNeuzosConfig.window.viewers,
+      ...(neuzosConfig.window.viewers || {}),
+      navi_guide: {
+        ...defaultViewerWindowConfig,
+        ...(neuzosConfig.window.viewers?.navi_guide || {}),
+      },
+      flyffipedia: {
+        ...defaultViewerWindowConfig,
+        ...(neuzosConfig.window.viewers?.flyffipedia || {}),
+      },
+    };
+
+    neuzosConfig.window.sidebarSide = neuzosConfig.window.sidebarSide || defaultSidebarSide;
+
+    ensureViewerWindowState();
+    saveConfig(neuzosConfig);
 
     // Handle different launch modes
     switch (launchArgs.mode) {

@@ -103,7 +103,13 @@
     <div class="px-3 pb-2 space-y-0.5">
       <!-- Add todo input -->
       <div class="flex items-center gap-1 mb-1">
-        <Plus class="size-3 text-muted-foreground shrink-0" />
+        <button
+          class="shrink-0 cursor-pointer hover:text-foreground text-muted-foreground transition-colors"
+          onclick={() => { todoCtx.addTodo(newTodoText); newTodoText = ''; }}
+          title="Add todo"
+        >
+          <Plus class="size-3" />
+        </button>
         <input
           type="text"
           placeholder="Add New Todo"
