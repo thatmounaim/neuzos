@@ -99,6 +99,7 @@ export const neuzosBridge = {
   uiActions: {
     getRegistry: (): Promise<UIActionDescriptor[]> => {
       return electronApi?.invoke("config.get_available_ui_actions") ?? Promise.resolve([]);
+    }
   },
   viewerWindow: {
     open: (type: ViewerWindowType) => {
