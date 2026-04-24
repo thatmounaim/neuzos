@@ -53,8 +53,21 @@
   $effect(() => {
     const wv = webview?.tagName === 'WEBVIEW' ? (webview as WebviewTag) : null
     if (!wv) return
-    wv.setZoomFactor(mainWindowState.config.sessionZoomLevels?.[session.id] ?? 1.0)
+    initZoom(wv, 3)
   })
+
+  const initZoom = (wv: WebviewTag, retryLeft: number) => {
+    try {
+      wv.setZoomFactor(mainWindowState.config.sessionZoomLevels?.[session.id] ?? 1.0)
+    } catch (e) {
+      console.log('Failed to set zoom, retrying...', e)
+      if (retryLeft > 0) {
+        setTimeout(() => initZoom(wv, retryLeft - 1), 1000)
+      } else {
+        console.error('Failed to set zoom after multiple retries')
+      }
+    }
+  }
 
   let healthStatus = $derived(mainWindowState.sessionsLayoutsRef[session.id]?.healthStatus ?? 'healthy')
   let healthDetail = $derived(mainWindowState.sessionsLayoutsRef[session.id]?.healthDetail ?? '')
