@@ -1,7 +1,7 @@
 <script lang="ts">
   import {ModeWatcher} from "mode-watcher";
   import MainBar from "./components/MainWindow/MainBar.svelte";
-  import {onDestroy, onMount, setContext, untrack} from "svelte";
+  import {onDestroy, onMount, setContext} from "svelte";
   import {neuzosBridge, initElectronApi} from "$lib/core";
   import type {MainWindowState} from "$lib/types";
   import MainSectionsContainer from "./components/MainWindow/MainSectionsContainer.svelte";
@@ -116,8 +116,6 @@
       syncReceiverSessionId: null,
       sessionActions: [],
       sessionZoomLevels: {},
-      keyBindProfiles: [],
-      activeKeyBindProfileId: null,
       defaultLaunchMode: 'normal',
       userAgent: undefined,
       autoSaveSettings: false,
