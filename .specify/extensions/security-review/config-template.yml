@@ -1,0 +1,272 @@
+# Security Review Extension - Configuration Template
+#
+# Copy this file to your project root as 'speckit-security.yml'
+# if you want a reusable review brief for the command.
+#
+# All settings are optional - the extension works with defaults.
+
+security-review:
+  # ============================================================
+  # EXCLUSION PATTERNS
+  # ============================================================
+
+  # Directories to exclude from analysis
+  # Default: Common build, dependency, and test directories
+  exclude:
+    - node_modules/
+    - vendor/
+    - dist/
+    - build/
+    - out/
+    - target/
+    - __pycache__/
+    - .git/
+    - .svn/
+    - test/fixtures/
+    - test/mocks/
+    - spec/fixtures/
+    - coverage/
+    - .nyc_output/
+
+  # File patterns to exclude from analysis
+  # Default: Minified and bundled files
+  exclude-files:
+    - '*.min.js'
+    - '*.min.css'
+    - '*.bundle.js'
+    - '*.chunk.js'
+    - '*.map'
+    - '*.lock'
+    - 'package-lock.json'
+    - 'yarn.lock'
+    - 'pnpm-lock.yaml'
+
+  # ============================================================
+  # FOCUS AREAS
+  # ============================================================
+
+  # Security domains to analyze (default: all)
+  # Available: owasp, dependencies, architecture, devsecops, secrets
+  focus:
+    - owasp
+    - dependencies
+    - architecture
+    - devsecops
+    - secrets
+
+  # ============================================================
+  # SEVERITY SETTINGS
+  # ============================================================
+
+  # Minimum severity level to include in report
+  # Options: critical, high, medium, low, info
+  # Default: low
+  min-severity: low
+
+  # ============================================================
+  # OUTPUT SETTINGS
+  # ============================================================
+
+  output:
+    # Output format: markdown or json
+    # Default: markdown
+    format: markdown
+
+    # Include code snippets in findings
+    # Default: true
+    include-code-snippets: true
+
+    # Include exploit scenarios for critical/high findings
+    # Default: true
+    include-exploit-scenarios: true
+
+    # Include remediation guidance
+    # Default: true
+    include-remediation: true
+
+    # Include fixed code examples
+    # Default: true
+    include-fixed-examples: true
+
+    # Include STRIDE threat model
+    # Default: true
+    include-stride: true
+
+    # Include Spec-Kit task generation
+    # Default: true
+    include-tasks: true
+
+  # ============================================================
+  # OWASP TOP 10 SETTINGS
+  # ============================================================
+
+  owasp:
+    # Enable OWASP Top 10 analysis
+    # Default: true
+    enabled: true
+
+    # OWASP version to use
+    # Default: 2025
+    version: '2025'
+
+    # Specific OWASP categories to focus on
+    # Leave empty to check all categories
+    # Categories: A01, A02, A03, A04, A05, A06, A07, A08, A09, A10
+    categories: []
+
+  # ============================================================
+  # DEPENDENCY SCANNING SETTINGS
+  # ============================================================
+
+  dependencies:
+    # Enable dependency vulnerability scanning
+    # Default: true
+    enabled: true
+
+    # Include development dependencies in scan
+    # Default: false
+    check-dev-dependencies: false
+
+    # Packages to ignore (by name)
+    # Default: empty
+    ignore-packages: []
+
+    # Minimum severity for dependency vulnerabilities
+    # Options: critical, high, medium, low
+    # Default: medium
+    min-severity: medium
+
+  # ============================================================
+  # SECRETS DETECTION SETTINGS
+  # ============================================================
+
+  secrets:
+    # Enable secrets detection
+    # Default: true
+    enabled: true
+
+    # Scan git history for exposed secrets
+    # WARNING: May be slow on large repositories
+    # Default: false
+    scan-history: false
+
+    # File patterns to ignore for secrets scanning
+    # Default: Example and sample files
+    ignore-patterns:
+      - '*.example'
+      - '*.sample'
+      - '.env.example'
+      - '.env.sample'
+      - 'test/**'
+      - 'spec/**'
+
+  # ============================================================
+  # ARCHITECTURE SETTINGS
+  # ============================================================
+
+  architecture:
+    # Enable architecture security assessment
+    # Default: true
+    enabled: true
+
+    # Include trust boundary analysis
+    # Default: true
+    trust-boundaries: true
+
+    # Include attack surface assessment
+    # Default: true
+    attack-surface: true
+
+    # Include privilege escalation analysis
+    # Default: true
+    privilege-escalation: true
+
+    # Include data flow security review
+    # Default: true
+    data-flow: true
+
+  # ============================================================
+  # DEVSECOPS SETTINGS
+  # ============================================================
+
+  devsecops:
+    # Enable DevSecOps configuration review
+    # Default: true
+    enabled: true
+
+    # Check security headers
+    # Default: true
+    security-headers: true
+
+    # Check CORS configuration
+    # Default: true
+    cors: true
+
+    # Check rate limiting
+    # Default: true
+    rate-limiting: true
+
+    # Check logging configuration
+    # Default: true
+    logging: true
+
+    # Check Docker/container security
+    # Default: true
+    container-security: true
+
+    # Check CI/CD pipeline security
+    # Default: true
+    cicd-security: true
+
+  # ============================================================
+  # REPORTING SETTINGS
+  # ============================================================
+
+  reporting:
+    # Default output directory for reports
+    # Default: current directory
+    output-dir: ./
+
+    # Auto-save reports after each run
+    # Default: false
+    auto-save: false
+
+    # Report filename pattern
+    # Use {date} for timestamp, {project} for project name
+    # Default: security-report-{date}.md
+    filename-pattern: 'security-report-{date}.md'
+
+    # Include executive summary
+    # Default: true
+    executive-summary: true
+
+    # Include appendix with methodology
+    # Default: true
+    appendix: true
+
+  # ============================================================
+  # FALSE POSITIVE TRACKING
+  # ============================================================
+
+  # Document known false positives to suppress in future scans
+  false-positives:
+    # Example:
+    # - rule: "hardcoded-secret"
+    #   file: "test/fixtures/mock-credentials.js"
+    #   reason: "Test fixture with fake credentials"
+    #   date: "2026-04-02"
+    []
+
+  # ============================================================
+  # CUSTOM RULES (Future Feature)
+  # ============================================================
+
+  # Define custom security rules for your organization
+  # This feature is planned for a future release
+  custom-rules:
+    # Example (not yet supported):
+    # - id: no-plaintext-passwords
+    #   pattern: "password\\s*=\\s*['\"][^'\"]+['\"]"
+    #   severity: high
+    #   message: "Passwords should not be hardcoded"
+    []

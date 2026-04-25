@@ -108,6 +108,9 @@ let exitCount: number = 0;
 let mainWindowShortcutsEnabled: boolean = true;
 let sessionWindowShortcutsEnabled: boolean = true;
 
+// Maps sessionId -> webContentsId for mouse-bind interception via before-input-event
+const mouseBindWebContents = new Map<string, number>();
+
 // Parse command-line arguments
 type LaunchMode = 'normal' | 'session_launcher' | 'session' | 'focus' | 'focus_fullscreen';
 
@@ -172,6 +175,7 @@ type ConfigExportPayloadV2 = {
   keyBindProfiles?: any[];
   activeKeyBindProfileId?: string | null;
   sessionActions?: any[];
+  sessionGroups?: any[];
   window?: any;
   sessionZoomLevels?: Record<string, number>;
   fullscreen?: any;
@@ -218,7 +222,7 @@ function inferPayloadCategories(payload: any): ExportCategory[] {
   if (Array.isArray(payload?.sessionActions)) {
     categories.push('session-actions');
   }
-  if (payload?.window !== undefined || payload?.sessionZoomLevels !== undefined || payload?.fullscreen !== undefined) {
+  if (payload?.window !== undefined || payload?.sessionZoomLevels !== undefined || payload?.fullscreen !== undefined || Array.isArray(payload?.sessionGroups)) {
     categories.push('ui-layout');
   }
   if (payload?.autoSaveSettings !== undefined || payload?.defaultLaunchMode !== undefined || payload?.userAgent !== undefined || payload?.titleBarButtons !== undefined) {
@@ -242,6 +246,30 @@ function getPayloadCategories(payload: ConfigImportPayload): ExportCategory[] {
 
 function cloneData<T>(value: T): T {
   return value === undefined ? value : JSON.parse(JSON.stringify(value));
+}
+
+function normalizeSessionGroups(groups: unknown, knownSessionIds: Set<string>): any[] {
+  if (!Array.isArray(groups)) {
+    return [];
+  }
+
+  return groups.flatMap((group: any) => {
+    if (!group || typeof group !== 'object') {
+      return [];
+    }
+
+    const id = typeof group.id === 'string' && group.id.trim() !== '' ? group.id.trim() : null;
+    if (!id) {
+      return [];
+    }
+
+    const label = typeof group.label === 'string' && group.label.trim() !== '' ? group.label.trim() : 'New Group';
+    const sessionIds = Array.isArray(group.sessionIds)
+      ? [...new Set(group.sessionIds.filter((sessionId: any) => typeof sessionId === 'string' && knownSessionIds.has(sessionId)))]
+      : [];
+
+    return [{id, label, sessionIds}];
+  });
 }
 
 const defaultNeuzosConfig: any = {
@@ -277,6 +305,7 @@ const defaultNeuzosConfig: any = {
   ],
   syncReceiverSessionId: null,
   sessionActions: [],
+  sessionGroups: [],
   sessionZoomLevels: {},
   titleBarButtons: {
     darkModeToggle: true,
@@ -372,6 +401,7 @@ function loadConfig(reload: boolean = false): Promise<any> {
           // Deep merge for window config to ensure all window types (main, settings, session) exist
           const loadedWindow = neuzosConfig.window;
           neuzosConfig = {...defaultNeuzosConfig, ...neuzosConfig};
+          neuzosConfig.sessionGroups = neuzosConfig.sessionGroups ?? [];
           neuzosConfig.sessionZoomLevels = neuzosConfig.sessionZoomLevels ?? {};
 
           // Deep merge window config specifically
@@ -397,6 +427,9 @@ function loadConfig(reload: boolean = false): Promise<any> {
               sidebarSide: loadedWindow.sidebarSide || defaultSidebarSide,
             };
           }
+
+          const knownSessionIds = new Set((neuzosConfig.sessions ?? []).map((session: any) => session.id));
+          neuzosConfig.sessionGroups = normalizeSessionGroups(neuzosConfig.sessionGroups, knownSessionIds);
 
           checkKeybinds()
           saveConfig(neuzosConfig);
@@ -1147,6 +1180,36 @@ function registerSessionKeybinds(mode: LaunchMode) {
       optimizer.watchWindowShortcuts(window);
     });
 
+    // ── Mouse-button keybind interception for session webviews ──────────────
+    // Keyboard binds use globalShortcut (OS-level, works while webview has focus).
+    // Mouse extra buttons (Middle, Mouse4, Mouse5) cannot use globalShortcut, so
+    // we intercept them via before-input-event on each registered webview webContents.
+    app.on("web-contents-created", (_e, wc) => {
+      wc.on("before-input-event", (_event, input) => {
+        if (input.type !== "mouseDown") return;
+        // Only handle extra mouse buttons (1=middle, 3=Mouse4, 4=Mouse5)
+        const buttonMap: Record<number, string> = { 1: "middle", 3: "mouse4", 4: "mouse5" };
+        const key = buttonMap[input.button as unknown as number];
+        if (!key) return;
+        // Check if this webContents belongs to a registered session webview
+        const wcId = wc.id;
+        let matched = false;
+        for (const registeredId of mouseBindWebContents.values()) {
+          if (registeredId === wcId) { matched = true; break; }
+        }
+        if (!matched) return;
+        // Find matching bind and dispatch
+        const activeProfile = neuzosConfig?.keyBindProfiles?.find(
+          (p: any) => p.id === neuzosConfig.activeKeyBindProfileId
+        );
+        const allBinds: any[] = [...(neuzosConfig?.keyBinds ?? []), ...(activeProfile?.keybinds ?? [])];
+        const bind = allBinds.find((b: any) => b.key && b.key.toLowerCase() === key);
+        if (bind) {
+          dispatchKeybindEvent(bind);
+        }
+      });
+    });
+
     // ── Flyff registry custom protocol ──────────────────────────────────────
     // Serves downloaded icons and assets from userData/flyff-registry/
     protocol.handle('flyff-asset', async (request) => {
@@ -1221,6 +1284,10 @@ function registerSessionKeybinds(mode: LaunchMode) {
     // Setup IPC handlers for session launcher
     ipcMain.handle("session_launcher.get_sessions", async () => {
       return neuzosConfig.sessions.filter((s: any) => s.partitionOverwrite !== "browser");
+    });
+
+    ipcMain.handle("session_launcher.get_groups", async () => {
+      return neuzosConfig.sessionGroups ?? [];
     });
 
     ipcMain.on("session_launcher.launch_session", (_, sessionId: string, mode: LaunchMode) => {
@@ -1489,6 +1556,19 @@ function registerSessionKeybinds(mode: LaunchMode) {
       win?.webContents.send("event.start_session", sessionId, layoutId);
     });
 
+    ipcMain.on("webview.register_mouse", (_event, payload: { sessionId: string; webContentsId: number }) => {
+      const { sessionId, webContentsId } = payload ?? {};
+      if (typeof sessionId !== 'string' || typeof webContentsId !== 'number') return;
+      mouseBindWebContents.set(sessionId, webContentsId);
+    });
+
+    ipcMain.on("webview.unregister_mouse", (_event, payload: { sessionId: string }) => {
+      const { sessionId } = payload ?? {};
+      if (typeof sessionId === 'string') {
+        mouseBindWebContents.delete(sessionId);
+      }
+    });
+
     ipcMain.on("session.restart", (event, sessionId: string, layoutId: string) => {
       const win = BrowserWindow.fromWebContents(event.sender);
       win?.webContents.send("event.stop_session", sessionId);
@@ -1522,8 +1602,9 @@ function registerSessionKeybinds(mode: LaunchMode) {
       }
       // Stop the session in the renderer (fire-and-forget to main window)
       mainWindow?.webContents.send("event.stop_session", sessionId);
-      // Wait for the webview process to release file handles (Windows needs this)
-      await new Promise(resolve => setTimeout(resolve, 2500));
+      // Wait for the webview process to release file handles (Windows needs this).
+      // 5 s gives Chromium enough time to flush and close partition handles on Windows.
+      await new Promise(resolve => setTimeout(resolve, 5000));
       // Clear Electron session storage
       try {
         const sess = session.fromPartition("persist:" + sessionId);
@@ -1531,9 +1612,10 @@ function registerSessionKeybinds(mode: LaunchMode) {
       } catch (_err) {
         // Non-fatal — partition may already be gone
       }
-      // Delete partition folder with retries to handle delayed handle release
+      // Delete partition folder with retries to handle delayed handle release.
+      // Electron stores persist:<id> partitions under Partitions/persist/<id>.
       const partitionsBase = path.resolve(join(app.getPath("userData"), "Partitions"));
-      const partitionFolderPath = path.resolve(partitionsBase, sessionId);
+      const partitionFolderPath = path.resolve(partitionsBase, 'persist', sessionId);
       if (!partitionFolderPath.startsWith(partitionsBase + path.sep)) {
         return { success: false, error: "Path validation failed." };
       }
@@ -1687,6 +1769,7 @@ function registerSessionKeybinds(mode: LaunchMode) {
             ...(Array.isArray(parsed.keyBindProfiles) ? {keyBindProfiles: parsed.keyBindProfiles} : {}),
             ...(parsed.activeKeyBindProfileId !== undefined ? {activeKeyBindProfileId: parsed.activeKeyBindProfileId} : {}),
             ...(Array.isArray(parsed.sessionActions) ? {sessionActions: parsed.sessionActions} : {}),
+            ...(Array.isArray(parsed.sessionGroups) ? {sessionGroups: parsed.sessionGroups} : {}),
             ...(parsed.window !== undefined ? {window: parsed.window} : {}),
             ...(parsed.sessionZoomLevels !== undefined ? {sessionZoomLevels: parsed.sessionZoomLevels} : {}),
             ...(parsed.fullscreen !== undefined ? {fullscreen: parsed.fullscreen} : {}),
@@ -1835,13 +1918,13 @@ function registerSessionKeybinds(mode: LaunchMode) {
 
         const applyUiLayout = () => {
           const incomingPayload = payload as ConfigExportPayloadV2;
+          const knownSessionIds = new Set((neuzosConfig.sessions ?? []).map((session: any) => session.id));
           if (incomingPayload.window !== undefined) {
             neuzosConfig.window = cloneData(incomingPayload.window);
             didModify = true;
           }
 
           if (incomingPayload.sessionZoomLevels !== undefined) {
-            const knownSessionIds = new Set((neuzosConfig.sessions ?? []).map((session: any) => session.id));
             const filteredZoomLevels: Record<string, number> = {};
             for (const [sessionId, zoomLevel] of Object.entries(incomingPayload.sessionZoomLevels ?? {})) {
               if (knownSessionIds.has(sessionId)) {
@@ -1854,6 +1937,34 @@ function registerSessionKeybinds(mode: LaunchMode) {
 
           if (incomingPayload.fullscreen !== undefined) {
             neuzosConfig.fullscreen = cloneData(incomingPayload.fullscreen);
+            didModify = true;
+          }
+
+          if (Array.isArray(incomingPayload.sessionGroups)) {
+            const normalizedIncomingGroups = normalizeSessionGroups(incomingPayload.sessionGroups, knownSessionIds);
+            if (mode === 'replace') {
+              neuzosConfig.sessionGroups = normalizedIncomingGroups;
+            } else {
+              const existingGroups = [...(neuzosConfig.sessionGroups ?? [])];
+              const existingGroupMap = new Map(existingGroups.map((group: any) => [group.id, group]));
+
+              for (const importGroup of normalizedIncomingGroups) {
+                const existingGroup = existingGroupMap.get(importGroup.id);
+                if (!existingGroup) {
+                  const nextGroup = cloneData({
+                    ...importGroup,
+                    sessionIds: [...importGroup.sessionIds],
+                  });
+                  existingGroups.push(nextGroup);
+                  existingGroupMap.set(nextGroup.id, nextGroup);
+                } else {
+                  existingGroup.label = importGroup.label ?? existingGroup.label;
+                  existingGroup.sessionIds = [...importGroup.sessionIds];
+                }
+              }
+
+              neuzosConfig.sessionGroups = existingGroups;
+            }
             didModify = true;
           }
         };

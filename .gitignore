@@ -13,5 +13,4 @@ src/renderer/src/lib/widgets/testing
 .claude
 CLAUDE.md
 node_modules/
-.specify/
-specs/
+

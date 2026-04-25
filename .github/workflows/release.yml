@@ -34,6 +34,12 @@ jobs:
       - name: Install dependencies with Bun
         run: bun install # Use 'bun install' instead of 'pnpm install'
 
+      - name: Lint
+        run: bun run lint
+
+      - name: Typecheck
+        run: bun run typecheck
+
       - name: Build
         run: bun run postinstall # Use 'bun run <script>' instead of 'pnpm <script>'
 

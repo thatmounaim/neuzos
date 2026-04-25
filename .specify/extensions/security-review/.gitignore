@@ -1,0 +1,92 @@
+# OS Files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE Files
+.idea/
+.vscode/
+*.sublime-*
+.project
+.settings/
+.classpath
+
+# Node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.env
+*.egg-info/
+dist/
+build/
+
+# Ruby
+*.gem
+*.rbc
+.bundle/
+vendor/bundle/
+
+# Java
+*.class
+*.jar
+*.war
+*.ear
+target/
+build/
+
+# Go
+bin/
+pkg/
+*.exe
+
+# Rust
+target/
+Cargo.lock
+
+# Spec-Kit
+.speckit/cache/
+*.speckit.local.yml
+
+# Test/Debug
+coverage/
+*.log
+debug/
+tmp/
+temp/
+
+# Documentation build
+docs/_build/
+site/
+
+# Secrets (should never be committed)
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+secrets.json
+credentials.json
+service-account.json
+
+# Generated reports (may contain sensitive data)
+security-report-*.md
+security-report-*.json
+audit-output-*.txt
+
+# Local configuration
+config.yml
+local-config.yml
+*.local.yml

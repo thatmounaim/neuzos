@@ -121,6 +121,11 @@ window.open = function(...args) {
   export const startClient = () => {
     started = true
     onUpdate(session.id)
+    const wv = getWebview()
+    if (wv) {
+      const wid = wv.getWebContentsId()
+      window.electron.ipcRenderer.send('webview.register_mouse', { sessionId: session.id, webContentsId: wid })
+    }
   }
 
   export const stopClient = () => {
@@ -128,6 +133,7 @@ window.open = function(...args) {
     started = false
     onUpdate(session.id)
     koreanLinkFixed = false
+    window.electron.ipcRenderer.send('webview.unregister_mouse', { sessionId: session.id })
   }
 
   export const isStarted = () => {

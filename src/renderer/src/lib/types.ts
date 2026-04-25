@@ -24,6 +24,12 @@ export type NeuzSessionState = {
   running: boolean;
 }
 
+export type NeuzSessionGroup = {
+  id: string;
+  label: string;
+  sessionIds: string[];
+}
+
 export type NeuzLayout = {
   id: string;
   label: string;
@@ -97,6 +103,7 @@ export type ConfigExportPayloadV2 = {
   keyBindProfiles?: NeuzKeyBindProfile[];
   activeKeyBindProfileId?: string | null;
   sessionActions?: SessionActions[];
+  sessionGroups?: NeuzSessionGroup[];
   window?: NeuzConfig['window'];
   sessionZoomLevels?: Record<string, number>;
   fullscreen?: NeuzConfig['fullscreen'];
@@ -211,6 +218,7 @@ export type NeuzConfig = {
   keyBinds: NeuzKeybind[]
   syncReceiverSessionId?: string | null
   sessionActions: SessionActions[];
+  sessionGroups?: NeuzSessionGroup[];
   sessionZoomLevels?: { [sessionId: string]: number };
   titleBarButtons: {
     darkModeToggle: boolean;

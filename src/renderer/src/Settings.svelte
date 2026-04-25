@@ -31,6 +31,7 @@
   let neuzosConfig: NeuzConfig = $state({
     defaultLaunchMode: 'normal',
     sessions: [],
+    sessionGroups: [],
     layouts: [],
     chromium: {
       commandLineSwitches: []
@@ -70,6 +71,7 @@
     neuzosConfig.keyBindProfiles = conf.keyBindProfiles || [];
     neuzosConfig.activeKeyBindProfileId = conf.activeKeyBindProfileId ?? null;
     neuzosConfig.sessionActions = conf.sessionActions || [];
+    neuzosConfig.sessionGroups = conf.sessionGroups ?? [];
     neuzosConfig.sessionZoomLevels = conf.sessionZoomLevels ?? {};
     neuzosConfig.userAgent = conf.userAgent;
     neuzosConfig.titleBarButtons = conf.titleBarButtons;

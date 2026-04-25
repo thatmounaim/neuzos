@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!-- Security Review Extension Logo -->
+  <!-- A shield with a checkmark representing security audit -->
+  
+  <!-- Shield background -->
+  <defs>
+    <linearGradient id="shieldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a472a;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2d5016;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  
+  <!-- Shield shape -->
+  <path d="M100 10 L170 30 L170 90 C170 140 140 175 100 190 C60 175 30 140 30 90 L30 30 Z" 
+        fill="url(#shieldGradient)" 
+        stroke="#4a7c23" 
+        stroke-width="3"
+        filter="url(#shadow)"/>
+  
+  <!-- Inner shield border -->
+  <path d="M100 20 L160 38 L160 88 C160 130 135 160 100 175 C65 160 40 130 40 88 L40 38 Z" 
+        fill="none" 
+        stroke="#6b9b37" 
+        stroke-width="2"
+        opacity="0.6"/>
+  
+  <!-- Checkmark -->
+  <path d="M65 100 L95 130 L140 70" 
+        fill="none" 
+        stroke="#90EE90" 
+        stroke-width="8" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"/>
+  
+  <!-- Magnifying glass (audit symbol) -->
+  <circle cx="135" cy="65" r="25" 
+          fill="none" 
+          stroke="#ffffff" 
+          stroke-width="4"
+          opacity="0.9"/>
+  <line x1="153" y1="83" x2="165" y2="95" 
+        stroke="#ffffff" 
+        stroke-width="4" 
+        stroke-linecap="round"
+        opacity="0.9"/>
+  
+  <!-- Text -->
+  <text x="100" y="155" 
+        font-family="Arial, sans-serif" 
+        font-size="12" 
+        font-weight="bold"
+        fill="#ffffff" 
+        text-anchor="middle"
+        opacity="0.8">SECURITY</text>
+  <text x="100" y="170" 
+        font-family="Arial, sans-serif" 
+        font-size="12" 
+        font-weight="bold"
+        fill="#ffffff" 
+        text-anchor="middle"
+        opacity="0.8">REVIEW</text>
+</svg>

@@ -142,6 +142,11 @@ export const neuzosBridge = {
     setSide: (side: 'left' | 'right') => {
       electronApi?.send('sidebar_panel.set_side', side);
     }
+  },
+  config: {
+    save: (config: object): Promise<void> => {
+      return electronApi?.invoke('config.save', JSON.stringify(config)) ?? Promise.resolve();
+    }
   }
 }
 
