@@ -1,5 +1,5 @@
 <script lang="ts">
-  import {getContext, onMount} from 'svelte'
+  import {getContext, onMount, tick} from 'svelte'
   import {AlertTriangle, Loader2} from '@lucide/svelte'
   import type {MainWindowState, NeuzSession, SessionHealthStatus} from "$lib/types";
   import type {WebviewTag} from 'electron'
@@ -129,6 +129,12 @@ window.open = function(...args) {
   }
 
   export const stopClient = (onStopped?: () => void) => {
+    // BUG-012: Guard against re-entry. If already stopped, fire callback and bail out
+    // without re-triggering clearCache IPC (which caused an infinite IPC loop).
+    if (!started) {
+      onStopped?.()
+      return
+    }
     clearSessionHealth()
     started = false
     if (session.autoDeleteCache) {
@@ -137,7 +143,12 @@ window.open = function(...args) {
     onUpdate(session.id)
     koreanLinkFixed = false
     window.electron.ipcRenderer.send('webview.unregister_mouse', { sessionId: session.id })
-    onStopped?.()
+    // BUG-013: Await Svelte's DOM flush so the <webview> element is removed from the DOM
+    // before the ACK reaches main. Without this, the 2-second grace period starts while
+    // Chromium still holds file-system handles on the partition directory.
+    if (onStopped) {
+      void tick().then(onStopped)
+    }
   }
 
   export const isStarted = () => {

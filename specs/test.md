@@ -86,6 +86,34 @@ session can be the receiver at a time.
 **Expected**: The receiver assignment either clears automatically or `TestA` is no longer running
 (the receiver button is no longer visible). No crash.
 
+### Test 1-D — Live Key Is Delivered to Receiver
+
+> Requires a `send_to_receiver` keybind configured (see Setup above). If no keybind is configured,
+> mark this test N/A.
+
+1. Set `TestA` as the Active Receiver.
+2. Make sure `TestA` is running and the game is visible.
+3. Press the hotkey bound to **Send to Receiver** (e.g., `Alt+2`) while focus is on any other
+   window (main window, another session, or even a non-NeuzOS window).
+
+**Expected**: The mapped in-game key is injected into `TestA`'s game window within ~50 ms. You
+may see a chat field open, a menu appear, or another in-game reaction depending on the key mapped.
+No focus switch occurs in NeuzOS.
+
+4. Change the Active Receiver to `TestB` while `TestB` is running.
+5. Press the same hotkey again.
+
+**Expected**: The key is now delivered to `TestB`, not `TestA`.
+
+### Test 1-E — Receiver Designation Survives App Restart
+
+1. Set `TestB` as the Active Receiver.
+2. Fully close and reopen NeuzOS.
+3. Open the main window and check the receiver toggle buttons.
+
+**Expected**: `TestB` still shows the highlighted receiver indicator. The designation was persisted
+to config.
+
 ---
 
 ## PR 002 — Core QoL Features
@@ -251,6 +279,46 @@ browser.
 2. Close the viewer window.
 
 **Expected**: Only the viewer window closes. The main app is unaffected.
+
+### Test 3-E — Google Chrome Is Hidden After CSS Injection
+
+1. Open the Navi's Guide viewer window.
+2. Wait for the sheet to fully load.
+
+**Expected**: The Google header bar, navigation bar, and "Published by Google" footer are **not
+visible**. Only the spreadsheet grid is shown.
+
+3. Click any sheet tab (e.g., **Darkon 1**).
+
+**Expected**: The new sheet loads and the Google chrome remains hidden. The injection is re-applied
+after navigation.
+
+### Test 3-F — All Eleven Bestiary Sheet Tabs Work
+
+1. With the Navi's Guide viewer open, click each tab in order:
+   Info → Flaris → Saint Morning → Garden of Rhisis → Darkon 1 → Darkon 2 → Darkon 3 →
+   Deadwalderness → Azria → Coral Island → Kaillun.
+
+**Expected**: Each tab loads its corresponding sheet. No tab produces an error page. All 11 tabs
+are present in the tab bar.
+
+### Test 3-G — Window Position and Size Persist After Restart
+
+1. Open the Navi's Guide viewer window.
+2. Drag it to a new position on screen and resize it.
+3. Close the viewer.
+4. Fully close and reopen NeuzOS.
+5. Open the viewer window again.
+
+**Expected**: The viewer opens at the same position and size you set in step 2.
+
+### Test 3-H — No Duplicate Windows on Repeated Opens
+
+1. Open the Navi's Guide viewer window.
+2. Click the **Open Navi's Guide** button a second time.
+
+**Expected**: No second viewer window is created. The existing window comes to the front (focused).
+Repeat for Flyffipedia.
 
 ---
 
@@ -660,6 +728,81 @@ remains present and unchanged after the stop.
 
 ---
 
+### 6.6 Regression Tests — BUG-012 (IPC Loop) and BUG-013 (ACK Timing)
+
+These tests specifically verify the two root causes of "session deleted from neuzOS but partition
+folder persists on disk" (BUG-012 infinite IPC loop + BUG-013 premature ACK).
+
+#### Test 6-P — Auto-Delete Cache Does Not Recreate Partition Folder After Deletion
+
+> This is the critical regression test for BUG-012.
+
+1. Open **Settings → Sessions**.
+2. Enable **Auto-Delete Cache** for `TestA`.
+3. Start `TestA` in a layout so it has been running long enough to generate cache.
+4. Stop `TestA`.
+5. Observe the terminal / logs (if accessible). There should be **no repeated** `stop_session`
+   messages flooding the output.
+6. After `TestA` is stopped, click the **Delete** button for `TestA`.
+7. Confirm the deletion in the dialog.
+8. Wait **20 seconds**.
+9. Navigate to `%APPDATA%\neuzos\Partitions\persist\` in File Explorer.
+
+**Expected**:
+- `TestA` disappears from the session list immediately.
+- After 20 seconds the partition folder for `TestA` is **absent** from disk.
+- The folder does **not** reappear after an additional 10-second wait.
+- No error dialog appears.
+
+#### Test 6-Q — Delete Running Session with Auto-Delete Cache Enabled (Combined Path)
+
+> Exercises BUG-012 (loop prevention) and BUG-013 (ACK timing) together in a single flow.
+
+1. Enable **Auto-Delete Cache** for `TestB`.
+2. Start `TestB`.
+3. Open **Settings → Sessions** while `TestB` is running.
+4. Click the **Delete** button for `TestB`.
+5. The dialog should warn that the session is running and will be stopped. Confirm.
+6. Wait **25 seconds** after confirming.
+7. Navigate to `%APPDATA%\neuzos\Partitions\persist\` in File Explorer.
+
+**Expected**:
+- `TestB` stops and the webview disappears from the layout.
+- `TestB` disappears from the session list.
+- After 25 seconds the partition folder for `TestB` is **absent** from disk. The folder does **not**
+  reappear.
+- No error dialog.
+- *(Optional / advanced)*: If you can observe app logs, there is no repeating loop of
+  `stop_session` calls for `TestB`.
+
+#### Test 6-R — Session Without Auto-Delete Cache Also Deletes Clean
+
+1. Ensure **Auto-Delete Cache** is **off** for `TestC`.
+2. Start `TestC`, let it run briefly, then stop it.
+3. Delete `TestC` from Settings and confirm.
+4. Wait 15 seconds and check `%APPDATA%\neuzos\Partitions\persist\`.
+
+**Expected**: The partition folder for `TestC` is gone. This is a baseline sanity check confirming
+that the BUG-012/013 fixes did not break the non-autoDeleteCache delete path.
+
+#### Test 6-S — Copy (Clone) Partition Persists After Source Delete
+
+> Specifically validates that *copied* session partitions are not affected by the delete-path fixes.
+
+1. Ensure `TestB` is stopped.
+2. Clone `TestB` — the clone should appear as `TestB (Copy)` in the list.
+3. Start the clone (`TestB (Copy)`) and verify it opens correctly (login state preserved).
+4. **Delete the original** `TestB` (not the clone). Confirm deletion.
+5. Wait 15 seconds.
+6. Navigate to `%APPDATA%\neuzos\Partitions\persist\`.
+
+**Expected**:
+- `TestB`'s original partition folder is **gone**.
+- `TestB (Copy)`'s partition folder is **still present** and untouched.
+- The clone can still be started and retains its login/game state.
+
+---
+
 ## Regression / Stability Checks
 
 These tests are quick sanity checks to confirm that existing features still work after the new
@@ -704,8 +847,10 @@ intentionally in the delete tests).
 
 | Issue | Status |
 |-------|--------|
-| After deleting a running session, the partition folder on disk may still be present for ~15 seconds or longer while Electron finishes releasing file handles. This is a known timing issue under investigation (BUG-011). | Open — investigation in progress |
-| The "Clear Storage" action in the session Actions column may not delete the partition folder (it only clears in-memory storage data). This is a secondary issue under the same BUG-011 investigation. | Open |
+| After deleting a running session, the partition folder on disk may still be present for ~15 seconds while Electron finishes releasing file handles. A short wait is expected before the folder disappears; this is normal. | Resolved in PR 006 (BUG-011/012/013) |
+| The "Clear Storage" action in the session Actions column only clears in-memory storage data; it does not delete the partition folder. This is the intended behaviour (use Delete to remove the folder). | By design |
+| When **Auto-Delete Cache** was enabled, deleting a session could cause the partition folder to reappear on disk after a successful rimraf delete. Root cause: an IPC feedback loop in the `session.clear_cache` handler (BUG-012). | Fixed in this build — see Test 6-P/6-Q |
+| On slow Windows machines the partition folder could remain locked at the point rimraf ran, because the ACK was sent before Svelte finished removing the `<webview>` element from the DOM (BUG-013). | Fixed in this build — see Test 6-P/6-Q |
 
 ---
 

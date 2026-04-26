@@ -82,6 +82,8 @@ As a user, I can understand every icon action in the session Actions column thro
 - Cloning handles repeated copy naming without collisions for labels like X, X (Copy), X (Copy) (2), and beyond.
 - Group assignment remains valid if sessions referenced by groups were removed earlier.
 - Export/import payloads lacking group data continue to load safely, with sessions treated as ungrouped.
+- EC-01: Loop prevention — the `session.clear_cache` main handler MUST NOT emit `event.stop_session`; doing so creates a tight IPC feedback loop through `stopClient` that continuously re-queues `session.clear_cache` IPCs and can cause partition folders to reappear after rimraf (see BUG-012).
+- EC-02: ACK timing — the delete-flow ACK (`event.stop_session_ack`) MUST be sent only after Svelte's `tick()` resolves so the `<webview>` element is confirmed removed from the DOM before the 2-second grace period starts; a premature ACK on Windows can leave Chromium holding file handles when rimraf runs (see BUG-013).
 
 ## Requirements *(mandatory)*
 
@@ -89,7 +91,7 @@ As a user, I can understand every icon action in the session Actions column thro
 
 - **FR-001**: System MUST require explicit confirmation before deleting any session.
 - **FR-002**: System MUST show an additional warning when deleting a currently running session that the session will be stopped before deletion.
-- **FR-003**: System MUST stop a running session, await an explicit renderer acknowledgement that `stopClient()` finished and the webview was torn down, then wait a fixed 2-second grace period before attempting deletion of that session's partition data. The delete handler MUST NOT call `clearStorageData()` or access `session.fromPartition()` between the acknowledgement/grace phase and the rimraf call — doing so on Windows re-opens Electron's session object and causes the partition folder to reappear or become locked, defeating the wait (see BUG-006). The delete flow MUST also suppress any queued `session.clear_cache` IPC for the same session while deletion is in progress, because a late cache-clear call can recreate the folder after rimraf (see BUG-010).
+- **FR-003**: System MUST stop a running session, await an explicit renderer acknowledgement that `stopClient()` finished and the webview was torn down, then wait a fixed 2-second grace period before attempting deletion of that session's partition data. The delete handler MUST NOT call `clearStorageData()` or access `session.fromPartition()` between the acknowledgement/grace phase and the rimraf call — doing so on Windows re-opens Electron's session object and causes the partition folder to reappear or become locked, defeating the wait (see BUG-006). The delete flow MUST also suppress any queued `session.clear_cache` IPC for the same session while deletion is in progress, because a late cache-clear call can recreate the folder after rimraf (see BUG-010). The `session.clear_cache` main handler MUST NOT send `event.stop_session` back to the renderer — cache clearing does not require the webview to be stopped, and doing so creates a re-entrant IPC feedback loop through `stopClient` (see BUG-012). The delete-flow ACK (`event.stop_session_ack`) MUST NOT be sent until Svelte's `tick()` has resolved, ensuring the `<webview>` element is removed from the DOM before the grace period starts (see BUG-013). If `stopClient()` is invoked when `started` is already `false`, it MUST invoke the `onStopped` callback immediately and return without calling the `clearCache` IPC, preventing re-entrant loop escalation (see BUG-012).
 - **FR-004**: System MUST attempt partition deletion only after the stop-acknowledgement/grace phase completes; if deletion fails it MUST retry up to 5 times with 800 ms gaps before reporting failure to the user.
 - **FR-005**: System MUST show a visible deletion error dialog when partition deletion fails after stop/unload.
 - **FR-006**: System MUST use the existing confirmation/dialog interaction pattern already used in session settings for destructive operations.
@@ -122,6 +124,9 @@ As a user, I can understand every icon action in the session Actions column thro
 - **FR-033**: System MUST provide a tooltip for the Auto-Delete Cache column header.
 - **FR-034**: System MUST apply the defined stop-wait mechanism (5-second initial timeout followed by up to 5 retry attempts at 800 ms intervals) before any partition mutation, whether for session deletion or cloning. *(Generalizes FR-003 and FR-004 to cover cloning in addition to deletion; the mechanism details are authoritative in FR-003/FR-004.)*
 - **FR-035**: System MUST NOT send a `session.stop` IPC message from within the `event.start_session` renderer handler. The pre-start local cleanup MUST call `stopClient()` directly on each layout without going through IPC, to preserve the `runningSessionIds` Set state in the main process. *(Clarification added after BUG-007 — the original `sessions.stop()` IPC call inside `event.start_session` immediately removed the session from `runningSessionIds`, making the running-session delete warning never appear.)*
+
+**Bugfix**: 2026-04-26 — BUG-012: `session.clear_cache` loop-prevention clause, `stopClient` re-entry guard, and EC-01 added to FR-003 and Edge Cases.
+**Bugfix**: 2026-04-26 — BUG-013: ACK-before-DOM-flush timing clause and EC-02 added to FR-003 and Edge Cases.
 
 ### Key Entities *(include if feature involves data)*
 

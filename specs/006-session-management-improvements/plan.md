@@ -39,7 +39,7 @@ The `005-session-groups` branch that `006` is based on already contains:
 - **Session Groups full UI** (FR-023–FR-031): collapsible group sections, inline rename, reorder, delete with confirmation, per-session group assignment dropdown, ungrouped tail section.
 - **Session Groups in Session Launcher**: grouped headers, collapsible, ungrouped tail.
 - **Session Groups in export/import**: `applyUiLayout` in `src/main/index.ts` handles `sessionGroups` in both replace and merge modes; `cloneForExport` in `configExport.ts` includes `sessionGroups` under `ui-layout`.
-- **`session.delete` stop-wait and retry** (FR-003, FR-004, FR-034): 5 s wait + rimraf with 5× retry @ 800 ms + `{ success, error }` return shape. ~~**No action needed**~~ ⚠️ Partially broken — `clearStorageData()` was being called after the wait, causing Electron to re-open the partition session object and recreate the folder on Windows. Fix: remove the `clearStorageData()` block entirely from the delete handler (BUG-006/BUG-008/BUG-009 patch). Also suppress any queued `session.clear_cache` IPC for the same session during deletion so a late auto-delete-cache event cannot recreate the partition folder after rimraf (BUG-010).
+- **`session.delete` stop-wait and retry** (FR-003, FR-004, FR-034): 5 s wait + rimraf with 5× retry @ 800 ms + `{ success, error }` return shape. ~~**No action needed**~~ ⚠️ Partially broken — `clearStorageData()` was being called after the wait, causing Electron to re-open the partition session object and recreate the folder on Windows. Fix: remove the `clearStorageData()` block entirely from the delete handler (BUG-006/BUG-008/BUG-009 patch). Also suppress any queued `session.clear_cache` IPC for the same session during deletion so a late auto-delete-cache event cannot recreate the partition folder after rimraf (BUG-010). Additionally, BUG-012 (IPC re-entrant loop via `session.clear_cache`) and BUG-013 (ACK sent before Svelte DOM flush) are follow-on bugs that must also be resolved — see Implementation Notes below.
 - **Deletion error dialog** (FR-005): `deleteErrorModal` state in `SessionSettings.svelte`. ~~**No action needed**~~ ⚠️ Was not firing because `rimraf` never threw (Electron recreated the folder before it could be locked — see above). Fixed as side-effect of the `clearStorageData()` removal.
 - **Tooltips on existing action buttons** (FR-032 partial): `<Tooltip.Root>` already wraps cache-clear, storage-clear, and delete buttons.
 
@@ -194,9 +194,38 @@ Implementation note: track in-progress deletes in a module-level `deletingSessio
 
 ### Delete acknowledgement gap (BUG-011)
 
-The current runtime behavior still depends on a blind timeout before partition deletion. That is not enough under all Windows flush timings, so the next implementation pass must wait for a renderer stop acknowledgement, then apply a short final grace delay before rimraf.
+The current runtime behavior still depends on a blind timeout before partition deletion. That is not enough under all Windows flush timings, so the next implementation pass must wait for a renderer stop acknowledgement, then apply a short final grace delay before rimraf. BUG-012 and BUG-013 are follow-on defects discovered after this patch; see sections below.
 
 **Bugfix**: 2026-04-26 — BUG-011 Updated from bugfix patch
+
+### IPC re-entrant loop on autoDeleteCache session stop (BUG-012)
+
+Two cooperating defects create an infinite IPC feedback loop when a session with `autoDeleteCache: true` is stopped:
+
+1. **`session.clear_cache` handler (`src/main/index.ts` ~L1729)** sends `event.stop_session` back to the renderer before calling `clearCache()`. Cache clearing does not require the webview to be stopped — this send is unnecessary and triggers `stopClient`, which immediately fires another `clearCache` IPC.
+2. **`stopClient` (`src/renderer/src/components/Shared/NeuzClient.svelte` ~L131)** calls `neuzosBridge.sessions.clearCache()` unconditionally when `session.autoDeleteCache` is true, regardless of whether `started` was already `false`. Every re-entry caused by the `event.stop_session` from the main handler fires another `clearCache` IPC.
+
+The loop also builds a `session.clear_cache` IPC backlog that can outlast the `deletingSessionIds` guard, causing `session.fromPartition()` to recreate the partition folder after rimraf has already run.
+
+Fix:
+1. Remove `win.webContents.send("event.stop_session", sessionId)` from the `session.clear_cache` handler in `src/main/index.ts`.
+2. Guard `stopClient` in `NeuzClient.svelte`: if `started === false`, invoke `onStopped?.()` immediately and return without calling `clearCache` IPC.
+
+**Bugfix**: 2026-04-26 — BUG-012 Updated from bugfix patch
+
+### ACK sent before Svelte DOM flush (BUG-013)
+
+`stopClient` sets `started = false` then synchronously calls `onStopped?.()` (which sends `event.stop_session_ack`). Svelte's reactive DOM update for `{#if started}` is batched and runs in the next microtask — so the `<webview>` element is still in the DOM when the ACK is sent, and the 2-second grace period starts while Chromium still holds file-system handles on the partition directory.
+
+Fix: await `tick()` from `'svelte'` in `stopClient` before invoking `onStopped`, so the DOM is flushed and the webview element is removed before the ACK reaches the main process:
+
+```ts
+if (onStopped) {
+  void tick().then(onStopped)
+}
+```
+
+**Bugfix**: 2026-04-26 — BUG-013 Updated from bugfix patch
 ```
 
 Existing labels are derived from `neuzosConfig.sessions.map(s => s.label)` at clone time.

@@ -1730,8 +1730,9 @@ function registerSessionKeybinds(mode: LaunchMode) {
       // Skip if this session is mid-delete — calling fromPartition() here would recreate
       // the partition folder that rimraf just removed (or is about to remove).
       if (deletingSessionIds.has(sessionId)) return;
-      const win = BrowserWindow.fromWebContents(event.sender);
-      win?.webContents.send("event.stop_session", sessionId);
+      // BUG-012: Do NOT send event.stop_session back to the renderer.
+      // Doing so was unnecessary for cache clearing and created an IPC feedback loop:
+      // stop_session → stopClient → clearCache IPC → stop_session → …
       const sess = session.fromPartition("persist:" + sessionId);
       await sess.clearCache();
     });
