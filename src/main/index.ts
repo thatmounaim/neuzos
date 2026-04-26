@@ -120,8 +120,6 @@ function getSessionPartitionPaths(sessionId: string): { partitionsBase: string; 
   const candidates = [
     path.resolve(partitionsBase, sessionId),
     path.resolve(partitionsBase, 'persist', sessionId),
-    path.resolve(partitionsBase, `persist:${sessionId}`),
-    path.resolve(partitionsBase, `persist%3A${sessionId}`),
   ];
   const paths = Array.from(new Set(candidates)).filter((candidate) => candidate.startsWith(partitionsBase + path.sep));
   return { partitionsBase, paths };
@@ -1729,10 +1727,8 @@ function registerSessionKeybinds(mode: LaunchMode) {
         // Delete partition folders with retries to handle delayed handle release.
         // Electron partitions may be stored under Partitions/<id> (current) or
         // legacy/variant paths such as Partitions/persist/<id>.
-        const { paths: partitionPaths } = getSessionPartitionPaths(sessionId);
-        if (partitionPaths.length === 0) {
-          return { success: false, error: "Path validation failed." };
-        }
+        const { paths: partitionPathCandidates } = getSessionPartitionPaths(sessionId);
+        const partitionPaths = partitionPathCandidates.filter((partitionPath) => fs.existsSync(partitionPath));
         // BUG-014: Increase outer retries (5→8, 800ms→1200ms) and pass internal rimraf
         // retries. Also verify the folder is truly gone after rimraf returns: on Windows,
         // Chromium's LevelDB may silently recreate the partition directory after rimraf
@@ -1741,24 +1737,34 @@ function registerSessionKeybinds(mode: LaunchMode) {
         // recreation into a throw so the retry loop re-attempts deletion.
         const maxAttempts = 8;
         let deleteResult: { success: boolean; error?: string } = { success: true };
-        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-          try {
-            for (const partitionPath of partitionPaths) {
-              await rimraf(partitionPath, { maxRetries: 5, retryDelay: 1000 });
-            }
-            const recreatedPath = partitionPaths.find((partitionPath) => fs.existsSync(partitionPath));
-            if (recreatedPath) {
-              throw new Error("Partition folder was recreated by Chromium/LevelDB after rimraf");
-            }
-            deleteResult = { success: true };
-            break;
-          } catch (err: any) {
-            if (attempt < maxAttempts) {
-              await new Promise(resolve => setTimeout(resolve, 1200));
-            } else {
-              deleteResult = { success: false, error: `Could not delete session data: ${err?.message ?? String(err)}` };
+        if (partitionPaths.length === 0) {
+          deleteResult = { success: true };
+        } else {
+          for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+              for (const partitionPath of partitionPaths) {
+                await rimraf(partitionPath, { maxRetries: 5, retryDelay: 1000 });
+              }
+              const recreatedPath = partitionPaths.find((partitionPath) => fs.existsSync(partitionPath));
+              if (recreatedPath) {
+                throw new Error("Partition folder was recreated by Chromium/LevelDB after rimraf");
+              }
+              deleteResult = { success: true };
+              break;
+            } catch (err: any) {
+              if (attempt < maxAttempts) {
+                await new Promise(resolve => setTimeout(resolve, 1200));
+              } else {
+                deleteResult = { success: false, error: `Could not delete session data: ${err?.message ?? String(err)}` };
+              }
             }
           }
+        }
+
+        if (deleteResult.success) {
+          neuzosConfig.sessions = (neuzosConfig.sessions ?? []).filter((session: any) => session.id !== sessionId);
+          pruneSessionReferences(neuzosConfig);
+          saveConfig(neuzosConfig);
         }
         return deleteResult;
       } finally {
