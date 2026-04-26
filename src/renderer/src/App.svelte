@@ -213,9 +213,9 @@
         } : undefined)
       }
     })
-    if (layoutIds.length === 0) {
-      window.electron.ipcRenderer.send('event.stop_session_ack', sessionId)
-    }
+    // No immediate ACK when this window has no matching layout.
+    // The main process has a timeout fallback, and sending a zero-layout ACK here can
+    // race with an active session in sessionWindow (BUG-014 symptom: early delete + folder recreation).
   })
 
   listen('event.start_session', (_, sessionId: string, layoutId: string) => {
