@@ -115,6 +115,18 @@ const runningSessionIds = new Set<string>();
 // Tracks sessions actively being deleted so session.clear_cache does not recreate their partition folder
 const deletingSessionIds = new Set<string>();
 
+function getSessionPartitionPaths(sessionId: string): { partitionsBase: string; paths: string[] } {
+  const partitionsBase = path.resolve(join(app.getPath("userData"), "Partitions"));
+  const candidates = [
+    path.resolve(partitionsBase, sessionId),
+    path.resolve(partitionsBase, 'persist', sessionId),
+    path.resolve(partitionsBase, `persist:${sessionId}`),
+    path.resolve(partitionsBase, `persist%3A${sessionId}`),
+  ];
+  const paths = Array.from(new Set(candidates)).filter((candidate) => candidate.startsWith(partitionsBase + path.sep));
+  return { partitionsBase, paths };
+}
+
 // Parse command-line arguments
 type LaunchMode = 'normal' | 'session_launcher' | 'session' | 'focus' | 'focus_fullscreen';
 
@@ -1589,9 +1601,8 @@ function registerSessionKeybinds(mode: LaunchMode) {
       if (deletingSessionIds.has(sessionId)) {
         return;
       }
-      const partitionsBase = path.resolve(join(app.getPath("userData"), "Partitions"));
-      const partitionFolderPath = path.resolve(partitionsBase, 'persist', sessionId);
-      if (!partitionFolderPath.startsWith(partitionsBase + path.sep)) {
+      const { paths: partitionPaths } = getSessionPartitionPaths(sessionId);
+      if (partitionPaths.length === 0) {
         return;
       }
       const win = BrowserWindow.fromWebContents(event.sender);
@@ -1604,12 +1615,14 @@ function registerSessionKeybinds(mode: LaunchMode) {
         console.warn("Failed to clear session storage:", err);
       }
 
-      try {
-        rimraf.sync(partitionFolderPath, {
-          maxRetries: 2
-        });
-      } catch (err) {
-        console.warn("Failed to delete partition folder:", err);
+      for (const partitionPath of partitionPaths) {
+        try {
+          rimraf.sync(partitionPath, {
+            maxRetries: 2
+          });
+        } catch (err) {
+          console.warn("Failed to delete partition folder:", partitionPath, err);
+        }
       }
     });
 
@@ -1619,8 +1632,14 @@ function registerSessionKeybinds(mode: LaunchMode) {
       }
       deletingSessionIds.add(sessionId);
       try {
-        const stopAckSenderId = mainWindow?.webContents.id;
-        const stopAckPromise = stopAckSenderId == null
+        const stopAckSenderIds = new Set<number>();
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          stopAckSenderIds.add(mainWindow.webContents.id);
+        }
+        if (sessionWindow && !sessionWindow.isDestroyed()) {
+          stopAckSenderIds.add(sessionWindow.webContents.id);
+        }
+        const stopAckPromise = stopAckSenderIds.size === 0
           ? Promise.resolve(false)
           : new Promise<boolean>((resolve) => {
               const ackTimeoutMs = 5000;
@@ -1636,7 +1655,7 @@ function registerSessionKeybinds(mode: LaunchMode) {
                 if (ackSessionId !== sessionId) {
                   return;
                 }
-                if (ackEvent.sender.id !== stopAckSenderId) {
+                if (!stopAckSenderIds.has(ackEvent.sender.id)) {
                   return;
                 }
                 cleanup();
@@ -1646,6 +1665,7 @@ function registerSessionKeybinds(mode: LaunchMode) {
             });
 
         mainWindow?.webContents.send("event.stop_session", sessionId);
+        sessionWindow?.webContents.send("event.stop_session", sessionId);
         const stopAckReceived = await stopAckPromise;
         if (!stopAckReceived) {
           console.warn("Timed out waiting for stop_session_ack during delete for session", sessionId);
@@ -1658,11 +1678,11 @@ function registerSessionKeybinds(mode: LaunchMode) {
         await new Promise(resolve => setTimeout(resolve, 5000));
         runningSessionIds.delete(sessionId);
 
-        // Delete partition folder with retries to handle delayed handle release.
-        // Electron stores persist:<id> partitions under Partitions/persist/<id>.
-        const partitionsBase = path.resolve(join(app.getPath("userData"), "Partitions"));
-        const partitionFolderPath = path.resolve(partitionsBase, 'persist', sessionId);
-        if (!partitionFolderPath.startsWith(partitionsBase + path.sep)) {
+        // Delete partition folders with retries to handle delayed handle release.
+        // Electron partitions may be stored under Partitions/<id> (current) or
+        // legacy/variant paths such as Partitions/persist/<id>.
+        const { paths: partitionPaths } = getSessionPartitionPaths(sessionId);
+        if (partitionPaths.length === 0) {
           return { success: false, error: "Path validation failed." };
         }
         // BUG-014: Increase outer retries (5→8, 800ms→1200ms) and pass internal rimraf
@@ -1675,8 +1695,11 @@ function registerSessionKeybinds(mode: LaunchMode) {
         let deleteResult: { success: boolean; error?: string } = { success: true };
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
           try {
-            await rimraf(partitionFolderPath, { maxRetries: 5, retryDelay: 1000 });
-            if (fs.existsSync(partitionFolderPath)) {
+            for (const partitionPath of partitionPaths) {
+              await rimraf(partitionPath, { maxRetries: 5, retryDelay: 1000 });
+            }
+            const recreatedPath = partitionPaths.find((partitionPath) => fs.existsSync(partitionPath));
+            if (recreatedPath) {
               throw new Error("Partition folder was recreated by Chromium/LevelDB after rimraf");
             }
             deleteResult = { success: true };
@@ -1713,11 +1736,11 @@ function registerSessionKeybinds(mode: LaunchMode) {
       }
 
       const newId = Date.now().toString();
-      const partitionsBase = path.resolve(join(app.getPath('userData'), 'Partitions', 'persist'));
-      const sourcePartitionPath = path.resolve(partitionsBase, sourceId);
+      const { partitionsBase, paths: sourceCandidates } = getSessionPartitionPaths(sourceId);
+      const sourcePartitionPath = sourceCandidates.find((candidate) => fs.existsSync(candidate));
       const destinationPartitionPath = path.resolve(partitionsBase, newId);
 
-      if (!sourcePartitionPath.startsWith(partitionsBase + path.sep) || !destinationPartitionPath.startsWith(partitionsBase + path.sep)) {
+      if (!destinationPartitionPath.startsWith(partitionsBase + path.sep)) {
         return { success: false, error: 'Path validation failed.' };
       }
 
@@ -1725,6 +1748,9 @@ function registerSessionKeybinds(mode: LaunchMode) {
       // In that case we still create the destination dir and return success with no files copied.
       try {
         fs.mkdirSync(destinationPartitionPath, {recursive: true});
+        if (!sourcePartitionPath) {
+          return { success: true, stoppedBeforeClone, newId };
+        }
         for (const entry of ['IndexedDB', 'Local Storage', 'Cookies']) {
           const sourceEntryPath = path.resolve(sourcePartitionPath, entry);
           if (!fs.existsSync(sourceEntryPath)) {

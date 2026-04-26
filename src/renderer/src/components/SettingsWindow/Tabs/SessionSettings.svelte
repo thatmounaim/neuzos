@@ -345,6 +345,22 @@
       ensureSessionGroups().forEach((group) => {
         group.sessionIds = group.sessionIds.filter((id) => id !== sessionId)
       })
+      neuzosConfig.layouts = (neuzosConfig.layouts ?? []).map((layout) => ({
+        ...layout,
+        rows: (layout.rows ?? [])
+          .map((row) => ({
+            ...row,
+            sessionIds: (row.sessionIds ?? []).filter((id) => id !== sessionId),
+          }))
+          .filter((row) => row.sessionIds.length > 0),
+      }))
+      neuzosConfig.sessionActions = (neuzosConfig.sessionActions ?? []).filter((sessionActions) => sessionActions.sessionId !== sessionId)
+      if (neuzosConfig.sessionZoomLevels && sessionId in neuzosConfig.sessionZoomLevels) {
+        delete neuzosConfig.sessionZoomLevels[sessionId]
+      }
+      if (neuzosConfig.syncReceiverSessionId === sessionId) {
+        neuzosConfig.syncReceiverSessionId = null
+      }
       await neuzosBridge.config.save(neuzosConfig)
     } else {
       deleteErrorModal = { sessionLabel, error: result.error ?? 'Unknown error' }
