@@ -353,6 +353,7 @@
 
   // Track icon popover state for each session
   let iconPopoverStates: { [sessionId: string]: boolean } = $state({});
+  let groupPopoverStates: { [sessionId: string]: boolean } = $state({});
 </script>
 
 {#snippet sessionRow(session, sessionIndex, sectionLength, groupId)}
@@ -510,19 +511,32 @@
       </div>
     </Table.Cell>
     <Table.Cell class="w-[220px]">
-      <select
-        class="h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-        value={currentGroupId ?? '__ungrouped__'}
-        onchange={(event) => {
-          const target = event.currentTarget as HTMLSelectElement
-          assignSessionToGroup(session.id, target.value === '__ungrouped__' ? null : target.value)
-        }}
-      >
-        <option value="__ungrouped__">Unassigned</option>
-        {#each ensureSessionGroups() as group}
-          <option value={group.id}>{group.label}</option>
-        {/each}
-      </select>
+      {@const groupLabel = currentGroupId
+        ? (ensureSessionGroups().find(g => g.id === currentGroupId)?.label ?? 'Unknown')
+        : 'Unassigned'}
+      {@const isGroupOpen = groupPopoverStates[session.id] ?? false}
+      <Popover.Root open={isGroupOpen} onOpenChange={(open) => { groupPopoverStates[session.id] = open; }}>
+        <Popover.Trigger class="h-9 w-full inline-flex items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <span class="truncate">{groupLabel}</span>
+          <ChevronDown class="ml-2 h-4 w-4 shrink-0 opacity-50"/>
+        </Popover.Trigger>
+        <Popover.Content class="w-[220px] p-1" align="start">
+          <button
+            class="w-full text-left px-2 py-1.5 text-sm rounded-sm hover:bg-accent hover:text-accent-foreground {!currentGroupId ? 'font-semibold' : ''}"
+            onclick={() => { assignSessionToGroup(session.id, null); groupPopoverStates[session.id] = false; }}
+          >
+            Unassigned
+          </button>
+          {#each ensureSessionGroups() as group}
+            <button
+              class="w-full text-left px-2 py-1.5 text-sm rounded-sm hover:bg-accent hover:text-accent-foreground {currentGroupId === group.id ? 'font-semibold' : ''}"
+              onclick={() => { assignSessionToGroup(session.id, group.id); groupPopoverStates[session.id] = false; }}
+            >
+              {group.label}
+            </button>
+          {/each}
+        </Popover.Content>
+      </Popover.Root>
     </Table.Cell>
     <Table.Cell class="text-xs">{session.id}</Table.Cell>
     <Table.Cell>

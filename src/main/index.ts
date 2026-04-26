@@ -1650,7 +1650,12 @@ function registerSessionKeybinds(mode: LaunchMode) {
         if (!stopAckReceived) {
           console.warn("Timed out waiting for stop_session_ack during delete for session", sessionId);
         }
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // BUG-014: Increase grace from 2s → 5s.
+        // tick() ensures the <webview> DOM element is removed, but Electron's WebContents
+        // destruction (and with it, Chromium/LevelDB teardown + file-handle release) is async
+        // and can take 2-5 s on Windows. The longer grace reduces the chance of rimraf racing
+        // against an active LevelDB writer.
+        await new Promise(resolve => setTimeout(resolve, 5000));
         runningSessionIds.delete(sessionId);
 
         // Delete partition folder with retries to handle delayed handle release.
@@ -1660,16 +1665,25 @@ function registerSessionKeybinds(mode: LaunchMode) {
         if (!partitionFolderPath.startsWith(partitionsBase + path.sep)) {
           return { success: false, error: "Path validation failed." };
         }
-        const maxAttempts = 5;
+        // BUG-014: Increase outer retries (5→8, 800ms→1200ms) and pass internal rimraf
+        // retries. Also verify the folder is truly gone after rimraf returns: on Windows,
+        // Chromium's LevelDB may silently recreate the partition directory after rimraf
+        // unlinks its files (it detects missing files and restores the DB structure).
+        // rimraf does not throw in this case — the existsSync check converts the silent
+        // recreation into a throw so the retry loop re-attempts deletion.
+        const maxAttempts = 8;
         let deleteResult: { success: boolean; error?: string } = { success: true };
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
           try {
-            await rimraf(partitionFolderPath);
+            await rimraf(partitionFolderPath, { maxRetries: 5, retryDelay: 1000 });
+            if (fs.existsSync(partitionFolderPath)) {
+              throw new Error("Partition folder was recreated by Chromium/LevelDB after rimraf");
+            }
             deleteResult = { success: true };
             break;
           } catch (err: any) {
             if (attempt < maxAttempts) {
-              await new Promise(resolve => setTimeout(resolve, 800));
+              await new Promise(resolve => setTimeout(resolve, 1200));
             } else {
               deleteResult = { success: false, error: `Could not delete session data: ${err?.message ?? String(err)}` };
             }

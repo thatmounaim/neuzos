@@ -480,11 +480,9 @@
   <PinnedActions/>
   <Separator orientation="vertical" class="h-4"/>
 
-  {#if mainWindowState.config.changed}
-    <Button size="icon-xs" variant="outline" onclick={reloadConfing} class="cursor-pointer">
-      <RefreshCw class="size-3.5"/>
-    </Button>
-  {/if}
+  <Button size="icon-xs" variant="outline" onclick={reloadConfing} class="cursor-pointer" title="Reload config">
+    <RefreshCw class="size-3.5"/>
+  </Button>
 
   <Button size="icon-xs" variant="outline" onclick={openNaviGuide} class="cursor-pointer" title="Open Navi's Guide">
     <BookOpen class="size-3.5"/>
