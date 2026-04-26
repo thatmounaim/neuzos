@@ -143,6 +143,21 @@
 
 **Bugfix**: 2026-04-26 — BUG-012/BUG-013 Updated from bugfix patch
 
+---
+
+## Phase 10: Bugfix Patch (BUG-014)
+
+**Added**: 2026-04-26 — Chromium/LevelDB recreation race; partition folder persists on disk even
+after rimraf returns success because WebContents teardown is async and LevelDB detects deleted
+files and immediately restores the directory structure.
+
+- [X] T032 [BUG-014] In `ipcMain.handle("session.delete")` in `src/main/index.ts`, increase the post-ACK grace period from 2 000 ms to 5 000 ms. The extra time covers typical Chromium WebContents teardown and LevelDB file-handle release on Windows (usually 2–3 s after DOM removal; the old 2 s grace was shorter than the teardown window).
+- [X] T033 [BUG-014] Pass `{ maxRetries: 5, retryDelay: 1000 }` to `rimraf` in `ipcMain.handle("session.delete")` in `src/main/index.ts`. The internal retries handle transient ENOTEMPTY or EPERM errors that occur when LevelDB has not yet finished releasing handles at the moment rimraf first runs.
+- [X] T034 [BUG-014] After `await rimraf(partitionFolderPath, ...)` in the retry loop, add `if (fs.existsSync(partitionFolderPath)) { throw new Error("Partition folder was recreated by Chromium/LevelDB after rimraf") }`. Without this check, rimraf returns `true` even if LevelDB silently recreated the directory, causing the handler to return `{ success: true }` while the folder reappears. The thrown error forces the outer retry loop to re-attempt deletion. Also increase the outer retry count from 5 → 8 and the inter-attempt delay from 800 → 1 200 ms to give longer teardown scenarios additional recovery time.
+- [ ] T035 [BUG-014] Smoke-test partition deletion on Windows after applying T032–T034: (1) delete a stopped session and confirm the folder at `%APPDATA%\neuzos\Partitions\persist\<id>\` is absent after the delete completes; (2) delete a running session (with Auto-Delete Cache enabled) and confirm the folder stays absent and no error dialog appears; (3) run the delete on a session whose webview was recently active and confirm folder is absent after the ~5 s grace + rimraf cycle.
+
+**Bugfix**: 2026-04-26 — BUG-014 Updated from bugfix patch
+
 ### Phase Dependencies
 
 - **Phase 1 (Setup)**: No dependencies — start immediately
@@ -154,6 +169,7 @@
 - **Phase 7 (BUG-006 / BUG-007 / BUG-008 / BUG-009 / BUG-010)**: Follow-up bugfix verification based on runtime findings; no new feature dependency beyond the already-implemented code paths.
 - **Phase 8 (BUG-011)**: Follow-up bugfix planning for the still-open partition-delete ACK gap; depends on the same delete/renderer paths already tracked in Phase 7.
 - **Phase 9 (BUG-012 / BUG-013)**: Follow-up bugfixes for the IPC re-entrant loop and premature ACK timing; T028/T029 must complete before T026 can be re-verified; T030 depends on the re-entry guard (T029) being in place; T031 is smoke-test verification.
+- **Phase 10 (BUG-014)**: Follow-up bugfix for Chromium/LevelDB partition recreation race; T032–T034 are code/artifact changes, T035 is smoke-test verification.
 
 ### User Story Dependencies
 

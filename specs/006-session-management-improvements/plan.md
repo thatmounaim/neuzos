@@ -226,6 +226,29 @@ if (onStopped) {
 ```
 
 **Bugfix**: 2026-04-26 — BUG-013 Updated from bugfix patch
+
+### Chromium/LevelDB partition recreation race (BUG-014)
+
+Even with BUG-013's `tick()` fix, the `<webview>` DOM removal does **not** synchronously destroy
+the Electron WebContents. Chromium's internal teardown and LevelDB file-handle release are
+async and take 2–5 s on Windows. During that window:
+
+- `rimraf` deletes the partition files (NTFS allows unlinking open files immediately)
+- LevelDB detects its `LOCK`/`MANIFEST`/`LOG` files are gone and **recreates the directory**
+- `rimraf` returns `true` (no throw) because the unlink succeeded at that moment
+- The folder reappears; the renderer gets `{ success: true }` and removes the session from
+  the list — but the folder is still on disk
+
+Fix (applied in `src/main/index.ts` `session.delete` handler):
+1. **Grace period 2 000 → 5 000 ms** — covers typical Chromium WebContents teardown time on Windows.
+2. **`rimraf(path, { maxRetries: 5, retryDelay: 1000 })`** — internal retries for transient ENOTEMPTY/EPERM.
+3. **Post-rimraf `fs.existsSync` check** — if LevelDB silently recreated the folder, `existsSync`
+   returns `true`; this is converted to a thrown error so the outer retry loop re-attempts.
+4. **Outer retries 5 → 8, delay 800 → 1 200 ms** — wider window for longer teardown scenarios.
+
+Maximum total wait: 5 s grace + 8 × (rimraf + existsSync + 1.2 s) ≈ 15 s.
+
+**Bugfix**: 2026-04-26 — BUG-014 Updated from bugfix patch
 ```
 
 Existing labels are derived from `neuzosConfig.sessions.map(s => s.label)` at clone time.
