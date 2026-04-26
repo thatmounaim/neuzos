@@ -127,6 +127,44 @@ function getSessionPartitionPaths(sessionId: string): { partitionsBase: string; 
   return { partitionsBase, paths };
 }
 
+function pruneSessionReferences(config: any): void {
+  const knownSessionIds = new Set((config.sessions ?? []).map((session: any) => session.id));
+
+  if (Array.isArray(config.layouts)) {
+    config.layouts = config.layouts.map((layout: any) => {
+      const rows = Array.isArray(layout?.rows)
+        ? layout.rows
+            .map((row: any) => {
+              const sessionIds = Array.isArray(row?.sessionIds)
+                ? row.sessionIds.filter((id: string) => knownSessionIds.has(id))
+                : [];
+              return { ...row, sessionIds };
+            })
+            .filter((row: any) => row.sessionIds.length > 0)
+        : [];
+      return { ...layout, rows };
+    });
+  }
+
+  if (Array.isArray(config.sessionActions)) {
+    config.sessionActions = config.sessionActions.filter((entry: any) => knownSessionIds.has(entry?.sessionId));
+  }
+
+  if (config.sessionZoomLevels && typeof config.sessionZoomLevels === 'object') {
+    for (const sessionId of Object.keys(config.sessionZoomLevels)) {
+      if (!knownSessionIds.has(sessionId)) {
+        delete config.sessionZoomLevels[sessionId];
+      }
+    }
+  }
+
+  if (config.syncReceiverSessionId && !knownSessionIds.has(config.syncReceiverSessionId)) {
+    config.syncReceiverSessionId = null;
+  }
+
+  config.sessionGroups = normalizeSessionGroups(config.sessionGroups, knownSessionIds);
+}
+
 // Parse command-line arguments
 type LaunchMode = 'normal' | 'session_launcher' | 'session' | 'focus' | 'focus_fullscreen';
 
@@ -445,8 +483,7 @@ function loadConfig(reload: boolean = false): Promise<any> {
             };
           }
 
-          const knownSessionIds = new Set((neuzosConfig.sessions ?? []).map((session: any) => session.id));
-          neuzosConfig.sessionGroups = normalizeSessionGroups(neuzosConfig.sessionGroups, knownSessionIds);
+          pruneSessionReferences(neuzosConfig);
 
           checkKeybinds()
           saveConfig(neuzosConfig);
@@ -1670,6 +1707,17 @@ function registerSessionKeybinds(mode: LaunchMode) {
         if (!stopAckReceived) {
           console.warn("Timed out waiting for stop_session_ack during delete for session", sessionId);
         }
+
+        const sessionWindowSessionId = (sessionWindow as any)?.sessionData?.sessionId;
+        if (sessionWindow && !sessionWindow.isDestroyed() && sessionWindowSessionId === sessionId) {
+          try {
+            sessionWindow.destroy();
+          } catch (error) {
+            console.warn("Failed to destroy session window during delete for session", sessionId, error);
+          }
+          await new Promise(resolve => setTimeout(resolve, 1200));
+        }
+
         // BUG-014: Increase grace from 2s → 5s.
         // tick() ensures the <webview> DOM element is removed, but Electron's WebContents
         // destruction (and with it, Chromium/LevelDB teardown + file-handle release) is async
