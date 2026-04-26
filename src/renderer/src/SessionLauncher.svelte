@@ -94,6 +94,8 @@
     return sessions.filter((session) => !groupedSessionIds.has(session.id));
   }
 
+  const ungroupedSessions = $derived.by(() => getUngroupedSessions())
+
   const openSettings = () => {
     neuzosBridge.settingsWindow.open();
   }
@@ -227,7 +229,6 @@
             </Card.Root>
           {/each}
 
-          {@const ungroupedSessions = getUngroupedSessions()}
           {#if ungroupedSessions.length > 0}
             <Card.Root class="overflow-hidden gap-0 border-border/70">
               <div class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left">

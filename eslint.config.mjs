@@ -4,7 +4,7 @@ import eslintConfigPrettier from '@electron-toolkit/eslint-config-prettier'
 import eslintPluginSvelte from 'eslint-plugin-svelte'
 
 export default defineConfig(
-  { ignores: ['**/node_modules', '**/dist', '**/out'] },
+  { ignores: ['**/node_modules', '**/dist', '**/out', '**/build', '**/coverage', '**/*.min.js'] },
   tseslint.configs.recommended,
   eslintPluginSvelte.configs['flat/recommended'],
   {

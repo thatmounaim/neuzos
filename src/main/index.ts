@@ -1,5 +1,6 @@
 import {app, shell, BrowserWindow, Menu, dialog, session, ipcMain, globalShortcut, screen, protocol} from "electron";
 import {join} from "path";
+import * as path from "node:path";
 import {pathToFileURL} from "url";
 import {electronApp, optimizer, is} from "@electron-toolkit/utils";
 import icon from "../../resources/icon.png?asset";
@@ -110,6 +111,9 @@ let sessionWindowShortcutsEnabled: boolean = true;
 
 // Maps sessionId -> webContentsId for mouse-bind interception via before-input-event
 const mouseBindWebContents = new Map<string, number>();
+const runningSessionIds = new Set<string>();
+// Tracks sessions actively being deleted so session.clear_cache does not recreate their partition folder
+const deletingSessionIds = new Set<string>();
 
 // Parse command-line arguments
 type LaunchMode = 'normal' | 'session_launcher' | 'session' | 'focus' | 'focus_fullscreen';
@@ -275,6 +279,7 @@ function normalizeSessionGroups(groups: unknown, knownSessionIds: Set<string>): 
 const defaultNeuzosConfig: any = {
   window: undefined,
   autoSaveSettings: false,
+  autoDeleteAllCachesOnStartup: false,
   defaultLaunchMode: "normal",
   chromium: {
     commandLineSwitches: [
@@ -1547,11 +1552,13 @@ function registerSessionKeybinds(mode: LaunchMode) {
     });
 
     ipcMain.on("session.stop", (event, sessionId: string) => {
+      runningSessionIds.delete(sessionId);
       const win = BrowserWindow.fromWebContents(event.sender);
       win?.webContents.send("event.stop_session", sessionId);
     });
 
     ipcMain.on("session.start", (event, sessionId: string, layoutId: string) => {
+      runningSessionIds.add(sessionId);
       const win = BrowserWindow.fromWebContents(event.sender);
       win?.webContents.send("event.start_session", sessionId, layoutId);
     });
@@ -1576,21 +1583,31 @@ function registerSessionKeybinds(mode: LaunchMode) {
     });
 
     ipcMain.on("session.clear_storage", async function (event, sessionId: string) {
+      if (typeof sessionId !== 'string' || !/^[a-zA-Z0-9_\-]+$/.test(sessionId)) {
+        return;
+      }
+      if (deletingSessionIds.has(sessionId)) {
+        return;
+      }
+      const partitionsBase = path.resolve(join(app.getPath("userData"), "Partitions"));
+      const partitionFolderPath = path.resolve(partitionsBase, 'persist', sessionId);
+      if (!partitionFolderPath.startsWith(partitionsBase + path.sep)) {
+        return;
+      }
       const win = BrowserWindow.fromWebContents(event.sender);
       win?.webContents.send("event.stop_session", sessionId);
-      const sess = session.fromPartition("persist:" + sessionId);
-      await sess.clearStorageData();
-      // delete partition folder — validate sessionId to prevent path traversal
+
       try {
-        if (typeof sessionId === 'string' && /^[a-zA-Z0-9_\-]+$/.test(sessionId)) {
-          const partitionsBase = path.resolve(join(app.getPath("userData"), "Partitions"));
-          const partitionFolderPath = path.resolve(partitionsBase, sessionId);
-          if (partitionFolderPath.startsWith(partitionsBase + path.sep)) {
-            rimraf.sync(partitionFolderPath, {
-              maxRetries: 2
-            });
-          }
-        }
+        const sess = session.fromPartition("persist:" + sessionId);
+        await sess.clearStorageData();
+      } catch (err) {
+        console.warn("Failed to clear session storage:", err);
+      }
+
+      try {
+        rimraf.sync(partitionFolderPath, {
+          maxRetries: 2
+        });
       } catch (err) {
         console.warn("Failed to delete partition folder:", err);
       }
@@ -1600,42 +1617,119 @@ function registerSessionKeybinds(mode: LaunchMode) {
       if (typeof sessionId !== 'string' || !/^[a-zA-Z0-9_\-]+$/.test(sessionId)) {
         return { success: false, error: "Invalid session ID." };
       }
-      // Stop the session in the renderer (fire-and-forget to main window)
-      mainWindow?.webContents.send("event.stop_session", sessionId);
-      // Wait for the webview process to release file handles (Windows needs this).
-      // 5 s gives Chromium enough time to flush and close partition handles on Windows.
-      await new Promise(resolve => setTimeout(resolve, 5000));
-      // Clear Electron session storage
+      deletingSessionIds.add(sessionId);
       try {
-        const sess = session.fromPartition("persist:" + sessionId);
-        await sess.clearStorageData();
-      } catch (_err) {
-        // Non-fatal — partition may already be gone
-      }
-      // Delete partition folder with retries to handle delayed handle release.
-      // Electron stores persist:<id> partitions under Partitions/persist/<id>.
-      const partitionsBase = path.resolve(join(app.getPath("userData"), "Partitions"));
-      const partitionFolderPath = path.resolve(partitionsBase, 'persist', sessionId);
-      if (!partitionFolderPath.startsWith(partitionsBase + path.sep)) {
-        return { success: false, error: "Path validation failed." };
-      }
-      const maxAttempts = 5;
-      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        try {
-          await rimraf(partitionFolderPath);
-          return { success: true };
-        } catch (err: any) {
-          if (attempt < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, 800));
-          } else {
-            return { success: false, error: `Could not delete session data: ${err?.message ?? String(err)}` };
+        const stopAckSenderId = mainWindow?.webContents.id;
+        const stopAckPromise = stopAckSenderId == null
+          ? Promise.resolve(false)
+          : new Promise<boolean>((resolve) => {
+              const ackTimeoutMs = 5000;
+              const timeoutId = setTimeout(() => {
+                cleanup();
+                resolve(false);
+              }, ackTimeoutMs);
+              const cleanup = () => {
+                clearTimeout(timeoutId);
+                ipcMain.removeListener('event.stop_session_ack', ackHandler);
+              };
+              const ackHandler = (ackEvent: any, ackSessionId: string) => {
+                if (ackSessionId !== sessionId) {
+                  return;
+                }
+                if (ackEvent.sender.id !== stopAckSenderId) {
+                  return;
+                }
+                cleanup();
+                resolve(true);
+              };
+              ipcMain.on('event.stop_session_ack', ackHandler);
+            });
+
+        mainWindow?.webContents.send("event.stop_session", sessionId);
+        const stopAckReceived = await stopAckPromise;
+        if (!stopAckReceived) {
+          console.warn("Timed out waiting for stop_session_ack during delete for session", sessionId);
+        }
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        runningSessionIds.delete(sessionId);
+
+        // Delete partition folder with retries to handle delayed handle release.
+        // Electron stores persist:<id> partitions under Partitions/persist/<id>.
+        const partitionsBase = path.resolve(join(app.getPath("userData"), "Partitions"));
+        const partitionFolderPath = path.resolve(partitionsBase, 'persist', sessionId);
+        if (!partitionFolderPath.startsWith(partitionsBase + path.sep)) {
+          return { success: false, error: "Path validation failed." };
+        }
+        const maxAttempts = 5;
+        let deleteResult: { success: boolean; error?: string } = { success: true };
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          try {
+            await rimraf(partitionFolderPath);
+            deleteResult = { success: true };
+            break;
+          } catch (err: any) {
+            if (attempt < maxAttempts) {
+              await new Promise(resolve => setTimeout(resolve, 800));
+            } else {
+              deleteResult = { success: false, error: `Could not delete session data: ${err?.message ?? String(err)}` };
+            }
           }
         }
+        return deleteResult;
+      } finally {
+        deletingSessionIds.delete(sessionId);
       }
-      return { success: true };
+    });
+
+    ipcMain.handle("session.get_running_ids", async (): Promise<string[]> => {
+      return Array.from(runningSessionIds);
+    });
+
+    ipcMain.handle("session.clone", async (_event, sourceId: string): Promise<{ success: true; stoppedBeforeClone: boolean; newId: string } | { success: false; error: string }> => {
+      if (typeof sourceId !== 'string' || !/^[a-zA-Z0-9_\-]+$/.test(sourceId)) {
+        return { success: false, error: 'Invalid session ID.' };
+      }
+
+      let stoppedBeforeClone = false;
+      if (runningSessionIds.has(sourceId)) {
+        mainWindow?.webContents.send('event.stop_session', sourceId);
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        runningSessionIds.delete(sourceId);
+        stoppedBeforeClone = true;
+      }
+
+      const newId = Date.now().toString();
+      const partitionsBase = path.resolve(join(app.getPath('userData'), 'Partitions', 'persist'));
+      const sourcePartitionPath = path.resolve(partitionsBase, sourceId);
+      const destinationPartitionPath = path.resolve(partitionsBase, newId);
+
+      if (!sourcePartitionPath.startsWith(partitionsBase + path.sep) || !destinationPartitionPath.startsWith(partitionsBase + path.sep)) {
+        return { success: false, error: 'Path validation failed.' };
+      }
+
+      // Source partition folder may not exist if the session has never been launched.
+      // In that case we still create the destination dir and return success with no files copied.
+      try {
+        fs.mkdirSync(destinationPartitionPath, {recursive: true});
+        for (const entry of ['IndexedDB', 'Local Storage', 'Cookies']) {
+          const sourceEntryPath = path.resolve(sourcePartitionPath, entry);
+          if (!fs.existsSync(sourceEntryPath)) {
+            continue;
+          }
+          const destinationEntryPath = path.resolve(destinationPartitionPath, entry);
+          await fs.promises.cp(sourceEntryPath, destinationEntryPath, {recursive: true});
+        }
+      } catch (error: any) {
+        return { success: false, error: `Could not clone session data: ${error?.message ?? String(error)}` };
+      }
+
+      return { success: true, stoppedBeforeClone, newId };
     });
 
     ipcMain.on("session.clear_cache", async function (event, sessionId: string) {
+      // Skip if this session is mid-delete — calling fromPartition() here would recreate
+      // the partition folder that rimraf just removed (or is about to remove).
+      if (deletingSessionIds.has(sessionId)) return;
       const win = BrowserWindow.fromWebContents(event.sender);
       win?.webContents.send("event.stop_session", sessionId);
       const sess = session.fromPartition("persist:" + sessionId);
@@ -2170,6 +2264,18 @@ function registerSessionKeybinds(mode: LaunchMode) {
 
     // Merge neuzosConfig with defaults (user config takes precedence)
     neuzosConfig = {...defaultNeuzosConfig, ...neuzosConfig};
+
+    if (neuzosConfig.autoDeleteAllCachesOnStartup) {
+      void Promise.all((neuzosConfig.sessions ?? []).map((sessionConfig: any) => {
+        if (typeof sessionConfig?.id !== 'string') {
+          return Promise.resolve();
+        }
+
+        return session.fromPartition(`persist:${sessionConfig.id}`).clearCache().catch((err: any) => {
+          console.warn('Startup cache clear failed for session', sessionConfig.id, err);
+        });
+      }));
+    }
 
     // Ensure window object exists before accessing sub-properties
     if (!neuzosConfig.window) {

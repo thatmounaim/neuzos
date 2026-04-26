@@ -19,22 +19,6 @@
       "registered_skills": [],
       "installed_at": "2026-04-20T17:27:14.793677+00:00"
     },
-    "learn": {
-      "version": "1.1.0",
-      "source": "local",
-      "manifest_hash": "sha256:1d78c414d8e71ffa163d3b3f2a0c94a02c6418e88577e68081123ebf892e704a",
-      "enabled": true,
-      "priority": 10,
-      "registered_commands": {
-        "copilot": [
-          "speckit.learn.review",
-          "speckit.learn.clarify",
-          "speckit.learn.diagrams"
-        ]
-      },
-      "registered_skills": [],
-      "installed_at": "2026-04-24T22:22:16.909335+00:00"
-    },
     "optimize": {
       "version": "1.0.0",
       "source": "local",

@@ -128,12 +128,16 @@ window.open = function(...args) {
     }
   }
 
-  export const stopClient = () => {
+  export const stopClient = (onStopped?: () => void) => {
     clearSessionHealth()
     started = false
+    if (session.autoDeleteCache) {
+      void neuzosBridge.sessions.clearCache(session.id)
+    }
     onUpdate(session.id)
     koreanLinkFixed = false
     window.electron.ipcRenderer.send('webview.unregister_mouse', { sessionId: session.id })
+    onStopped?.()
   }
 
   export const isStarted = () => {

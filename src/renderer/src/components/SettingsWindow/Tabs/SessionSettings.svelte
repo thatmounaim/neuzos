@@ -3,6 +3,7 @@
   import {
     ChevronDown,
     ChevronUp,
+    Copy,
     FileX,
     HardDrive,
     Plus,
@@ -22,6 +23,7 @@
   import {Button} from "$lib/components/ui/button";
   import {Switch} from "$lib/components/ui/switch";
   import {neuzosBridge} from "$lib/core";
+  import {toast} from 'svelte-sonner'
 
   const sessionIcons: string[] = [
     "neuzos_pang",
@@ -63,6 +65,20 @@
 
   const defaultGroupLabel = 'New Group'
 
+  const generateCloneLabel = (sourceLabel: string, existingLabels: Set<string>) => {
+    const baseLabel = `${sourceLabel} (Copy)`
+    if (!existingLabels.has(baseLabel)) {
+      return baseLabel
+    }
+
+    let copyIndex = 2
+    while (existingLabels.has(`${baseLabel} (${copyIndex})`)) {
+      copyIndex += 1
+    }
+
+    return `${baseLabel} (${copyIndex})`
+  }
+
   const normalizeSessionGroups = (groups: unknown, knownSessionIds: Set<string>): NeuzSessionGroup[] => {
     if (!Array.isArray(groups)) {
       return []
@@ -83,7 +99,7 @@
         ? [...new Set(group.sessionIds.filter((sessionId: any) => typeof sessionId === 'string' && knownSessionIds.has(sessionId)))]
         : []
 
-      return [{id, label, sessionIds}]
+      return [{id, label, sessionIds: sessionIds as string[]}]
     })
   }
 
@@ -227,10 +243,6 @@
     neuzosConfig.sessions = nextSessions
   }
 
-  const getSessionGroup = (sessionId: string) => {
-    return ensureSessionGroups().find((group) => group.sessionIds.includes(sessionId)) ?? null
-  }
-
   const getGroupSessions = (group: NeuzSessionGroup) => {
     const sessionMap = new Map(neuzosConfig.sessions.map((session) => [session.id, session]))
     return group.sessionIds
@@ -241,7 +253,7 @@
   let clearCacheOpenModal: string | null = $state(null)
   let clearStorageOpenModal: string | null = $state(null)
   let clearAllCacheOpenModal: boolean = $state(false)
-  let deleteSessionModal: string | null = $state(null)
+  let deleteSessionModal: { sessionId: string; sessionLabel: string; isRunning: boolean } | null = $state(null)
   let deleteErrorModal: { sessionLabel: string; error: string } | null = $state(null)
   let deletingSessionId: string | null = $state(null)
   let editingGroupId: string | null = $state(null)
@@ -277,6 +289,50 @@
 
   const toggleGroupCollapsed = (groupId: string) => {
     collapsedGroupIds[groupId] = !isGroupCollapsed(groupId)
+  }
+
+  const openDeleteSessionModal = async (sessionId: string, sessionLabel: string) => {
+    const runningIds = await neuzosBridge.sessions.getRunningIds()
+    deleteSessionModal = {
+      sessionId,
+      sessionLabel,
+      isRunning: runningIds.includes(sessionId),
+    }
+  }
+
+  const cloneSession = async (session: NeuzSession) => {
+    const result = await neuzosBridge.sessions.clone(session.id)
+
+    if (result.success === false) {
+      toast.error(result.error ?? 'Failed to clone session')
+      return
+    }
+
+    const sourceIndex = neuzosConfig.sessions.findIndex((entry) => entry.id === session.id)
+    if (sourceIndex < 0) {
+      toast.error('Source session was removed before cloning completed.')
+      return
+    }
+
+    const existingLabels = new Set(neuzosConfig.sessions.map((entry) => entry.label))
+    const clonedSession: NeuzSession = {
+      ...session,
+      id: result.newId,
+      label: generateCloneLabel(session.label, existingLabels),
+      partitionOverwrite: undefined,
+    }
+
+    neuzosConfig.sessions = [
+      ...neuzosConfig.sessions.slice(0, sourceIndex + 1),
+      clonedSession,
+      ...neuzosConfig.sessions.slice(sourceIndex + 1),
+    ]
+
+    await neuzosBridge.config.save(neuzosConfig)
+
+    if (result.stoppedBeforeClone) {
+      toast.info('Session was stopped to allow cloning.')
+    }
   }
 
   const deleteSession = async (sessionId: string, sessionLabel: string) => {
@@ -442,6 +498,17 @@
         {/if}
       </div>
     </Table.Cell>
+    <Table.Cell class="w-[190px]">
+      <div class="flex items-center justify-center">
+        <Switch
+          checked={session.autoDeleteCache ?? false}
+          onCheckedChange={(checked) => {
+            session.autoDeleteCache = checked
+            void neuzosBridge.config.save(neuzosConfig)
+          }}
+        />
+      </div>
+    </Table.Cell>
     <Table.Cell class="w-[220px]">
       <select
         class="h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
@@ -527,37 +594,60 @@
               </AlertDialog.Footer>
             </AlertDialog.Content>
           </AlertDialog.Root>
-          <AlertDialog.Root open={deleteSessionModal === session.id} onOpenChange={(open) => {
-            deleteSessionModal = open ? session.id : null;
+          <Tooltip.Root>
+            <Tooltip.Trigger>
+              <Button
+                variant="outline"
+                size="icon"
+                class="h-8 w-8"
+                onclick={() => void cloneSession(session)}
+              >
+                <Copy class="h-4 w-4"/>
+              </Button>
+            </Tooltip.Trigger>
+            <Tooltip.Content>Clone session</Tooltip.Content>
+          </Tooltip.Root>
+          <AlertDialog.Root open={deleteSessionModal?.sessionId === session.id} onOpenChange={(open) => {
+            if (!open) {
+              deleteSessionModal = null;
+            }
           }}>
             <Tooltip.Root>
               <Tooltip.Trigger>
-                <AlertDialog.Trigger>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    class="h-8 w-8 hover:bg-destructive hover:text-destructive-foreground"
-                    disabled={deletingSessionId === session.id}
-                  >
-                    <Trash class="h-4 w-4"/>
-                  </Button>
-                </AlertDialog.Trigger>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  class="h-8 w-8 hover:bg-destructive hover:text-destructive-foreground"
+                  disabled={deletingSessionId === session.id}
+                  onclick={() => void openDeleteSessionModal(session.id, session.label)}
+                >
+                  <Trash class="h-4 w-4"/>
+                </Button>
               </Tooltip.Trigger>
               <Tooltip.Content>Delete session</Tooltip.Content>
             </Tooltip.Root>
             <AlertDialog.Content>
               <AlertDialog.Header>
-                <AlertDialog.Title>Delete session "{session.label}"?</AlertDialog.Title>
+                <AlertDialog.Title>
+                  {#if deleteSessionModal?.isRunning}
+                    Stop and delete running session "{session.label}"?
+                  {:else}
+                    Delete session "{session.label}"?
+                  {/if}
+                </AlertDialog.Title>
                 <AlertDialog.Description>
                   This will <b>permanently delete</b> all data for <b>"{session.label}"</b>.<br/><br/>
-                  If this session is currently running it will be stopped first. This cannot be undone.
+                  {#if deleteSessionModal?.isRunning}
+                    This session is currently running. NeuzOS will stop it before deletion proceeds.<br/><br/>
+                  {/if}
+                  This cannot be undone.
                 </AlertDialog.Description>
               </AlertDialog.Header>
               <AlertDialog.Footer>
                 <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
                 <AlertDialog.Action
                   class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  onclick={() => deleteSession(session.id, session.label)}
+                  onclick={() => deleteSession(deleteSessionModal?.sessionId ?? session.id, deleteSessionModal?.sessionLabel ?? session.label)}
                 >Delete
                 </AlertDialog.Action>
               </AlertDialog.Footer>
@@ -637,6 +727,16 @@
                     <Table.Head class="w-[110px] text-center">Floatable</Table.Head>
                     <Table.Head class="w-[300px]">Zoom</Table.Head>
                     <Table.Head class="w-1/2">Launch URL Overwrite</Table.Head>
+                    <Table.Head class="w-[190px] text-center">
+                      <Tooltip.Provider>
+                        <Tooltip.Root>
+                          <Tooltip.Trigger>
+                            <span class="inline-flex cursor-help items-center justify-center">Auto-Delete Cache</span>
+                          </Tooltip.Trigger>
+                          <Tooltip.Content>Automatically clear this session's cache when it stops.</Tooltip.Content>
+                        </Tooltip.Root>
+                      </Tooltip.Provider>
+                    </Table.Head>
                     <Table.Head class="w-[220px]">Group</Table.Head>
                     <Table.Head>Session ID</Table.Head>
                     <Table.Head>Actions</Table.Head>
@@ -674,6 +774,16 @@
                   <Table.Head class="w-[110px] text-center">Floatable</Table.Head>
                   <Table.Head class="w-[300px]">Zoom</Table.Head>
                   <Table.Head class="w-1/2">Launch URL Overwrite</Table.Head>
+                  <Table.Head class="w-[190px] text-center">
+                    <Tooltip.Provider>
+                      <Tooltip.Root>
+                        <Tooltip.Trigger>
+                          <span class="inline-flex cursor-help items-center justify-center">Auto-Delete Cache</span>
+                        </Tooltip.Trigger>
+                        <Tooltip.Content>Automatically clear this session's cache when it stops.</Tooltip.Content>
+                      </Tooltip.Root>
+                    </Tooltip.Provider>
+                  </Table.Head>
                   <Table.Head class="w-[220px]">Group</Table.Head>
                   <Table.Head>Session ID</Table.Head>
                   <Table.Head>Actions</Table.Head>

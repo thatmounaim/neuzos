@@ -18,6 +18,7 @@ export type NeuzSession = {
   floatable?: boolean;
   srcOverwrite?: string;
   partitionOverwrite?: string;
+  autoDeleteCache?: boolean;
 }
 
 export type NeuzSessionState = {
@@ -108,6 +109,7 @@ export type ConfigExportPayloadV2 = {
   sessionZoomLevels?: Record<string, number>;
   fullscreen?: NeuzConfig['fullscreen'];
   autoSaveSettings?: boolean;
+  autoDeleteAllCachesOnStartup?: boolean;
   defaultLaunchMode?: NeuzConfig['defaultLaunchMode'];
   userAgent?: string;
   titleBarButtons?: NeuzConfig['titleBarButtons'];
@@ -205,6 +207,7 @@ export type NeuzConfig = {
     sidebarSide?: 'left' | 'right';
   },
   autoSaveSettings: boolean;
+  autoDeleteAllCachesOnStartup?: boolean;
   userAgent?: string;
   defaultLaunchMode: 'normal' | 'session_launcher'
   chromium: {

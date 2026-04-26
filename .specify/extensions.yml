@@ -122,13 +122,6 @@ hooks:
     prompt: Commit implementation changes?
     description: Auto-commit after implementation
     condition: null
-  - extension: learn
-    command: speckit.learn.review
-    enabled: true
-    optional: true
-    prompt: Generate a learning guide from this implementation?
-    description: ''
-    condition: null
   - extension: bugfix
     command: speckit.bugfix.verify
     enabled: true

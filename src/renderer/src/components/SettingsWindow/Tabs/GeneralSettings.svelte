@@ -24,7 +24,26 @@
 
   // Initialize window config if it doesn't exist
   if (!neuzosConfig.window) {
-    neuzosConfig.window = {};
+    neuzosConfig.window = {
+      main: {
+        width: 1200,
+        height: 800,
+        zoom: 1.0,
+        maximized: false
+      },
+      settings: {
+        width: 1200,
+        height: 800,
+        zoom: 1.0,
+        maximized: false
+      },
+      session: {
+        width: 1024,
+        height: 768,
+        zoom: 1.0,
+        maximized: false
+      }
+    };
   }
   if (!neuzosConfig.window.main) {
     neuzosConfig.window.main = {
@@ -168,21 +187,21 @@
   // Handle title bar button toggles
   function handleDarkModeToggle(enabled: boolean) {
     if (!neuzosConfig.titleBarButtons) {
-      neuzosConfig.titleBarButtons = {};
+      neuzosConfig.titleBarButtons = {} as NonNullable<NeuzConfig['titleBarButtons']>;
     }
     neuzosConfig.titleBarButtons.darkModeToggle = enabled;
   }
 
   function handleFullscreenToggle(enabled: boolean) {
     if (!neuzosConfig.titleBarButtons) {
-      neuzosConfig.titleBarButtons = {};
+      neuzosConfig.titleBarButtons = {} as NonNullable<NeuzConfig['titleBarButtons']>;
     }
     neuzosConfig.titleBarButtons.fullscreenToggle = enabled;
   }
 
   function handleKeybindToggle(enabled: boolean) {
     if (!neuzosConfig.titleBarButtons) {
-      neuzosConfig.titleBarButtons = {};
+      neuzosConfig.titleBarButtons = {} as NonNullable<NeuzConfig['titleBarButtons']>;
     }
     neuzosConfig.titleBarButtons.keybindToggle = enabled;
   }
@@ -190,6 +209,10 @@
   // Handle auto-save toggle
   function handleAutoSaveToggle(enabled: boolean) {
     neuzosConfig.autoSaveSettings = enabled;
+  }
+
+  function handleStartupCacheToggle(enabled: boolean) {
+    neuzosConfig.autoDeleteAllCachesOnStartup = enabled;
   }
 
   // Handle fullscreen settings
@@ -215,57 +238,57 @@
 
   // Handle main window settings
   function handleMainWindowWidth(value: number) {
-    if (!neuzosConfig.window) neuzosConfig.window = {};
+    if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
     if (!neuzosConfig.window.main) neuzosConfig.window.main = {width: 1200, height: 800, zoom: 1.0, maximized: false};
     neuzosConfig.window.main.width = value;
   }
 
   function handleMainWindowHeight(value: number) {
-    if (!neuzosConfig.window) neuzosConfig.window = {};
+    if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
     if (!neuzosConfig.window.main) neuzosConfig.window.main = {width: 1200, height: 800, zoom: 1.0, maximized: false};
     neuzosConfig.window.main.height = value;
   }
 
   function handleMainWindowZoom(value: number) {
-    if (!neuzosConfig.window) neuzosConfig.window = {};
+    if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
     if (!neuzosConfig.window.main) neuzosConfig.window.main = {width: 1200, height: 800, zoom: 1.0, maximized: false};
     neuzosConfig.window.main.zoom = value;
   }
 
   function handleMainWindowMaximized(enabled: boolean) {
-    if (!neuzosConfig.window) neuzosConfig.window = {};
+    if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
     if (!neuzosConfig.window.main) neuzosConfig.window.main = {width: 1200, height: 800, zoom: 1.0, maximized: false};
     neuzosConfig.window.main.maximized = enabled;
   }
 
   // Handle settings window settings
   function handleSettingsWindowWidth(value: number) {
-    if (!neuzosConfig.window) neuzosConfig.window = {};
+    if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
     if (!neuzosConfig.window.settings) neuzosConfig.window.settings = {width: 1200, height: 800, zoom: 1.0, maximized: false};
     neuzosConfig.window.settings.width = value;
   }
 
   function handleSettingsWindowHeight(value: number) {
-    if (!neuzosConfig.window) neuzosConfig.window = {};
+    if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
     if (!neuzosConfig.window.settings) neuzosConfig.window.settings = {width: 1200, height: 800, zoom: 1.0, maximized: false};
     neuzosConfig.window.settings.height = value;
   }
 
   function handleSettingsWindowZoom(value: number) {
-    if (!neuzosConfig.window) neuzosConfig.window = {};
+    if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
     if (!neuzosConfig.window.settings) neuzosConfig.window.settings = {width: 1200, height: 800, zoom: 1.0, maximized: false};
     neuzosConfig.window.settings.zoom = value;
   }
 
   function handleSettingsWindowMaximized(enabled: boolean) {
-    if (!neuzosConfig.window) neuzosConfig.window = {};
+    if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
     if (!neuzosConfig.window.settings) neuzosConfig.window.settings = {width: 1200, height: 800, zoom: 1.0, maximized: false};
     neuzosConfig.window.settings.maximized = enabled;
   }
 
   // Handle session window settings
   function handleSessionWindowWidth(value: number) {
-    if (!neuzosConfig.window) neuzosConfig.window = {};
+    if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
     if (!neuzosConfig.window.session) neuzosConfig.window.session = {
       width: 1024,
       height: 768,
@@ -276,7 +299,7 @@
   }
 
   function handleSessionWindowHeight(value: number) {
-    if (!neuzosConfig.window) neuzosConfig.window = {};
+    if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
     if (!neuzosConfig.window.session) neuzosConfig.window.session = {
       width: 1024,
       height: 768,
@@ -287,7 +310,7 @@
   }
 
   function handleSessionWindowZoom(value: number) {
-    if (!neuzosConfig.window) neuzosConfig.window = {};
+    if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
     if (!neuzosConfig.window.session) neuzosConfig.window.session = {
       width: 1024,
       height: 768,
@@ -298,7 +321,7 @@
   }
 
   function handleSessionWindowMaximized(enabled: boolean) {
-    if (!neuzosConfig.window) neuzosConfig.window = {};
+    if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
     if (!neuzosConfig.window.session) neuzosConfig.window.session = {
       width: 1024,
       height: 768,
@@ -338,6 +361,32 @@
           id="auto-save-settings"
           checked={neuzosConfig.autoSaveSettings ?? false}
           onCheckedChange={handleAutoSaveToggle}
+        />
+      </div>
+    </div>
+
+    <Separator/>
+
+    <!-- Cache Lifecycle Section -->
+    <div class="space-y-3">
+      <div class="space-y-1">
+        <h3 class="text-base font-semibold">Cache Lifecycle</h3>
+        <p class="text-sm text-muted-foreground">
+          Automatically clear session caches when sessions stop or when the app starts.
+        </p>
+      </div>
+
+      <div class="flex items-center justify-between py-2">
+        <div class="space-y-0.5">
+          <Label for="startup-cache-clear" class="text-sm font-medium">Clear all caches on app startup</Label>
+          <p class="text-xs text-muted-foreground">
+            When enabled, all configured session caches are cleared silently during startup.
+          </p>
+        </div>
+        <Switch
+          id="startup-cache-clear"
+          checked={neuzosConfig.autoDeleteAllCachesOnStartup ?? false}
+          onCheckedChange={handleStartupCacheToggle}
         />
       </div>
     </div>
