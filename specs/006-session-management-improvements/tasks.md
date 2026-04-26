@@ -125,7 +125,7 @@
 
 - [X] T024 [BUG-011] Add an `event.stop_session_ack` IPC contract for delete flows in `src/renderer/src/App.svelte`, `src/renderer/src/components/Shared/NeuzClient.svelte`, and `src/main/index.ts`
 - [X] T025 [BUG-011] Replace the blind delete timeout in `src/main/index.ts` with an ACK-aware stop flow plus a final grace delay before `rimraf`
-- [ ] T026 [BUG-011] ⚠️ Reopened (BUG-012) — Fix `session.clear_storage` path validation and add `deletingSessionIds` suppression in `src/main/index.ts` — **Note**: the `deletingSessionIds` guard is undermined by the BUG-012 loop; loop-generated `session.clear_cache` IPCs can arrive after `deletingSessionIds.delete(id)` and recreate the partition folder; must be re-verified after T028/T029 are complete
+- [X] T026 [BUG-011] ⚠️ Reopened (BUG-012) — Fix `session.clear_storage` path validation and add `deletingSessionIds` suppression in `src/main/index.ts` — **Re-verified**: path validation (regex + `path.resolve` traversal guard) and `deletingSessionIds` guard confirmed present at line 1585-1596; guard is now effective since BUG-012 loop is eliminated by T028/T029
 - [ ] T027 [BUG-011] Smoke-test running-session deletion on Windows and confirm the partition folder stays absent after delete
 
 **Bugfix**: 2026-04-26 — BUG-011 Updated from bugfix patch
@@ -136,9 +136,9 @@
 
 **Added**: 2026-04-26 — Follow-on defects discovered after the BUG-011 patch.
 
-- [ ] T028 [BUG-012] Remove the `win.webContents.send("event.stop_session", sessionId)` call from the `ipcMain.handle("session.clear_cache")` handler in `src/main/index.ts` (~L1729). This send is unnecessary — `clearCache()` does not require the webview to be stopped — and is the source of the re-entrant IPC loop that builds a `session.clear_cache` backlog capable of outlasting the `deletingSessionIds` guard and recreating the partition folder after rimraf.
-- [ ] T029 [BUG-012] Guard `stopClient` in `src/renderer/src/components/Shared/NeuzClient.svelte` (~L131) against re-entry: if `started === false` when `stopClient` is called, invoke `onStopped?.()` immediately and return without executing the `clearCache` IPC or any other side-effects. This breaks the second half of the feedback loop.
-- [ ] T030 [BUG-013] In `stopClient` in `src/renderer/src/components/Shared/NeuzClient.svelte`, replace the synchronous `onStopped?.()` call with `if (onStopped) { void tick().then(onStopped) }` (import `tick` from `'svelte'`). This ensures Svelte's DOM flush removes the `<webview>` element before the delete-flow ACK is sent to the main process, so the 2-second grace period starts only after Chromium has begun releasing file handles.
+- [X] T028 [BUG-012] Remove the `win.webContents.send("event.stop_session", sessionId)` call from the `ipcMain.handle("session.clear_cache")` handler in `src/main/index.ts` (~L1729). This send is unnecessary — `clearCache()` does not require the webview to be stopped — and is the source of the re-entrant IPC loop that builds a `session.clear_cache` backlog capable of outlasting the `deletingSessionIds` guard and recreating the partition folder after rimraf.
+- [X] T029 [BUG-012] Guard `stopClient` in `src/renderer/src/components/Shared/NeuzClient.svelte` (~L131) against re-entry: if `started === false` when `stopClient` is called, invoke `onStopped?.()` immediately and return without executing the `clearCache` IPC or any other side-effects. This breaks the second half of the feedback loop.
+- [X] T030 [BUG-013] In `stopClient` in `src/renderer/src/components/Shared/NeuzClient.svelte`, replace the synchronous `onStopped?.()` call with `if (onStopped) { void tick().then(onStopped) }` (import `tick` from `'svelte'`). This ensures Svelte's DOM flush removes the `<webview>` element before the delete-flow ACK is sent to the main process, so the 2-second grace period starts only after Chromium has begun releasing file handles.
 - [ ] T031 [BUG-012/BUG-013] Smoke-test the combined fix: (1) enable Auto-Delete Cache on a session, stop and delete it — confirm no infinite loop in terminal and partition folder stays absent after rimraf; (2) delete a running session and confirm the ACK is received only after the webview element is gone from the DOM.
 
 **Bugfix**: 2026-04-26 — BUG-012/BUG-013 Updated from bugfix patch
