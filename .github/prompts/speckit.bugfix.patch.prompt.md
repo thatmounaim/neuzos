@@ -1,3 +1,0 @@
----
-agent: speckit.bugfix.patch
----
