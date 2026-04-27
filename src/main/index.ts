@@ -18,7 +18,7 @@ type UIActionDescriptor = {
 // Register custom protocol for serving flyff registry assets (icons etc.)
 // Must be called before app is ready
 protocol.registerSchemesAsPrivileged([
-  { scheme: 'flyff-asset', privileges: { standard: true, secure: true, corsEnabled: true, supportFetchAPI: true } },
+  // SEC-004: corsEnabled is false so game webviews (universe.flyff.com) cannot\n  // fetch local registry assets cross-origin. Only trusted renderer contexts need\n  // these files and they do not require CORS headers.\n  { scheme: 'flyff-asset', privileges: { standard: true, secure: true, corsEnabled: false, supportFetchAPI: true } },
 ]);
 
 // Performance Presets System
@@ -115,6 +115,25 @@ const runningSessionIds = new Set<string>();
 // Tracks sessions actively being deleted so session.clear_cache does not recreate their partition folder
 const deletingSessionIds = new Set<string>();
 
+/**
+ * SEC-001: Only allow http/https URLs to be opened externally.
+ * Prevents exploitation via dangerous protocol handlers (ms-msdt:, search-ms:,
+ * telnet:, file:, etc.) that could be triggered by a malicious game webview page.
+ */
+function openExternalSafe(url: string): void {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+      console.warn('[openExternalSafe] Blocked non-http(s) URL:', url);
+      return;
+    }
+  } catch {
+    console.warn('[openExternalSafe] Blocked malformed URL:', url);
+    return;
+  }
+  shell.openExternal(url);
+}
+
 function getSessionPartitionPaths(sessionId: string): { partitionsBase: string; paths: string[] } {
   const partitionsBase = path.resolve(join(app.getPath("userData"), "Partitions"));
   const candidates = [
@@ -126,7 +145,7 @@ function getSessionPartitionPaths(sessionId: string): { partitionsBase: string; 
 }
 
 function pruneSessionReferences(config: any): void {
-  const knownSessionIds = new Set((config.sessions ?? []).map((session: any) => session.id));
+  const knownSessionIds = new Set<string>((config.sessions ?? []).map((session: any) => session.id as string));
 
   if (Array.isArray(config.layouts)) {
     config.layouts = config.layouts.map((layout: any) => {
@@ -360,6 +379,7 @@ const defaultNeuzosConfig: any = {
   sessionActions: [],
   sessionGroups: [],
   sessionZoomLevels: {},
+  pendingPartitionDeletes: [],
   titleBarButtons: {
     darkModeToggle: true,
     fullscreenToggle: true,
@@ -456,6 +476,9 @@ function loadConfig(reload: boolean = false): Promise<any> {
           neuzosConfig = {...defaultNeuzosConfig, ...neuzosConfig};
           neuzosConfig.sessionGroups = neuzosConfig.sessionGroups ?? [];
           neuzosConfig.sessionZoomLevels = neuzosConfig.sessionZoomLevels ?? {};
+          neuzosConfig.pendingPartitionDeletes = Array.isArray(neuzosConfig.pendingPartitionDeletes)
+            ? [...new Set(neuzosConfig.pendingPartitionDeletes.filter((sessionId: any) => typeof sessionId === 'string'))]
+            : [];
 
           // Deep merge window config specifically
           if (loadedWindow) {
@@ -492,6 +515,36 @@ function loadConfig(reload: boolean = false): Promise<any> {
       }
     }
   });
+}
+
+async function cleanupQueuedSessionPartitions(config: any): Promise<void> {
+  const queuedSessionIds: string[] = Array.isArray(config?.pendingPartitionDeletes)
+    ? [...new Set<string>(config.pendingPartitionDeletes.filter((sessionId: any) => typeof sessionId === 'string') as string[])]
+    : [];
+
+  if (queuedSessionIds.length === 0) {
+    return;
+  }
+
+  const stillQueued: string[] = [];
+  for (const sessionId of queuedSessionIds) {
+    try {
+      const { paths: partitionPathCandidates } = getSessionPartitionPaths(sessionId);
+      const partitionPaths = partitionPathCandidates.filter((partitionPath) => fs.existsSync(partitionPath));
+      for (const partitionPath of partitionPaths) {
+        await rimraf(partitionPath, { maxRetries: 6, retryDelay: 1500 });
+      }
+      const recreatedPath = partitionPaths.find((partitionPath) => fs.existsSync(partitionPath));
+      if (recreatedPath) {
+        stillQueued.push(sessionId);
+      }
+    } catch {
+      stillQueued.push(sessionId);
+    }
+  }
+
+  config.pendingPartitionDeletes = stillQueued;
+  saveConfig(config);
 }
 
 function createDefaultViewerWindowConfigs(): Record<ViewerWindowType, ViewerWindowConfig> {
@@ -669,7 +722,7 @@ function createViewerWindow(type: ViewerWindowType): BrowserWindow | null {
   });
 
   window.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url);
+    openExternalSafe(details.url);
     return {action: 'deny'};
   });
 
@@ -732,7 +785,7 @@ function createSettingsWindow(): void {
   });
 
   settingsWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url);
+    openExternalSafe(details.url);
     return {action: "deny"};
   });
 
@@ -790,7 +843,7 @@ function createSessionLauncherWindow(): void {
   });
 
   sessionWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url);
+    openExternalSafe(details.url);
     return {action: "deny"};
   });
 
@@ -910,7 +963,7 @@ function createSessionWindow(mode: LaunchMode, sessionId: string): void {
   });
 
   sessionWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url);
+    openExternalSafe(details.url);
     return {action: "deny"};
   });
 
@@ -1028,7 +1081,7 @@ function createMainWindow(): void {
   });
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url);
+    openExternalSafe(details.url);
     return {action: "deny"};
   });
 
@@ -1232,6 +1285,11 @@ function registerSessionKeybinds(mode: LaunchMode) {
       optimizer.watchWindowShortcuts(window);
     });
 
+    // Run deferred partition cleanup from previous session(s). Runs here — after Chromium
+    // is ready but before any windows/sessions are created — so no utility process holds
+    // handles on the target folders, and no session startup can recreate them mid-delete.
+    await cleanupQueuedSessionPartitions(neuzosConfig);
+
     // ── Mouse-button keybind interception for session webviews ──────────────
     // Keyboard binds use globalShortcut (OS-level, works while webview has focus).
     // Mouse extra buttons (Middle, Mouse4, Mouse5) cannot use globalShortcut, so
@@ -1241,7 +1299,7 @@ function registerSessionKeybinds(mode: LaunchMode) {
         if (input.type !== "mouseDown") return;
         // Only handle extra mouse buttons (1=middle, 3=Mouse4, 4=Mouse5)
         const buttonMap: Record<number, string> = { 1: "middle", 3: "mouse4", 4: "mouse5" };
-        const key = buttonMap[input.button as unknown as number];
+        const key = buttonMap[(input as any).button as number];
         if (!key) return;
         // Check if this webContents belongs to a registered session webview
         const wcId = wc.id;
@@ -1343,6 +1401,16 @@ function registerSessionKeybinds(mode: LaunchMode) {
     });
 
     ipcMain.on("session_launcher.launch_session", (_, sessionId: string, mode: LaunchMode) => {
+      // SEC-002: Validate both params before using them as CLI args.
+      const validModes: LaunchMode[] = ['normal', 'session_launcher', 'session', 'focus', 'focus_fullscreen'];
+      if (typeof sessionId !== 'string' || !/^[a-zA-Z0-9_\-]+$/.test(sessionId)) {
+        console.warn('[session_launcher.launch_session] Blocked invalid sessionId:', sessionId);
+        return;
+      }
+      if (!validModes.includes(mode)) {
+        console.warn('[session_launcher.launch_session] Blocked invalid mode:', mode);
+        return;
+      }
       const execPath = process.execPath;
       const args = [`--mode=${mode}`, `--session_id=${sessionId}`];
 
@@ -1661,7 +1729,7 @@ function registerSessionKeybinds(mode: LaunchMode) {
       }
     });
 
-    ipcMain.handle("session.delete", async function (_event, sessionId: string): Promise<{ success: boolean; error?: string }> {
+    ipcMain.handle("session.delete", async function (_event, sessionId: string): Promise<{ success: boolean; error?: string; deferred?: boolean; pendingPartitionDeletes?: string[] }> {
       if (typeof sessionId !== 'string' || !/^[a-zA-Z0-9_\-]+$/.test(sessionId)) {
         return { success: false, error: "Invalid session ID." };
       }
@@ -1671,13 +1739,18 @@ function registerSessionKeybinds(mode: LaunchMode) {
         if (mainWindow && !mainWindow.isDestroyed()) {
           stopAckSenderIds.add(mainWindow.webContents.id);
         }
-        if (sessionWindow && !sessionWindow.isDestroyed()) {
+        // Only expect an ACK from sessionWindow if it is actually showing THIS session.
+        // If sessionWindow shows a different session it will never ACK for this sessionId,
+        // causing a guaranteed 5-second timeout for every non-running session delete.
+        const sessionWindowSessionId = (sessionWindow as any)?.sessionData?.sessionId;
+        if (sessionWindow && !sessionWindow.isDestroyed() && sessionWindowSessionId === sessionId) {
           stopAckSenderIds.add(sessionWindow.webContents.id);
         }
         const stopAckPromise = stopAckSenderIds.size === 0
           ? Promise.resolve(false)
           : new Promise<boolean>((resolve) => {
               const ackTimeoutMs = 5000;
+              const pendingAckSenderIds = new Set<number>(stopAckSenderIds);
               const timeoutId = setTimeout(() => {
                 cleanup();
                 resolve(false);
@@ -1690,11 +1763,14 @@ function registerSessionKeybinds(mode: LaunchMode) {
                 if (ackSessionId !== sessionId) {
                   return;
                 }
-                if (!stopAckSenderIds.has(ackEvent.sender.id)) {
+                if (!pendingAckSenderIds.has(ackEvent.sender.id)) {
                   return;
                 }
-                cleanup();
-                resolve(true);
+                pendingAckSenderIds.delete(ackEvent.sender.id);
+                if (pendingAckSenderIds.size === 0) {
+                  cleanup();
+                  resolve(true);
+                }
               };
               ipcMain.on('event.stop_session_ack', ackHandler);
             });
@@ -1706,7 +1782,6 @@ function registerSessionKeybinds(mode: LaunchMode) {
           console.warn("Timed out waiting for stop_session_ack during delete for session", sessionId);
         }
 
-        const sessionWindowSessionId = (sessionWindow as any)?.sessionData?.sessionId;
         if (sessionWindow && !sessionWindow.isDestroyed() && sessionWindowSessionId === sessionId) {
           try {
             sessionWindow.destroy();
@@ -1716,12 +1791,14 @@ function registerSessionKeybinds(mode: LaunchMode) {
           await new Promise(resolve => setTimeout(resolve, 1200));
         }
 
-        // BUG-014: Increase grace from 2s → 5s.
-        // tick() ensures the <webview> DOM element is removed, but Electron's WebContents
-        // destruction (and with it, Chromium/LevelDB teardown + file-handle release) is async
-        // and can take 2-5 s on Windows. The longer grace reduces the chance of rimraf racing
-        // against an active LevelDB writer.
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        // Use an adaptive grace period: fast path when stop ACK arrived from all expected
+        // windows, fallback to a longer wait when ACK timed out.
+        // NOTE: session.fromPartition() is intentionally NOT called here. Calling it
+        // creates the Partitions/<id> directory even for sessions that never ran, and
+        // keeps Chromium's storage/network service holding file handles — the opposite of
+        // what we want. The grace period + rimraf retries are sufficient for handle release.
+        const graceMs = stopAckReceived ? 1200 : 4000;
+        await new Promise(resolve => setTimeout(resolve, graceMs));
         runningSessionIds.delete(sessionId);
 
         // Delete partition folders with retries to handle delayed handle release.
@@ -1743,7 +1820,7 @@ function registerSessionKeybinds(mode: LaunchMode) {
           for (let attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
               for (const partitionPath of partitionPaths) {
-                await rimraf(partitionPath, { maxRetries: 5, retryDelay: 1000 });
+                await rimraf(partitionPath, { maxRetries: 8, retryDelay: 2000 });
               }
               const recreatedPath = partitionPaths.find((partitionPath) => fs.existsSync(partitionPath));
               if (recreatedPath) {
@@ -1761,12 +1838,33 @@ function registerSessionKeybinds(mode: LaunchMode) {
           }
         }
 
+        let deferred = false;
         if (deleteResult.success) {
           neuzosConfig.sessions = (neuzosConfig.sessions ?? []).filter((session: any) => session.id !== sessionId);
+          neuzosConfig.pendingPartitionDeletes = Array.isArray(neuzosConfig.pendingPartitionDeletes)
+            ? neuzosConfig.pendingPartitionDeletes.filter((id: string) => id !== sessionId)
+            : [];
           pruneSessionReferences(neuzosConfig);
           saveConfig(neuzosConfig);
+        } else {
+          const deleteErrorMessage = deleteResult.error ?? "";
+          const shouldDeferPartitionDeletion = /EBUSY|resource busy|locked/i.test(deleteErrorMessage);
+          if (shouldDeferPartitionDeletion) {
+            neuzosConfig.sessions = (neuzosConfig.sessions ?? []).filter((session: any) => session.id !== sessionId);
+            const pendingDeletes = new Set<string>(Array.isArray(neuzosConfig.pendingPartitionDeletes) ? neuzosConfig.pendingPartitionDeletes : []);
+            pendingDeletes.add(sessionId);
+            neuzosConfig.pendingPartitionDeletes = Array.from(pendingDeletes);
+            pruneSessionReferences(neuzosConfig);
+            saveConfig(neuzosConfig);
+            console.warn("Deferred partition deletion due to live OS file lock; queued for startup cleanup", sessionId, deleteErrorMessage);
+            deleteResult = { success: true };
+            deferred = true;
+          }
         }
-        return deleteResult;
+        // Return pendingPartitionDeletes so the renderer can merge it into its config
+        // copy before saving — otherwise the renderer's config.save() would overwrite
+        // the pendingPartitionDeletes array the main process just persisted.
+        return { ...deleteResult, deferred, pendingPartitionDeletes: neuzosConfig.pendingPartitionDeletes ?? [] };
       } finally {
         deletingSessionIds.delete(sessionId);
       }
@@ -1820,7 +1918,7 @@ function registerSessionKeybinds(mode: LaunchMode) {
       return { success: true, stoppedBeforeClone, newId };
     });
 
-    ipcMain.on("session.clear_cache", async function (event, sessionId: string) {
+    ipcMain.on("session.clear_cache", async function (_event, sessionId: string) {
       // Skip if this session is mid-delete — calling fromPartition() here would recreate
       // the partition folder that rimraf just removed (or is about to remove).
       if (deletingSessionIds.has(sessionId)) return;
@@ -2130,7 +2228,7 @@ function registerSessionKeybinds(mode: LaunchMode) {
           }
 
           if (Array.isArray(incomingPayload.sessionGroups)) {
-            const normalizedIncomingGroups = normalizeSessionGroups(incomingPayload.sessionGroups, knownSessionIds);
+            const normalizedIncomingGroups = normalizeSessionGroups(incomingPayload.sessionGroups, knownSessionIds as Set<string>);
             if (mode === 'replace') {
               neuzosConfig.sessionGroups = normalizedIncomingGroups;
             } else {

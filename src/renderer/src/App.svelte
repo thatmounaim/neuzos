@@ -202,20 +202,32 @@
 
   listen('event.stop_session', (_, sessionId: string) => {
     console.log("stop_session", sessionId)
-    const layoutIds = Object.keys(mainWindowState.sessionsLayoutsRef[sessionId]?.layouts ?? {})
-    layoutIds.forEach((layoutId, index) => {
-      console.log("stop_session", sessionId, " for layout", layoutId)
-      const neuzClient = mainWindowState.sessionsLayoutsRef[sessionId]?.layouts[layoutId]
-      if (neuzClient) {
-        console.log("stop_session", sessionId, layoutId)
-        neuzClient.stopClient(index === layoutIds.length - 1 ? () => {
-          window.electron.ipcRenderer.send('event.stop_session_ack', sessionId)
-        } : undefined)
+    const layouts = Object.values(mainWindowState.sessionsLayoutsRef[sessionId]?.layouts ?? {}) as Array<{ stopClient?: (onStopped?: () => void) => void }>
+    const stopTargets = layouts.filter((ref) => typeof ref?.stopClient === 'function')
+    if (stopTargets.length === 0) {
+      window.electron.ipcRenderer.send('event.stop_session_ack', sessionId)
+      return
+    }
+
+    let pendingStops = stopTargets.length
+    let ackSent = false
+    const onStopped = () => {
+      if (ackSent) return
+      pendingStops -= 1
+      if (pendingStops <= 0) {
+        ackSent = true
+        window.electron.ipcRenderer.send('event.stop_session_ack', sessionId)
+      }
+    }
+
+    stopTargets.forEach((neuzClient) => {
+      try {
+        neuzClient.stopClient?.(onStopped)
+      } catch (error) {
+        console.warn('Failed to stop session layout client during delete', sessionId, error)
+        onStopped()
       }
     })
-    // No immediate ACK when this window has no matching layout.
-    // The main process has a timeout fallback, and sending a zero-layout ACK here can
-    // race with an active session in sessionWindow (BUG-014 symptom: early delete + folder recreation).
   })
 
   listen('event.start_session', (_, sessionId: string, layoutId: string) => {

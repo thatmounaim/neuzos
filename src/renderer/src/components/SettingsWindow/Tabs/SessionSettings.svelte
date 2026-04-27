@@ -338,8 +338,8 @@
   const deleteSession = async (sessionId: string, sessionLabel: string) => {
     deletingSessionId = sessionId
     deleteSessionModal = null
+    const deletingToastId = toast.loading(`Deleting "${sessionLabel}"...`, { duration: Infinity })
     const result = await neuzosBridge.sessions.deleteSession(sessionId)
-    deletingSessionId = null
     if (result.success) {
       neuzosConfig.sessions = neuzosConfig.sessions.filter(s => s.id !== sessionId)
       ensureSessionGroups().forEach((group) => {
@@ -361,8 +361,22 @@
       if (neuzosConfig.syncReceiverSessionId === sessionId) {
         neuzosConfig.syncReceiverSessionId = null
       }
+      // Merge pendingPartitionDeletes from the main process so our config.save()
+      // does not overwrite the deferred-cleanup list the main process just persisted.
+      if (Array.isArray((result as any).pendingPartitionDeletes)) {
+        (neuzosConfig as any).pendingPartitionDeletes = (result as any).pendingPartitionDeletes
+      }
       await neuzosBridge.config.save(neuzosConfig)
+      toast.dismiss(deletingToastId)
+      deletingSessionId = null
+      toast.success(`"${sessionLabel}" deleted successfully.`)
+      if ((result as any).deferred) {
+        toast.info('Some partition files were still locked — NeuzOS will finish cleanup automatically on next start.')
+      }
     } else {
+      toast.dismiss(deletingToastId)
+      deletingSessionId = null
+      toast.error(`Failed to delete "${sessionLabel}"`)
       deleteErrorModal = { sessionLabel, error: result.error ?? 'Unknown error' }
     }
   }
