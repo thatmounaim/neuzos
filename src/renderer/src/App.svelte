@@ -1,7 +1,7 @@
 <script lang="ts">
   import {ModeWatcher} from "mode-watcher";
   import MainBar from "./components/MainWindow/MainBar.svelte";
-  import {onMount, setContext, untrack} from "svelte";
+  import {onDestroy, onMount, setContext} from "svelte";
   import {neuzosBridge, initElectronApi} from "$lib/core";
   import type {MainWindowState} from "$lib/types";
   import MainSectionsContainer from "./components/MainWindow/MainSectionsContainer.svelte";
@@ -13,14 +13,21 @@
   import {createFlyffRegistryContext, setFlyffRegistryContext} from '$lib/contexts/flyffRegistryContext.svelte';
   import {createQuestPanelContext, setQuestPanelContext} from '$lib/contexts/questPanelContext.svelte';
   import {createTodoContext, setTodoContext} from '$lib/contexts/todoContext.svelte';
-  import FlyffRegistryBuilder from './components/Shared/FlyffRegistryBuilder.svelte';
-import {flyffRegistry} from '$lib/core';
+  import {createUIActionContext, setUIActionContext} from '$lib/contexts/uiActionContext.svelte';
+  import {flyffRegistry} from '$lib/core';
   import {Button} from "$lib/components/ui/button";
   import {Minimize} from '@lucide/svelte';
 
+  addEventListener('error', (event) => {
+    console.error('[window.error]', event.error?.stack ?? event.message);
+  });
+
+  addEventListener('unhandledrejection', (event) => {
+    console.error('[window.unhandledrejection]', event.reason?.stack ?? event.reason);
+  });
+
 
   let isLoading = $state(true);
-  let showRegistryBuilder = $state(false);
   let isFullscreen = $state(false);
 
   setElectronContext(window.electron.ipcRenderer);
@@ -46,14 +53,34 @@ import {flyffRegistry} from '$lib/core';
   const todoContext = createTodoContext();
   setTodoContext(todoContext);
 
-  $effect(() => {
-    const charId = questPanelContext.activeCharacterId;
-    untrack(() => {
-      todoContext.switchCharacter(charId);
-    });
-  });
+  // Create and set the UI action dispatcher context
+  const uiActionContext = createUIActionContext();
+  setUIActionContext(uiActionContext);
 
   initElectronApi(window.electron.ipcRenderer)
+
+  async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string, fallback: T): Promise<T> {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+    try {
+      return await Promise.race([
+        promise,
+        new Promise<T>((resolve) => {
+          timeoutId = setTimeout(() => {
+            console.warn(`${label} timed out after ${timeoutMs}ms, continuing with fallback state`);
+            resolve(fallback);
+          }, timeoutMs);
+        }),
+      ]);
+    } catch (error) {
+      console.error(`${label} failed:`, error);
+      return fallback;
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    }
+  }
 
   let mainWindowState: MainWindowState = $state({
     config: {
@@ -83,8 +110,12 @@ import {flyffRegistry} from '$lib/core';
         commandLineSwitches: [],
       },
       defaultLayouts: [],
+      keyBindProfiles: [],
+      activeKeyBindProfileId: null,
       keyBinds: [],
+      syncReceiverSessionId: null,
       sessionActions: [],
+      sessionZoomLevels: {},
       defaultLaunchMode: 'normal',
       userAgent: undefined,
       autoSaveSettings: false,
@@ -113,14 +144,24 @@ import {flyffRegistry} from '$lib/core';
   })
 
   const electronApi = window.electron.ipcRenderer;
+  const cleanupListeners: Array<() => void> = []
 
-  electronApi.on('event.layout_add', (_, layoutId: string) => {
+  const listen = (channel: string, listener: (...args: any[]) => void) => {
+    electronApi.on(channel, listener)
+    cleanupListeners.push(() => electronApi.removeListener(channel, listener))
+  }
+
+  onDestroy(() => {
+    cleanupListeners.forEach((cleanup) => cleanup())
+  })
+
+  listen('event.layout_add', (_, layoutId: string) => {
     console.log("layout_add", layoutId)
     mainWindowState.tabs.layoutsIds.push(layoutId)
     mainWindowState.tabs.layoutOrder.push(layoutId)
   })
 
-  electronApi.on('event.layout_switch', (_, layoutId: string) => {
+  listen('event.layout_switch', (_, layoutId: string) => {
     console.log("layout_switch", layoutId)
     mainWindowState.tabs.previousLayoutId = mainWindowState.tabs.activeLayoutId
     mainWindowState.tabs.activeLayoutId = layoutId
@@ -134,7 +175,7 @@ import {flyffRegistry} from '$lib/core';
     mainWindowState.tabs.layoutOrder = mainWindowState.tabs.layoutOrder.filter(id => id !== layoutId)
   }
 
-  electronApi.on('event.layout_close_all', (_) => {
+  listen('event.layout_close_all', (_) => {
     mainWindowState.tabs.previousLayoutId = null
     mainWindowState.tabs.activeLayoutId = 'home'
     mainWindowState.tabs.layoutsIds.forEach(layoutId => {
@@ -144,12 +185,12 @@ import {flyffRegistry} from '$lib/core';
   })
 
 
-  electronApi.on('event.layout_close', (_, layoutId: string) => {
+  listen('event.layout_close', (_, layoutId: string) => {
     console.log("layout_close", layoutId)
     closeLayout(layoutId)
   })
 
-  electronApi.on('event.layout_swap', (_) => {
+  listen('event.layout_swap', (_) => {
     const activeLayoutId = mainWindowState.tabs.activeLayoutId
     const previousLayoutId = mainWindowState.tabs.previousLayoutId
     if (previousLayoutId) {
@@ -159,26 +200,50 @@ import {flyffRegistry} from '$lib/core';
     }
   })
 
-  electronApi.on('event.stop_session', (_, sessionId: string) => {
+  listen('event.stop_session', (_, sessionId: string) => {
     console.log("stop_session", sessionId)
-    Object.keys(mainWindowState.sessionsLayoutsRef[sessionId]?.layouts).forEach(layoutId => {
-      console.log("stop_session", sessionId, " for layout", layoutId)
-      const neuzClient = mainWindowState.sessionsLayoutsRef[sessionId]?.layouts[layoutId]
-      if (neuzClient) {
-        console.log("stop_session", sessionId, layoutId)
-        neuzClient.stopClient()
+    const layouts = Object.values(mainWindowState.sessionsLayoutsRef[sessionId]?.layouts ?? {}) as Array<{ stopClient?: (onStopped?: () => void) => void }>
+    const stopTargets = layouts.filter((ref) => typeof ref?.stopClient === 'function')
+    if (stopTargets.length === 0) {
+      window.electron.ipcRenderer.send('event.stop_session_ack', sessionId)
+      return
+    }
+
+    let pendingStops = stopTargets.length
+    let ackSent = false
+    const onStopped = () => {
+      if (ackSent) return
+      pendingStops -= 1
+      if (pendingStops <= 0) {
+        ackSent = true
+        window.electron.ipcRenderer.send('event.stop_session_ack', sessionId)
+      }
+    }
+
+    stopTargets.forEach((neuzClient) => {
+      try {
+        neuzClient.stopClient?.(onStopped)
+      } catch (error) {
+        console.warn('Failed to stop session layout client during delete', sessionId, error)
+        onStopped()
       }
     })
   })
 
-  electronApi.on('event.start_session', (_, sessionId: string, layoutId: string) => {
-    neuzosBridge.sessions.stop(sessionId)
+  listen('event.start_session', (_, sessionId: string, layoutId: string) => {
+    // Stop all layout clients locally WITHOUT sending session.stop IPC to main.
+    // Previously called neuzosBridge.sessions.stop() here, which immediately removed
+    // the session from runningSessionIds in the main process — making getRunningIds()
+    // always return empty and the running-session delete warning never appear. (BUG-007 fix)
+    Object.keys(mainWindowState.sessionsLayoutsRef[sessionId]?.layouts ?? {}).forEach(lid => {
+      mainWindowState.sessionsLayoutsRef[sessionId]?.layouts[lid]?.stopClient()
+    })
     setTimeout(() => {
       mainWindowState.sessionsLayoutsRef[sessionId]?.layouts[layoutId].startClient()
     }, 100)
   })
 
-  electronApi.on('event.send_session_action', (_, sessionId: string, actionId: string) => {
+  listen('event.send_session_action', (_, sessionId: string, actionId: string) => {
     console.log("send_session_action", sessionId, actionId)
 
     // Check if action is ready (not casting or on cooldown)
@@ -269,7 +334,30 @@ import {flyffRegistry} from '$lib/core';
     }
   }
 
-  electronApi.on('event.config_changed', (_, cfg: string) => {
+  function sendKeyToReceiverSession(sessionId: string, ingameKey: string) {
+    const sessionLayouts = mainWindowState.sessionsLayoutsRef[sessionId]?.layouts
+    if (!sessionLayouts) return
+
+    const activeClient = Object.values(sessionLayouts).find((client: any) => {
+      return client?.isStarted?.() && client?.sendKey
+    }) as any
+
+    if (!activeClient) return
+
+    activeClient.sendKey(ingameKey)
+  }
+
+  listen('event.send_to_receiver', (_, ingameKey: string) => {
+    const receiverId = mainWindowState.config.syncReceiverSessionId
+    if (!receiverId) return
+    sendKeyToReceiverSession(receiverId, ingameKey)
+  })
+
+  listen('event.sync_receiver_changed', (_, sessionId: string | null) => {
+    mainWindowState.config.syncReceiverSessionId = sessionId
+  })
+
+  listen('event.config_changed', (_, cfg: string) => {
     mainWindowState.config.changed = true
     const newConfig = JSON.parse(cfg)
     mainWindowState.config.sessions = newConfig.sessions
@@ -277,14 +365,29 @@ import {flyffRegistry} from '$lib/core';
     mainWindowState.config.defaultLayouts = newConfig.defaultLayouts
     mainWindowState.config.chromium.commandLineSwitches = newConfig.chromium.commandLineSwitches
     mainWindowState.config.keyBinds = newConfig.keyBinds
+    mainWindowState.config.keyBindProfiles = newConfig.keyBindProfiles || []
+    mainWindowState.config.activeKeyBindProfileId = newConfig.activeKeyBindProfileId ?? null
+    mainWindowState.config.syncReceiverSessionId = newConfig.syncReceiverSessionId ?? null
     mainWindowState.config.sessionActions = newConfig.sessionActions || []
+    mainWindowState.config.sessionZoomLevels = newConfig.sessionZoomLevels ?? {}
     mainWindowState.config.defaultLaunchMode = newConfig.defaultLaunchMode
     mainWindowState.config.userAgent = newConfig.userAgent || undefined
     mainWindowState.config.titleBarButtons = newConfig.titleBarButtons
+    mainWindowState.config.window = newConfig.window
     mainWindowState.config.fullscreen = newConfig.fullscreen || {
       hideTitleBarInMainWindow: false,
       hideTitleBarInSessionLayouts: false
     }
+    // Imperatively push new zoom levels to all running webviews.
+    // The reactive $effect in NeuzClient is unreliable for cross-component deep mutations.
+    const zoomLevels = mainWindowState.config.sessionZoomLevels
+    Object.entries(mainWindowState.sessionsLayoutsRef).forEach(([sessionId, sessionRef]: [string, any]) => {
+      const zoom = zoomLevels[sessionId] ?? 1.0
+      const layouts = sessionRef?.layouts
+      if (layouts) {
+        Object.values(layouts).forEach((ref: any) => ref.setZoom?.(zoom))
+      }
+    })
   })
 
   const reloadNeuzos = () => {
@@ -298,7 +401,7 @@ import {flyffRegistry} from '$lib/core';
     }, 50)
   }
 
-  electronApi.on('event.reload_config', async (_) => {
+  listen('event.reload_config', async (_) => {
     neuzosBridge.layouts.closeAll()
     mainWindowState.config.changed = false
     reloadNeuzos()
@@ -309,31 +412,103 @@ import {flyffRegistry} from '$lib/core';
   })
 
   // Listen for fullscreen state changes
-  electronApi.on('event.fullscreen_changed', (_, fullscreen: boolean) => {
+  listen('event.fullscreen_changed', (_, fullscreen: boolean) => {
     isFullscreen = fullscreen
   })
 
   setContext('mainWindowState', mainWindowState)
 
+  onMount(() => {
+    const onUiActionFired = (_: any, payload: { actionId: string }) => {
+      uiActionContext.dispatch(payload.actionId);
+    };
+
+    const dispatchRendererBind = (bind: { key: string; event: string; args?: string[] }) => {
+      neuzosBridge.keybinds.dispatch(bind);
+    };
+
+    const getAllKeybinds = () => {
+      const activeProfile = mainWindowState.config.keyBindProfiles?.find(
+        (profile) => profile.id === mainWindowState.config.activeKeyBindProfileId
+      );
+
+      return [...(mainWindowState.config.keyBinds ?? []), ...(activeProfile?.keybinds ?? [])];
+    };
+
+    const refreshGamepadPolling = () => {
+      const gamepadBinds = getAllKeybinds().filter(bind => bind.key.startsWith('Gamepad'));
+
+      uiActionContext.startGamepadPoll(gamepadBinds, dispatchRendererBind);
+    };
+
+    const refreshMouseListener = () => {
+      const mouseBinds = getAllKeybinds().filter(bind => {
+        const k = bind.key.toLowerCase();
+        return k === 'middle' || k === 'mouse4' || k === 'mouse5';
+      });
+
+      uiActionContext.startMouseListener(mouseBinds, dispatchRendererBind);
+    };
+
+    electronApi.on('event.ui_action_fired', onUiActionFired);
+    electronApi.on('event.config_changed', refreshGamepadPolling);
+    electronApi.on('event.config_changed', refreshMouseListener);
+    electronApi.on('event.active_keybind_profile_changed', refreshGamepadPolling);
+    electronApi.on('event.active_keybind_profile_changed', refreshMouseListener);
+    refreshGamepadPolling();
+    refreshMouseListener();
+
+    return () => {
+      electronApi.removeListener('event.ui_action_fired', onUiActionFired);
+      electronApi.removeListener('event.config_changed', refreshGamepadPolling);
+      electronApi.removeListener('event.config_changed', refreshMouseListener);
+      electronApi.removeListener('event.active_keybind_profile_changed', refreshGamepadPolling);
+      electronApi.removeListener('event.active_keybind_profile_changed', refreshMouseListener);
+      uiActionContext.stopGamepadPoll();
+      uiActionContext.stopMouseListener();
+    };
+  });
 
   onMount(async () => {
-    neuzosBridge.layouts.closeAll()
-    mainWindowState.config = await electronApi.invoke('config.load', true)
-    reloadNeuzos()
+    try {
+      const loadedConfig = await withTimeout(
+        electronApi.invoke('config.load', true),
+        10000,
+        'config.load',
+        mainWindowState.config,
+      )
+      mainWindowState.config = loadedConfig
 
-    // Check if the flyff registry is built; if so load it, otherwise prompt to build
-    const registryExists = await flyffRegistry.check();
-    if (registryExists) {
-      const registry = await flyffRegistry.load();
-      if (registry) flyffRegistryContext.setRegistry(registry);
-    } else {
-      showRegistryBuilder = true;
-    }
+      // Populate runtime sessions/layouts synchronously so MainBar renders safely.
+      // reloadNeuzos() uses setTimeout(50ms) which creates a race with isLoading=false.
+      const loadedLayouts = loadedConfig.layouts ?? []
+      const validLayoutIds = new Set(loadedLayouts.map((l: any) => l.id))
+      const validDefaultLayouts = (loadedConfig.defaultLayouts ?? []).filter((id: string) => validLayoutIds.has(id))
+      mainWindowState.sessions = JSON.parse(JSON.stringify(loadedConfig.sessions ?? []))
+      mainWindowState.layouts = JSON.parse(JSON.stringify(loadedLayouts))
+      mainWindowState.tabs.layoutsIds = JSON.parse(JSON.stringify(validDefaultLayouts))
+      mainWindowState.tabs.layoutOrder = JSON.parse(JSON.stringify(validDefaultLayouts))
+      mainWindowState.tabs.activeLayoutId = 'home'
+      mainWindowState.tabs.previousLayoutId = null
 
-    // Wait a bit to ensure all contexts are properly initialized
-    setTimeout(() => {
+      // Load the registry in the background so the app UI can appear even if it fails.
+      void (async () => {
+        try {
+          const registryExists = await withTimeout(flyffRegistry.check(), 5000, 'registry.check', false);
+          if (registryExists) {
+            const registry = await withTimeout(flyffRegistry.load(), 5000, 'registry.load', null);
+            if (registry) flyffRegistryContext.setRegistry(registry);
+          }
+        } catch (registryError) {
+          console.warn('Flyff registry load failed, continuing without it:', registryError);
+        }
+      })()
+    } catch (error) {
+      console.error('[App] onMount error:', error);
+    } finally {
+      // Always dismiss the loading screen — never leave the user stuck
       isLoading = false
-    }, 500)
+    }
   })
 </script>
 <ModeWatcher/>
@@ -364,10 +539,4 @@ import {flyffRegistry} from '$lib/core';
       </Button>
     {/if}
   </div>
-<!--
-  // NOTE: Do not remove this, its a reminder to use when registry will be used
- {#if showRegistryBuilder}
-    <FlyffRegistryBuilder onDone={() => { showRegistryBuilder = false; }} />
-  {/if}
-  -->
 {/if}

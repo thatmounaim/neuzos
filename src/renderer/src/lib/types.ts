@@ -9,6 +9,8 @@ export type NeuzIcon = {
   filter?: IconFilter;
 }
 
+export type SessionHealthStatus = 'healthy' | 'crashed' | 'load-failed' | 'unresponsive';
+
 export type NeuzSession = {
   id: string;
   label: string
@@ -16,10 +18,17 @@ export type NeuzSession = {
   floatable?: boolean;
   srcOverwrite?: string;
   partitionOverwrite?: string;
+  autoDeleteCache?: boolean;
 }
 
 export type NeuzSessionState = {
   running: boolean;
+}
+
+export type NeuzSessionGroup = {
+  id: string;
+  label: string;
+  sessionIds: string[];
 }
 
 export type NeuzLayout = {
@@ -32,6 +41,16 @@ export type NeuzLayout = {
   locked?: boolean
   columnFirst?: boolean
   autoFocus?: boolean
+}
+
+export type ViewerWindowType = 'navi_guide' | 'flyffipedia';
+
+export type ViewerWindowConfig = {
+  x: number | null;
+  y: number | null;
+  width: number;
+  height: number;
+  alwaysOnTop: boolean;
 }
 
 export type MainWindowState = {
@@ -50,11 +69,81 @@ export type MainWindowState = {
   doCalculationUpdatesRng: number
   sessionsLayoutsRef: {
     [key: string]: {
+      healthStatus?: SessionHealthStatus;
+      healthDetail?: string;
       layouts: {
         [key: string]: Partial<NeuzClient>
       }
     }
   }
+}
+
+export type ConfigExportPayload = {
+  schemaVersion: 1;
+  exportedAt: string;
+  sessionActions: SessionActions[];
+  keyBinds: NeuzKeybind[];
+  keyBindProfiles: NeuzKeyBindProfile[];
+  activeKeyBindProfileId: string | null;
+}
+
+export type ExportCategory =
+  | 'keybinds'
+  | 'session-actions'
+  | 'ui-layout'
+  | 'general-settings'
+  | 'quest-log'
+
+export type ConfigExportPayloadV2 = {
+  schemaVersion: 2;
+  exportedAt: string;
+  categories: ExportCategory[];
+  _sanitized?: true;
+
+  keyBinds?: NeuzKeybind[];
+  keyBindProfiles?: NeuzKeyBindProfile[];
+  activeKeyBindProfileId?: string | null;
+  sessionActions?: SessionActions[];
+  sessionGroups?: NeuzSessionGroup[];
+  window?: NeuzConfig['window'];
+  sessionZoomLevels?: Record<string, number>;
+  fullscreen?: NeuzConfig['fullscreen'];
+  autoSaveSettings?: boolean;
+  autoDeleteAllCachesOnStartup?: boolean;
+  defaultLaunchMode?: NeuzConfig['defaultLaunchMode'];
+  userAgent?: string;
+  titleBarButtons?: NeuzConfig['titleBarButtons'];
+  questLogTemplates?: never[];
+}
+
+export type ConfigImportPayload = ConfigExportPayload | ConfigExportPayloadV2;
+
+export type ConfigImportResult =
+  | { valid: true; payload: ConfigImportPayload; warnings: string[] }
+  | { valid: false; error: string }
+
+export type ConfigApplyImportArgsV2 = {
+  payload: ConfigImportPayload;
+  mode: 'replace' | 'merge';
+  categories: ExportCategory[];
+}
+
+export type ConfigApplyImportArgs = ConfigApplyImportArgsV2;
+
+export type CategoryPreviewResult = {
+  category: ExportCategory;
+  foundInFile: boolean;
+  type: 'list' | 'object';
+  newCount?: number;
+  conflictCount?: number;
+  totalCount?: number;
+  skippedSessionIds?: string[];
+  willReplace?: boolean;
+}
+
+export type SanitizationResult = {
+  payload: ConfigExportPayloadV2;
+  sanitized: boolean;
 }
 
 export type SessionAction = {
@@ -72,6 +161,15 @@ export type SessionActions = {
   sessionId: string;
   actions: SessionAction[];
 }
+
+export type UIActionDescriptor = {
+  id: string;
+  label: string;
+  category: string;
+  defaultKey?: string;
+};
+
+export type UIActionHandler = () => void;
 
 export type NeuzKeybind = {
   key: string;
@@ -104,9 +202,12 @@ export type NeuzConfig = {
       height: number;
       zoom: number;
       maximized: boolean;
-    }
+    },
+    viewers?: Record<ViewerWindowType, ViewerWindowConfig>;
+    sidebarSide?: 'left' | 'right';
   },
   autoSaveSettings: boolean;
+  autoDeleteAllCachesOnStartup?: boolean;
   userAgent?: string;
   defaultLaunchMode: 'normal' | 'session_launcher'
   chromium: {
@@ -118,7 +219,10 @@ export type NeuzConfig = {
   keyBindProfiles: NeuzKeyBindProfile[]
   activeKeyBindProfileId?: string | null
   keyBinds: NeuzKeybind[]
+  syncReceiverSessionId?: string | null
   sessionActions: SessionActions[];
+  sessionGroups?: NeuzSessionGroup[];
+  sessionZoomLevels?: { [sessionId: string]: number };
   titleBarButtons: {
     darkModeToggle: boolean;
     fullscreenToggle: boolean;

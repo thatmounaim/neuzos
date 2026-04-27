@@ -9,8 +9,9 @@
   import {Button} from "$lib/components/ui/button";
   import {Input} from "$lib/components/ui/input";
   import {getElectronContext} from "$lib/contexts/electronContext";
+  import KeyBinder from "../../Shared/KeyBinder.svelte";
 
-  import type {NeuzConfig, NeuzKeyBindProfile, NeuzKeybind} from "$lib/types";
+  import type {NeuzConfig, NeuzKeyBindProfile, NeuzKeybind, UIActionDescriptor} from "$lib/types";
   import {Plus, Trash2, ChevronsUpDown, Check, AlertCircleIcon, ChevronUp, ChevronDown, Pencil} from "@lucide/svelte";
 
   const modifierOptions = [
@@ -52,6 +53,7 @@
   let allowedEventKeybinds: {
     [key: string]: { label: string, args?: string[], unique?: boolean }
   } = $state({});
+  let uiActions: UIActionDescriptor[] = $state([]);
 
   function parseKeybind(keybind: string): { modifier: string; key: string } {
     const parts = keybind.split("+");
@@ -71,6 +73,7 @@
 
   onMount(async () => {
     allowedEventKeybinds = await electronApi.invoke("config.get_available_event_keybinds");
+    uiActions = await electronApi.invoke("config.get_available_ui_actions");
   });
 
   // ── Global keybind combobox states ──────────────────────────────────────────
@@ -79,11 +82,18 @@
   let layoutSelectorStates: { [index: number]: boolean } = $state({});
   let sessionSelectorStates: { [index: number]: boolean } = $state({});
   let actionSelectorStates: { [index: number]: boolean } = $state({});
+  let uiActionComboboxStates: Array<{ open: boolean; modifierOpen: boolean }> = $state([]);
+  let uiActionConflictWarnings: { [actionId: string]: string } = $state({});
 
   $effect(() => {
     const neededLength = neuzosConfig.keyBinds.length;
     while (comboboxStates.length < neededLength) comboboxStates.push({open: false, modifierOpen: false});
     if (comboboxStates.length > neededLength) comboboxStates.length = neededLength;
+  });
+
+  $effect(() => {
+    while (uiActionComboboxStates.length < uiActions.length) uiActionComboboxStates.push({open: false, modifierOpen: false});
+    if (uiActionComboboxStates.length > uiActions.length) uiActionComboboxStates.length = uiActions.length;
   });
 
   function moveKeybindUp(index: number) {
@@ -125,6 +135,12 @@
   let profileLayoutStates: { [profileId: string]: { [index: number]: boolean } } = $state({});
   let profileSessionStates: { [profileId: string]: { [index: number]: boolean } } = $state({});
   let profileActionStates: { [profileId: string]: { [index: number]: boolean } } = $state({});
+  let profileIngameKeyModifierStates: { [profileId: string]: { [index: number]: boolean } } = $state({});
+  let profileIngameKeyStates: { [profileId: string]: { [index: number]: boolean } } = $state({});
+
+  // Global ingame_key selector states
+  let ingameKeyModifierStates: { [index: number]: boolean } = $state({});
+  let ingameKeyStates: { [index: number]: boolean } = $state({});
 
   $effect(() => {
     ensureDefaultProfile();
@@ -148,6 +164,11 @@
     if (!neuzosConfig.activeKeyBindProfileId || !ids.includes(neuzosConfig.activeKeyBindProfileId)) {
       neuzosConfig.activeKeyBindProfileId = neuzosConfig.keyBindProfiles[0].id;
     }
+  }
+
+  function getActiveProfile(): NeuzKeyBindProfile | null {
+    ensureDefaultProfile();
+    return neuzosConfig.keyBindProfiles.find(p => p.id === neuzosConfig.activeKeyBindProfileId) ?? null;
   }
 
   function addProfile() {
@@ -204,6 +225,67 @@
     const argCount = allowedEventKeybinds[event]?.args?.length || 0;
     profile.keybinds.push({key: '', event, args: new Array(argCount).fill('')});
     profileAddKeybindPopovers[profile.id] = false;
+  }
+
+  function getUiActionKeybind(actionId: string): NeuzKeybind | undefined {
+    const activeProfile = getActiveProfile();
+    return activeProfile?.keybinds.find(keyBind => keyBind.event === actionId);
+  }
+
+  function setUiActionKeybind(actionId: string, keybind: string) {
+    const activeProfile = getActiveProfile();
+    if (!activeProfile) return;
+
+    const existingIndex = activeProfile.keybinds.findIndex(keyBind => keyBind.event === actionId);
+    if (!keybind) {
+      if (existingIndex !== -1) {
+        activeProfile.keybinds.splice(existingIndex, 1);
+      }
+      return;
+    }
+
+    if (existingIndex !== -1) {
+      activeProfile.keybinds[existingIndex].key = keybind;
+      return;
+    }
+
+    activeProfile.keybinds.push({key: keybind, event: actionId});
+  }
+
+  function applyUiActionKeybind(actionId: string, keybind: string): boolean {
+    if (!keybind) {
+      removeUiActionKeybind(actionId);
+      delete uiActionConflictWarnings[actionId];
+      return true;
+    }
+
+    const conflictLabel = getUiActionConflict(actionId, keybind);
+    if (conflictLabel) {
+      uiActionConflictWarnings[actionId] = conflictLabel;
+      return false;
+    }
+
+    delete uiActionConflictWarnings[actionId];
+    setUiActionKeybind(actionId, keybind);
+    return true;
+  }
+
+  function removeUiActionKeybind(actionId: string) {
+    delete uiActionConflictWarnings[actionId];
+    setUiActionKeybind(actionId, "");
+  }
+
+  function getUiActionConflict(actionId: string, keybind: string): string | null {
+    if (!keybind) return null;
+
+    const activeProfile = getActiveProfile();
+    const conflict = activeProfile?.keybinds.find(existingBind => {
+      return existingBind.event !== actionId && existingBind.key.toLowerCase() === keybind.toLowerCase();
+    });
+
+    if (!conflict) return null;
+
+    return uiActions.find(action => action.id === conflict.event)?.label ?? conflict.event;
   }
 
   function removeProfileKeybind(profile: NeuzKeyBindProfile, index: number) {
@@ -348,6 +430,7 @@
                             <Table.Head class="font-bold w-[60px]">Order</Table.Head>
                             <Table.Head class="font-bold">Modifier</Table.Head>
                             <Table.Head class="font-bold">Key</Table.Head>
+                            <Table.Head class="font-bold">Record</Table.Head>
                             <Table.Head class="font-bold">Event</Table.Head>
                             <Table.Head class="w-full"></Table.Head>
                             <Table.Head></Table.Head>
@@ -420,6 +503,15 @@
                                     </Command.Root>
                                   </Popover.Content>
                                 </Popover.Root>
+                              </Table.Cell>
+                              <!-- Record (KeyBinder) -->
+                              <Table.Cell>
+                                <KeyBinder
+                                  actionId={keyBind.event}
+                                  currentKey={keyBind.key}
+                                  onBind={(capturedKey) => { keyBind.key = capturedKey; return true; }}
+                                  onCancel={() => {}}
+                                />
                               </Table.Cell>
                               <!-- Event label -->
                               <Table.Cell class="text-sm text-muted-foreground">{eventInfo?.label}</Table.Cell>
@@ -516,6 +608,58 @@
                                             </Popover.Content>
                                           </Popover.Root>
                                         </div>
+                                      {:else if arg === 'ingame_key'}
+                                        {@const ingameParsed = parseKeybind(keyBind.args?.[argIndex] ?? '')}
+                                        {@const isModOpen = (profileIngameKeyModifierStates[profile.id]?.[index]) ?? false}
+                                        {@const isKeyOpen = (profileIngameKeyStates[profile.id]?.[index]) ?? false}
+                                        <div class="flex items-center gap-2">
+                                          <span class="text-xs text-muted-foreground whitespace-nowrap">In-Game Key:</span>
+                                          <Popover.Root open={isModOpen} onOpenChange={(open) => { if (!profileIngameKeyModifierStates[profile.id]) profileIngameKeyModifierStates[profile.id] = {}; profileIngameKeyModifierStates[profile.id][index] = open; }}>
+                                            <Popover.Trigger class="w-36 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
+                                              {@const selMod = modifierOptions.find(m => m.value === ingameParsed.modifier)?.label ?? 'None'}
+                                              <span class="truncate {ingameParsed.modifier ? 'text-foreground' : 'text-muted-foreground'}">{selMod}</span>
+                                              <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
+                                            </Popover.Trigger>
+                                            <Popover.Content class="w-[220px] p-0">
+                                              <Command.Root shouldFilter={true}>
+                                                <Command.Input placeholder="Search modifier..." class="h-10"/>
+                                                <Command.Empty>No modifier found.</Command.Empty>
+                                                <Command.List class="max-h-[320px]">
+                                                  <Command.Group>
+                                                    {#each modifierOptions as modifier}
+                                                      <Command.Item value={modifier.value} keywords={[modifier.label.toLowerCase()]} onSelect={() => { if (!keyBind.args) keyBind.args = []; keyBind.args[argIndex] = buildKeybind(modifier.value, ingameParsed.key); if (!profileIngameKeyModifierStates[profile.id]) profileIngameKeyModifierStates[profile.id] = {}; profileIngameKeyModifierStates[profile.id][index] = false; }} class="font-medium py-2.5">
+                                                        <Check class={ingameParsed.modifier === modifier.value ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
+                                                        <span class={ingameParsed.modifier === modifier.value ? "text-primary" : ""}>{modifier.label}</span>
+                                                      </Command.Item>
+                                                    {/each}
+                                                  </Command.Group>
+                                                </Command.List>
+                                              </Command.Root>
+                                            </Popover.Content>
+                                          </Popover.Root>
+                                          <Popover.Root open={isKeyOpen} onOpenChange={(open) => { if (!profileIngameKeyStates[profile.id]) profileIngameKeyStates[profile.id] = {}; profileIngameKeyStates[profile.id][index] = open; }}>
+                                            <Popover.Trigger class="w-32 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-mono font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
+                                              <span class="truncate {ingameParsed.key ? 'text-foreground uppercase' : 'text-muted-foreground font-sans font-normal lowercase'}">{ingameParsed.key || 'select key...'}</span>
+                                              <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
+                                            </Popover.Trigger>
+                                            <Popover.Content class="w-[220px] p-0">
+                                              <Command.Root shouldFilter={true}>
+                                                <Command.Input placeholder="Search key..." class="h-10"/>
+                                                <Command.Empty>No key found.</Command.Empty>
+                                                <Command.List class="max-h-[320px]">
+                                                  <Command.Group>
+                                                    {#each allowedKeys as key}
+                                                      <Command.Item value={key} onSelect={() => { if (!keyBind.args) keyBind.args = []; keyBind.args[argIndex] = buildKeybind(ingameParsed.modifier, key); if (!profileIngameKeyStates[profile.id]) profileIngameKeyStates[profile.id] = {}; profileIngameKeyStates[profile.id][index] = false; }} class="font-mono font-semibold uppercase py-2.5">
+                                                        <Check class={ingameParsed.key === key ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
+                                                        <span class={ingameParsed.key === key ? "text-primary" : ""}>{key}</span>
+                                                      </Command.Item>
+                                                    {/each}
+                                                  </Command.Group>
+                                                </Command.List>
+                                              </Command.Root>
+                                            </Popover.Content>
+                                          </Popover.Root>
+                                        </div>
                                       {:else if arg === 'event_name'}
                                         <div class="flex items-center gap-2">
                                           <span class="text-xs text-muted-foreground whitespace-nowrap">Event Name:</span>
@@ -587,6 +731,119 @@
       </div>
     </div>
 
+    {#if uiActions.length > 0}
+      <div class="w-full flex flex-col gap-3">
+        <div>
+          <h3 class="text-sm font-semibold">Interface Actions</h3>
+          <p class="text-xs text-muted-foreground mt-1">These bindings live in the active profile and use the same modifier + key editor.</p>
+        </div>
+
+        <Table.Root>
+          <Table.Header>
+            <Table.Row>
+              <Table.Head class="font-bold">Action</Table.Head>
+              <Table.Head class="font-bold">Modifier</Table.Head>
+              <Table.Head class="font-bold">Key</Table.Head>
+              <Table.Head class="font-bold">Record</Table.Head>
+              <Table.Head class="w-full"></Table.Head>
+            </Table.Row>
+          </Table.Header>
+          <Table.Body>
+            {#each uiActions as action, actionIndex (action.id)}
+              {@const bind = getUiActionKeybind(action.id)}
+              {@const parsed = parseKeybind(bind?.key ?? '')}
+              {@const state = uiActionComboboxStates[actionIndex] ?? {open: false, modifierOpen: false}}
+              {@const conflictLabel = uiActionConflictWarnings[action.id] ?? getUiActionConflict(action.id, bind?.key ?? '')}
+              <Table.Row>
+                <Table.Cell class="font-medium">
+                  <div class="flex flex-col gap-0.5">
+                    <span>{action.label}</span>
+                    <span class="text-xs text-muted-foreground">{action.category}</span>
+                  </div>
+                </Table.Cell>
+                <Table.Cell>
+                  <Popover.Root bind:open={state.modifierOpen}>
+                    <Popover.Trigger class="w-48 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
+                      {@const selectedMod = modifierOptions.find(m => m.value === parsed.modifier)?.label ?? 'None'}
+                      <span class="truncate {parsed.modifier ? 'text-foreground' : 'text-muted-foreground'}">{selectedMod}</span>
+                      <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
+                    </Popover.Trigger>
+                    <Popover.Content class="w-[220px] p-0">
+                      <Command.Root shouldFilter={true}>
+                        <Command.Input placeholder="Search modifier..." class="h-10"/>
+                        <Command.Empty>No modifier found.</Command.Empty>
+                        <Command.List class="max-h-[320px]">
+                          <Command.Group>
+                            {#each modifierOptions as modifier}
+                              <Command.Item value={modifier.value} keywords={[modifier.label.toLowerCase()]} onSelect={() => { if (applyUiActionKeybind(action.id, buildKeybind(modifier.value, parsed.key))) state.modifierOpen = false; }} class="font-medium py-2.5">
+                                <Check class={parsed.modifier === modifier.value ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
+                                <span class={parsed.modifier === modifier.value ? "text-primary" : ""}>{modifier.label}</span>
+                              </Command.Item>
+                            {/each}
+                          </Command.Group>
+                        </Command.List>
+                      </Command.Root>
+                    </Popover.Content>
+                  </Popover.Root>
+                </Table.Cell>
+                <Table.Cell>
+                  {@const keyOnly = parsed.key}
+                  <Popover.Root open={state.open} onOpenChange={(open) => { state.open = open; }}>
+                    <Popover.Trigger class="w-40 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-mono font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
+                      <span class="truncate {keyOnly ? 'text-foreground uppercase' : 'text-muted-foreground font-sans font-normal lowercase'}">{keyOnly || "select key..."}</span>
+                      <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
+                    </Popover.Trigger>
+                    <Popover.Content class="w-[220px] p-0">
+                      <Command.Root shouldFilter={true}>
+                        <Command.Input placeholder="Search key..." class="h-10"/>
+                        <Command.Empty>No key found.</Command.Empty>
+                        <Command.List class="max-h-[320px]">
+                          <Command.Group>
+                            {#each allowedKeys as key}
+                              <Command.Item value={key} onSelect={() => { if (applyUiActionKeybind(action.id, buildKeybind(parsed.modifier, key))) state.open = false; }} class="font-mono font-semibold uppercase py-2.5">
+                                <Check class={keyOnly === key ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
+                                <span class={keyOnly === key ? "text-primary" : ""}>{key}</span>
+                              </Command.Item>
+                            {/each}
+                          </Command.Group>
+                        </Command.List>
+                      </Command.Root>
+                    </Popover.Content>
+                  </Popover.Root>
+                </Table.Cell>
+                <Table.Cell>
+                  <KeyBinder
+                    actionId={action.id}
+                    currentKey={bind?.key ?? ''}
+                    conflictLabel={conflictLabel ?? undefined}
+                    onBind={(key) => applyUiActionKeybind(action.id, key)}
+                    onCancel={() => { delete uiActionConflictWarnings[action.id]; }}
+                  />
+                  {#if (bind?.key ?? '').startsWith('Mouse') || (bind?.key ?? '').startsWith('Gamepad')}
+                    <p class="mt-1 text-xs text-muted-foreground">Fires only when neuzOS window has focus</p>
+                  {/if}
+                </Table.Cell>
+                <Table.Cell class="text-right">
+                  {#if bind}
+                    <Button variant="outline" size="sm" onclick={() => removeUiActionKeybind(action.id)}>
+                      <Trash2 class="size-4"/>
+                    </Button>
+                  {/if}
+                </Table.Cell>
+              </Table.Row>
+              {#if conflictLabel}
+                <Table.Row>
+                  <Table.Cell colspan={5} class="pt-0 text-xs text-destructive">
+                    Conflicts with: {conflictLabel}
+                  </Table.Cell>
+                </Table.Row>
+              {/if}
+            {/each}
+          </Table.Body>
+        </Table.Root>
+      </div>
+    {/if}
+
     <div class="w-full border-t border-border"></div>
 
     <!-- ── Global Keybinds ────────────────────────────────────────────────── -->
@@ -601,6 +858,7 @@
             <Table.Head class="font-bold w-[60px]">Order</Table.Head>
             <Table.Head class="font-bold">Modifier</Table.Head>
             <Table.Head class="font-bold">Key</Table.Head>
+                          <Table.Head class="font-bold">Record</Table.Head>
             <Table.Head class="font-bold">Event</Table.Head>
             <Table.Head class="w-full"></Table.Head>
             <Table.Head class="font-bold"></Table.Head>
@@ -673,6 +931,17 @@
                       </Command.Root>
                     </Popover.Content>
                   </Popover.Root>
+                </Table.Cell>
+                <Table.Cell>
+                  <KeyBinder
+                    actionId={keyBind.event}
+                    currentKey={keyBind.key}
+                    onBind={(key) => {
+                      keyBind.key = key;
+                      return true;
+                    }}
+                    onCancel={() => {}}
+                  />
                 </Table.Cell>
                 <Table.Cell class="text-sm text-muted-foreground">{eventInfo?.label}</Table.Cell>
                 <Table.Cell>
@@ -761,6 +1030,58 @@
                                           </Command.Item>
                                         {/each}
                                       {/if}
+                                    </Command.Group>
+                                  </Command.List>
+                                </Command.Root>
+                              </Popover.Content>
+                            </Popover.Root>
+                          </div>
+                        {:else if arg === 'ingame_key'}
+                          {@const ingameParsed = parseKeybind(keyBind.args?.[argIndex] ?? '')}
+                          {@const isModOpen = ingameKeyModifierStates[index] ?? false}
+                          {@const isKeyOpen = ingameKeyStates[index] ?? false}
+                          <div class="flex items-center gap-2">
+                            <span class="text-xs text-muted-foreground whitespace-nowrap">In-Game Key:</span>
+                            <Popover.Root open={isModOpen} onOpenChange={(open) => { ingameKeyModifierStates[index] = open; }}>
+                              <Popover.Trigger class="w-36 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
+                                {@const selMod = modifierOptions.find(m => m.value === ingameParsed.modifier)?.label ?? 'None'}
+                                <span class="truncate {ingameParsed.modifier ? 'text-foreground' : 'text-muted-foreground'}">{selMod}</span>
+                                <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
+                              </Popover.Trigger>
+                              <Popover.Content class="w-[220px] p-0">
+                                <Command.Root shouldFilter={true}>
+                                  <Command.Input placeholder="Search modifier..." class="h-10"/>
+                                  <Command.Empty>No modifier found.</Command.Empty>
+                                  <Command.List class="max-h-[320px]">
+                                    <Command.Group>
+                                      {#each modifierOptions as modifier}
+                                        <Command.Item value={modifier.value} keywords={[modifier.label.toLowerCase()]} onSelect={() => { keyBind.args[argIndex] = buildKeybind(modifier.value, ingameParsed.key); ingameKeyModifierStates[index] = false; }} class="font-medium py-2.5">
+                                          <Check class={ingameParsed.modifier === modifier.value ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
+                                          <span class={ingameParsed.modifier === modifier.value ? "text-primary" : ""}>{modifier.label}</span>
+                                        </Command.Item>
+                                      {/each}
+                                    </Command.Group>
+                                  </Command.List>
+                                </Command.Root>
+                              </Popover.Content>
+                            </Popover.Root>
+                            <Popover.Root open={isKeyOpen} onOpenChange={(open) => { ingameKeyStates[index] = open; }}>
+                              <Popover.Trigger class="w-32 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-mono font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
+                                <span class="truncate {ingameParsed.key ? 'text-foreground uppercase' : 'text-muted-foreground font-sans font-normal lowercase'}">{ingameParsed.key || 'select key...'}</span>
+                                <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
+                              </Popover.Trigger>
+                              <Popover.Content class="w-[220px] p-0">
+                                <Command.Root shouldFilter={true}>
+                                  <Command.Input placeholder="Search key..." class="h-10"/>
+                                  <Command.Empty>No key found.</Command.Empty>
+                                  <Command.List class="max-h-[320px]">
+                                    <Command.Group>
+                                      {#each allowedKeys as key}
+                                        <Command.Item value={key} onSelect={() => { keyBind.args[argIndex] = buildKeybind(ingameParsed.modifier, key); ingameKeyStates[index] = false; }} class="font-mono font-semibold uppercase py-2.5">
+                                          <Check class={ingameParsed.key === key ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
+                                          <span class={ingameParsed.key === key ? "text-primary" : ""}>{key}</span>
+                                        </Command.Item>
+                                      {/each}
                                     </Command.Group>
                                   </Command.List>
                                 </Command.Root>

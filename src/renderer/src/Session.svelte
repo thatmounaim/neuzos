@@ -1,6 +1,6 @@
 <script lang="ts">
   import {ModeWatcher} from "mode-watcher";
-  import {onMount} from "svelte";
+  import {onMount, onDestroy, tick} from "svelte";
   import {initElectronApi, neuzosBridge} from "$lib/core";
   import type {NeuzSession, NeuzConfig} from "$lib/types";
   import type {WebviewTag} from "electron";
@@ -30,7 +30,7 @@
     sessionConfig: NeuzSession;
   } | null = $state(null);
 
-  let webview: WebviewTag | undefined = $state(undefined);
+  let webview: WebviewTag | HTMLDivElement | undefined = $state(undefined);
   let isFullscreen = $state(false);
   const electronApi = window.electron.ipcRenderer;
 
@@ -98,8 +98,10 @@
 
   let started: boolean = $state(false)
   let muted: boolean = $state(false)
+  let forceStopped: boolean = $state(false)
 
   export const startClient = () => {
+    forceStopped = false
     started = true
   }
 
@@ -163,10 +165,30 @@ window.open = function(...args) {
   let neuzosConfig: NeuzConfig | null = $state(null);
   let userAgent: string | undefined = $state(undefined);
 
+  const onStopSession = async (_: any, stopSessionId: string) => {
+    if (!sessionData || stopSessionId !== sessionData.sessionId) {
+      return
+    }
+    // Force teardown regardless of launch mode (session/focus/focus_fullscreen).
+    // Focus modes normally keep webview mounted, which can keep LevelDB handles open.
+    forceStopped = true
+    started = false
+    await tick()
+    electronApi.send('event.stop_session_ack', stopSessionId)
+  }
+
   // Load config and compute userAgent
   $effect(() => {
     userAgent = neuzosConfig?.userAgent || undefined;
   });
+
+  onMount(() => {
+    electronApi.on('event.stop_session', onStopSession)
+  })
+
+  onDestroy(() => {
+    electronApi.removeListener?.('event.stop_session', onStopSession)
+  })
 </script>
 
 <ModeWatcher/>
@@ -231,7 +253,7 @@ window.open = function(...args) {
     focus()
   }}>
     {#if sessionData}
-      {#if started || sessionData.mode === 'focus_fullscreen' || sessionData.mode === 'focus'}
+      {#if !forceStopped && (started || sessionData.mode === 'focus_fullscreen' || sessionData.mode === 'focus')}
         {#if getSrc().startsWith('https://flyff.wemadeconnect.com') && !koreanLinkFixed}
           <Button class="z-50 absolute bottom-2 right-2" size="xs" onclick={koreanLinkFix}>
             KR Fix - Once Logged & Page is Fully Loaded Press This Button

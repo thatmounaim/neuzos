@@ -10,6 +10,7 @@
 
   import LaunchSettings from "./components/SettingsWindow/Tabs/LaunchSettings.svelte";
   import SessionSettings from "./components/SettingsWindow/Tabs/SessionSettings.svelte";
+  import BackupSettings from "./components/SettingsWindow/Tabs/BackupSettings.svelte";
   import LayoutSettings from "./components/SettingsWindow/Tabs/LayoutSettings.svelte";
   import SessionActionsSettings from "./components/SettingsWindow/Tabs/SessionActionsSettings.svelte";
   import GeneralSettings from "./components/SettingsWindow/Tabs/GeneralSettings.svelte";
@@ -20,6 +21,7 @@
   import {Toaster} from "$lib/components/ui/sonner";
 
   let isLoading = $state(true);
+  let activeTab = $state('general');
 
   setElectronContext(window.electron.ipcRenderer);
   setNeuzosBridgeContext(neuzosBridge);
@@ -29,6 +31,7 @@
   let neuzosConfig: NeuzConfig = $state({
     defaultLaunchMode: 'normal',
     sessions: [],
+    sessionGroups: [],
     layouts: [],
     chromium: {
       commandLineSwitches: []
@@ -38,6 +41,7 @@
     activeKeyBindProfileId: null,
     keyBinds: [],
     sessionActions: [],
+    sessionZoomLevels: {},
     titleBarButtons: {
       darkModeToggle: true,
       fullscreenToggle: true,
@@ -53,6 +57,7 @@
   const electronApi = window.electron.ipcRenderer;
 
   setContext("neuzosConfig", neuzosConfig);
+  setContext("loadConfig", loadConfig);
 
   async function loadConfig() {
     isLoading = true;
@@ -66,6 +71,8 @@
     neuzosConfig.keyBindProfiles = conf.keyBindProfiles || [];
     neuzosConfig.activeKeyBindProfileId = conf.activeKeyBindProfileId ?? null;
     neuzosConfig.sessionActions = conf.sessionActions || [];
+    neuzosConfig.sessionGroups = conf.sessionGroups ?? [];
+    neuzosConfig.sessionZoomLevels = conf.sessionZoomLevels ?? {};
     neuzosConfig.userAgent = conf.userAgent;
     neuzosConfig.titleBarButtons = conf.titleBarButtons;
     neuzosConfig.window = conf.window;
@@ -259,7 +266,7 @@
   <div class="w-full h-full flex flex-col border-2 ">
     <SettingsBar/>
     <div class="flex w-full flex-col gap-6 p-4 flex-1 overflow-hidden">
-      <Tabs.Root value="general" class="h-full w-full">
+      <Tabs.Root bind:value={activeTab} class="h-full w-full">
         <Tabs.List class="relative w-full">
           <div class="flex items-center justify-start gap-2">
             <Tabs.Trigger value="general">General</Tabs.Trigger>
@@ -267,6 +274,7 @@
             <Tabs.Trigger value="layouts">Layouts</Tabs.Trigger>
             <Tabs.Trigger value="keybinds">Keybinds</Tabs.Trigger>
             <Tabs.Trigger value="session-actions">Session Actions</Tabs.Trigger>
+            <Tabs.Trigger value="backup">Backup</Tabs.Trigger>
             <Tabs.Trigger value="launch">Launch Settings</Tabs.Trigger>
 
           </div>
@@ -306,6 +314,9 @@
         </Tabs.Content>
         <Tabs.Content value="session-actions" class="h-full overflow-y-auto">
           <SessionActionsSettings/>
+        </Tabs.Content>
+        <Tabs.Content value="backup" class="h-full overflow-y-auto">
+          <BackupSettings/>
         </Tabs.Content>
         <Tabs.Content value="general" class="h-full overflow-y-auto">
           <GeneralSettings/>

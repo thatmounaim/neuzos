@@ -1,15 +1,24 @@
 import {app, shell, BrowserWindow, Menu, dialog, session, ipcMain, globalShortcut, screen, protocol} from "electron";
 import {join} from "path";
+import * as path from "node:path";
+import {pathToFileURL} from "url";
 import {electronApp, optimizer, is} from "@electron-toolkit/utils";
 import icon from "../../resources/icon.png?asset";
 import * as fs from "node:fs";
 import {rimraf} from "rimraf";
 import {buildRegistry, checkRegistry, loadRegistry, type ProgressEvent} from "./flyff-registry";
 
+type UIActionDescriptor = {
+  id: string;
+  label: string;
+  category: string;
+  defaultKey?: string;
+};
+
 // Register custom protocol for serving flyff registry assets (icons etc.)
 // Must be called before app is ready
 protocol.registerSchemesAsPrivileged([
-  { scheme: 'flyff-asset', privileges: { standard: true, secure: true, corsEnabled: true, supportFetchAPI: true } },
+  // SEC-004: corsEnabled is false so game webviews (universe.flyff.com) cannot\n  // fetch local registry assets cross-origin. Only trusted renderer contexts need\n  // these files and they do not require CORS headers.\n  { scheme: 'flyff-asset', privileges: { standard: true, secure: true, corsEnabled: false, supportFetchAPI: true } },
 ]);
 
 // Performance Presets System
@@ -64,9 +73,114 @@ let mainWindow: BrowserWindow | null = null;
 let settingsWindow: BrowserWindow | null = null;
 let sessionWindow: BrowserWindow | null = null;
 
+type ViewerWindowType = 'navi_guide' | 'flyffipedia';
+type SidebarSide = 'left' | 'right';
+
+type ViewerWindowConfig = {
+  x: number | null;
+  y: number | null;
+  width: number;
+  height: number;
+  alwaysOnTop: boolean;
+};
+
+type ViewerWindowBounds = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+const viewerWindowTypes: ViewerWindowType[] = ['navi_guide', 'flyffipedia'];
+const defaultViewerWindowConfig: ViewerWindowConfig = {
+  x: null,
+  y: null,
+  width: 1100,
+  height: 700,
+  alwaysOnTop: true,
+};
+
+const defaultSidebarSide: SidebarSide = 'left';
+
+const viewerWindows: Map<ViewerWindowType, BrowserWindow> = new Map();
+const viewerBoundsSaveTimers: Map<ViewerWindowType, ReturnType<typeof setTimeout>> = new Map();
+
 let exitCount: number = 0;
 let mainWindowShortcutsEnabled: boolean = true;
 let sessionWindowShortcutsEnabled: boolean = true;
+
+// Maps sessionId -> webContentsId for mouse-bind interception via before-input-event
+const mouseBindWebContents = new Map<string, number>();
+const runningSessionIds = new Set<string>();
+// Tracks sessions actively being deleted so session.clear_cache does not recreate their partition folder
+const deletingSessionIds = new Set<string>();
+
+/**
+ * SEC-001: Only allow http/https URLs to be opened externally.
+ * Prevents exploitation via dangerous protocol handlers (ms-msdt:, search-ms:,
+ * telnet:, file:, etc.) that could be triggered by a malicious game webview page.
+ */
+function openExternalSafe(url: string): void {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+      console.warn('[openExternalSafe] Blocked non-http(s) URL:', url);
+      return;
+    }
+  } catch {
+    console.warn('[openExternalSafe] Blocked malformed URL:', url);
+    return;
+  }
+  shell.openExternal(url);
+}
+
+function getSessionPartitionPaths(sessionId: string): { partitionsBase: string; paths: string[] } {
+  const partitionsBase = path.resolve(join(app.getPath("userData"), "Partitions"));
+  const candidates = [
+    path.resolve(partitionsBase, sessionId),
+    path.resolve(partitionsBase, 'persist', sessionId),
+  ];
+  const paths = Array.from(new Set(candidates)).filter((candidate) => candidate.startsWith(partitionsBase + path.sep));
+  return { partitionsBase, paths };
+}
+
+function pruneSessionReferences(config: any): void {
+  const knownSessionIds = new Set<string>((config.sessions ?? []).map((session: any) => session.id as string));
+
+  if (Array.isArray(config.layouts)) {
+    config.layouts = config.layouts.map((layout: any) => {
+      const rows = Array.isArray(layout?.rows)
+        ? layout.rows
+            .map((row: any) => {
+              const sessionIds = Array.isArray(row?.sessionIds)
+                ? row.sessionIds.filter((id: string) => knownSessionIds.has(id))
+                : [];
+              return { ...row, sessionIds };
+            })
+            .filter((row: any) => row.sessionIds.length > 0)
+        : [];
+      return { ...layout, rows };
+    });
+  }
+
+  if (Array.isArray(config.sessionActions)) {
+    config.sessionActions = config.sessionActions.filter((entry: any) => knownSessionIds.has(entry?.sessionId));
+  }
+
+  if (config.sessionZoomLevels && typeof config.sessionZoomLevels === 'object') {
+    for (const sessionId of Object.keys(config.sessionZoomLevels)) {
+      if (!knownSessionIds.has(sessionId)) {
+        delete config.sessionZoomLevels[sessionId];
+      }
+    }
+  }
+
+  if (config.syncReceiverSessionId && !knownSessionIds.has(config.syncReceiverSessionId)) {
+    config.syncReceiverSessionId = null;
+  }
+
+  config.sessionGroups = normalizeSessionGroups(config.sessionGroups, knownSessionIds);
+}
 
 // Parse command-line arguments
 type LaunchMode = 'normal' | 'session_launcher' | 'session' | 'focus' | 'focus_fullscreen';
@@ -107,9 +221,132 @@ let launchArgs: LaunchArgs;
 
 let neuzosConfig: any = null;
 
+type ConfigExportPayload = {
+  schemaVersion: 1;
+  exportedAt: string;
+  sessionActions: any[];
+  keyBinds: any[];
+  keyBindProfiles: any[];
+  activeKeyBindProfileId: string | null;
+};
+
+type ExportCategory =
+  | 'keybinds'
+  | 'session-actions'
+  | 'ui-layout'
+  | 'general-settings'
+  | 'quest-log';
+
+type ConfigExportPayloadV2 = {
+  schemaVersion: 2;
+  exportedAt: string;
+  categories: ExportCategory[];
+  _sanitized?: true;
+  keyBinds?: any[];
+  keyBindProfiles?: any[];
+  activeKeyBindProfileId?: string | null;
+  sessionActions?: any[];
+  sessionGroups?: any[];
+  window?: any;
+  sessionZoomLevels?: Record<string, number>;
+  fullscreen?: any;
+  autoSaveSettings?: boolean;
+  defaultLaunchMode?: string;
+  userAgent?: string;
+  titleBarButtons?: any;
+  questLogTemplates?: never[];
+};
+
+type ConfigImportPayload = ConfigExportPayload | ConfigExportPayloadV2;
+
+type ConfigImportResult =
+  | { valid: true; payload: ConfigImportPayload; warnings: string[] }
+  | { valid: false; error: string };
+
+type ConfigApplyImportArgsV2 = {
+  payload: ConfigImportPayload;
+  mode: 'replace' | 'merge';
+  categories: ExportCategory[];
+};
+
+const exportCategoryOrder: ExportCategory[] = ['keybinds', 'session-actions', 'ui-layout', 'general-settings', 'quest-log'];
+const exportCategorySet = new Set<ExportCategory>(exportCategoryOrder);
+
+function isExportCategory(value: unknown): value is ExportCategory {
+  return typeof value === 'string' && exportCategorySet.has(value as ExportCategory);
+}
+
+function normalizeCategories(categories: unknown): ExportCategory[] {
+  if (!Array.isArray(categories)) {
+    return [];
+  }
+
+  return categories.filter(isExportCategory);
+}
+
+function inferPayloadCategories(payload: any): ExportCategory[] {
+  const categories: ExportCategory[] = [];
+
+  if (Array.isArray(payload?.keyBinds) || Array.isArray(payload?.keyBindProfiles) || payload?.activeKeyBindProfileId !== undefined) {
+    categories.push('keybinds');
+  }
+  if (Array.isArray(payload?.sessionActions)) {
+    categories.push('session-actions');
+  }
+  if (payload?.window !== undefined || payload?.sessionZoomLevels !== undefined || payload?.fullscreen !== undefined || Array.isArray(payload?.sessionGroups)) {
+    categories.push('ui-layout');
+  }
+  if (payload?.autoSaveSettings !== undefined || payload?.defaultLaunchMode !== undefined || payload?.userAgent !== undefined || payload?.titleBarButtons !== undefined) {
+    categories.push('general-settings');
+  }
+  if (Array.isArray(payload?.questLogTemplates)) {
+    categories.push('quest-log');
+  }
+
+  return categories;
+}
+
+function getPayloadCategories(payload: ConfigImportPayload): ExportCategory[] {
+  if (payload.schemaVersion === 1) {
+    return ['keybinds', 'session-actions'];
+  }
+
+  const explicitCategories = normalizeCategories(payload.categories);
+  return explicitCategories.length > 0 ? explicitCategories : inferPayloadCategories(payload);
+}
+
+function cloneData<T>(value: T): T {
+  return value === undefined ? value : JSON.parse(JSON.stringify(value));
+}
+
+function normalizeSessionGroups(groups: unknown, knownSessionIds: Set<string>): any[] {
+  if (!Array.isArray(groups)) {
+    return [];
+  }
+
+  return groups.flatMap((group: any) => {
+    if (!group || typeof group !== 'object') {
+      return [];
+    }
+
+    const id = typeof group.id === 'string' && group.id.trim() !== '' ? group.id.trim() : null;
+    if (!id) {
+      return [];
+    }
+
+    const label = typeof group.label === 'string' && group.label.trim() !== '' ? group.label.trim() : 'New Group';
+    const sessionIds = Array.isArray(group.sessionIds)
+      ? [...new Set(group.sessionIds.filter((sessionId: any) => typeof sessionId === 'string' && knownSessionIds.has(sessionId)))]
+      : [];
+
+    return [{id, label, sessionIds}];
+  });
+}
+
 const defaultNeuzosConfig: any = {
   window: undefined,
   autoSaveSettings: false,
+  autoDeleteAllCachesOnStartup: false,
   defaultLaunchMode: "normal",
   chromium: {
     commandLineSwitches: [
@@ -138,7 +375,11 @@ const defaultNeuzosConfig: any = {
       "event": "fullscreen_toggle"
     }
   ],
+  syncReceiverSessionId: null,
   sessionActions: [],
+  sessionGroups: [],
+  sessionZoomLevels: {},
+  pendingPartitionDeletes: [],
   titleBarButtons: {
     darkModeToggle: true,
     fullscreenToggle: true,
@@ -168,6 +409,12 @@ const allowedEventKeybinds = {
       "action_id"
     ],
   },
+  "send_to_receiver": {
+    label: "Send Key to Active Receiver",
+    args: [
+      "ingame_key"
+    ],
+  },
   "custom_event": {
     label: "Custom Event",
     args: [
@@ -176,6 +423,14 @@ const allowedEventKeybinds = {
     ],
   }
 }
+
+const allowedUiActionKeybinds: Record<string, UIActionDescriptor> = {
+  "ui.toggle_quest_log": {
+    id: "ui.toggle_quest_log",
+    label: "Toggle Quest Log",
+    category: "Interface",
+  },
+};
 
 const userDataPath = app.getPath("userData");
 const configDirectoryPath = join(userDataPath, "/neuzos_config/");
@@ -219,6 +474,11 @@ function loadConfig(reload: boolean = false): Promise<any> {
           // Deep merge for window config to ensure all window types (main, settings, session) exist
           const loadedWindow = neuzosConfig.window;
           neuzosConfig = {...defaultNeuzosConfig, ...neuzosConfig};
+          neuzosConfig.sessionGroups = neuzosConfig.sessionGroups ?? [];
+          neuzosConfig.sessionZoomLevels = neuzosConfig.sessionZoomLevels ?? {};
+          neuzosConfig.pendingPartitionDeletes = Array.isArray(neuzosConfig.pendingPartitionDeletes)
+            ? [...new Set(neuzosConfig.pendingPartitionDeletes.filter((sessionId: any) => typeof sessionId === 'string'))]
+            : [];
 
           // Deep merge window config specifically
           if (loadedWindow) {
@@ -227,9 +487,24 @@ function loadConfig(reload: boolean = false): Promise<any> {
               ...loadedWindow,
               main: {...(defaultNeuzosConfig.window?.main || {}), ...(loadedWindow.main || {})},
               settings: {...(defaultNeuzosConfig.window?.settings || {}), ...(loadedWindow.settings || {})},
-              session: {...(defaultNeuzosConfig.window?.session || {}), ...(loadedWindow.session || {})}
+              session: {...(defaultNeuzosConfig.window?.session || {}), ...(loadedWindow.session || {})},
+              viewers: {
+                ...(defaultNeuzosConfig.window?.viewers || {}),
+                ...(loadedWindow.viewers || {}),
+                navi_guide: {
+                  ...defaultViewerWindowConfig,
+                  ...(loadedWindow.viewers?.navi_guide || {}),
+                },
+                flyffipedia: {
+                  ...defaultViewerWindowConfig,
+                  ...(loadedWindow.viewers?.flyffipedia || {}),
+                },
+              },
+              sidebarSide: loadedWindow.sidebarSide || defaultSidebarSide,
             };
           }
+
+          pruneSessionReferences(neuzosConfig);
 
           checkKeybinds()
           saveConfig(neuzosConfig);
@@ -240,6 +515,226 @@ function loadConfig(reload: boolean = false): Promise<any> {
       }
     }
   });
+}
+
+async function cleanupQueuedSessionPartitions(config: any): Promise<void> {
+  const queuedSessionIds: string[] = Array.isArray(config?.pendingPartitionDeletes)
+    ? [...new Set<string>(config.pendingPartitionDeletes.filter((sessionId: any) => typeof sessionId === 'string') as string[])]
+    : [];
+
+  if (queuedSessionIds.length === 0) {
+    return;
+  }
+
+  const stillQueued: string[] = [];
+  for (const sessionId of queuedSessionIds) {
+    try {
+      const { paths: partitionPathCandidates } = getSessionPartitionPaths(sessionId);
+      const partitionPaths = partitionPathCandidates.filter((partitionPath) => fs.existsSync(partitionPath));
+      for (const partitionPath of partitionPaths) {
+        await rimraf(partitionPath, { maxRetries: 6, retryDelay: 1500 });
+      }
+      const recreatedPath = partitionPaths.find((partitionPath) => fs.existsSync(partitionPath));
+      if (recreatedPath) {
+        stillQueued.push(sessionId);
+      }
+    } catch {
+      stillQueued.push(sessionId);
+    }
+  }
+
+  config.pendingPartitionDeletes = stillQueued;
+  saveConfig(config);
+}
+
+function createDefaultViewerWindowConfigs(): Record<ViewerWindowType, ViewerWindowConfig> {
+  return {
+    navi_guide: {...defaultViewerWindowConfig},
+    flyffipedia: {...defaultViewerWindowConfig},
+  };
+}
+
+function ensureViewerWindowState(): Record<ViewerWindowType, ViewerWindowConfig> {
+  if (!neuzosConfig.window) {
+    neuzosConfig.window = {};
+  }
+
+  if (!neuzosConfig.window.viewers) {
+    neuzosConfig.window.viewers = createDefaultViewerWindowConfigs();
+  }
+
+  for (const type of viewerWindowTypes) {
+    neuzosConfig.window.viewers[type] = {
+      ...defaultViewerWindowConfig,
+      ...(neuzosConfig.window.viewers[type] || {}),
+    };
+  }
+
+  if (!neuzosConfig.window.sidebarSide) {
+    neuzosConfig.window.sidebarSide = defaultSidebarSide;
+  }
+
+  return neuzosConfig.window.viewers;
+}
+
+function getViewerWindowConfig(type: ViewerWindowType): ViewerWindowConfig {
+  const viewers = ensureViewerWindowState();
+  return viewers[type] ?? {...defaultViewerWindowConfig};
+}
+
+function getViewerWindowTypeFromWindow(win: BrowserWindow | null): ViewerWindowType | null {
+  if (!win) {
+    return null;
+  }
+
+  for (const [type, viewerWindow] of viewerWindows.entries()) {
+    if (viewerWindow === win) {
+      return type;
+    }
+  }
+
+  return (win as any).viewerType ?? null;
+}
+
+function isViewerWindowBoundsVisible(bounds: { x: number; y: number; width: number; height: number }): boolean {
+  const displays = screen.getAllDisplays();
+  return displays.some(display => {
+    const area = display.workArea;
+    const horizontalOverlap = bounds.x < area.x + area.width && bounds.x + bounds.width > area.x;
+    const verticalOverlap = bounds.y < area.y + area.height && bounds.y + bounds.height > area.y;
+    return horizontalOverlap && verticalOverlap;
+  });
+}
+
+function getSanitizedViewerBounds(type: ViewerWindowType): Partial<ViewerWindowBounds> {
+  const viewerConfig = getViewerWindowConfig(type);
+
+  if (viewerConfig.x === null || viewerConfig.y === null) {
+    return {};
+  }
+
+  const bounds = {
+    x: viewerConfig.x,
+    y: viewerConfig.y,
+    width: viewerConfig.width,
+    height: viewerConfig.height,
+  };
+
+  if (!isViewerWindowBoundsVisible(bounds)) {
+    return {};
+  }
+
+  return bounds;
+}
+
+function persistViewerWindowBounds(type: ViewerWindowType, win: BrowserWindow): void {
+  const bounds = win.getBounds();
+  const viewers = ensureViewerWindowState();
+  viewers[type] = {
+    ...defaultViewerWindowConfig,
+    ...viewers[type],
+    x: bounds.x,
+    y: bounds.y,
+    width: bounds.width,
+    height: bounds.height,
+    alwaysOnTop: win.isAlwaysOnTop(),
+  };
+  saveConfig(neuzosConfig);
+}
+
+function scheduleViewerWindowBoundsSave(type: ViewerWindowType, win: BrowserWindow): void {
+  const existingTimer = viewerBoundsSaveTimers.get(type);
+  if (existingTimer) {
+    clearTimeout(existingTimer);
+  }
+
+  const timer = setTimeout(() => {
+    if (!win.isDestroyed()) {
+      persistViewerWindowBounds(type, win);
+    }
+    viewerBoundsSaveTimers.delete(type);
+  }, 200);
+
+  viewerBoundsSaveTimers.set(type, timer);
+}
+
+function createViewerWindow(type: ViewerWindowType): BrowserWindow | null {
+  const existingWindow = viewerWindows.get(type);
+  if (existingWindow && !existingWindow.isDestroyed()) {
+    existingWindow.focus();
+    return existingWindow;
+  }
+
+  const viewerConfig = getViewerWindowConfig(type);
+  const viewerBounds = getSanitizedViewerBounds(type);
+
+  const window = new BrowserWindow({
+    width: viewerConfig.width,
+    height: viewerConfig.height,
+    show: false,
+    frame: false,
+    autoHideMenuBar: true,
+    ...(viewerBounds.x !== undefined && viewerBounds.y !== undefined ? {x: viewerBounds.x, y: viewerBounds.y} : {}),
+    ...(process.platform === 'linux' ? {icon} : {}),
+    webPreferences: {
+      contextIsolation: true,
+      preload: join(__dirname, "../preload/index.js"),
+      sandbox: false,
+      webviewTag: true,
+      zoomFactor: 1.0,
+    }
+  });
+
+  (window as any).viewerType = type;
+  viewerWindows.set(type, window);
+
+  const cleanup = () => {
+    const timer = viewerBoundsSaveTimers.get(type);
+    if (timer) {
+      clearTimeout(timer);
+      viewerBoundsSaveTimers.delete(type);
+    }
+
+    if (!window.isDestroyed()) {
+      persistViewerWindowBounds(type, window);
+    }
+
+    if (viewerWindows.get(type) === window) {
+      viewerWindows.delete(type);
+    }
+  };
+
+  window.on('move', () => scheduleViewerWindowBoundsSave(type, window));
+  window.on('resize', () => scheduleViewerWindowBoundsSave(type, window));
+  window.on('closed', cleanup);
+
+  window.on('ready-to-show', () => {
+    const config = getViewerWindowConfig(type);
+    if (config.alwaysOnTop) {
+      window.setAlwaysOnTop(true, 'screen-saver');
+    }
+
+    if (viewerBounds.x === undefined || viewerBounds.y === undefined) {
+      window.center();
+    }
+
+    window.show();
+  });
+
+  window.webContents.setWindowOpenHandler((details) => {
+    openExternalSafe(details.url);
+    return {action: 'deny'};
+  });
+
+  const viewerUrl = is.dev && process.env["ELECTRON_RENDERER_URL"]
+    ? `${process.env["ELECTRON_RENDERER_URL"]}/viewer.html?type=${type}`
+    : `${pathToFileURL(join(__dirname, "../renderer/viewer.html")).href}?type=${type}`;
+
+  window.webContents.loadURL(viewerUrl).catch((error) => {
+    console.error('Failed to load viewer window:', error);
+  });
+
+  return window;
 }
 
 
@@ -290,7 +785,7 @@ function createSettingsWindow(): void {
   });
 
   settingsWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url);
+    openExternalSafe(details.url);
     return {action: "deny"};
   });
 
@@ -348,7 +843,7 @@ function createSessionLauncherWindow(): void {
   });
 
   sessionWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url);
+    openExternalSafe(details.url);
     return {action: "deny"};
   });
 
@@ -468,7 +963,7 @@ function createSessionWindow(mode: LaunchMode, sessionId: string): void {
   });
 
   sessionWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url);
+    openExternalSafe(details.url);
     return {action: "deny"};
   });
 
@@ -508,6 +1003,18 @@ function createMainWindow(): void {
       webviewTag: true,
       zoomFactor: neuzosConfig.window.main.zoom ?? 1.0,
     }
+  });
+
+  mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
+    console.log(`[renderer:${level}] ${message} (${sourceId}:${line})`);
+  });
+
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    console.error('Main window render process gone:', details.reason, details.exitCode);
+  });
+
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+    console.error('Main window failed to load:', errorCode, errorDescription, validatedURL);
   });
 
   mainWindow.on("close", (event) => {
@@ -550,6 +1057,14 @@ function createMainWindow(): void {
     // Ensure shortcuts are unregistered when window is destroyed
     globalShortcut.unregisterAll();
     mainWindow = null;
+
+    // Close all viewer windows so they don't orphan the process
+    for (const [, win] of viewerWindows) {
+      if (!win.isDestroyed()) {
+        win.destroy();
+      }
+    }
+    viewerWindows.clear();
   });
 
   mainWindow.on("focus", () => {
@@ -566,7 +1081,7 @@ function createMainWindow(): void {
   });
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url);
+    openExternalSafe(details.url);
     return {action: "deny"};
   });
 
@@ -600,9 +1115,23 @@ function checkKeybinds() {
     neuzosConfig.activeKeyBindProfileId = neuzosConfig.keyBindProfiles[0].id;
   }
 
+  const allowedKeybindEvents = new Set([
+    ...Object.keys(allowedEventKeybinds),
+    ...Object.keys(allowedUiActionKeybinds),
+  ]);
+
   neuzosConfig.keyBinds = neuzosConfig.keyBinds.filter((bind: any) => {
-    return Object.keys(allowedEventKeybinds).includes(bind.event);
+    return allowedKeybindEvents.has(bind.event);
   })
+
+  const activeProfile = neuzosConfig.keyBindProfiles.find(
+    (profile: any) => profile.id === neuzosConfig.activeKeyBindProfileId
+  );
+  if (activeProfile) {
+    activeProfile.keybinds = activeProfile.keybinds.filter((bind: any) => {
+      return allowedKeybindEvents.has(bind.event);
+    });
+  }
 
   // filter empty keybinds
   neuzosConfig.keyBinds = neuzosConfig.keyBinds.filter((bind) => {
@@ -616,6 +1145,11 @@ function checkKeybinds() {
 }
 
 function dispatchKeybindEvent(bind: any) {
+  if (bind.event?.startsWith("ui.")) {
+    mainWindow?.webContents.send("event.ui_action_fired", {actionId: bind.event});
+    return;
+  }
+
   switch (bind.event) {
     case "fullscreen_toggle":
       mainWindow?.setFullScreen(!mainWindow?.isFullScreen());
@@ -631,9 +1165,19 @@ function dispatchKeybindEvent(bind: any) {
       if (bind.args?.length > 1)
         mainWindow?.webContents.send("event.send_session_action", ...(bind.args ?? []));
       break;
+    case "send_to_receiver":
+      if (bind.args?.length > 0)
+        mainWindow?.webContents.send("event.send_to_receiver", bind.args[0]);
+      break;
     case "custom_event":
-      if (bind.args?.length > 1)
-        mainWindow?.webContents.send(bind.args[0], bind.args[1]);
+      if (bind.args?.length > 1) {
+        // Allowlist: only permit known safe custom renderer event channel names
+        const allowedCustomEvents = new Set(['event.custom_action', 'event.user_command']);
+        const channel = String(bind.args[0]);
+        if (allowedCustomEvents.has(channel)) {
+          mainWindow?.webContents.send(channel, bind.args[1]);
+        }
+      }
       break;
   }
 }
@@ -655,14 +1199,14 @@ function registerKeybinds() {
 
   allBinds.forEach((bind) => {
     if (!bind.key) return;
+    const normalizedKey = String(bind.key).toLowerCase();
+    if (normalizedKey.startsWith('mouse') || normalizedKey.startsWith('gamepad')) {
+      return;
+    }
     try {
       globalShortcut.register(bind.key, () => dispatchKeybindEvent(bind));
     } catch (e) {
-      dialog.showErrorBox("Failed to register keybind", "Please fix your config manually found at \n" + join(configDirectoryPath, "/config.json"));
-      globalShortcut.unregisterAll();
-      exitCount = 3;
-      app.quit();
-      return;
+      console.warn("Skipping invalid keybind:", bind.key, bind.event, e);
     }
   });
 }
@@ -741,16 +1285,56 @@ function registerSessionKeybinds(mode: LaunchMode) {
       optimizer.watchWindowShortcuts(window);
     });
 
+    // Run deferred partition cleanup from previous session(s). Runs here — after Chromium
+    // is ready but before any windows/sessions are created — so no utility process holds
+    // handles on the target folders, and no session startup can recreate them mid-delete.
+    await cleanupQueuedSessionPartitions(neuzosConfig);
+
+    // ── Mouse-button keybind interception for session webviews ──────────────
+    // Keyboard binds use globalShortcut (OS-level, works while webview has focus).
+    // Mouse extra buttons (Middle, Mouse4, Mouse5) cannot use globalShortcut, so
+    // we intercept them via before-input-event on each registered webview webContents.
+    app.on("web-contents-created", (_e, wc) => {
+      wc.on("before-input-event", (_event, input) => {
+        if (input.type !== "mouseDown") return;
+        // Only handle extra mouse buttons (1=middle, 3=Mouse4, 4=Mouse5)
+        const buttonMap: Record<number, string> = { 1: "middle", 3: "mouse4", 4: "mouse5" };
+        const key = buttonMap[(input as any).button as number];
+        if (!key) return;
+        // Check if this webContents belongs to a registered session webview
+        const wcId = wc.id;
+        let matched = false;
+        for (const registeredId of mouseBindWebContents.values()) {
+          if (registeredId === wcId) { matched = true; break; }
+        }
+        if (!matched) return;
+        // Find matching bind and dispatch
+        const activeProfile = neuzosConfig?.keyBindProfiles?.find(
+          (p: any) => p.id === neuzosConfig.activeKeyBindProfileId
+        );
+        const allBinds: any[] = [...(neuzosConfig?.keyBinds ?? []), ...(activeProfile?.keybinds ?? [])];
+        const bind = allBinds.find((b: any) => b.key && b.key.toLowerCase() === key);
+        if (bind) {
+          dispatchKeybindEvent(bind);
+        }
+      });
+    });
+
     // ── Flyff registry custom protocol ──────────────────────────────────────
     // Serves downloaded icons and assets from userData/flyff-registry/
-    protocol.handle('flyff-asset', (request) => {
+    protocol.handle('flyff-asset', async (request) => {
       const rawPath = request.url.replace('flyff-asset://', '');
       const decoded = decodeURIComponent(rawPath);
-      const filePath = join(registryDirectoryPath, decoded);
+      const registryBase = path.resolve(registryDirectoryPath);
+      const filePath = path.resolve(registryBase, decoded);
+      // Path traversal guard: resolved path must stay inside registryDirectoryPath
+      if (filePath !== registryBase && !filePath.startsWith(registryBase + path.sep)) {
+        return new Response(null, { status: 403 });
+      }
       if (!fs.existsSync(filePath)) {
         return new Response(null, { status: 404 });
       }
-      const data = fs.readFileSync(filePath);
+      const data = await fs.promises.readFile(filePath);
       const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
       const mime =
         ext === 'png' ? 'image/png' :
@@ -812,7 +1396,21 @@ function registerSessionKeybinds(mode: LaunchMode) {
       return neuzosConfig.sessions.filter((s: any) => s.partitionOverwrite !== "browser");
     });
 
+    ipcMain.handle("session_launcher.get_groups", async () => {
+      return neuzosConfig.sessionGroups ?? [];
+    });
+
     ipcMain.on("session_launcher.launch_session", (_, sessionId: string, mode: LaunchMode) => {
+      // SEC-002: Validate both params before using them as CLI args.
+      const validModes: LaunchMode[] = ['normal', 'session_launcher', 'session', 'focus', 'focus_fullscreen'];
+      if (typeof sessionId !== 'string' || !/^[a-zA-Z0-9_\-]+$/.test(sessionId)) {
+        console.warn('[session_launcher.launch_session] Blocked invalid sessionId:', sessionId);
+        return;
+      }
+      if (!validModes.includes(mode)) {
+        console.warn('[session_launcher.launch_session] Blocked invalid mode:', mode);
+        return;
+      }
       const execPath = process.execPath;
       const args = [`--mode=${mode}`, `--session_id=${sessionId}`];
 
@@ -914,6 +1512,14 @@ function registerSessionKeybinds(mode: LaunchMode) {
       win?.webContents.send("event.shortcuts_state_changed", enabled);
     });
 
+    ipcMain.on("keybinds.dispatch", (_, bind: any) => {
+      try {
+        dispatchKeybindEvent(bind);
+      } catch (e) {
+        console.warn("Failed to dispatch keybind from renderer:", bind?.key, bind?.event, e);
+      }
+    });
+
     ipcMain.on("session_window.toggle_shortcuts", (event, enabled: boolean) => {
       sessionWindowShortcutsEnabled = enabled;
       const win = BrowserWindow.fromWebContents(event.sender);
@@ -924,6 +1530,90 @@ function registerSessionKeybinds(mode: LaunchMode) {
         globalShortcut.unregisterAll();
       }
       win?.webContents.send("event.shortcuts_state_changed", enabled);
+    });
+
+    ipcMain.on('viewer_window.open', (_event, type: ViewerWindowType) => {
+      try {
+        if (!viewerWindowTypes.includes(type)) return;
+        createViewerWindow(type);
+      } catch (error) {
+        console.error('Failed to open viewer window:', error);
+      }
+    });
+
+    ipcMain.on('viewer_window.close', (event) => {
+      try {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        win?.close();
+      } catch (error) {
+        console.error('Failed to close viewer window:', error);
+      }
+    });
+
+    ipcMain.on('viewer_window.minimize', (event) => {
+      try {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        win?.minimize();
+      } catch (error) {
+        console.error('Failed to minimize viewer window:', error);
+      }
+    });
+
+    ipcMain.on('viewer_window.set_always_on_top', (event, alwaysOnTop: boolean) => {
+      try {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        const type = getViewerWindowTypeFromWindow(win);
+        if (!win || !type) return;
+
+        if (alwaysOnTop) {
+          win.setAlwaysOnTop(true, 'screen-saver');
+        } else {
+          win.setAlwaysOnTop(false);
+        }
+        const viewers = ensureViewerWindowState();
+        viewers[type] = {
+          ...getViewerWindowConfig(type),
+          alwaysOnTop,
+        };
+        saveConfig(neuzosConfig);
+      } catch (error) {
+        console.error('Failed to update always-on-top state:', error);
+      }
+    });
+
+    ipcMain.handle('viewer_window.get_config', (event) => {
+      try {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        const type = getViewerWindowTypeFromWindow(win);
+        if (!type) {
+          return { error: 'Viewer window type not found' };
+        }
+
+        return {
+          type,
+          config: getViewerWindowConfig(type),
+        };
+      } catch (error: any) {
+        return { error: error?.message ?? String(error) };
+      }
+    });
+
+    ipcMain.handle('sidebar_panel.get_side', () => {
+      ensureViewerWindowState();
+      return neuzosConfig.window.sidebarSide || defaultSidebarSide;
+    });
+
+    ipcMain.on('sidebar_panel.set_side', (event, side: SidebarSide) => {
+      try {
+        if (side !== 'left' && side !== 'right') return;
+        ensureViewerWindowState();
+        neuzosConfig.window.sidebarSide = side;
+        saveConfig(neuzosConfig);
+        const win = BrowserWindow.fromWebContents(event.sender);
+        win?.webContents.send('event.sidebar_side_changed', side);
+      } catch (error) {
+        console.error('Failed to persist sidebar side:', error);
+      }
     });
 
     ipcMain.handle("shortcuts.get_state", () => {
@@ -977,13 +1667,28 @@ function registerSessionKeybinds(mode: LaunchMode) {
     });
 
     ipcMain.on("session.stop", (event, sessionId: string) => {
+      runningSessionIds.delete(sessionId);
       const win = BrowserWindow.fromWebContents(event.sender);
       win?.webContents.send("event.stop_session", sessionId);
     });
 
     ipcMain.on("session.start", (event, sessionId: string, layoutId: string) => {
+      runningSessionIds.add(sessionId);
       const win = BrowserWindow.fromWebContents(event.sender);
       win?.webContents.send("event.start_session", sessionId, layoutId);
+    });
+
+    ipcMain.on("webview.register_mouse", (_event, payload: { sessionId: string; webContentsId: number }) => {
+      const { sessionId, webContentsId } = payload ?? {};
+      if (typeof sessionId !== 'string' || typeof webContentsId !== 'number') return;
+      mouseBindWebContents.set(sessionId, webContentsId);
+    });
+
+    ipcMain.on("webview.unregister_mouse", (_event, payload: { sessionId: string }) => {
+      const { sessionId } = payload ?? {};
+      if (typeof sessionId === 'string') {
+        mouseBindWebContents.delete(sessionId);
+      }
     });
 
     ipcMain.on("session.restart", (event, sessionId: string, layoutId: string) => {
@@ -993,29 +1698,233 @@ function registerSessionKeybinds(mode: LaunchMode) {
     });
 
     ipcMain.on("session.clear_storage", async function (event, sessionId: string) {
+      if (typeof sessionId !== 'string' || !/^[a-zA-Z0-9_\-]+$/.test(sessionId)) {
+        return;
+      }
+      if (deletingSessionIds.has(sessionId)) {
+        return;
+      }
+      const { paths: partitionPaths } = getSessionPartitionPaths(sessionId);
+      if (partitionPaths.length === 0) {
+        return;
+      }
       const win = BrowserWindow.fromWebContents(event.sender);
       win?.webContents.send("event.stop_session", sessionId);
-      const sess = session.fromPartition("persist:" + sessionId);
-      await sess.clearStorageData();
-      // delete partition folder
-      try {
-        if (sessionId) {
-          const partitionFolderPath = join(app.getPath("userData"), "/Partitions", sessionId);
-          if (partitionFolderPath && partitionFolderPath.startsWith(app.getPath("userData"))) {
-            rimraf.sync(partitionFolderPath, {
-              maxRetries: 2
-            });
-          }
-        }
 
+      try {
+        const sess = session.fromPartition("persist:" + sessionId);
+        await sess.clearStorageData();
       } catch (err) {
-        console.log("Partition folder not found");
+        console.warn("Failed to clear session storage:", err);
+      }
+
+      for (const partitionPath of partitionPaths) {
+        try {
+          rimraf.sync(partitionPath, {
+            maxRetries: 2
+          });
+        } catch (err) {
+          console.warn("Failed to delete partition folder:", partitionPath, err);
+        }
       }
     });
 
-    ipcMain.on("session.clear_cache", async function (event, sessionId: string) {
-      const win = BrowserWindow.fromWebContents(event.sender);
-      win?.webContents.send("event.stop_session", sessionId);
+    ipcMain.handle("session.delete", async function (_event, sessionId: string): Promise<{ success: boolean; error?: string; deferred?: boolean; pendingPartitionDeletes?: string[] }> {
+      if (typeof sessionId !== 'string' || !/^[a-zA-Z0-9_\-]+$/.test(sessionId)) {
+        return { success: false, error: "Invalid session ID." };
+      }
+      deletingSessionIds.add(sessionId);
+      try {
+        const stopAckSenderIds = new Set<number>();
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          stopAckSenderIds.add(mainWindow.webContents.id);
+        }
+        // Only expect an ACK from sessionWindow if it is actually showing THIS session.
+        // If sessionWindow shows a different session it will never ACK for this sessionId,
+        // causing a guaranteed 5-second timeout for every non-running session delete.
+        const sessionWindowSessionId = (sessionWindow as any)?.sessionData?.sessionId;
+        if (sessionWindow && !sessionWindow.isDestroyed() && sessionWindowSessionId === sessionId) {
+          stopAckSenderIds.add(sessionWindow.webContents.id);
+        }
+        const stopAckPromise = stopAckSenderIds.size === 0
+          ? Promise.resolve(false)
+          : new Promise<boolean>((resolve) => {
+              const ackTimeoutMs = 5000;
+              const pendingAckSenderIds = new Set<number>(stopAckSenderIds);
+              const timeoutId = setTimeout(() => {
+                cleanup();
+                resolve(false);
+              }, ackTimeoutMs);
+              const cleanup = () => {
+                clearTimeout(timeoutId);
+                ipcMain.removeListener('event.stop_session_ack', ackHandler);
+              };
+              const ackHandler = (ackEvent: any, ackSessionId: string) => {
+                if (ackSessionId !== sessionId) {
+                  return;
+                }
+                if (!pendingAckSenderIds.has(ackEvent.sender.id)) {
+                  return;
+                }
+                pendingAckSenderIds.delete(ackEvent.sender.id);
+                if (pendingAckSenderIds.size === 0) {
+                  cleanup();
+                  resolve(true);
+                }
+              };
+              ipcMain.on('event.stop_session_ack', ackHandler);
+            });
+
+        mainWindow?.webContents.send("event.stop_session", sessionId);
+        sessionWindow?.webContents.send("event.stop_session", sessionId);
+        const stopAckReceived = await stopAckPromise;
+        if (!stopAckReceived) {
+          console.warn("Timed out waiting for stop_session_ack during delete for session", sessionId);
+        }
+
+        if (sessionWindow && !sessionWindow.isDestroyed() && sessionWindowSessionId === sessionId) {
+          try {
+            sessionWindow.destroy();
+          } catch (error) {
+            console.warn("Failed to destroy session window during delete for session", sessionId, error);
+          }
+          await new Promise(resolve => setTimeout(resolve, 1200));
+        }
+
+        // Use an adaptive grace period: fast path when stop ACK arrived from all expected
+        // windows, fallback to a longer wait when ACK timed out.
+        // NOTE: session.fromPartition() is intentionally NOT called here. Calling it
+        // creates the Partitions/<id> directory even for sessions that never ran, and
+        // keeps Chromium's storage/network service holding file handles — the opposite of
+        // what we want. The grace period + rimraf retries are sufficient for handle release.
+        const graceMs = stopAckReceived ? 1200 : 4000;
+        await new Promise(resolve => setTimeout(resolve, graceMs));
+        runningSessionIds.delete(sessionId);
+
+        // Delete partition folders with retries to handle delayed handle release.
+        // Electron partitions may be stored under Partitions/<id> (current) or
+        // legacy/variant paths such as Partitions/persist/<id>.
+        const { paths: partitionPathCandidates } = getSessionPartitionPaths(sessionId);
+        const partitionPaths = partitionPathCandidates.filter((partitionPath) => fs.existsSync(partitionPath));
+        // BUG-014: Increase outer retries (5→8, 800ms→1200ms) and pass internal rimraf
+        // retries. Also verify the folder is truly gone after rimraf returns: on Windows,
+        // Chromium's LevelDB may silently recreate the partition directory after rimraf
+        // unlinks its files (it detects missing files and restores the DB structure).
+        // rimraf does not throw in this case — the existsSync check converts the silent
+        // recreation into a throw so the retry loop re-attempts deletion.
+        const maxAttempts = 8;
+        let deleteResult: { success: boolean; error?: string } = { success: true };
+        if (partitionPaths.length === 0) {
+          deleteResult = { success: true };
+        } else {
+          for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+              for (const partitionPath of partitionPaths) {
+                await rimraf(partitionPath, { maxRetries: 8, retryDelay: 2000 });
+              }
+              const recreatedPath = partitionPaths.find((partitionPath) => fs.existsSync(partitionPath));
+              if (recreatedPath) {
+                throw new Error("Partition folder was recreated by Chromium/LevelDB after rimraf");
+              }
+              deleteResult = { success: true };
+              break;
+            } catch (err: any) {
+              if (attempt < maxAttempts) {
+                await new Promise(resolve => setTimeout(resolve, 1200));
+              } else {
+                deleteResult = { success: false, error: `Could not delete session data: ${err?.message ?? String(err)}` };
+              }
+            }
+          }
+        }
+
+        let deferred = false;
+        if (deleteResult.success) {
+          neuzosConfig.sessions = (neuzosConfig.sessions ?? []).filter((session: any) => session.id !== sessionId);
+          neuzosConfig.pendingPartitionDeletes = Array.isArray(neuzosConfig.pendingPartitionDeletes)
+            ? neuzosConfig.pendingPartitionDeletes.filter((id: string) => id !== sessionId)
+            : [];
+          pruneSessionReferences(neuzosConfig);
+          saveConfig(neuzosConfig);
+        } else {
+          const deleteErrorMessage = deleteResult.error ?? "";
+          const shouldDeferPartitionDeletion = /EBUSY|resource busy|locked/i.test(deleteErrorMessage);
+          if (shouldDeferPartitionDeletion) {
+            neuzosConfig.sessions = (neuzosConfig.sessions ?? []).filter((session: any) => session.id !== sessionId);
+            const pendingDeletes = new Set<string>(Array.isArray(neuzosConfig.pendingPartitionDeletes) ? neuzosConfig.pendingPartitionDeletes : []);
+            pendingDeletes.add(sessionId);
+            neuzosConfig.pendingPartitionDeletes = Array.from(pendingDeletes);
+            pruneSessionReferences(neuzosConfig);
+            saveConfig(neuzosConfig);
+            console.warn("Deferred partition deletion due to live OS file lock; queued for startup cleanup", sessionId, deleteErrorMessage);
+            deleteResult = { success: true };
+            deferred = true;
+          }
+        }
+        // Return pendingPartitionDeletes so the renderer can merge it into its config
+        // copy before saving — otherwise the renderer's config.save() would overwrite
+        // the pendingPartitionDeletes array the main process just persisted.
+        return { ...deleteResult, deferred, pendingPartitionDeletes: neuzosConfig.pendingPartitionDeletes ?? [] };
+      } finally {
+        deletingSessionIds.delete(sessionId);
+      }
+    });
+
+    ipcMain.handle("session.get_running_ids", async (): Promise<string[]> => {
+      return Array.from(runningSessionIds);
+    });
+
+    ipcMain.handle("session.clone", async (_event, sourceId: string): Promise<{ success: true; stoppedBeforeClone: boolean; newId: string } | { success: false; error: string }> => {
+      if (typeof sourceId !== 'string' || !/^[a-zA-Z0-9_\-]+$/.test(sourceId)) {
+        return { success: false, error: 'Invalid session ID.' };
+      }
+
+      let stoppedBeforeClone = false;
+      if (runningSessionIds.has(sourceId)) {
+        mainWindow?.webContents.send('event.stop_session', sourceId);
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        runningSessionIds.delete(sourceId);
+        stoppedBeforeClone = true;
+      }
+
+      const newId = Date.now().toString();
+      const { partitionsBase, paths: sourceCandidates } = getSessionPartitionPaths(sourceId);
+      const sourcePartitionPath = sourceCandidates.find((candidate) => fs.existsSync(candidate));
+      const destinationPartitionPath = path.resolve(partitionsBase, newId);
+
+      if (!destinationPartitionPath.startsWith(partitionsBase + path.sep)) {
+        return { success: false, error: 'Path validation failed.' };
+      }
+
+      // Source partition folder may not exist if the session has never been launched.
+      // In that case we still create the destination dir and return success with no files copied.
+      try {
+        fs.mkdirSync(destinationPartitionPath, {recursive: true});
+        if (!sourcePartitionPath) {
+          return { success: true, stoppedBeforeClone, newId };
+        }
+        for (const entry of ['IndexedDB', 'Local Storage', 'Cookies']) {
+          const sourceEntryPath = path.resolve(sourcePartitionPath, entry);
+          if (!fs.existsSync(sourceEntryPath)) {
+            continue;
+          }
+          const destinationEntryPath = path.resolve(destinationPartitionPath, entry);
+          await fs.promises.cp(sourceEntryPath, destinationEntryPath, {recursive: true});
+        }
+      } catch (error: any) {
+        return { success: false, error: `Could not clone session data: ${error?.message ?? String(error)}` };
+      }
+
+      return { success: true, stoppedBeforeClone, newId };
+    });
+
+    ipcMain.on("session.clear_cache", async function (_event, sessionId: string) {
+      // Skip if this session is mid-delete — calling fromPartition() here would recreate
+      // the partition folder that rimraf just removed (or is about to remove).
+      if (deletingSessionIds.has(sessionId)) return;
+      // BUG-012: Do NOT send event.stop_session back to the renderer.
+      // Doing so was unnecessary for cache clearing and created an IPC feedback loop:
+      // stop_session → stopClient → clearCache IPC → stop_session → …
       const sess = session.fromPartition("persist:" + sessionId);
       await sess.clearCache();
     });
@@ -1030,11 +1939,407 @@ function registerSessionKeybinds(mode: LaunchMode) {
     });
 
     ipcMain.handle("config.save", async (_, config: any) => {
-      saveConfig(JSON.parse(config));
-      neuzosConfig = JSON.parse(config);
+      const parsed = JSON.parse(config);
+      saveConfig(parsed);
+      neuzosConfig = parsed;
       checkKeybinds();
       registerKeybinds();
       mainWindow?.webContents?.send("event.config_changed", config);
+    });
+
+    ipcMain.handle("config.export", async (event, payload: ConfigExportPayloadV2) => {
+      try {
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+          return {success: false, error: 'Invalid export payload.'};
+        }
+
+        const parentWindow = BrowserWindow.fromWebContents(event.sender) ?? mainWindow
+        const saveOptions = {
+          defaultPath: `neuzos-config-export-${new Date().toISOString().slice(0, 10)}.json`,
+          filters: [{name: 'JSON', extensions: ['json']}],
+        };
+        const saveResult = await (parentWindow
+          ? dialog.showSaveDialog(parentWindow, saveOptions)
+          : dialog.showSaveDialog(saveOptions));
+
+        if (saveResult.canceled || !saveResult.filePath) {
+          return {success: false, error: 'canceled'};
+        }
+
+        await fs.promises.writeFile(saveResult.filePath, JSON.stringify(payload, null, 2), 'utf8');
+        return {success: true, filePath: saveResult.filePath};
+      } catch (error: any) {
+        return {success: false, error: error?.message ?? String(error)};
+      }
+    });
+
+    ipcMain.handle("config.import", async (event) => {
+      try {
+        const openWindow = BrowserWindow.fromWebContents(event.sender) ?? mainWindow;
+        const openOptions = {
+          properties: ['openFile' as const],
+          filters: [{name: 'JSON', extensions: ['json']}],
+        };
+        const openResult = await (openWindow
+          ? dialog.showOpenDialog(openWindow, openOptions)
+          : dialog.showOpenDialog(openOptions));
+
+        if (openResult.canceled || openResult.filePaths.length === 0) {
+          return {valid: false, error: 'canceled'};
+        }
+
+        const filePath = openResult.filePaths[0];
+        const stats = await fs.promises.stat(filePath);
+        if (stats.size > 5 * 1024 * 1024) {
+          return {valid: false, error: 'Import file exceeds 5 MB limit.'};
+        }
+
+        const rawText = await fs.promises.readFile(filePath, 'utf8');
+        let parsed: any;
+        try {
+          parsed = JSON.parse(rawText);
+        } catch (error: any) {
+          return {valid: false, error: `Invalid JSON: ${error?.message ?? String(error)}`};
+        }
+
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          return {valid: false, error: 'Invalid config file: expected a JSON object.'};
+        }
+
+        const importedSchemaVersion = parsed.schemaVersion;
+        if (typeof importedSchemaVersion !== 'number' || !Number.isFinite(importedSchemaVersion)) {
+          return {valid: false, error: 'Missing or invalid schemaVersion.'};
+        }
+
+        if (typeof parsed.exportedAt !== 'string') {
+          return {valid: false, error: 'Missing or invalid exportedAt.'};
+        }
+
+        let payload: ConfigImportPayload;
+        if (importedSchemaVersion === 1) {
+          const requiredFields: Array<[string, string]> = [
+            ['sessionActions', 'array'],
+            ['keyBinds', 'array'],
+            ['keyBindProfiles', 'array'],
+            ['activeKeyBindProfileId', 'string|null'],
+          ];
+
+          for (const [fieldName, fieldType] of requiredFields) {
+            if (!(fieldName in parsed)) {
+              return {valid: false, error: `Missing required field: ${fieldName}`};
+            }
+            const value = parsed[fieldName];
+            const isArray = fieldType === 'array' && Array.isArray(value);
+            const isString = fieldType === 'string' && typeof value === 'string';
+            const isNumber = fieldType === 'number' && typeof value === 'number' && Number.isFinite(value);
+            const isStringOrNull = fieldType === 'string|null' && (typeof value === 'string' || value === null);
+            if (!(isArray || isString || isNumber || isStringOrNull)) {
+              return {valid: false, error: `Invalid field type for ${fieldName}: expected ${fieldType}`};
+            }
+          }
+
+          payload = {
+            schemaVersion: 1,
+            exportedAt: parsed.exportedAt,
+            sessionActions: parsed.sessionActions,
+            keyBinds: parsed.keyBinds,
+            keyBindProfiles: parsed.keyBindProfiles,
+            activeKeyBindProfileId: parsed.activeKeyBindProfileId,
+          };
+        } else {
+          const categories = normalizeCategories(parsed.categories);
+          payload = {
+            schemaVersion: 2,
+            exportedAt: parsed.exportedAt,
+            categories: categories.length > 0 ? categories : inferPayloadCategories(parsed),
+            ...(Array.isArray(parsed.keyBinds) ? {keyBinds: parsed.keyBinds} : {}),
+            ...(Array.isArray(parsed.keyBindProfiles) ? {keyBindProfiles: parsed.keyBindProfiles} : {}),
+            ...(parsed.activeKeyBindProfileId !== undefined ? {activeKeyBindProfileId: parsed.activeKeyBindProfileId} : {}),
+            ...(Array.isArray(parsed.sessionActions) ? {sessionActions: parsed.sessionActions} : {}),
+            ...(Array.isArray(parsed.sessionGroups) ? {sessionGroups: parsed.sessionGroups} : {}),
+            ...(parsed.window !== undefined ? {window: parsed.window} : {}),
+            ...(parsed.sessionZoomLevels !== undefined ? {sessionZoomLevels: parsed.sessionZoomLevels} : {}),
+            ...(parsed.fullscreen !== undefined ? {fullscreen: parsed.fullscreen} : {}),
+            ...(parsed.autoSaveSettings !== undefined ? {autoSaveSettings: parsed.autoSaveSettings} : {}),
+            ...(parsed.defaultLaunchMode !== undefined ? {defaultLaunchMode: parsed.defaultLaunchMode} : {}),
+            ...(parsed.userAgent !== undefined ? {userAgent: parsed.userAgent} : {}),
+            ...(parsed.titleBarButtons !== undefined ? {titleBarButtons: parsed.titleBarButtons} : {}),
+            ...(Array.isArray(parsed.questLogTemplates) ? {questLogTemplates: parsed.questLogTemplates} : {}),
+          };
+        }
+
+        const warnings: string[] = [];
+        if (importedSchemaVersion > 2) {
+          warnings.push(`Imported schema version ${importedSchemaVersion} is newer than this app.`);
+        }
+
+        const knownSessionIds = new Set((neuzosConfig.sessions ?? []).map((session: any) => session.id));
+        const orphanedSessionIds = [...new Set((payload.sessionActions ?? [])
+          .map((action: any) => action?.sessionId)
+          .filter((sessionId: any) => typeof sessionId === 'string' && sessionId !== '' && !knownSessionIds.has(sessionId)))];
+        if (orphanedSessionIds.length > 0) {
+          warnings.push(`Imported session actions reference unknown session IDs: ${orphanedSessionIds.join(', ')}`);
+        }
+
+        return {valid: true, payload, warnings} satisfies ConfigImportResult;
+      } catch (error: any) {
+        return {valid: false, error: error?.message ?? String(error)};
+      }
+    });
+
+    ipcMain.handle("config.apply_import", async (_, args: ConfigApplyImportArgsV2) => {
+      try {
+        const payload = args?.payload;
+        const mode = args?.mode;
+        const requestedCategories = normalizeCategories(args?.categories);
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload) || (mode !== 'replace' && mode !== 'merge') || requestedCategories.length === 0) {
+          return {success: false, error: 'Invalid import payload.'};
+        }
+
+        const payloadCategories = new Set(getPayloadCategories(payload));
+        const categoriesToApply = requestedCategories.filter((category) => payloadCategories.has(category));
+        if (categoriesToApply.length === 0) {
+          return {success: true, added: {actions: 0, binds: 0, profiles: 0}};
+        }
+
+        let addedActions = 0;
+        let addedBinds = 0;
+        let addedProfiles = 0;
+        let didModify = false;
+
+        const applyKeybinds = () => {
+          const incomingPayload = payload as ConfigExportPayloadV2;
+          if (mode === 'replace') {
+            neuzosConfig.keyBinds = cloneData(incomingPayload.keyBinds ?? []);
+            neuzosConfig.keyBindProfiles = cloneData(incomingPayload.keyBindProfiles ?? []);
+            neuzosConfig.activeKeyBindProfileId = incomingPayload.activeKeyBindProfileId ?? null;
+            didModify = true;
+            return;
+          }
+
+          const incomingKeyBinds = incomingPayload.keyBinds ?? [];
+          const incomingProfiles = incomingPayload.keyBindProfiles ?? [];
+
+          const existingKeyBinds = [...(neuzosConfig.keyBinds ?? [])];
+          const existingKeyBindKeys = new Set(existingKeyBinds.map((bind: any) => String(bind?.key ?? '').trim().toLowerCase()));
+          for (const bind of incomingKeyBinds) {
+            const normalizedKey = String(bind?.key ?? '').trim().toLowerCase();
+            if (normalizedKey && !existingKeyBindKeys.has(normalizedKey)) {
+              existingKeyBinds.push(cloneData(bind));
+              existingKeyBindKeys.add(normalizedKey);
+              addedBinds++;
+              didModify = true;
+            }
+          }
+          neuzosConfig.keyBinds = existingKeyBinds;
+
+          const existingProfiles = [...(neuzosConfig.keyBindProfiles ?? [])];
+          const existingProfileMap = new Map(existingProfiles.map((p: any) => [p?.id, p]));
+          for (const importProfile of incomingProfiles) {
+            const existingProfile = existingProfileMap.get(importProfile?.id);
+            if (!existingProfile) {
+              existingProfiles.push(cloneData(importProfile));
+              existingProfileMap.set(importProfile?.id, importProfile);
+              addedProfiles++;
+              didModify = true;
+            } else {
+              const existingProfileKeybinds: any[] = existingProfile.keybinds ?? [];
+              const existingBindKeys = new Set(existingProfileKeybinds.map((b: any) => String(b?.key ?? '').trim().toLowerCase()));
+              let innerAdded = 0;
+              for (const bind of (importProfile?.keybinds ?? [])) {
+                const normalizedKey = String(bind?.key ?? '').trim().toLowerCase();
+                if (normalizedKey && !existingBindKeys.has(normalizedKey)) {
+                  existingProfileKeybinds.push(cloneData(bind));
+                  existingBindKeys.add(normalizedKey);
+                  innerAdded++;
+                }
+              }
+              if (innerAdded > 0) {
+                didModify = true;
+              }
+              existingProfile.keybinds = existingProfileKeybinds;
+              addedProfiles += innerAdded;
+            }
+          }
+          neuzosConfig.keyBindProfiles = existingProfiles;
+
+          if (!neuzosConfig.activeKeyBindProfileId) {
+            neuzosConfig.activeKeyBindProfileId = incomingPayload.activeKeyBindProfileId ?? null;
+            didModify = true;
+          }
+        };
+
+        const applySessionActions = () => {
+          const incomingPayload = payload as ConfigExportPayloadV2;
+          if (mode === 'replace') {
+            neuzosConfig.sessionActions = cloneData(incomingPayload.sessionActions ?? []);
+            didModify = true;
+            return;
+          }
+
+          const existingSessionActions = [...(neuzosConfig.sessionActions ?? [])];
+          const existingSessionMap = new Map(existingSessionActions.map((sa: any) => [sa?.sessionId, sa]));
+          for (const importSA of (incomingPayload.sessionActions ?? [])) {
+            const existing = existingSessionMap.get(importSA?.sessionId);
+            if (!existing) {
+              existingSessionActions.push(cloneData(importSA));
+              existingSessionMap.set(importSA?.sessionId, importSA);
+              addedActions++;
+              didModify = true;
+            } else {
+              const existingActions: any[] = existing.actions ?? [];
+              const existingActionIds = new Set(existingActions.map((a: any) => a?.id));
+              for (const action of (importSA?.actions ?? [])) {
+                if (action?.id && !existingActionIds.has(action.id)) {
+                  existingActions.push(cloneData(action));
+                  existingActionIds.add(action.id);
+                  addedActions++;
+                  didModify = true;
+                }
+              }
+              existing.actions = existingActions;
+            }
+          }
+          neuzosConfig.sessionActions = existingSessionActions;
+        };
+
+        const applyUiLayout = () => {
+          const incomingPayload = payload as ConfigExportPayloadV2;
+          const knownSessionIds = new Set((neuzosConfig.sessions ?? []).map((session: any) => session.id));
+          if (incomingPayload.window !== undefined) {
+            neuzosConfig.window = cloneData(incomingPayload.window);
+            didModify = true;
+          }
+
+          if (incomingPayload.sessionZoomLevels !== undefined) {
+            const filteredZoomLevels: Record<string, number> = {};
+            for (const [sessionId, zoomLevel] of Object.entries(incomingPayload.sessionZoomLevels ?? {})) {
+              if (knownSessionIds.has(sessionId)) {
+                filteredZoomLevels[sessionId] = zoomLevel as number;
+              }
+            }
+            neuzosConfig.sessionZoomLevels = filteredZoomLevels;
+            didModify = true;
+          }
+
+          if (incomingPayload.fullscreen !== undefined) {
+            neuzosConfig.fullscreen = cloneData(incomingPayload.fullscreen);
+            didModify = true;
+          }
+
+          if (Array.isArray(incomingPayload.sessionGroups)) {
+            const normalizedIncomingGroups = normalizeSessionGroups(incomingPayload.sessionGroups, knownSessionIds as Set<string>);
+            if (mode === 'replace') {
+              neuzosConfig.sessionGroups = normalizedIncomingGroups;
+            } else {
+              const existingGroups = [...(neuzosConfig.sessionGroups ?? [])];
+              const existingGroupMap = new Map(existingGroups.map((group: any) => [group.id, group]));
+
+              for (const importGroup of normalizedIncomingGroups) {
+                const existingGroup = existingGroupMap.get(importGroup.id);
+                if (!existingGroup) {
+                  const nextGroup = cloneData({
+                    ...importGroup,
+                    sessionIds: [...importGroup.sessionIds],
+                  });
+                  existingGroups.push(nextGroup);
+                  existingGroupMap.set(nextGroup.id, nextGroup);
+                } else {
+                  existingGroup.label = importGroup.label ?? existingGroup.label;
+                  existingGroup.sessionIds = [...importGroup.sessionIds];
+                }
+              }
+
+              neuzosConfig.sessionGroups = existingGroups;
+            }
+            didModify = true;
+          }
+        };
+
+        const applyGeneralSettings = () => {
+          const incomingPayload = payload as ConfigExportPayloadV2;
+          if (incomingPayload.autoSaveSettings !== undefined) {
+            neuzosConfig.autoSaveSettings = incomingPayload.autoSaveSettings;
+            didModify = true;
+          }
+          if (incomingPayload.defaultLaunchMode !== undefined) {
+            const allowedLaunchModes = ['normal', 'session_launcher'];
+            if (allowedLaunchModes.includes(incomingPayload.defaultLaunchMode as string)) {
+              neuzosConfig.defaultLaunchMode = incomingPayload.defaultLaunchMode;
+              didModify = true;
+            }
+          }
+          if (typeof incomingPayload.userAgent === 'string' && incomingPayload.userAgent.length <= 1024) {
+            neuzosConfig.userAgent = incomingPayload.userAgent;
+            didModify = true;
+          }
+          if (incomingPayload.titleBarButtons !== undefined) {
+            neuzosConfig.titleBarButtons = cloneData(incomingPayload.titleBarButtons);
+            didModify = true;
+          }
+        };
+
+        for (const category of categoriesToApply) {
+          switch (category) {
+            case 'keybinds':
+              applyKeybinds();
+              break;
+            case 'session-actions':
+              applySessionActions();
+              break;
+            case 'ui-layout':
+              applyUiLayout();
+              break;
+            case 'general-settings':
+              applyGeneralSettings();
+              break;
+            case 'quest-log':
+              break;
+          }
+        }
+
+        if (didModify) {
+          saveConfig(neuzosConfig);
+          checkKeybinds();
+          registerKeybinds();
+          mainWindow?.webContents?.send("event.config_changed", JSON.stringify(neuzosConfig));
+        }
+
+        return mode === 'merge'
+          ? {success: true, added: {actions: addedActions, binds: addedBinds, profiles: addedProfiles}}
+          : {success: true};
+      } catch (error: any) {
+        return {success: false, error: error?.message ?? String(error)};
+      }
+    });
+
+    ipcMain.handle("config.set_session_zoom", async (_, sessionId: string, zoomLevel: number) => {
+      try {
+        if (typeof sessionId !== 'string' || sessionId.trim() === '') {
+          return {success: false, error: 'Invalid session ID.'};
+        }
+        if (typeof zoomLevel !== 'number' || !Number.isFinite(zoomLevel) || zoomLevel < 0.5 || zoomLevel > 1.5) {
+          return {success: false, error: 'Invalid zoom level.'};
+        }
+
+        neuzosConfig.sessionZoomLevels = neuzosConfig.sessionZoomLevels ?? {};
+        neuzosConfig.sessionZoomLevels[sessionId] = zoomLevel;
+        saveConfig(neuzosConfig);
+        mainWindow?.webContents?.send("event.config_changed", JSON.stringify(neuzosConfig));
+        return {success: true};
+      } catch (error: any) {
+        return {success: false, error: error?.message ?? String(error)};
+      }
+    });
+
+    ipcMain.handle("config.set_sync_receiver", async (_, sessionId: string | null) => {
+      try {
+        neuzosConfig.syncReceiverSessionId = sessionId ?? null;
+        saveConfig(neuzosConfig);
+        mainWindow?.webContents?.send("event.sync_receiver_changed", sessionId ?? null);
+      } catch (err) {
+        console.error("Failed to update sync receiver:", err);
+      }
     });
 
     ipcMain.handle("keybinds.swap_profile", async (_, profileId: string) => {
@@ -1057,6 +2362,10 @@ function registerSessionKeybinds(mode: LaunchMode) {
       return allowedEventKeybinds;
     })
 
+    ipcMain.handle("config.get_available_ui_actions", async () => {
+      return Object.values(allowedUiActionKeybinds);
+    });
+
     ipcMain.handle('fetch.flyff_news', async () => {
       try {
         const data = await fetch('https://universe.flyff.com/news')
@@ -1077,8 +2386,12 @@ function registerSessionKeybinds(mode: LaunchMode) {
           }
         });
 
-        const userAgent = testWindow.webContents.getUserAgent();
-        testWindow.destroy();
+        let userAgent: string;
+        try {
+          userAgent = testWindow.webContents.getUserAgent();
+        } finally {
+          testWindow.destroy();
+        }
 
         return userAgent;
       } catch (e) {
@@ -1136,12 +2449,26 @@ function registerSessionKeybinds(mode: LaunchMode) {
       defaultNeuzosConfig.window = {
         main: defaultMainWindowConfig,
         settings: defaultSettingsWindowConfig,
-        session: defaultSessionWindowConfig
+        session: defaultSessionWindowConfig,
+        viewers: createDefaultViewerWindowConfigs(),
+        sidebarSide: defaultSidebarSide,
       };
     }
 
     // Merge neuzosConfig with defaults (user config takes precedence)
     neuzosConfig = {...defaultNeuzosConfig, ...neuzosConfig};
+
+    if (neuzosConfig.autoDeleteAllCachesOnStartup) {
+      void Promise.all((neuzosConfig.sessions ?? []).map((sessionConfig: any) => {
+        if (typeof sessionConfig?.id !== 'string') {
+          return Promise.resolve();
+        }
+
+        return session.fromPartition(`persist:${sessionConfig.id}`).clearCache().catch((err: any) => {
+          console.warn('Startup cache clear failed for session', sessionConfig.id, err);
+        });
+      }));
+    }
 
     // Ensure window object exists before accessing sub-properties
     if (!neuzosConfig.window) {
@@ -1167,6 +2494,24 @@ function registerSessionKeybinds(mode: LaunchMode) {
       ...defaultNeuzosConfig.window.session,
       ...(neuzosConfig.window.session || {})
     };
+
+    neuzosConfig.window.viewers = {
+      ...defaultNeuzosConfig.window.viewers,
+      ...(neuzosConfig.window.viewers || {}),
+      navi_guide: {
+        ...defaultViewerWindowConfig,
+        ...(neuzosConfig.window.viewers?.navi_guide || {}),
+      },
+      flyffipedia: {
+        ...defaultViewerWindowConfig,
+        ...(neuzosConfig.window.viewers?.flyffipedia || {}),
+      },
+    };
+
+    neuzosConfig.window.sidebarSide = neuzosConfig.window.sidebarSide || defaultSidebarSide;
+
+    ensureViewerWindowState();
+    saveConfig(neuzosConfig);
 
     // Handle different launch modes
     switch (launchArgs.mode) {

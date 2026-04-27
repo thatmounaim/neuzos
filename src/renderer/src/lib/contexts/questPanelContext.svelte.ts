@@ -1,4 +1,6 @@
-import { getContext, setContext } from 'svelte';
+import { getContext, onMount, setContext } from 'svelte';
+import { neuzosBridge } from '$lib/core';
+import type { NeuzIcon } from '$lib/types';
 
 const QUEST_PANEL_CONTEXT_KEY = Symbol('questPanel');
 const STORAGE_KEY = 'questPanel';
@@ -30,6 +32,7 @@ export type FlyffClassName = 'Mercenary' | 'Assist' | 'Magician' | 'Acrobat';
 interface CharacterState {
   id: string;
   name: string;
+  icon: NeuzIcon | null;
   flyffClass: FlyffClassName | null;
   level: number | null;
   completedQuests: string[];
@@ -45,10 +48,11 @@ interface PersistedState {
   fwcFilterEnabled: boolean;
 }
 
-function createDefaultCharacter(name: string, flyffClass: FlyffClassName | null = null): CharacterState {
+function createDefaultCharacter(name: string, flyffClass: FlyffClassName | null = null, icon: NeuzIcon | null = null): CharacterState {
   return {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
     name,
+    icon,
     flyffClass,
     level: null,
     completedQuests: [],
@@ -66,6 +70,7 @@ function loadPersistedState(): PersistedState {
         ? parsed.characters.map((c: any) => ({
             id: c.id ?? Date.now().toString(36),
             name: c.name ?? 'Character',
+            icon: c.icon ?? null,
             flyffClass: c.flyffClass ?? null,
             level: c.level ?? null,
             completedQuests: Array.isArray(c.completedQuests) ? c.completedQuests : [],
@@ -104,6 +109,7 @@ function loadPersistedState(): PersistedState {
 
 export interface QuestPanelContext {
   readonly isOpen: boolean;
+  readonly sidebarSide: 'left' | 'right';
   readonly characters: CharacterState[];
   readonly activeCharacterId: string | null;
   readonly flyffClass: FlyffClassName | null;
@@ -117,8 +123,9 @@ export interface QuestPanelContext {
   toggle: () => void;
   open: () => void;
   close: () => void;
+  setSidebarSide: (side: 'left' | 'right') => void;
   // Character management
-  addCharacter: (name: string, flyffClass: FlyffClassName) => void;
+  addCharacter: (name: string, flyffClass: FlyffClassName, icon: NeuzIcon | null) => void;
   removeCharacter: (id: string) => void;
   renameCharacter: (id: string, name: string) => void;
   setCharacterClass: (id: string, flyffClass: FlyffClassName) => void;
@@ -147,11 +154,22 @@ export function createQuestPanelContext(): QuestPanelContext {
   const persisted = loadPersistedState();
 
   let isOpen = $state(false);
+  let sidebarSide = $state<'left' | 'right'>('left');
   let characters = $state<CharacterState[]>(persisted.characters.map(c => ({ ...c })));
   let activeCharacterId = $state<string | null>(persisted.activeCharacterId);
   let recommendationFilters = $state<Record<string, boolean>>({ ...persisted.recommendationFilters });
   let levelAppropriateOnly = $state(persisted.levelAppropriateOnly);
   let fwcFilterEnabled = $state(persisted.fwcFilterEnabled);
+
+  onMount(() => {
+    neuzosBridge.sidebarPanel.getSide()
+      .then((side) => {
+        sidebarSide = side;
+      })
+      .catch((error) => {
+        console.warn('[QuestPanel] Failed to load sidebar side from config:', error);
+      });
+  });
 
   // Derived index for the active character -- we use a getter pattern to avoid $derived proxy issues
   function getActiveChar(): CharacterState | null {
@@ -168,6 +186,7 @@ export function createQuestPanelContext(): QuestPanelContext {
         characters: characters.map(c => ({
           id: c.id,
           name: c.name,
+          icon: c.icon ?? null,
           flyffClass: c.flyffClass,
           level: c.level,
           completedQuests: [...c.completedQuests],
@@ -199,6 +218,7 @@ export function createQuestPanelContext(): QuestPanelContext {
 
   return {
     get isOpen() { return isOpen; },
+    get sidebarSide() { return sidebarSide; },
     get characters() { return characters; },
     get activeCharacterId() { return activeCharacterId; },
     get flyffClass() { return getActiveChar()?.flyffClass ?? null; },
@@ -215,10 +235,14 @@ export function createQuestPanelContext(): QuestPanelContext {
     },
     open() { isOpen = true; },
     close() { isOpen = false; },
+    setSidebarSide(side: 'left' | 'right') {
+      sidebarSide = side;
+      neuzosBridge.sidebarPanel.setSide(side);
+    },
 
     // -- Character management --
-    addCharacter(name: string, flyffClass: FlyffClassName) {
-      const char = createDefaultCharacter(name, flyffClass);
+    addCharacter(name: string, flyffClass: FlyffClassName, icon: NeuzIcon | null) {
+      const char = createDefaultCharacter(name, flyffClass, icon);
       characters = [...characters, char];
       activeCharacterId = char.id;
       save();

@@ -10,7 +10,9 @@
   import {Input} from "$lib/components/ui/input";
   import {Switch} from "$lib/components/ui/switch";
   import * as Alert from "$lib/components/ui/alert";
+  import KeyBinder from "../../Shared/KeyBinder.svelte";
   import type {NeuzConfig, SessionActions} from "$lib/types";
+  import IconPicker from "../../Shared/IconPicker.svelte";
   import {Plus, Trash2, ChevronsUpDown, Check, ChevronDown, ChevronUp, AlertCircleIcon} from "@lucide/svelte";
 
   const modifierOptions = [
@@ -64,315 +66,6 @@
     "printscreen",
     // Punctuation
     ")", "!", "@", "#", "$", "%", "^", "&", "*", "(", ":", ";", ":", "+", "=", "<", ",", "_", "-", ">", ".", "?", "/", "~", "`", "{", "]", "[", "|", "\\", "}"
-  ];
-
-  const actionIcons: string[] = [
-    "skill/acrobat_aimed_shot",
-    "skill/acrobat_arrow_rain",
-    "skill/acrobat_auto_shot",
-    "skill/acrobat_bow_mastery",
-    "skill/acrobat_counter_attack",
-    "skill/acrobat_cross_line",
-    "skill/acrobat_dark_illusion",
-    "skill/acrobat_deadly_swing",
-    "skill/acrobat_fast_walker",
-    "skill/acrobat_junk_arrow",
-    "skill/acrobat_perfect_block",
-    "skill/acrobat_pulling",
-    "skill/acrobat_silent_shot",
-    "skill/acrobat_slow_step",
-    "skill/acrobat_snatch",
-    "skill/acrobat_yo-yo_mastery",
-    "skill/arcanist_aqua_veil",
-    "skill/arcanist_blaze_eater",
-    "skill/arcanist_earth_counter",
-    "skill/arcanist_earthen_fortitude",
-    "skill/arcanist_electric_counter",
-    "skill/arcanist_enhanced_blinkpool",
-    "skill/arcanist_entangling_roots",
-    "skill/arcanist_eva_storm",
-    "skill/arcanist_fire_counter",
-    "skill/arcanist_gale",
-    "skill/arcanist_gust",
-    "skill/arcanist_hellfire",
-    "skill/arcanist_iceshard",
-    "skill/arcanist_ignite",
-    "skill/arcanist_incinerate",
-    "skill/arcanist_infusion",
-    "skill/arcanist_stone_pillar",
-    "skill/arcanist_stormveil_cloak",
-    "skill/arcanist_swampy_area",
-    "skill/arcanist_thunder_strike",
-    "skill/arcanist_tidal_omen",
-    "skill/arcanist_voltguard",
-    "skill/arcanist_water_counter",
-    "skill/arcanist_wind_counter",
-    "skill/arcanist_zephyrsgrace",
-    "skill/assist_accuracy",
-    "skill/assist_beef_up",
-    "skill/assist_burst_crack",
-    "skill/assist_cannon_ball",
-    "skill/assist_cats_reflex",
-    "skill/assist_circle_healing",
-    "skill/assist_haste",
-    "skill/assist_heal",
-    "skill/assist_heap_up",
-    "skill/assist_mental_sign",
-    "skill/assist_moon_beam",
-    "skill/assist_patience",
-    "skill/assist_power_fist",
-    "skill/assist_prevention",
-    "skill/assist_quick_step",
-    "skill/assist_resurrection",
-    "skill/assist_stonehand",
-    "skill/assist_temping_hole",
-    "skill/billposter_asalraalaikum",
-    "skill/billposter_asmodeus",
-    "skill/billposter_baraqijal_esna",
-    "skill/billposter_belial_smashing",
-    "skill/billposter_bgvur_tialbold",
-    "skill/billposter_blood_fist",
-    "skill/billposter_piercing_serpent",
-    "skill/billposter_sonichand",
-    "skill/billposter_surys_tenacity",
-    "skill/blade_armor_penetrate",
-    "skill/blade_berserk",
-    "skill/blade_blade_dance",
-    "skill/blade_cross_strike",
-    "skill/blade_hawk_attack",
-    "skill/blade_rending_entry",
-    "skill/blade_silent_strike",
-    "skill/blade_sonic_blade",
-    "skill/blade_spring_attack",
-    "skill/crackshooter_advanced_trap",
-    "skill/crackshooter_barrage",
-    "skill/crackshooter_condor_dive",
-    "skill/crackshooter_devastating_sting",
-    "skill/crackshooter_eagle_eye",
-    "skill/crackshooter_heavyshot",
-    "skill/crackshooter_marked_prey",
-    "skill/crackshooter_repelling_shot",
-    "skill/crackshooter_swift_hands",
-    "skill/crackshooter_trap_aoe",
-    "skill/crackshooter_trap_binding",
-    "skill/crackshooter_trap_blast",
-    "skill/crackshooter_trap_debuff",
-    "skill/crackshooter_trap_dot",
-    "skill/elementor_blizzard",
-    "skill/elementor_burningfield",
-    "skill/elementor_earth_mastery",
-    "skill/elementor_earthquake",
-    "skill/elementor_electric_shock",
-    "skill/elementor_eye_of_the_storm",
-    "skill/elementor_firebird",
-    "skill/elementor_fire_mastery",
-    "skill/elementor_iceshark",
-    "skill/elementor_lightning_mastery",
-    "skill/elementor_lightning_storm",
-    "skill/elementor_lightning_strike",
-    "skill/elementor_meteo_shower",
-    "skill/elementor_poison_cloud",
-    "skill/elementor_sandstorm",
-    "skill/elementor_stone_spear",
-    "skill/elementor_void",
-    "skill/elementor_water_mastery",
-    "skill/elementor_windfield",
-    "skill/elementor_wind_mastery",
-    "skill/forcemaster_aura_bomb",
-    "skill/forcemaster_bubbles_blessing",
-    "skill/forcemaster_clear_reflection",
-    "skill/forcemaster_concentration",
-    "skill/forcemaster_enlightenment",
-    "skill/forcemaster_force_grip",
-    "skill/forcemaster_initiating_strike",
-    "skill/forcemaster_ire_of_iblis",
-    "skill/forcemaster_marked_attack",
-    "skill/forcemaster_medidate",
-    "skill/forcemaster_nen_acquisition",
-    "skill/forcemaster_nen_overflow",
-    "skill/forcemaster_nen_release",
-    "skill/forcemaster_nen_sphere",
-    "skill/forcemaster_nenstorage",
-    "skill/forcemaster_power_palm",
-    "skill/forcemaster_staggering_strike",
-    "skill/forcemaster_tenacity",
-    "skill/forcemaster_touch_of_rhisis",
-    "skill/harlequin_agility",
-    "skill/harlequin_alter_ego",
-    "skill/harlequin_critical_stab",
-    "skill/harlequin_harlequins_charge",
-    "skill/harlequin_harlequins_greeting",
-    "skill/harlequin_master_of_toxic",
-    "skill/harlequin_risk_management",
-    "skill/harlequin_shadow_strike",
-    "skill/harlequin_special_yo-yo_mastery",
-    "skill/harlequin_toxicanalogy",
-    "skill/harlequin_toxic_assault",
-    "skill/harlequin_toxic_cloud",
-    "skill/harlequin_toxic_fury",
-    "skill/harlequin_yo-yo_storm",
-    "skill/jester_critical_swing",
-    "skill/jester_enchant_absorb",
-    "skill/jester_enchant_blood",
-    "skill/jester_enchant_poison",
-    "skill/jester_escape",
-    "skill/jester_hit_of_penya",
-    "skill/jester_jesters_blast",
-    "skill/jester_multi-stab",
-    "skill/jester_vital_stab",
-    "skill/knight_call_of_fury",
-    "skill/knight_charge",
-    "skill/knight_earth_ddivider",
-    "skill/knight_grand_rage",
-    "skill/knight_guard",
-    "skill/knight_heart_of_fury",
-    "skill/knight_heart_of_sacrifice",
-    "skill/knight_pain_dealer",
-    "skill/knight_pain_reflection",
-    "skill/knight_power_stomp",
-    "skill/knight_power_swing",
-    "skill/knight_rage",
-    "skill/magician_blinkpool",
-    "skill/magician_fire_strike",
-    "skill/magician_flame_ball",
-    "skill/magician_flame_geyser",
-    "skill/magician_ice_missile",
-    "skill/magician_lightning_ball",
-    "skill/magician_lightning_ram",
-    "skill/magician_lightning_shock",
-    "skill/magician_mental_strike",
-    "skill/magician_rock_crash",
-    "skill/magician_rooting",
-    "skill/magician_stone_spike",
-    "skill/magician_strongwind",
-    "skill/magician_swordwind",
-    "skill/magician_waterball",
-    "skill/magician_water_well",
-    "skill/magician_windcutter",
-    "skill/mentalist_additional_damage_disable",
-    "skill/mentalist_additional_damage_weaken",
-    "skill/mentalist_aether_rend",
-    "skill/mentalist_chimeras_curse",
-    "skill/mentalist_cimetieres_scream",
-    "skill/mentalist_damnation_surge",
-    "skill/mentalist_debuff_damage_reduction",
-    "skill/mentalist_enhanced_blinkpool",
-    "skill/mentalist_hexes_lament",
-    "skill/mentalist_liliths_gaze",
-    "skill/mentalist_malefic_detonation",
-    "skill/mercenary_axe_mastery",
-    "skill/mercenary_blazing_sword",
-    "skill/mercenary_blindside",
-    "skill/mercenary_bloody_strike",
-    "skill/mercenary_empower_weapon",
-    "skill/mercenary_guillotine",
-    "skill/mercenary_keenwheel",
-    "skill/mercenary_protection",
-    "skill/mercenary_reflex_hit",
-    "skill/mercenary_shield_bash",
-    "skill/mercenary_slash",
-    "skill/mercenary_smite_axe",
-    "skill/mercenary_sneaker",
-    "skill/mercenary_special_hit",
-    "skill/mercenary_sword_mastery",
-    "skill/psykeeper_crucio_spell",
-    "skill/psykeeper_demonology",
-    "skill/psykeeper_gravity_well",
-    "skill/psykeeper_maximum_crisis",
-    "skill/psykeeper_psychic_bomb",
-    "skill/psykeeper_psychic_square",
-    "skill/psykeeper_psychic_wall",
-    "skill/psykeeper_satanology",
-    "skill/psykeeper_spirit_bomb",
-    "skill/ranger_boomburst",
-    "skill/ranger_critical_shot",
-    "skill/ranger_flame_arrow",
-    "skill/ranger_ice_arrow",
-    "skill/ranger_nature",
-    "skill/ranger_piercing_arrow",
-    "skill/ranger_poison_arrow",
-    "skill/ranger_silent_arrow",
-    "skill/ranger_triple_shot",
-    "skill/ringmaster_barrier_of_life",
-    "skill/ringmaster_geburah_tiphreth",
-    "skill/ringmaster_gvur_tialla",
-    "skill/ringmaster_heal_rain",
-    "skill/ringmaster_holycross",
-    "skill/ringmaster_holyguard",
-    "skill/ringmaster_merkaba_hanzelrusha",
-    "skill/ringmaster_protect",
-    "skill/ringmaster_spirit_fortune",
-    "skill/seraph_blessing_of_the_wise",
-    "skill/seraph_celestial_barrier",
-    "skill/seraph_divinecross",
-    "skill/seraph_flow_of_salvation",
-    "skill/seraph_gloria_patri",
-    "skill/seraph_hammer_of_judgement",
-    "skill/seraph_heavens_step",
-    "skill/seraph_hymn-damage_reduction",
-    "skill/seraph_hymn-liberation",
-    "skill/seraph_hymn-perfect_performance",
-    "skill/seraph_kyrie_eleison",
-    "skill/seraph_sacrifice",
-    "skill/seraph_soul_of_rhisis",
-    "skill/slayer_ambidextrous",
-    "skill/slayer_blood_armor",
-    "skill/slayer_bloody_rush",
-    "skill/slayer_bloody_thorn",
-    "skill/slayer_cross_of_blood",
-    "skill/slayer_first_blood",
-    "skill/slayer_left_handed",
-    "skill/slayer_master_of_axe",
-    "skill/slayer_master_of_sword",
-    "skill/slayer_stigma_iii",
-    "skill/slayer_stigma_ii",
-    "skill/slayer_stigma_i",
-    "skill/slayer_storm_slash",
-    "skill/slayer_storm_strike",
-    "skill/slayer_tempest_barrage",
-    "skill/templar_deaths_rush",
-    "skill/templar_enhanced_hp_recovery",
-    "skill/templar_enhanced_magical_defense",
-    "skill/templar_enhanced_physical_defense",
-    "skill/templar_execution_of_justice",
-    "skill/templar_four_strikes",
-    "skill/templar_increased_hp_recovery",
-    "skill/templar_increased_hp_regeneration",
-    "skill/templar_last_one_standing",
-    "skill/templar_maelstrom_strike",
-    "skill/templar_rush_attack",
-    "skill/templar_shield_crush",
-    "skill/templar_shield_mastery",
-    "skill/templar_sky_splitter",
-    "skill/templar_templars_call",
-    "skill/templar_undying",
-    "skill/vagrant_clean_hit",
-    "skill/vagrant_flurry",
-    "skill/vagrant_over_cutter",
-    "skill/pt_global",
-    "skill/pt_link",
-    "skill/pt_giftbox",
-    "skill/pt_luckydrop",
-    "skill/couple_blessingsky",
-    "skill/couple_fieldouting",
-    "skill/couple_goldenluck",
-    "skill/couple_happyjump",
-    "skill/couple_partytogether",
-    "skill/couple_staminaboost",
-    "skill/couple_stroll",
-    "skill/couple_swiftrecovery",
-    "skill/action_slot",
-    "motions/attack",
-    "motions/cheer",
-    "motions/follow",
-    "motions/petgrace",
-    "motions/swap_skillpage",
-    "motions/swap_statpage",
-    "items/food_sushi",
-    "items/vital_fp",
-    "items/pill_gold",
-    "items/refresher_mp",
-    "items/wings"
   ];
 
   function parseKeybind(keybind: string): { modifier: string; key: string } {
@@ -653,6 +346,7 @@
                           <Table.Head class="w-[200px]">Label</Table.Head>
                           <Table.Head class="w-[120px]">Modifier</Table.Head>
                           <Table.Head class="w-[120px]">Key</Table.Head>
+                          <Table.Head class="w-[120px]">Record</Table.Head>
                           <Table.Head class="w-[100px]">Cast Time(s)</Table.Head>
                           <Table.Head class="w-[100px]">Cooldown(s)</Table.Head>
                           <Table.Head class="w-[120px]">CD Category</Table.Head>
@@ -690,44 +384,25 @@
                                   <ChevronDown class="h-4 w-4"/>
                                 </Button>
                               </div>
-                            </Table.Cell>
-                            <!-- Icon -->
+                            </Table.Cell>                            <!-- Icon -->
                             <Table.Cell class="py-3">
-                              <Popover.Root open={state.iconOpen}
-                                            onOpenChange={(open) => { if (comboboxStates[sessionActions.sessionId]?.[index]) comboboxStates[sessionActions.sessionId][index].iconOpen = open; }}>
-                                <Popover.Trigger
-                                  class="w-10 h-10 p-0 inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
-                                  <img class="size-8" src="icons/{action.icon.slug}.png" alt=""/>
-                                </Popover.Trigger>
-                                <Popover.Content class="w-[280px] p-0">
-                                  <Command.Root shouldFilter={true}>
-                                    <Command.Input placeholder="Search icons..." class="h-10"/>
-                                    <Command.Empty>No icon found.</Command.Empty>
-                                    <Command.List class="max-h-[320px]">
-                                      <Command.Group>
-                                        {#each actionIcons as icon}
-                                          {@const displayName = icon.includes('/') ? icon.split('/')[1] : icon}
-                                          <Command.Item
-                                            value={icon}
-                                            keywords={[icon.replace(/_/g, ' ').replace(/\//g, ' ').toLowerCase()]}
-                                            onSelect={() => {
-                                                action.icon.slug = icon;
-                                                state.iconOpen = false;
-                                                if(action.label === 'New Action' || actionIcons.filter(ai => (ai.includes('/') ? ai.split('/')[1] : ai) === action.label.toLowerCase()).length > 0) {
-                                                  action.label = displayName;
-                                                }
-                                              }}
-                                            class="py-2"
-                                          >
-                                            <img class="size-6 mr-2" src="icons/{icon}.png" alt=""/>
-                                            <span class="text-xs truncate">{displayName}</span>
-                                          </Command.Item>
-                                        {/each}
-                                      </Command.Group>
-                                    </Command.List>
-                                  </Command.Root>
-                                </Popover.Content>
-                              </Popover.Root>
+                              <IconPicker
+                                bind:selected={action.icon}
+                                onSelect={(iconSlug, previousIconSlug) => {
+                                  const displayName = iconSlug.includes('/') ? iconSlug.split('/').at(-1) ?? iconSlug : iconSlug;
+                                  const previousDisplayName = previousIconSlug
+                                    ? (previousIconSlug.includes('/') ? previousIconSlug.split('/').at(-1) ?? previousIconSlug : previousIconSlug)
+                                    : null;
+
+                                  if (action.label === 'New Action' || (previousDisplayName && action.label === previousDisplayName)) {
+                                    action.label = displayName;
+                                  }
+
+                                  if (comboboxStates[sessionActions.sessionId]?.[index]) {
+                                    comboboxStates[sessionActions.sessionId][index].iconOpen = false;
+                                  }
+                                }}
+                              />
                             </Table.Cell>
 
                             <!-- Label -->
@@ -820,6 +495,19 @@
                                   </Command.Root>
                                 </Popover.Content>
                               </Popover.Root>
+                            </Table.Cell>
+
+                            <!-- Record -->
+                            <Table.Cell class="py-3">
+                              <KeyBinder
+                                actionId={action.id}
+                                currentKey={action.ingameKey}
+                                onBind={(key) => {
+                                  action.ingameKey = key;
+                                  return true;
+                                }}
+                                onCancel={() => {}}
+                              />
                             </Table.Cell>
 
                             <!-- Cast Time -->
@@ -943,5 +631,6 @@
     {/if}
   </Card.Content>
 </Card.Root>
+
 
 
