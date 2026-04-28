@@ -275,3 +275,11 @@ window.open = function(...args) {
     </Button>
   {/if}
 </div>
+
+<svelte:head>
+  {#if sessionData}
+    <title>NeuzOS - {sessionData.sessionConfig.label}</title>
+  {:else}
+    <title>NeuzOS - Loading Session...</title>
+    {/if}
+</svelte:head>
