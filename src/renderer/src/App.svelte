@@ -1,5 +1,6 @@
 <script lang="ts">
   import {ModeWatcher} from "mode-watcher";
+  import {Toaster} from 'svelte-sonner';
   import MainBar from "./components/MainWindow/MainBar.svelte";
   import {onDestroy, onMount, setContext} from "svelte";
   import {neuzosBridge, initElectronApi} from "$lib/core";
@@ -488,6 +489,7 @@
   })
 </script>
 <ModeWatcher/>
+<Toaster/>
 {#if isLoading}
   <div class="w-full h-full flex items-center justify-center bg-background">
     <div class="flex flex-col items-center gap-4">

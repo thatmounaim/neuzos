@@ -3,19 +3,22 @@
   import NeuzClient from '../../../Shared/NeuzClient.svelte';
   import { Globe } from '@lucide/svelte';
   import { getContext } from 'svelte';
+  import { getWidgetsContext } from '$lib/contexts/widgetsContext.svelte';
   import type { MainWindowState } from '$lib/types';
 
   interface Props {
+    widgetId?: string;
     visible?: boolean;
     onClose?: () => void;
     onHide?: () => void;
     data?: { sessionId?: string };
   }
 
-  let { visible = true, onClose, onHide, data }: Props = $props();
+  let { widgetId, visible = true, onClose, onHide, data }: Props = $props();
   let windowRef: FloatingWindow;
 
   const mainWindowState = getContext<MainWindowState>('mainWindowState');
+  const widgetsContext = getWidgetsContext();
 
   const sessionId = $derived(data?.sessionId);
   const session = $derived(mainWindowState.sessions.find(s => s.id === sessionId));
@@ -30,6 +33,13 @@
   export function reset() {
     windowRef?.reset();
   }
+
+  // Watch for reset signals
+  $effect(() => {
+    if (widgetsContext.widgetResetSignal.value === widgetId) {
+      reset();
+    }
+  });
 </script>
 
 <div style="display: {visible ? 'block' : 'none'};">
