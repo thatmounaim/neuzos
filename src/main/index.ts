@@ -433,8 +433,8 @@ const allowedUiActionKeybinds: Record<string, UIActionDescriptor> = {
 };
 
 const userDataPath = app.getPath("userData");
-const configDirectoryPath = join(userDataPath, "/neuzos_config/");
-const registryDirectoryPath = join(userDataPath, "flyff-registry");
+const configDirectoryPath = path.join(userDataPath, "/neuzos_config/");
+const registryDirectoryPath = path.join(userDataPath, "flyff-registry");
 
 if (!app.getPath("userData").includes("neuzos_config")) {
   fs.mkdirSync(configDirectoryPath, {recursive: true});
@@ -443,7 +443,7 @@ if (!app.getPath("userData").includes("neuzos_config")) {
 
 function saveConfig(conf: any): void {
   console.log("Saving config...");
-  const configPath = join(configDirectoryPath, "/config.json");
+  const configPath = path.join(configDirectoryPath, "/config.json");
   console.log("Saving config to:", configPath);
   fs.writeFileSync(configPath, JSON.stringify(conf, null, 2));
 }
@@ -454,7 +454,7 @@ function loadConfig(reload: boolean = false): Promise<any> {
       resolve(neuzosConfig);
     } else {
       console.log("Loading config...");
-      const configPath = join(configDirectoryPath, "/config.json");
+      const configPath = path.join(configDirectoryPath, "/config.json");
       console.log("Loading config from:", configPath);
       // Check if file exists first
       if (!fs.existsSync(configPath)) {
@@ -678,7 +678,7 @@ function createViewerWindow(type: ViewerWindowType): BrowserWindow | null {
     ...(process.platform === 'linux' ? {icon} : {}),
     webPreferences: {
       contextIsolation: true,
-      preload: join(__dirname, "../preload/index.js"),
+      preload: path.join(__dirname, "../preload/index.js"),
       sandbox: false,
       webviewTag: true,
       zoomFactor: 1.0,
@@ -728,7 +728,7 @@ function createViewerWindow(type: ViewerWindowType): BrowserWindow | null {
 
   const viewerUrl = is.dev && process.env["ELECTRON_RENDERER_URL"]
     ? `${process.env["ELECTRON_RENDERER_URL"]}/viewer.html?type=${type}`
-    : `${pathToFileURL(join(__dirname, "../renderer/viewer.html")).href}?type=${type}`;
+    : `${pathToFileURL(path.join(__dirname, "../renderer/viewer.html")).href}?type=${type}`;
 
   window.webContents.loadURL(viewerUrl).catch((error) => {
     console.error('Failed to load viewer window:', error);
@@ -754,7 +754,7 @@ function createSettingsWindow(): void {
     ...(process.platform === "linux" ? {icon} : {}),
     webPreferences: {
       contextIsolation: true,
-      preload: join(__dirname, "../preload/index.js"),
+      preload: path.join(__dirname, "../preload/index.js"),
       sandbox: false,
       zoomFactor: neuzosConfig.window.settings.zoom ?? 1.0,
     }
@@ -793,7 +793,7 @@ function createSettingsWindow(): void {
   if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
     settingsWindow.webContents.loadURL(process.env["ELECTRON_RENDERER_URL"] + "/settings.html");
   } else {
-    settingsWindow.webContents.loadFile(join(__dirname, "../renderer/settings.html"));
+    settingsWindow.webContents.loadFile(path.join(__dirname, "../renderer/settings.html"));
   }
 }
 
@@ -814,7 +814,7 @@ function createSessionLauncherWindow(): void {
     ...(process.platform === "linux" ? {icon} : {}),
     webPreferences: {
       contextIsolation: true,
-      preload: join(__dirname, "../preload/index.js"),
+      preload: path.join(__dirname, "../preload/index.js"),
       sandbox: false,
       zoomFactor: neuzosConfig.window.main.zoom ?? 1.0,
     }
@@ -851,7 +851,7 @@ function createSessionLauncherWindow(): void {
   if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
     sessionWindow.webContents.loadURL(process.env["ELECTRON_RENDERER_URL"] + "/session_launcher.html");
   } else {
-    sessionWindow.webContents.loadFile(join(__dirname, "../renderer/session_launcher.html"));
+    sessionWindow.webContents.loadFile(path.join(__dirname, "../renderer/session_launcher.html"));
   }
 }
 
@@ -897,7 +897,7 @@ function createSessionWindow(mode: LaunchMode, sessionId: string): void {
     ...(process.platform === "linux" ? {icon} : {}),
     webPreferences: {
       contextIsolation: true,
-      preload: join(__dirname, "../preload/index.js"),
+      preload: path.join(__dirname, "../preload/index.js"),
       sandbox: false,
       webviewTag: true,
       partition: `persist:${sessionId}`,
@@ -978,7 +978,7 @@ function createSessionWindow(mode: LaunchMode, sessionId: string): void {
   if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
     sessionWindow.webContents.loadURL(process.env["ELECTRON_RENDERER_URL"] + "/session.html");
   } else {
-    sessionWindow.webContents.loadFile(join(__dirname, "../renderer/session.html"));
+    sessionWindow.webContents.loadFile(path.join(__dirname, "../renderer/session.html"));
   }
 }
 
@@ -998,7 +998,7 @@ function createMainWindow(): void {
     ...(process.platform === "linux" ? {icon} : {}),
     webPreferences: {
       contextIsolation: true,
-      preload: join(__dirname, "../preload/index.js"),
+      preload: path.join(__dirname, "../preload/index.js"),
       sandbox: false,
       webviewTag: true,
       zoomFactor: neuzosConfig.window.main.zoom ?? 1.0,
@@ -1090,7 +1090,7 @@ function createMainWindow(): void {
   if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
     mainWindow.webContents.loadURL(process.env["ELECTRON_RENDERER_URL"]);
   } else {
-    mainWindow.webContents.loadFile(join(__dirname, "../renderer/index.html"));
+    mainWindow.webContents.loadFile(path.join(__dirname, "../renderer/index.html"));
   }
 }
 
@@ -1376,7 +1376,7 @@ function registerSessionKeybinds(mode: LaunchMode) {
 
     ipcMain.handle('registry.rebuild', async () => {
       // Delete existing registry and rebuild
-      const registryPath = join(registryDirectoryPath, 'registry.json');
+      const registryPath = path.join(registryDirectoryPath, 'registry.json');
       if (fs.existsSync(registryPath)) fs.unlinkSync(registryPath);
       const onProgress = (progress: ProgressEvent) => {
         BrowserWindow.getAllWindows().forEach(win => {

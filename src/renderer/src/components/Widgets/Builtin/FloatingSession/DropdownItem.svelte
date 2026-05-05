@@ -2,8 +2,9 @@
   import { getWidgetsContext } from '$lib/contexts/widgetsContext.svelte';
   import { getContext } from 'svelte';
   import { Button } from '$lib/components/ui/button';
-  import { Globe, Eye, EyeOff, X } from '@lucide/svelte';
+  import { Globe, Eye, EyeOff, X, RotateCcw } from '@lucide/svelte';
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+  import { toast } from 'svelte-sonner';
   import type { MainWindowState } from '$lib/types';
 
   const FLOATING_SESSION_WIDGET_TYPE = 'widget.builtin.floating_session';
@@ -27,6 +28,20 @@
 
   function destroyWidget(id: string) {
     widgetsContext.destroyWidget(id);
+  }
+
+  function resetPosition(sessionId: string) {
+    // Find the widget for this session
+    const widget = widgets.find(w => w.data?.sessionId === sessionId);
+    if (widget) {
+      // Clear the stored position from localStorage
+      widgetsContext.resetFloatingSessionPosition(sessionId);
+      // Trigger the widget reset to reposition immediately
+      widgetsContext.triggerWidgetReset(widget.id);
+      toast.message('Position Reset', {
+        description: 'Floating session position has been reset'
+      });
+    }
   }
 
   const floatableSessions = $derived(
@@ -53,7 +68,7 @@
       <Globe class="h-4 w-4 mr-2" />
       <span>Floating Sessions</span>
     </DropdownMenu.SubTrigger>
-    <DropdownMenu.SubContent class="min-w-44">
+    <DropdownMenu.SubContent class="min-w-44 overflow-visible">
       {#if availableSessionsForFloating.length > 0}
         {#each availableSessionsForFloating as sessionInfo}
           <DropdownMenu.Item onclick={() => createWidget(sessionInfo.id)}>
@@ -107,7 +122,25 @@
             </div>
           </div>
         {/each}
+
+        <DropdownMenu.Separator />
+        <DropdownMenu.Sub>
+          <DropdownMenu.SubTrigger class="cursor-pointer">
+            <RotateCcw class="h-3 w-3 mr-2" />
+            <span>Reset Position</span>
+          </DropdownMenu.SubTrigger>
+          <DropdownMenu.SubContent>
+            {#each widgets as widget}
+              {@const sessionInfo = floatableSessions.find(s => s.id === widget.data?.sessionId)}
+              <DropdownMenu.Item onclick={() => resetPosition(widget.data?.sessionId)}>
+                <img class="w-4 h-4 mr-2" src="icons/{sessionInfo?.icon || 'misc/browser'}.png" alt="" />
+                <span>{sessionInfo?.label || 'Unknown Session'}</span>
+              </DropdownMenu.Item>
+            {/each}
+          </DropdownMenu.SubContent>
+        </DropdownMenu.Sub>
       {/if}
     </DropdownMenu.SubContent>
   </DropdownMenu.Sub>
 {/if}
+

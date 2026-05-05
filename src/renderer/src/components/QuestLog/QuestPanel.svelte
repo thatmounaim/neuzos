@@ -5,6 +5,7 @@
   import { X, Search, Plus, Minus, Settings2, Trash2, Pencil, Check, ChevronDown, ChevronRight, PanelLeft, PanelRight } from '@lucide/svelte';
   import { Button } from '$lib/components/ui/button';
   import { Input } from '$lib/components/ui/input';
+  import * as Dialog from '$lib/components/ui/dialog';
   import * as Popover from '$lib/components/ui/popover';
   import * as Command from '$lib/components/ui/command';
   import * as ContextMenu from '$lib/components/ui/context-menu';
@@ -21,7 +22,7 @@
   let searchFilter = $state('');
   let collapsed = $state(false);
   let showSettings = $state(false);
-  let addingCharacter = $state(false);
+  let createCharacterModalOpen = $state(false);
   let selectedSessionId = $state<string | null>(null);
   let sessionComboOpen = $state(false);
   let classComboOpen = $state(false);
@@ -55,12 +56,12 @@
 
   function beginNewCharacter() {
     clearNewCharacterForm();
-    addingCharacter = true;
+    createCharacterModalOpen = true;
   }
 
   function cancelNewCharacter() {
     clearNewCharacterForm();
-    addingCharacter = false;
+    createCharacterModalOpen = false;
   }
 
   function selectSession(sessionId: string) {
@@ -199,39 +200,110 @@
       {/if}
     {/each}
 
-    {#if addingCharacter}
-      <div class="flex flex-col gap-1.5 shrink-0 py-0.5">
-        <div class="flex items-center gap-0.5">
-          {#if mainWindowState.sessions.length > 0}
-            <Popover.Root bind:open={sessionComboOpen}>
-              <Popover.Trigger class="h-6 w-24 px-2 inline-flex items-center justify-between gap-1 rounded border border-input bg-background text-xs font-medium text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground">
-                <span class="truncate">
-                  {#if selectedSessionId}
-                    {@const selectedSession = mainWindowState.sessions.find((session) => session.id === selectedSessionId)}
-                    {selectedSession?.label ?? 'Session'}
-                  {:else}
-                    Session
+    <Dialog.Root bind:open={createCharacterModalOpen}>
+      <Dialog.Trigger>
+        <Button size="icon" variant="ghost" class="size-5 shrink-0" onclick={beginNewCharacter}>
+          <Plus class="size-3" />
+        </Button>
+      </Dialog.Trigger>
+      <Dialog.Content class="sm:max-w-md">
+        <Dialog.Header>
+          <Dialog.Title>Add Character</Dialog.Title>
+          <Dialog.Description>Create a quest log character from a session or manually.</Dialog.Description>
+        </Dialog.Header>
+
+        <div class="space-y-3 py-1">
+          <div class="space-y-1.5">
+            <span class="text-xs text-muted-foreground">Session (optional)</span>
+            {#if mainWindowState.sessions.length > 0}
+              <div class="flex items-center gap-1">
+                <Popover.Root bind:open={sessionComboOpen}>
+                  <Popover.Trigger class="h-8 w-full px-2 inline-flex items-center justify-between gap-1 rounded border border-input bg-background text-xs font-medium text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground">
+                    <span class="truncate">
+                      {#if selectedSessionId}
+                        {@const selectedSession = mainWindowState.sessions.find((session) => session.id === selectedSessionId)}
+                        {selectedSession?.label ?? 'Select session'}
+                      {:else}
+                        Select session
+                      {/if}
+                    </span>
+                    <ChevronDown class="size-3 shrink-0 opacity-60" />
+                  </Popover.Trigger>
+                  <Popover.Content class="w-64 p-0">
+                    <Command.Root shouldFilter={true}>
+                      <Command.Input placeholder="Search sessions..." class="h-10" />
+                      <Command.Empty>No sessions found.</Command.Empty>
+                      <Command.List class="max-h-56">
+                        <Command.Group>
+                          {#each mainWindowState.sessions as session (session.id)}
+                            <Command.Item
+                              value={session.label}
+                              keywords={[session.label.toLowerCase()]}
+                              class="py-2.5"
+                              onSelect={() => selectSession(session.id)}
+                            >
+                              {#if session.icon?.slug}
+                                <img class="size-5 mr-2" src="icons/{session.icon.slug}.png" alt={session.label} />
+                              {/if}
+                              <span class="text-xs truncate">{session.label}</span>
+                            </Command.Item>
+                          {/each}
+                        </Command.Group>
+                      </Command.List>
+                    </Command.Root>
+                  </Popover.Content>
+                </Popover.Root>
+                {#if selectedSessionId}
+                  <Button size="icon" variant="ghost" class="size-7 shrink-0" onclick={() => { selectedSessionId = null; newCharName = ''; newCharIcon = null; }} title="Clear session">
+                    <X class="size-3" />
+                  </Button>
+                {/if}
+              </div>
+            {:else}
+              <div class="h-8 flex items-center rounded border border-dashed border-border px-2 text-xs text-muted-foreground">
+                No sessions configured
+              </div>
+            {/if}
+          </div>
+
+          <div class="space-y-1.5">
+            <span class="text-xs text-muted-foreground">Character name</span>
+            <Input
+              type="text"
+              placeholder="Name"
+              class="h-8 text-xs"
+              bind:value={newCharName}
+              onkeydown={(e) => { if (e.key === 'Enter') submitNewCharacter(); if (e.key === 'Escape') { cancelNewCharacter(); } }}
+            />
+          </div>
+
+          <div class="space-y-1.5">
+            <span class="text-xs text-muted-foreground">Class</span>
+            <Popover.Root bind:open={classComboOpen}>
+              <Popover.Trigger class={`h-8 w-full px-2 inline-flex items-center justify-between gap-1 rounded border border-input bg-background text-xs font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground ${!newCharClass ? 'text-muted-foreground' : 'text-foreground'}`}>
+                {#if newCharClass}
+                  {@const clsInfo = FLYFF_CLASSES.find(c => c.name === newCharClass)}
+                  {#if clsInfo}
+                    <img src="icons/{clsInfo.icon}.png" alt={newCharClass} class="size-3.5 shrink-0" />
                   {/if}
-                </span>
-                <ChevronDown class="size-3 shrink-0 opacity-60" />
+                  <span class="truncate">{newCharClass}</span>
+                {:else}
+                  <span class="truncate">Select class</span>
+                {/if}
+                <ChevronDown class="size-3 shrink-0 opacity-60 ml-auto" />
               </Popover.Trigger>
-              <Popover.Content class="w-64 p-0">
-                <Command.Root shouldFilter={true}>
-                  <Command.Input placeholder="Search sessions..." class="h-10" />
-                  <Command.Empty>No sessions found.</Command.Empty>
-                  <Command.List class="max-h-56">
+              <Popover.Content class="w-44 p-0">
+                <Command.Root>
+                  <Command.List>
                     <Command.Group>
-                      {#each mainWindowState.sessions as session (session.id)}
+                      {#each FLYFF_CLASSES as cls (cls.name)}
                         <Command.Item
-                          value={session.label}
-                          keywords={[session.label.toLowerCase()]}
-                          class="py-2.5"
-                          onSelect={() => selectSession(session.id)}
+                          value={cls.name}
+                          class="py-2 cursor-pointer"
+                          onSelect={() => { newCharClass = cls.name; classComboOpen = false; }}
                         >
-                          {#if session.icon?.slug}
-                            <img class="size-5 mr-2" src="icons/{session.icon.slug}.png" alt={session.label} />
-                          {/if}
-                          <span class="text-xs truncate">{session.label}</span>
+                          <img src="icons/{cls.icon}.png" alt={cls.name} class="size-5 mr-2 shrink-0" />
+                          <span class="text-xs">{cls.name}</span>
                         </Command.Item>
                       {/each}
                     </Command.Group>
@@ -239,71 +311,18 @@
                 </Command.Root>
               </Popover.Content>
             </Popover.Root>
-            {#if selectedSessionId}
-              <Button size="icon" variant="ghost" class="size-5 shrink-0" onclick={() => { selectedSessionId = null; newCharName = ''; newCharIcon = null; }} title="Clear session">
-                <X class="size-3" />
-              </Button>
-            {/if}
-          {:else}
-            <div class="h-6 flex items-center rounded border border-dashed border-border px-2 text-[11px] text-muted-foreground">
-              No sessions configured
-            </div>
-          {/if}
+          </div>
+        </div>
 
-          <Input
-            type="text"
-            placeholder="Name"
-            class="h-6 w-20 text-xs"
-            bind:value={newCharName}
-            onkeydown={(e) => { if (e.key === 'Enter') submitNewCharacter(); if (e.key === 'Escape') { cancelNewCharacter(); } }}
-          />
-          <Button size="icon" variant="ghost" class="size-5" onclick={submitNewCharacter} disabled={!newCharName.trim() || !newCharClass}>
-            <Check class="size-3" />
+        <Dialog.Footer class="gap-2">
+          <Button variant="outline" size="sm" onclick={cancelNewCharacter}>Cancel</Button>
+          <Button size="sm" onclick={submitNewCharacter} disabled={!newCharName.trim() || !newCharClass}>
+            <Check class="size-3 mr-1" />
+            Create Character
           </Button>
-          <Button size="icon" variant="ghost" class="size-5" onclick={cancelNewCharacter} title="Cancel">
-            <X class="size-3" />
-          </Button>
-        </div>
-        <div class="flex items-center gap-1">
-          <Popover.Root bind:open={classComboOpen}>
-            <Popover.Trigger class="h-6 min-w-[90px] px-2 inline-flex items-center justify-between gap-1 rounded border border-input bg-background text-xs font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground {!newCharClass ? 'text-muted-foreground' : 'text-foreground'}">
-              {#if newCharClass}
-                {@const clsInfo = FLYFF_CLASSES.find(c => c.name === newCharClass)}
-                {#if clsInfo}
-                  <img src="icons/{clsInfo.icon}.png" alt={newCharClass} class="size-3.5 shrink-0" />
-                {/if}
-                <span class="truncate">{newCharClass}</span>
-              {:else}
-                <span class="truncate">Class</span>
-              {/if}
-              <ChevronDown class="size-3 shrink-0 opacity-60 ml-auto" />
-            </Popover.Trigger>
-            <Popover.Content class="w-44 p-0">
-              <Command.Root>
-                <Command.List>
-                  <Command.Group>
-                    {#each FLYFF_CLASSES as cls (cls.name)}
-                      <Command.Item
-                        value={cls.name}
-                        class="py-2 cursor-pointer"
-                        onSelect={() => { newCharClass = cls.name; classComboOpen = false; }}
-                      >
-                        <img src="icons/{cls.icon}.png" alt={cls.name} class="size-5 mr-2 shrink-0" />
-                        <span class="text-xs">{cls.name}</span>
-                      </Command.Item>
-                    {/each}
-                  </Command.Group>
-                </Command.List>
-              </Command.Root>
-            </Popover.Content>
-          </Popover.Root>
-        </div>
-      </div>
-    {:else}
-      <Button size="icon" variant="ghost" class="size-5 shrink-0" onclick={beginNewCharacter}>
-        <Plus class="size-3" />
-      </Button>
-    {/if}
+        </Dialog.Footer>
+      </Dialog.Content>
+    </Dialog.Root>
   </div>
 
   <!-- Header -->
