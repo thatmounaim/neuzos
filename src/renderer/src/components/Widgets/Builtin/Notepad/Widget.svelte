@@ -163,7 +163,7 @@
       items: items ?? [
         {
           id: createId('todo-item'),
-          text: 'New todo item',
+          text: 'New Todo Item',
           checked: false
         }
       ]
@@ -1571,7 +1571,7 @@
               class="absolute right-0 top-8 z-30 w-44 rounded-md border border-border bg-popover p-2 shadow-md"
               onmousedown={(e) => e.stopPropagation()}
             >
-              <div class="mb-2 text-xs font-medium text-muted-foreground">Tab layout</div>
+              <div class="mb-2 text-xs font-medium text-muted-foreground">Tab Layout</div>
               <div class="space-y-1">
                 <Button
                   size="sm"
@@ -1848,7 +1848,7 @@
                 variant="outline"
                 class="h-7 px-2"
                 onclick={() => setEditorMode(activeEditorMode === 'raw' ? 'wysiwyg' : 'raw')}
-                title="Toggle edit mode"
+                title="Toggle Edit Mode"
               >
                 {activeEditorMode === 'raw' ? 'Raw' : 'Editor'}
               </Button>
@@ -1994,7 +1994,7 @@
                       <Input
                         value={block.title}
                         oninput={(e) => updateTodoTitle(block.id, e.currentTarget.value)}
-                        placeholder="# title here"
+                        placeholder="Todo Title..."
                         class="h-7 text-sm font-medium border-0 px-0 shadow-none focus-visible:ring-0"
                       />
                       <Button
@@ -2024,7 +2024,7 @@
                           <Input
                             value={item.text}
                             oninput={(e) => updateTodoItemText(block.id, item.id, e.currentTarget.value)}
-                            placeholder="Todo item text"
+                            placeholder="Todo Item Text"
                             class="h-7 border-0 shadow-none focus-visible:ring-0"
                           />
                           <Button
@@ -2032,7 +2032,7 @@
                             variant="ghost"
                             class="h-6 w-6 shrink-0 hover:bg-destructive hover:text-destructive-foreground"
                             onclick={() => removeTodoItem(block.id, item.id)}
-                            title="Delete item"
+                            title="Delete Item"
                           >
                             <X class="h-3.5 w-3.5" />
                           </Button>
@@ -2042,7 +2042,7 @@
 
                     <Button size="sm" variant="outline" class="h-7" onclick={() => addTodoItem(block.id)}>
                       <Plus class="h-3.5 w-3.5 mr-1" />
-                      Add item
+                      Add Item
                     </Button>
 
                   </div>
