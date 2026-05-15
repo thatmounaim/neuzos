@@ -273,7 +273,7 @@
         continue;
       }
 
-      normalized.push({ ...block, title: block.title || 'Todo', items: [...block.items] });
+      normalized.push({ ...block, title: block.title, items: [...block.items] });
 
       // Always keep an editable area below todo blocks for seamless continuation.
       const nextBlock = blocks[index + 1];
