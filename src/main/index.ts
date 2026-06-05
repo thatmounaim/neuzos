@@ -392,6 +392,14 @@ const allowedEventKeybinds = {
     label: "Swap to Previous Layout",
     unique: true,
   },
+  "layout_cycle_forward": {
+    label: "Cycle Layout Forward",
+    unique: true,
+  },
+  "layout_cycle_backward": {
+    label: "Cycle Layout Backward",
+    unique: true,
+  },
   "fullscreen_toggle": {
     label: "Toggle Fullscreen",
     unique: true,
@@ -1156,6 +1164,12 @@ function dispatchKeybindEvent(bind: any) {
       break;
     case "layout_swap":
       mainWindow?.webContents.send("event.layout_swap");
+      break;
+    case "layout_cycle_forward":
+      mainWindow?.webContents.send("event.layout_cycle_forward");
+      break;
+    case "layout_cycle_backward":
+      mainWindow?.webContents.send("event.layout_cycle_backward");
       break;
     case "layout_switch":
       if (bind.args?.length > 0)

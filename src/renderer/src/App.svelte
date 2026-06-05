@@ -201,6 +201,31 @@
     }
   })
 
+  const cycleLayout = (direction: 1 | -1) => {
+    const layoutOrder = mainWindowState.tabs.layoutOrder
+    if (layoutOrder.length <= 1) {
+      return
+    }
+
+    const activeLayoutId = mainWindowState.tabs.activeLayoutId
+    const currentIndex = layoutOrder.findIndex(layoutId => layoutId === activeLayoutId)
+    const nextIndex = currentIndex === -1
+      ? 0
+      : (currentIndex + direction + layoutOrder.length) % layoutOrder.length
+    const nextLayoutId = layoutOrder[nextIndex]
+
+    mainWindowState.tabs.previousLayoutId = activeLayoutId
+    mainWindowState.tabs.activeLayoutId = nextLayoutId
+  }
+
+  listen('event.layout_cycle_forward', (_) => {
+    cycleLayout(1)
+  })
+
+  listen('event.layout_cycle_backward', (_) => {
+    cycleLayout(-1)
+  })
+
   listen('event.stop_session', (_, sessionId: string) => {
     console.log("stop_session", sessionId)
     const layouts = Object.values(mainWindowState.sessionsLayoutsRef[sessionId]?.layouts ?? {}) as Array<{ stopClient?: (onStopped?: () => void) => void }>
