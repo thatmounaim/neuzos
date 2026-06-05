@@ -2425,14 +2425,14 @@ function registerSessionKeybinds(mode: LaunchMode) {
     const defaultMainWindowConfig = {
       width: defaultWindowWidth,
       height: defaultWindowHeight,
-      maximized: false,
+      maximized: true,
       zoom: 1.0
     };
 
     const defaultSessionWindowConfig = {
       width: defaultWindowWidth,
       height: defaultWindowHeight,
-      maximized: false,
+      maximized: true,
       zoom: 1.0
     };
 

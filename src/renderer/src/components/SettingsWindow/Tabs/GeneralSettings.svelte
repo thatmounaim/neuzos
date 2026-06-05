@@ -29,7 +29,7 @@
         width: 1200,
         height: 800,
         zoom: 1.0,
-        maximized: false
+        maximized: true
       },
       settings: {
         width: 1200,
@@ -41,7 +41,7 @@
         width: 1024,
         height: 768,
         zoom: 1.0,
-        maximized: false
+        maximized: true
       }
     };
   }
@@ -50,7 +50,7 @@
       width: 1200,
       height: 800,
       zoom: 1.0,
-      maximized: false
+      maximized: true
     };
   }
   if (!neuzosConfig.window.settings) {
@@ -66,7 +66,7 @@
       width: 1024,
       height: 768,
       zoom: 1.0,
-      maximized: false
+      maximized: true
     };
   }
 
@@ -239,25 +239,25 @@
   // Handle main window settings
   function handleMainWindowWidth(value: number) {
     if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
-    if (!neuzosConfig.window.main) neuzosConfig.window.main = {width: 1200, height: 800, zoom: 1.0, maximized: false};
+    if (!neuzosConfig.window.main) neuzosConfig.window.main = {width: 1200, height: 800, zoom: 1.0, maximized: true};
     neuzosConfig.window.main.width = value;
   }
 
   function handleMainWindowHeight(value: number) {
     if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
-    if (!neuzosConfig.window.main) neuzosConfig.window.main = {width: 1200, height: 800, zoom: 1.0, maximized: false};
+    if (!neuzosConfig.window.main) neuzosConfig.window.main = {width: 1200, height: 800, zoom: 1.0, maximized: true};
     neuzosConfig.window.main.height = value;
   }
 
   function handleMainWindowZoom(value: number) {
     if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
-    if (!neuzosConfig.window.main) neuzosConfig.window.main = {width: 1200, height: 800, zoom: 1.0, maximized: false};
+    if (!neuzosConfig.window.main) neuzosConfig.window.main = {width: 1200, height: 800, zoom: 1.0, maximized: true};
     neuzosConfig.window.main.zoom = value;
   }
 
   function handleMainWindowMaximized(enabled: boolean) {
     if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
-    if (!neuzosConfig.window.main) neuzosConfig.window.main = {width: 1200, height: 800, zoom: 1.0, maximized: false};
+    if (!neuzosConfig.window.main) neuzosConfig.window.main = {width: 1200, height: 800, zoom: 1.0, maximized: true};
     neuzosConfig.window.main.maximized = enabled;
   }
 
@@ -293,7 +293,7 @@
       width: 1024,
       height: 768,
       zoom: 1.0,
-      maximized: false
+      maximized: true
     };
     neuzosConfig.window.session.width = value;
   }
@@ -304,7 +304,7 @@
       width: 1024,
       height: 768,
       zoom: 1.0,
-      maximized: false
+      maximized: true
     };
     neuzosConfig.window.session.height = value;
   }
@@ -315,7 +315,7 @@
       width: 1024,
       height: 768,
       zoom: 1.0,
-      maximized: false
+      maximized: true
     };
     neuzosConfig.window.session.zoom = value;
   }
@@ -326,7 +326,7 @@
       width: 1024,
       height: 768,
       zoom: 1.0,
-      maximized: false
+      maximized: true
     };
     neuzosConfig.window.session.maximized = enabled;
   }

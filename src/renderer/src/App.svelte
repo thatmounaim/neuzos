@@ -90,7 +90,7 @@
           width: 1200,
           height: 800,
           zoom: 1.0,
-          maximized: false
+          maximized: true
         },
         settings: {
           width: 1200,
@@ -102,7 +102,7 @@
           width: 1024,
           height: 768,
           zoom: 1.0,
-          maximized: false
+          maximized: true
         }
       },
       sessions: [],
