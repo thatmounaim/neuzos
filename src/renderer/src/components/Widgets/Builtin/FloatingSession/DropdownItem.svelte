@@ -2,10 +2,11 @@
   import { getWidgetsContext } from '$lib/contexts/widgetsContext.svelte';
   import { getContext } from 'svelte';
   import { Button } from '$lib/components/ui/button';
-  import { PictureInPicture2, Eye, EyeOff, X, RotateCcw } from '@lucide/svelte';
+  import { PictureInPicture2, Eye, EyeOff, X, RotateCcw, RadioTower, Check } from '@lucide/svelte';
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
   import { toast } from 'svelte-sonner';
   import type { MainWindowState } from '$lib/types';
+  import { neuzosBridge } from '$lib/core';
 
   const FLOATING_SESSION_WIDGET_TYPE = 'widget.builtin.floating_session';
 
@@ -42,6 +43,16 @@
         description: 'Floating session position has been reset'
       });
     }
+  }
+
+  function isActiveReceiver(sessionId: string) {
+    return mainWindowState.config.syncReceiverSessionId === sessionId;
+  }
+
+  function toggleActiveReceiver(sessionId: string) {
+    const nextReceiverId = isActiveReceiver(sessionId) ? null : sessionId;
+    mainWindowState.config.syncReceiverSessionId = nextReceiverId;
+    neuzosBridge.sessions.setSyncReceiver(nextReceiverId);
   }
 
   const floatableSessions = $derived(
@@ -135,6 +146,33 @@
               <DropdownMenu.Item onclick={() => resetPosition(widget.data?.sessionId)}>
                 <img class="w-4 h-4 mr-2" src="icons/{sessionInfo?.icon || 'misc/browser'}.png" alt="" />
                 <span>{sessionInfo?.label || 'Unknown Session'}</span>
+              </DropdownMenu.Item>
+            {/each}
+          </DropdownMenu.SubContent>
+        </DropdownMenu.Sub>
+      {/if}
+
+      {#if floatableSessions.length > 0}
+        {#if widgets.length === 0}
+          <DropdownMenu.Separator />
+        {/if}
+        <DropdownMenu.Sub>
+          <DropdownMenu.SubTrigger class="cursor-pointer">
+            <RadioTower class="h-3 w-3 mr-2" />
+            <span>Active Receiver</span>
+          </DropdownMenu.SubTrigger>
+          <DropdownMenu.SubContent>
+            {#each floatableSessions as sessionInfo}
+              <DropdownMenu.Item onclick={() => toggleActiveReceiver(sessionInfo.id)}>
+                <div class="flex w-full items-center justify-between gap-4">
+                  <div class="flex items-center gap-2">
+                    <img class="w-4 h-4" src="icons/{sessionInfo.icon}.png" alt="" />
+                    <span>{sessionInfo.label}</span>
+                  </div>
+                  {#if isActiveReceiver(sessionInfo.id)}
+                    <Check class="h-4 w-4" />
+                  {/if}
+                </div>
               </DropdownMenu.Item>
             {/each}
           </DropdownMenu.SubContent>

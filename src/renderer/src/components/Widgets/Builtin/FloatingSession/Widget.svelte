@@ -1,7 +1,7 @@
 <script lang="ts">
   import FloatingWindow from '../../../Shared/FloatingWindow.svelte';
   import NeuzClient from '../../../Shared/NeuzClient.svelte';
-  import { Globe } from '@lucide/svelte';
+  import { Globe, RadioTower } from '@lucide/svelte';
   import { getContext } from 'svelte';
   import { getWidgetsContext } from '$lib/contexts/widgetsContext.svelte';
   import type { MainWindowState } from '$lib/types';
@@ -25,6 +25,7 @@
   const sessionLabel = $derived(session?.label || 'Unknown Session');
   const sessionIcon = $derived(session?.icon?.slug || 'misc/browser');
   const layoutId = $derived(`floating-session-${sessionId || 'unknown'}`);
+  const isReceiver = $derived(sessionId !== undefined && mainWindowState.config.syncReceiverSessionId === sessionId);
 
   function handleClientUpdate(_sessionId: string) {
     // Floating widget does not need to update outer state on client events.
@@ -59,6 +60,9 @@
       <div class="flex items-center gap-2 min-w-0">
         <img class="w-4 h-4 shrink-0" src="icons/{sessionIcon}.png" alt="" />
         <span class="truncate">{sessionLabel}</span>
+        {#if isReceiver}
+          <RadioTower class="h-3.5 w-3.5 shrink-0 text-primary" />
+        {/if}
       </div>
     {/snippet}
 

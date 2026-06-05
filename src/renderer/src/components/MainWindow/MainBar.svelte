@@ -27,7 +27,8 @@
     RotateCcw,
     BookMarked,
     BookOpen,
-    Globe
+    Globe,
+    RadioTower
   } from '@lucide/svelte'
   import {getContext, onMount} from "svelte";
   import type {MainWindowState, NeuzSession, NeuzSessionGroup} from "$lib/types";
@@ -190,6 +191,23 @@
       Object.values(layouts).forEach((ref: any) => ref.setZoom?.(clamped))
     }
     void neuzosBridge.sessions.setZoom(sessionId, clamped)
+  }
+
+  const isActiveReceiver = (sessionId: string) => {
+    return mainWindowState.config.syncReceiverSessionId === sessionId
+  }
+
+  const toggleActiveReceiver = (sessionId: string) => {
+    const nextReceiverId = isActiveReceiver(sessionId) ? null : sessionId
+    mainWindowState.config.syncReceiverSessionId = nextReceiverId
+    neuzosBridge.sessions.setSyncReceiver(nextReceiverId)
+  }
+
+  const layoutHasActiveReceiver = (layout: { rows?: { sessionIds?: string[] }[] }) => {
+    const receiverId = mainWindowState.config.syncReceiverSessionId
+    if (!receiverId) return false
+
+    return layout.rows?.some((row) => row.sessionIds?.includes(receiverId)) ?? false
   }
 
 
@@ -388,6 +406,9 @@
                   onclick={() => switchToLayout(layoutId)}>
             <img src="icons/{layTab.icon.slug}.png" alt={layTab.icon.slug} class="w-4 h-4"/>
             {layTab.label}
+            {#if layoutHasActiveReceiver(layTab)}
+              <RadioTower class="h-3.5 w-3.5 text-primary" />
+            {/if}
           </Button>
         </ContextMenu.Trigger>
         <ContextMenu.Content>
@@ -512,14 +533,6 @@
                   </ContextMenu.Item>
                   <ContextMenu.Separator/>
                   <ContextMenu.Item
-                    onclick={() => setSessionZoom(sessionId, getSessionZoom(sessionId) - 0.05)}
-                    disabled={getSessionZoom(sessionId) <= 0.5}>
-                    <div class="flex items-center gap-2">
-                      <ZoomOut class="h-4"/>
-                      Zoom Out
-                    </div>
-                  </ContextMenu.Item>
-                  <ContextMenu.Item
                     onclick={() => setSessionZoom(sessionId, getSessionZoom(sessionId) + 0.05)}
                     disabled={getSessionZoom(sessionId) >= 1.5}>
                     <div class="flex items-center gap-2">
@@ -528,11 +541,31 @@
                     </div>
                   </ContextMenu.Item>
                   <ContextMenu.Item
+                    onclick={() => setSessionZoom(sessionId, getSessionZoom(sessionId) - 0.05)}
+                    disabled={getSessionZoom(sessionId) <= 0.5}>
+                    <div class="flex items-center gap-2">
+                      <ZoomOut class="h-4"/>
+                      Zoom Out
+                    </div>
+                  </ContextMenu.Item>
+                  <ContextMenu.Item
                     onclick={() => setSessionZoom(sessionId, 1.0)}
                     disabled={getSessionZoom(sessionId) === 1.0}>
                     <div class="flex items-center gap-2">
                       <RotateCcw class="h-4"/>
                       Reset Zoom ({(getSessionZoom(sessionId) * 100).toFixed(0)}%)
+                    </div>
+                  </ContextMenu.Item>
+                  <ContextMenu.Separator/>
+                  <ContextMenu.Item onclick={() => toggleActiveReceiver(sessionId)}>
+                    <div class="flex w-full items-center justify-between gap-4">
+                      <div class="flex items-center gap-2">
+                        <RadioTower class="h-4"/>
+                        Active Receiver
+                      </div>
+                      {#if isActiveReceiver(sessionId)}
+                        <Check class="h-4"/>
+                      {/if}
                     </div>
                   </ContextMenu.Item>
                 </ContextMenu.SubContent>

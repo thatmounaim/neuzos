@@ -5,7 +5,6 @@
   import type {WebviewTag} from 'electron'
   import Button from '../../lib/components/ui/button/button.svelte'
   import {neuzosBridge} from "$lib/core";
-  import {RadioTower} from '@lucide/svelte'
 
   const webviewPreloadPath: string = (window as any)._preloadPaths?.webview ?? '';
 
@@ -23,11 +22,6 @@
   let webview: WebviewTag | HTMLElement = $state()
   let muted: boolean = $state(false)
   const mainWindowState = getContext<MainWindowState>('mainWindowState')
-  const isReceiver = $derived(mainWindowState.config.syncReceiverSessionId === session.id)
-
-  function toggleReceiver() {
-    neuzosBridge.sessions.setSyncReceiver(isReceiver ? null : session.id)
-  }
 
   const ensureSessionState = () => {
     const sessionState = mainWindowState.sessionsLayoutsRef[session.id] ??= {
@@ -395,15 +389,6 @@ window.open = function(...args) {
     focus()
   }}
 >
-  <button
-    type="button"
-      class={`absolute top-2 right-2 z-50 rounded p-1.5 transition-opacity ${isReceiver ? 'opacity-100 bg-primary text-primary-foreground shadow-md' : 'opacity-0 bg-background/60 text-muted-foreground group-hover:opacity-60 hover:!opacity-100'}`}
-    onclick={toggleReceiver}
-    aria-pressed={isReceiver}
-    title={isReceiver ? 'Active Receiver — click to clear' : 'Set as Active Receiver'}
-  >
-    <RadioTower size={16} />
-  </button>
   {#if partition !== ''}
     {#if started}
       {#if src.startsWith('https://flyff.wemadeconnect.com') && !koreanLinkFixed}
