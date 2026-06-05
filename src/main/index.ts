@@ -1128,18 +1128,39 @@ function checkKeybinds() {
     ...Object.keys(allowedUiActionKeybinds),
   ]);
 
+  const globalOnlyKeybindEvents = [
+    "ui.toggle_quest_log",
+    "fullscreen_toggle",
+    "layout_swap",
+    "layout_switch",
+    "layout_cycle_forward",
+    "layout_cycle_backward",
+  ];
+
+  globalOnlyKeybindEvents.forEach((event) => {
+    const profileBind = neuzosConfig.keyBindProfiles
+      .flatMap((profile: any) => profile.keybinds ?? [])
+      .find((bind: any) => bind?.event === event && typeof bind?.key === "string" && bind.key !== "");
+    const hasGlobalBind = neuzosConfig.keyBinds.some((bind: any) => bind?.event === event);
+
+    if (profileBind && !hasGlobalBind) {
+      neuzosConfig.keyBinds.push({
+        key: profileBind.key,
+        event,
+        args: Array.isArray(profileBind.args) ? profileBind.args : undefined,
+      });
+    }
+  });
+
   neuzosConfig.keyBinds = neuzosConfig.keyBinds.filter((bind: any) => {
     return allowedKeybindEvents.has(bind.event);
   })
 
-  const activeProfile = neuzosConfig.keyBindProfiles.find(
-    (profile: any) => profile.id === neuzosConfig.activeKeyBindProfileId
-  );
-  if (activeProfile) {
-    activeProfile.keybinds = activeProfile.keybinds.filter((bind: any) => {
-      return allowedKeybindEvents.has(bind.event);
+  neuzosConfig.keyBindProfiles.forEach((profile: any) => {
+    profile.keybinds = (profile.keybinds ?? []).filter((bind: any) => {
+      return allowedKeybindEvents.has(bind.event) && !globalOnlyKeybindEvents.includes(bind.event);
     });
-  }
+  });
 
   // filter empty keybinds
   neuzosConfig.keyBinds = neuzosConfig.keyBinds.filter((bind) => {
