@@ -2,7 +2,7 @@
   import { getWidgetsContext } from '$lib/contexts/widgetsContext.svelte';
   import { getContext } from 'svelte';
   import { Button } from '$lib/components/ui/button';
-  import { Keyboard, Eye, EyeOff, X } from '@lucide/svelte';
+  import { SquareAsterisk, Eye, EyeOff, X } from '@lucide/svelte';
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
   import type { MainWindowState } from '$lib/types';
 
@@ -50,7 +50,7 @@
 {#if allSessionsWithActions.length > 0}
   <DropdownMenu.Sub>
     <DropdownMenu.SubTrigger>
-      <Keyboard class="h-4 w-4 mr-2" />
+      <SquareAsterisk class="h-4 w-4 mr-2" />
       <span>Action Pads</span>
     </DropdownMenu.SubTrigger>
     <DropdownMenu.SubContent class="min-w-44">

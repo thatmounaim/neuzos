@@ -23,7 +23,7 @@
 {#if widgetsContext.widgets.length === 0}
   <DropdownMenu.Separator />
   <div class="px-2 py-1.5 text-xs text-muted-foreground text-center">
-    No active widgets
+    No active Widgets
   </div>
 {/if}
 

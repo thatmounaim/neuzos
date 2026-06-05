@@ -25,6 +25,7 @@
     ZoomIn,
     ZoomOut,
     RotateCcw,
+    BookMarked,
     BookOpen,
     Globe
   } from '@lucide/svelte'
@@ -562,7 +563,7 @@
     <BookOpen class="size-3.5"/>
   </Button>
   <Button size="icon-xs" variant="outline" onclick={openFlyffipedia} class="cursor-pointer" title="Open Flyffipedia">
-    <Globe class="size-3.5"/>
+    <BookMarked class="size-3.5"/>
   </Button>
 
   <Button

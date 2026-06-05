@@ -41,7 +41,7 @@
   <DropdownMenu.SubContent>
     <DropdownMenu.Item onclick={createWidget}>
       <Plus class="h-4 w-4 mr-2" />
-      <span>New browser</span>
+      <span>New Browser</span>
     </DropdownMenu.Item>
 
     <!-- Show active browser instances -->

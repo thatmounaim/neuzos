@@ -2,7 +2,7 @@
   import { getWidgetsContext } from '$lib/contexts/widgetsContext.svelte';
   import { getContext } from 'svelte';
   import { Button } from '$lib/components/ui/button';
-  import { Globe, Eye, EyeOff, X, RotateCcw } from '@lucide/svelte';
+  import { PictureInPicture2, Eye, EyeOff, X, RotateCcw } from '@lucide/svelte';
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
   import { toast } from 'svelte-sonner';
   import type { MainWindowState } from '$lib/types';
@@ -65,7 +65,7 @@
 {#if floatableSessions.length > 0 || widgets.length > 0}
   <DropdownMenu.Sub>
     <DropdownMenu.SubTrigger>
-      <Globe class="h-4 w-4 mr-2" />
+      <PictureInPicture2 class="h-4 w-4 mr-2" />
       <span>Floating Sessions</span>
     </DropdownMenu.SubTrigger>
     <DropdownMenu.SubContent class="min-w-44 overflow-visible">
