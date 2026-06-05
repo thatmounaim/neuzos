@@ -316,7 +316,7 @@
         <p class="text-sm font-semibold">{isRecording ? 'Listening…' : 'Record mode ready'}</p>
       </div>
       <p class="text-xs text-muted-foreground">
-        Press a key, Mouse 4/5, or middle click. Escape cancels.
+        Press a Key to record Keybind. Press Escape to Cancel.
       </p>
       {#if isRecording && !gamepadDetected}
         <p class="text-xs text-muted-foreground">No gamepad detected — keyboard and mouse capture still active</p>
