@@ -100,7 +100,7 @@ const defaultViewerWindowConfig: ViewerWindowConfig = {
   alwaysOnTop: true,
 };
 
-const defaultSidebarSide: SidebarSide = 'left';
+const defaultSidebarSide: SidebarSide = 'right';
 
 const viewerWindows: Map<ViewerWindowType, BrowserWindow> = new Map();
 const viewerBoundsSaveTimers: Map<ViewerWindowType, ReturnType<typeof setTimeout>> = new Map();
