@@ -2559,12 +2559,13 @@ function registerSessionKeybinds(mode: LaunchMode) {
     // Merge neuzosConfig with defaults (user config takes precedence)
     neuzosConfig = {...defaultNeuzosConfig, ...neuzosConfig};
 
-    if (neuzosConfig.autoDeleteAllCachesOnStartup) {
-      void Promise.all((neuzosConfig.sessions ?? []).map((sessionConfig: any) => {
-        if (typeof sessionConfig?.id !== 'string') {
-          return Promise.resolve();
-        }
+    const startupCacheClearSessions = (neuzosConfig.sessions ?? []).filter((sessionConfig: any) => {
+      return typeof sessionConfig?.id === 'string' &&
+        (neuzosConfig.autoDeleteAllCachesOnStartup || sessionConfig.autoDeleteCache);
+    });
 
+    if (startupCacheClearSessions.length > 0) {
+      void Promise.all(startupCacheClearSessions.map((sessionConfig: any) => {
         return session.fromPartition(`persist:${sessionConfig.id}`).clearCache().catch((err: any) => {
           console.warn('Startup cache clear failed for session', sessionConfig.id, err);
         });
