@@ -224,7 +224,7 @@
   };
 
   const autoSave = () => {
-    if (!neuzosConfig.autoSaveSettings || isLoading || isSaving) return;
+    if (!neuzosConfig.autoSaveSettings || activeTab === 'keybinds' || isLoading || isSaving) return;
 
     // Clear existing timeout
     if (autoSaveTimeout) {
@@ -233,7 +233,9 @@
 
     // Debounce auto-save by 500ms
     autoSaveTimeout = setTimeout(() => {
-      saveSettings(false); // Don't show toast for auto-save
+      if (activeTab !== 'keybinds') {
+        saveSettings(false); // Don't show toast for auto-save
+      }
     }, 500);
   };
 
@@ -280,7 +282,7 @@
           </div>
           <div class="flex-1"></div>
           <div class="flex items-center gap-2 px-0.5 py-0.5">
-            {#if !neuzosConfig.autoSaveSettings}
+            {#if !neuzosConfig.autoSaveSettings || activeTab === 'keybinds'}
 
             <Button
               size="xs"
