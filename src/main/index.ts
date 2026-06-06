@@ -404,6 +404,10 @@ const allowedEventKeybinds = {
     label: "Toggle Fullscreen",
     unique: true,
   },
+  "close_focus_session": {
+    label: "Close Focus Session",
+    unique: true,
+  },
   "layout_switch": {
     label: "Switch to Layout",
     args: [
@@ -1131,6 +1135,7 @@ function checkKeybinds() {
   const globalOnlyKeybindEvents = [
     "ui.toggle_quest_log",
     "fullscreen_toggle",
+    "close_focus_session",
     "layout_swap",
     "layout_switch",
     "layout_cycle_forward",
@@ -1173,6 +1178,17 @@ function checkKeybinds() {
   })
 }
 
+function closeFocusSessionWindow() {
+  const mode = (sessionWindow as any)?.sessionData?.mode as LaunchMode | undefined;
+  if (mode !== 'focus' && mode !== 'focus_fullscreen') {
+    return;
+  }
+
+  globalShortcut.unregisterAll();
+  sessionWindow?.destroy();
+  sessionWindow = null;
+}
+
 function dispatchKeybindEvent(bind: any) {
   if (bind.event?.startsWith("ui.")) {
     mainWindow?.webContents.send("event.ui_action_fired", {actionId: bind.event});
@@ -1182,6 +1198,9 @@ function dispatchKeybindEvent(bind: any) {
   switch (bind.event) {
     case "fullscreen_toggle":
       mainWindow?.setFullScreen(!mainWindow?.isFullScreen());
+      break;
+    case "close_focus_session":
+      closeFocusSessionWindow();
       break;
     case "layout_swap":
       mainWindow?.webContents.send("event.layout_swap");
@@ -1256,28 +1275,35 @@ function registerSessionKeybinds(mode: LaunchMode) {
 
   // Find fullscreen keybind
   const fullscreenBind = neuzosConfig.keyBinds.find((bind: any) => bind.event === "fullscreen_toggle");
+  const closeFocusSessionBind = neuzosConfig.keyBinds.find((bind: any) => bind.event === "close_focus_session");
 
-  if (!fullscreenBind) {
+  if (!fullscreenBind && !closeFocusSessionBind) {
     return;
   }
 
   try {
+    if ((mode === 'focus' || mode === 'focus_fullscreen') && closeFocusSessionBind?.key) {
+      globalShortcut.register(closeFocusSessionBind.key, () => {
+        closeFocusSessionWindow();
+      });
+    }
+
     switch (mode) {
       case 'session':
         // Allow fullscreen toggle
-        globalShortcut.register(fullscreenBind.key, () => {
+        if (fullscreenBind?.key) globalShortcut.register(fullscreenBind.key, () => {
           sessionWindow?.setFullScreen(!sessionWindow?.isFullScreen());
         });
         break;
       case 'focus':
         // Prevent fullscreen
-        globalShortcut.register(fullscreenBind.key, () => {
+        if (fullscreenBind?.key) globalShortcut.register(fullscreenBind.key, () => {
           // Do nothing - prevent fullscreen
         });
         break;
       case 'focus_fullscreen':
         // Prevent removing fullscreen
-        globalShortcut.register(fullscreenBind.key, () => {
+        if (fullscreenBind?.key) globalShortcut.register(fullscreenBind.key, () => {
           if (!sessionWindow?.isFullScreen()) {
             sessionWindow?.setFullScreen(true);
           }

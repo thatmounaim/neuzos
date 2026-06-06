@@ -57,6 +57,7 @@
   const systemActionEventIds = [
     'ui.toggle_quest_log',
     'fullscreen_toggle',
+    'close_focus_session',
     'layout_swap',
     'layout_switch',
     'layout_cycle_forward',
@@ -78,7 +79,7 @@
       };
     }
 
-    if (event === 'fullscreen_toggle') {
+    if (event === 'fullscreen_toggle' || event === 'close_focus_session') {
       return {
         label: allowedEventKeybinds[event]?.label ?? event,
         category: 'Window'
@@ -100,7 +101,7 @@
       return 'Layout';
     }
 
-    if (event === 'fullscreen_toggle') {
+    if (event === 'fullscreen_toggle' || event === 'close_focus_session') {
       return 'Window';
     }
 
@@ -117,6 +118,8 @@
         return 'Show / Hide the Quest Log Panel.';
       case 'fullscreen_toggle':
         return 'Toggles Fullscreen Mode.';
+      case 'close_focus_session':
+        return 'Closes the active Focus Session Window.';
       case 'layout_swap':
         return 'Switches between the two last used Layouts.';
       case 'layout_cycle_forward':
