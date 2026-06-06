@@ -58,6 +58,7 @@
     'ui.toggle_quest_log',
     'fullscreen_toggle',
     'close_focus_session',
+    'toggle_keybinds',
     'layout_swap',
     'layout_switch',
     'layout_cycle_forward',
@@ -120,6 +121,8 @@
         return 'Toggles Fullscreen Mode.';
       case 'close_focus_session':
         return 'Closes the active Focus Session Window.';
+      case 'toggle_keybinds':
+        return 'Enable or Disable NeuzOS Keybinds.';
       case 'layout_swap':
         return 'Switches between the two last used Layouts.';
       case 'layout_cycle_forward':
