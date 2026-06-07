@@ -25,8 +25,6 @@
     ZoomIn,
     ZoomOut,
     RotateCcw,
-    BookMarked,
-    BookOpen,
     Globe,
     RadioTower
   } from '@lucide/svelte'
@@ -42,11 +40,11 @@
   import {cn} from "$lib/utils";
   import {Separator} from "$lib/components/ui/separator";
   import PinnedActions from "./MainBarComponents/PinnedActions.svelte";
+  import PinnedWidgetLaunchers from "./MainBarComponents/PinnedWidgetLaunchers.svelte";
   import WidgetsButton from "./MainBarComponents/WidgetsButton.svelte";
   import ThemeToggle from "./MainBarComponents/ThemeToggle.svelte";
   import {getQuestPanelContext} from "$lib/contexts/questPanelContext.svelte";
   import {getUIActionContext} from "$lib/contexts/uiActionContext.svelte";
-  import {ScrollText} from '@lucide/svelte';
 
   let shortcutsEnabled = $state(true);
   let collapsedSessionGroupIds: Record<string, boolean> = $state({});
@@ -88,15 +86,6 @@
   const openSettings = () => {
     neuzosBridge.settingsWindow.open()
   }
-
-  const openNaviGuide = () => {
-    neuzosBridge.viewerWindow.open('navi_guide')
-  }
-
-  const openFlyffipedia = () => {
-    neuzosBridge.viewerWindow.open('flyffipedia')
-  }
-
 
   const switchToHome = () => {
     neuzosBridge.layouts.switch('home')
@@ -592,22 +581,7 @@
     </Button>
   {/if}
 
-  <Button size="icon-xs" variant="outline" onclick={openNaviGuide} class="cursor-pointer" title="Open Navi's Guide">
-    <BookOpen class="size-3.5"/>
-  </Button>
-  <Button size="icon-xs" variant="outline" onclick={openFlyffipedia} class="cursor-pointer" title="Open Flyffipedia">
-    <BookMarked class="size-3.5"/>
-  </Button>
-
-  <Button
-    size="icon-xs"
-    variant={questPanel.isOpen ? 'secondary' : 'outline'}
-    onclick={() => questPanel.toggle()}
-    class="cursor-pointer"
-    title="Quest Log"
-  >
-    <ScrollText class="size-3.5"/>
-  </Button>
+  <PinnedWidgetLaunchers/>
   <WidgetsButton/>
   {#if mainWindowState.config.titleBarButtons.keybindToggle}
     <DropdownMenu.Root>

@@ -1651,6 +1651,18 @@ function registerSessionKeybinds(mode: LaunchMode) {
       }
     });
 
+    ipcMain.on('viewer_window.close_type', (_event, type: ViewerWindowType) => {
+      try {
+        if (!viewerWindowTypes.includes(type)) return;
+        const win = viewerWindows.get(type);
+        if (win && !win.isDestroyed()) {
+          win.close();
+        }
+      } catch (error) {
+        console.error('Failed to close viewer window by type:', error);
+      }
+    });
+
     ipcMain.on('viewer_window.minimize', (event) => {
       try {
         const win = BrowserWindow.fromWebContents(event.sender);
@@ -1697,6 +1709,13 @@ function registerSessionKeybinds(mode: LaunchMode) {
       } catch (error: any) {
         return { error: error?.message ?? String(error) };
       }
+    });
+
+    ipcMain.handle('viewer_window.get_open_types', () => {
+      return viewerWindowTypes.filter((type) => {
+        const win = viewerWindows.get(type);
+        return Boolean(win && !win.isDestroyed());
+      });
     });
 
     ipcMain.handle('sidebar_panel.get_side', () => {

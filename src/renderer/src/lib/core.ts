@@ -135,6 +135,9 @@ export const neuzosBridge = {
     close: () => {
       electronApi?.send('viewer_window.close');
     },
+    closeType: (type: ViewerWindowType) => {
+      electronApi?.send('viewer_window.close_type', type);
+    },
     minimize: () => {
       electronApi?.send('viewer_window.minimize');
     },
@@ -143,6 +146,9 @@ export const neuzosBridge = {
     },
     getConfig: (): Promise<{ type: ViewerWindowType; config: ViewerWindowConfig } | { error: string }> => {
       return electronApi?.invoke('viewer_window.get_config') ?? Promise.resolve({ error: 'Electron API unavailable' });
+    },
+    getOpenTypes: (): Promise<ViewerWindowType[]> => {
+      return electronApi?.invoke('viewer_window.get_open_types') ?? Promise.resolve([]);
     }
   },
   sidebarPanel: {

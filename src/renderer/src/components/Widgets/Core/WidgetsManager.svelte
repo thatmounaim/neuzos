@@ -15,14 +15,12 @@
       visible={widget.visible}
       data={widget.data}
       onClose={() => widgetsContext.destroyWidget(widget.id)}
-      onHide={() => widgetsContext.hideWidget(widget.id)}
     />
   {:else if widget.type === 'widget.builtin.notepad'}
     <NotepadWidget
       visible={widget.visible}
       data={widget.data}
       onClose={() => widgetsContext.destroyWidget(widget.id)}
-      onHide={() => widgetsContext.hideWidget(widget.id)}
     />
   {:else if widget.type === 'widget.builtin.mini_browser'}
     <MiniBrowserWidget

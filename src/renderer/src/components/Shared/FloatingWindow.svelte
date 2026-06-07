@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, getContext } from 'svelte';
   import type { Snippet } from 'svelte';
-  import { X, Minus, Maximize2, EyeOff } from '@lucide/svelte';
+  import { X, Minimize2, Maximize2, EyeOff } from '@lucide/svelte';
   import { FLOATING_WINDOW_CONTEXT_KEY, type FloatingWindowContext } from '$lib/contexts/floatingWindowContext';
 
   const windowContext = getContext<FloatingWindowContext>(FLOATING_WINDOW_CONTEXT_KEY);
@@ -285,11 +285,11 @@
           {#if isMinimized}
             <Maximize2 size={14} />
           {:else}
-            <Minus size={14} />
+            <Minimize2 size={14} />
           {/if}
         </button>
       {/if}
-      {#if hidable}
+      {#if hidable && onHide}
         <button
           class="bg-transparent border-none p-1 cursor-pointer rounded flex items-center justify-center text-foreground transition-colors hover:bg-accent"
           onclick={(e) => {
