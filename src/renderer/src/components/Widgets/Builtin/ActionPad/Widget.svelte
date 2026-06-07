@@ -464,14 +464,14 @@
     title="Action Pad - {sessionLabel}"
     defaultWidth={280}
     defaultHeight={360}
-    minWidth={280}
-    minHeight={200}
+    minWidth={250}
+    minHeight={115}
     {onClose}
     resizable={true}
     titleSnippet={customTitleSnippet}
     backgroundTransparency={backgroundTransparency}
   >
-    <div class="h-full w-full p-3 overflow-auto">
+    <div class="w-full">
       {#if actions.length === 0}
         <div class="flex flex-col items-center justify-center h-full text-center gap-2">
           <Swords class="h-12 w-12 text-muted-foreground opacity-50"/>
@@ -758,6 +758,7 @@
     display: flex;
     flex-direction: column;
   }
+
 </style>
 
 
