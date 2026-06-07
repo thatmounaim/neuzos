@@ -90,7 +90,7 @@
           width: 1200,
           height: 800,
           zoom: 1.0,
-          maximized: false
+          maximized: true
         },
         settings: {
           width: 1200,
@@ -102,7 +102,7 @@
           width: 1024,
           height: 768,
           zoom: 1.0,
-          maximized: false
+          maximized: true
         }
       },
       sessions: [],
@@ -199,6 +199,31 @@
       mainWindowState.tabs.previousLayoutId = activeLayoutId
       mainWindowState.tabs.activeLayoutId = newLayoutId
     }
+  })
+
+  const cycleLayout = (direction: 1 | -1) => {
+    const layoutOrder = mainWindowState.tabs.layoutOrder
+    if (layoutOrder.length <= 1) {
+      return
+    }
+
+    const activeLayoutId = mainWindowState.tabs.activeLayoutId
+    const currentIndex = layoutOrder.findIndex(layoutId => layoutId === activeLayoutId)
+    const nextIndex = currentIndex === -1
+      ? 0
+      : (currentIndex + direction + layoutOrder.length) % layoutOrder.length
+    const nextLayoutId = layoutOrder[nextIndex]
+
+    mainWindowState.tabs.previousLayoutId = activeLayoutId
+    mainWindowState.tabs.activeLayoutId = nextLayoutId
+  }
+
+  listen('event.layout_cycle_forward', (_) => {
+    cycleLayout(1)
+  })
+
+  listen('event.layout_cycle_backward', (_) => {
+    cycleLayout(-1)
   })
 
   listen('event.stop_session', (_, sessionId: string) => {

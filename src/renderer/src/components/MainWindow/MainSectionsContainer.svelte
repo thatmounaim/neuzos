@@ -8,7 +8,7 @@
   const questPanel = getQuestPanelContext();
 </script>
 
-<div class="flex flex-1 p-4 relative {questPanel.sidebarSide === 'right' ? 'flex-row-reverse' : ''}">
+<div class="flex flex-1 min-h-0 overflow-hidden p-4 relative {questPanel.sidebarSide === 'right' ? 'flex-row-reverse' : ''}">
   <FloatingWindowsPortal>
     <WidgetsManager/>
   </FloatingWindowsPortal>

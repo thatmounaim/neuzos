@@ -72,6 +72,7 @@ const allowedCommandLineSwitches = [
 let mainWindow: BrowserWindow | null = null;
 let settingsWindow: BrowserWindow | null = null;
 let sessionWindow: BrowserWindow | null = null;
+let lastKeybindToggleAt = 0;
 
 type ViewerWindowType = 'navi_guide' | 'flyffipedia';
 type SidebarSide = 'left' | 'right';
@@ -100,7 +101,7 @@ const defaultViewerWindowConfig: ViewerWindowConfig = {
   alwaysOnTop: true,
 };
 
-const defaultSidebarSide: SidebarSide = 'left';
+const defaultSidebarSide: SidebarSide = 'right';
 
 const viewerWindows: Map<ViewerWindowType, BrowserWindow> = new Map();
 const viewerBoundsSaveTimers: Map<ViewerWindowType, ReturnType<typeof setTimeout>> = new Map();
@@ -392,8 +393,24 @@ const allowedEventKeybinds = {
     label: "Swap to Previous Layout",
     unique: true,
   },
+  "layout_cycle_forward": {
+    label: "Cycle Layout Forward",
+    unique: true,
+  },
+  "layout_cycle_backward": {
+    label: "Cycle Layout Backward",
+    unique: true,
+  },
   "fullscreen_toggle": {
     label: "Toggle Fullscreen",
+    unique: true,
+  },
+  "close_focus_session": {
+    label: "Close Focus Session",
+    unique: true,
+  },
+  "toggle_keybinds": {
+    label: "Enable / Disable Keybinds",
     unique: true,
   },
   "layout_switch": {
@@ -1120,18 +1137,41 @@ function checkKeybinds() {
     ...Object.keys(allowedUiActionKeybinds),
   ]);
 
+  const globalOnlyKeybindEvents = [
+    "ui.toggle_quest_log",
+    "fullscreen_toggle",
+    "close_focus_session",
+    "toggle_keybinds",
+    "layout_swap",
+    "layout_switch",
+    "layout_cycle_forward",
+    "layout_cycle_backward",
+  ];
+
+  globalOnlyKeybindEvents.forEach((event) => {
+    const profileBind = neuzosConfig.keyBindProfiles
+      .flatMap((profile: any) => profile.keybinds ?? [])
+      .find((bind: any) => bind?.event === event && typeof bind?.key === "string" && bind.key !== "");
+    const hasGlobalBind = neuzosConfig.keyBinds.some((bind: any) => bind?.event === event);
+
+    if (profileBind && !hasGlobalBind) {
+      neuzosConfig.keyBinds.push({
+        key: profileBind.key,
+        event,
+        args: Array.isArray(profileBind.args) ? profileBind.args : undefined,
+      });
+    }
+  });
+
   neuzosConfig.keyBinds = neuzosConfig.keyBinds.filter((bind: any) => {
     return allowedKeybindEvents.has(bind.event);
   })
 
-  const activeProfile = neuzosConfig.keyBindProfiles.find(
-    (profile: any) => profile.id === neuzosConfig.activeKeyBindProfileId
-  );
-  if (activeProfile) {
-    activeProfile.keybinds = activeProfile.keybinds.filter((bind: any) => {
-      return allowedKeybindEvents.has(bind.event);
+  neuzosConfig.keyBindProfiles.forEach((profile: any) => {
+    profile.keybinds = (profile.keybinds ?? []).filter((bind: any) => {
+      return allowedKeybindEvents.has(bind.event) && !globalOnlyKeybindEvents.includes(bind.event);
     });
-  }
+  });
 
   // filter empty keybinds
   neuzosConfig.keyBinds = neuzosConfig.keyBinds.filter((bind) => {
@@ -1144,6 +1184,47 @@ function checkKeybinds() {
   })
 }
 
+function closeFocusSessionWindow() {
+  const mode = (sessionWindow as any)?.sessionData?.mode as LaunchMode | undefined;
+  if (mode !== 'focus' && mode !== 'focus_fullscreen') {
+    return;
+  }
+
+  globalShortcut.unregisterAll();
+  sessionWindow?.destroy();
+  sessionWindow = null;
+}
+
+function setMainWindowShortcutsEnabled(enabled: boolean) {
+  mainWindowShortcutsEnabled = enabled;
+  if (enabled) {
+    registerKeybinds();
+  } else {
+    globalShortcut.unregisterAll();
+    registerKeybindToggleShortcut();
+  }
+  mainWindow?.webContents.send("event.shortcuts_state_changed", enabled);
+}
+
+function registerKeybindToggleShortcut() {
+  const toggleBind = neuzosConfig?.keyBinds?.find((bind: any) => bind.event === "toggle_keybinds");
+  if (!toggleBind?.key) return;
+
+  try {
+    globalShortcut.unregister(toggleBind.key);
+    globalShortcut.register(toggleBind.key, () => {
+      const now = Date.now();
+      if (now - lastKeybindToggleAt < 500) {
+        return;
+      }
+      lastKeybindToggleAt = now;
+      setMainWindowShortcutsEnabled(!mainWindowShortcutsEnabled);
+    });
+  } catch (e) {
+    console.warn("Failed to register keybind toggle shortcut:", toggleBind.key, e);
+  }
+}
+
 function dispatchKeybindEvent(bind: any) {
   if (bind.event?.startsWith("ui.")) {
     mainWindow?.webContents.send("event.ui_action_fired", {actionId: bind.event});
@@ -1154,8 +1235,27 @@ function dispatchKeybindEvent(bind: any) {
     case "fullscreen_toggle":
       mainWindow?.setFullScreen(!mainWindow?.isFullScreen());
       break;
+    case "close_focus_session":
+      closeFocusSessionWindow();
+      break;
+    case "toggle_keybinds":
+      {
+        const now = Date.now();
+        if (now - lastKeybindToggleAt < 500) {
+          break;
+        }
+        lastKeybindToggleAt = now;
+      }
+      setMainWindowShortcutsEnabled(!mainWindowShortcutsEnabled);
+      break;
     case "layout_swap":
       mainWindow?.webContents.send("event.layout_swap");
+      break;
+    case "layout_cycle_forward":
+      mainWindow?.webContents.send("event.layout_cycle_forward");
+      break;
+    case "layout_cycle_backward":
+      mainWindow?.webContents.send("event.layout_cycle_backward");
       break;
     case "layout_switch":
       if (bind.args?.length > 0)
@@ -1187,6 +1287,7 @@ function registerKeybinds() {
 
   // Only register shortcuts if they are enabled for main window
   if (!mainWindowShortcutsEnabled) {
+    registerKeybindToggleShortcut();
     return;
   }
 
@@ -1221,28 +1322,35 @@ function registerSessionKeybinds(mode: LaunchMode) {
 
   // Find fullscreen keybind
   const fullscreenBind = neuzosConfig.keyBinds.find((bind: any) => bind.event === "fullscreen_toggle");
+  const closeFocusSessionBind = neuzosConfig.keyBinds.find((bind: any) => bind.event === "close_focus_session");
 
-  if (!fullscreenBind) {
+  if (!fullscreenBind && !closeFocusSessionBind) {
     return;
   }
 
   try {
+    if ((mode === 'focus' || mode === 'focus_fullscreen') && closeFocusSessionBind?.key) {
+      globalShortcut.register(closeFocusSessionBind.key, () => {
+        closeFocusSessionWindow();
+      });
+    }
+
     switch (mode) {
       case 'session':
         // Allow fullscreen toggle
-        globalShortcut.register(fullscreenBind.key, () => {
+        if (fullscreenBind?.key) globalShortcut.register(fullscreenBind.key, () => {
           sessionWindow?.setFullScreen(!sessionWindow?.isFullScreen());
         });
         break;
       case 'focus':
         // Prevent fullscreen
-        globalShortcut.register(fullscreenBind.key, () => {
+        if (fullscreenBind?.key) globalShortcut.register(fullscreenBind.key, () => {
           // Do nothing - prevent fullscreen
         });
         break;
       case 'focus_fullscreen':
         // Prevent removing fullscreen
-        globalShortcut.register(fullscreenBind.key, () => {
+        if (fullscreenBind?.key) globalShortcut.register(fullscreenBind.key, () => {
           if (!sessionWindow?.isFullScreen()) {
             sessionWindow?.setFullScreen(true);
           }
@@ -1501,15 +1609,8 @@ function registerSessionKeybinds(mode: LaunchMode) {
     });
 
     // IPC handlers for global shortcuts toggle
-    ipcMain.on("main_window.toggle_shortcuts", (event, enabled: boolean) => {
-      mainWindowShortcutsEnabled = enabled;
-      const win = BrowserWindow.fromWebContents(event.sender);
-      if (enabled) {
-        registerKeybinds();
-      } else {
-        globalShortcut.unregisterAll();
-      }
-      win?.webContents.send("event.shortcuts_state_changed", enabled);
+    ipcMain.on("main_window.toggle_shortcuts", (_event, enabled: boolean) => {
+      setMainWindowShortcutsEnabled(enabled);
     });
 
     ipcMain.on("keybinds.dispatch", (_, bind: any) => {
@@ -2425,14 +2526,14 @@ function registerSessionKeybinds(mode: LaunchMode) {
     const defaultMainWindowConfig = {
       width: defaultWindowWidth,
       height: defaultWindowHeight,
-      maximized: false,
+      maximized: true,
       zoom: 1.0
     };
 
     const defaultSessionWindowConfig = {
       width: defaultWindowWidth,
       height: defaultWindowHeight,
-      maximized: false,
+      maximized: true,
       zoom: 1.0
     };
 
@@ -2458,12 +2559,13 @@ function registerSessionKeybinds(mode: LaunchMode) {
     // Merge neuzosConfig with defaults (user config takes precedence)
     neuzosConfig = {...defaultNeuzosConfig, ...neuzosConfig};
 
-    if (neuzosConfig.autoDeleteAllCachesOnStartup) {
-      void Promise.all((neuzosConfig.sessions ?? []).map((sessionConfig: any) => {
-        if (typeof sessionConfig?.id !== 'string') {
-          return Promise.resolve();
-        }
+    const startupCacheClearSessions = (neuzosConfig.sessions ?? []).filter((sessionConfig: any) => {
+      return typeof sessionConfig?.id === 'string' &&
+        (neuzosConfig.autoDeleteAllCachesOnStartup || sessionConfig.autoDeleteCache);
+    });
 
+    if (startupCacheClearSessions.length > 0) {
+      void Promise.all(startupCacheClearSessions.map((sessionConfig: any) => {
         return session.fromPartition(`persist:${sessionConfig.id}`).clearCache().catch((err: any) => {
           console.warn('Startup cache clear failed for session', sessionConfig.id, err);
         });

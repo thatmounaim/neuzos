@@ -7,6 +7,7 @@
   import SettingsBar from "./components/SettingsWindow/SettingsBar.svelte";
   import KeybindsSettings from "./components/SettingsWindow/Tabs/KeybindsSettings.svelte";
   import * as Tabs from "$lib/components/ui/tabs";
+  import * as Dialog from "$lib/components/ui/dialog";
 
   import LaunchSettings from "./components/SettingsWindow/Tabs/LaunchSettings.svelte";
   import SessionSettings from "./components/SettingsWindow/Tabs/SessionSettings.svelte";
@@ -200,6 +201,11 @@
   let autoSaveTimeout: ReturnType<typeof setTimeout> | null = null;
   let isSaving = $state(false);
   let lastConfigSnapshot = $state("");
+  let unsavedCloseDialogOpen = $state(false);
+
+  const hasUnsavedChanges = () => {
+    return lastConfigSnapshot !== "" && JSON.stringify(neuzosConfig) !== lastConfigSnapshot;
+  };
 
   const saveSettings = async (showToast: boolean = true) => {
     if (isSaving) return;
@@ -224,7 +230,7 @@
   };
 
   const autoSave = () => {
-    if (!neuzosConfig.autoSaveSettings || isLoading || isSaving) return;
+    if (!neuzosConfig.autoSaveSettings || activeTab === 'keybinds' || isLoading || isSaving) return;
 
     // Clear existing timeout
     if (autoSaveTimeout) {
@@ -233,7 +239,9 @@
 
     // Debounce auto-save by 500ms
     autoSaveTimeout = setTimeout(() => {
-      saveSettings(false); // Don't show toast for auto-save
+      if (activeTab !== 'keybinds') {
+        saveSettings(false); // Don't show toast for auto-save
+      }
     }, 500);
   };
 
@@ -250,6 +258,26 @@
     }
   })
 
+  const requestCloseSettings = () => {
+    if (hasUnsavedChanges()) {
+      unsavedCloseDialogOpen = true;
+      return;
+    }
+
+    neuzosBridge.settingsWindow.close();
+  };
+
+  const closeWithoutSaving = () => {
+    unsavedCloseDialogOpen = false;
+    neuzosBridge.settingsWindow.close();
+  };
+
+  const saveAndClose = async () => {
+    await saveSettings();
+    unsavedCloseDialogOpen = false;
+    neuzosBridge.settingsWindow.close();
+  };
+
 
 </script>
 <ModeWatcher/>
@@ -264,7 +292,7 @@
 {:else}
   <SharedEvents/>
   <div class="w-full h-full flex flex-col border-2 ">
-    <SettingsBar/>
+    <SettingsBar onRequestClose={requestCloseSettings}/>
     <div class="flex w-full flex-col gap-6 p-4 flex-1 overflow-hidden">
       <Tabs.Root bind:value={activeTab} class="h-full w-full">
         <Tabs.List class="relative w-full">
@@ -280,7 +308,7 @@
           </div>
           <div class="flex-1"></div>
           <div class="flex items-center gap-2 px-0.5 py-0.5">
-            {#if !neuzosConfig.autoSaveSettings}
+            {#if !neuzosConfig.autoSaveSettings || activeTab === 'keybinds'}
 
             <Button
               size="xs"
@@ -328,4 +356,26 @@
     </div>
 
   </div>
+
+  <Dialog.Root bind:open={unsavedCloseDialogOpen}>
+    <Dialog.Content class="sm:max-w-md">
+      <Dialog.Header>
+        <Dialog.Title>Unsaved Changes</Dialog.Title>
+        <Dialog.Description>
+          You have unsaved settings changes. Save them before closing?
+        </Dialog.Description>
+      </Dialog.Header>
+      <Dialog.Footer class="gap-2">
+        <Button onclick={saveAndClose} disabled={isSaving}>
+          Save and Close
+        </Button>
+        <Button variant="outline" onclick={closeWithoutSaving}>
+          Close without Saving
+        </Button>
+        <Button variant="ghost" onclick={() => unsavedCloseDialogOpen = false}>
+          Cancel
+        </Button>
+      </Dialog.Footer>
+    </Dialog.Content>
+  </Dialog.Root>
 {/if}

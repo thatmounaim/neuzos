@@ -16,6 +16,7 @@
     Home,
     ChevronLeft,
     ChevronRight,
+    ChevronDown,
     RefreshCw,
     Fullscreen,
     Keyboard,
@@ -24,11 +25,13 @@
     ZoomIn,
     ZoomOut,
     RotateCcw,
+    BookMarked,
     BookOpen,
-    Globe
+    Globe,
+    RadioTower
   } from '@lucide/svelte'
   import {getContext, onMount} from "svelte";
-  import type {MainWindowState, NeuzSession} from "$lib/types";
+  import type {MainWindowState, NeuzSession, NeuzSessionGroup} from "$lib/types";
   import * as Dialog from '$lib/components/ui/dialog'
   import * as ContextMenu from '$lib/components/ui/context-menu'
   import * as Tabs from '$lib/components/ui/tabs'
@@ -46,6 +49,7 @@
   import {ScrollText} from '@lucide/svelte';
 
   let shortcutsEnabled = $state(true);
+  let collapsedSessionGroupIds: Record<string, boolean> = $state({});
 
   onMount(async () => {
     try {
@@ -189,6 +193,23 @@
     void neuzosBridge.sessions.setZoom(sessionId, clamped)
   }
 
+  const isActiveReceiver = (sessionId: string) => {
+    return mainWindowState.config.syncReceiverSessionId === sessionId
+  }
+
+  const toggleActiveReceiver = (sessionId: string) => {
+    const nextReceiverId = isActiveReceiver(sessionId) ? null : sessionId
+    mainWindowState.config.syncReceiverSessionId = nextReceiverId
+    neuzosBridge.sessions.setSyncReceiver(nextReceiverId)
+  }
+
+  const layoutHasActiveReceiver = (layout: { rows?: { sessionIds?: string[] }[] }) => {
+    const receiverId = mainWindowState.config.syncReceiverSessionId
+    if (!receiverId) return false
+
+    return layout.rows?.some((row) => row.sessionIds?.includes(receiverId)) ?? false
+  }
+
 
   function getIconPath(session: NeuzSession): string {
     if (!session?.icon?.slug) return 'icons/misc/unknown.png';
@@ -200,7 +221,74 @@
     electronApi.send("session_launcher.launch_session", sessionId, mode);
   }
 
+  function getLaunchableSessions(): NeuzSession[] {
+    return mainWindowState.sessions.filter(session => session.partitionOverwrite !== 'browser');
+  }
+
+  function getSessionGroups(): NeuzSessionGroup[] {
+    return mainWindowState.config.sessionGroups ?? [];
+  }
+
+  function getGroupSessions(group: NeuzSessionGroup): NeuzSession[] {
+    const sessionMap = new Map(getLaunchableSessions().map((session) => [session.id, session]));
+    const sessionIds = Array.isArray(group.sessionIds) ? group.sessionIds : [];
+    return sessionIds
+      .map((sessionId) => sessionMap.get(sessionId))
+      .filter((session): session is NeuzSession => session !== undefined);
+  }
+
+  function getUngroupedSessions(): NeuzSession[] {
+    const groupedSessionIds = new Set(getSessionGroups().flatMap((group) => Array.isArray(group.sessionIds) ? group.sessionIds : []));
+    return getLaunchableSessions().filter((session) => !groupedSessionIds.has(session.id));
+  }
+
+  function isSessionGroupCollapsed(groupId: string): boolean {
+    return collapsedSessionGroupIds[groupId] ?? false;
+  }
+
+  function toggleSessionGroupCollapsed(groupId: string) {
+    collapsedSessionGroupIds[groupId] = !isSessionGroupCollapsed(groupId);
+  }
+
 </script>
+{#snippet sessionLaunchCard(sessionTab)}
+  <Card.Root class="gap-2 pt-2 pb-3">
+    <Card.Header class="py-0">
+      <div class="flex items-center gap-2">
+        <img src={getIconPath(sessionTab)} alt={sessionTab.label} class="w-4 h-4"/>
+        <span>{sessionTab.label}</span>
+      </div>
+    </Card.Header>
+    <Card.Content class="py-0">
+      <div class="flex gap-1.5">
+        <Button
+          variant="outline"
+          size="sm"
+          class="text-xs h-7 flex-1"
+          onclick={() => launchSession(sessionTab.id, 'session')}
+        >
+          Normal
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          class="text-xs h-7 flex-1"
+          onclick={() => launchSession(sessionTab.id, 'focus')}
+        >
+          Focus
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          class="text-xs h-7 flex-1"
+          onclick={() => launchSession(sessionTab.id, 'focus_fullscreen')}
+        >
+          Focus Fullscreen
+        </Button>
+      </div>
+    </Card.Content>
+  </Card.Root>
+{/snippet}
 <div
   id="titlebar"
   class="gap-2 p-1 px-2 select-none border-b border-accent flex items-center justify-end bg-accent/50 min-h-10"
@@ -249,49 +337,52 @@
             </div>
           </Tabs.Content>
           <Tabs.Content value="sessions">
-            <div class="grid gap-4 grid-cols-1 w-full h-full max-h-[33vh] overflow-y-auto px-6">
-              {#each mainWindowState.sessions as sessionTab (sessionTab.id)}
-                {@const isBrowser = sessionTab.partitionOverwrite === 'browser'}
-                {#if !isBrowser}
-                  <Card.Root class="gap-2 pt-2 pb-3">
-                    <Card.Header class="py-0">
-                      <div class="flex items-center gap-2">
-                        <img src={getIconPath(sessionTab)} alt={sessionTab.label} class="w-4 h-4"/>
-                        <span>{sessionTab.label}</span>
+            <div class="flex flex-col gap-3 w-full h-full max-h-[33vh] overflow-y-auto px-6">
+              {#each getSessionGroups() as group (group.id)}
+                {@const groupSessions = getGroupSessions(group)}
+                {#if groupSessions.length > 0}
+                  <div class="space-y-2">
+                    <button
+                      type="button"
+                      class="flex w-full items-center justify-between gap-2 rounded-sm px-1 py-0.5 text-left text-xs text-muted-foreground hover:bg-muted/60"
+                      onclick={() => toggleSessionGroupCollapsed(group.id)}
+                    >
+                      <div class="flex min-w-0 items-center gap-1.5">
+                        <ChevronDown class={`size-3 shrink-0 transition-transform ${isSessionGroupCollapsed(group.id) ? 'rotate-180' : ''}`}/>
+                        <span class="truncate font-semibold text-foreground">{group.label}</span>
                       </div>
-                    </Card.Header>
-                    <Card.Content class="py-0">
-                      <div class="flex gap-1.5">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          class="text-xs h-7 flex-1"
-                          onclick={() => launchSession(sessionTab.id, 'session')}
-                        >
-                          Normal
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          class="text-xs h-7 flex-1"
-                          onclick={() => launchSession(sessionTab.id, 'focus')}
-                        >
-                          Focus
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          class="text-xs h-7 flex-1"
-                          onclick={() => launchSession(sessionTab.id, 'focus_fullscreen')}
-                        >
-                          Focus Fullscreen
-                        </Button>
+                      <span class="shrink-0">{groupSessions.length}</span>
+                    </button>
+                    {#if !isSessionGroupCollapsed(group.id)}
+                      <div class="grid gap-2">
+                        {#each groupSessions as sessionTab (sessionTab.id)}
+                          {@render sessionLaunchCard(sessionTab)}
+                        {/each}
                       </div>
-                    </Card.Content>
-                  </Card.Root>
+                    {/if}
+                  </div>
                 {/if}
               {/each}
 
+              {#if getUngroupedSessions().length > 0}
+                <div class="space-y-2">
+                  {#if getSessionGroups().length > 0}
+                    <div class="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                      <span class="font-semibold text-foreground">Ungrouped</span>
+                      <span>{getUngroupedSessions().length}</span>
+                    </div>
+                  {/if}
+                  <div class="grid gap-2">
+                    {#each getUngroupedSessions() as sessionTab (sessionTab.id)}
+                      {@render sessionLaunchCard(sessionTab)}
+                    {/each}
+                  </div>
+                </div>
+              {/if}
+
+              {#if getLaunchableSessions().length === 0}
+                <p class="text-center text-sm text-muted-foreground">No sessions available</p>
+              {/if}
             </div>
           </Tabs.Content>
         </Tabs.Root>
@@ -315,6 +406,9 @@
                   onclick={() => switchToLayout(layoutId)}>
             <img src="icons/{layTab.icon.slug}.png" alt={layTab.icon.slug} class="w-4 h-4"/>
             {layTab.label}
+            {#if layoutHasActiveReceiver(layTab)}
+              <RadioTower class="h-3.5 w-3.5 text-primary" />
+            {/if}
           </Button>
         </ContextMenu.Trigger>
         <ContextMenu.Content>
@@ -439,14 +533,6 @@
                   </ContextMenu.Item>
                   <ContextMenu.Separator/>
                   <ContextMenu.Item
-                    onclick={() => setSessionZoom(sessionId, getSessionZoom(sessionId) - 0.05)}
-                    disabled={getSessionZoom(sessionId) <= 0.5}>
-                    <div class="flex items-center gap-2">
-                      <ZoomOut class="h-4"/>
-                      Zoom Out
-                    </div>
-                  </ContextMenu.Item>
-                  <ContextMenu.Item
                     onclick={() => setSessionZoom(sessionId, getSessionZoom(sessionId) + 0.05)}
                     disabled={getSessionZoom(sessionId) >= 1.5}>
                     <div class="flex items-center gap-2">
@@ -455,11 +541,31 @@
                     </div>
                   </ContextMenu.Item>
                   <ContextMenu.Item
+                    onclick={() => setSessionZoom(sessionId, getSessionZoom(sessionId) - 0.05)}
+                    disabled={getSessionZoom(sessionId) <= 0.5}>
+                    <div class="flex items-center gap-2">
+                      <ZoomOut class="h-4"/>
+                      Zoom Out
+                    </div>
+                  </ContextMenu.Item>
+                  <ContextMenu.Item
                     onclick={() => setSessionZoom(sessionId, 1.0)}
                     disabled={getSessionZoom(sessionId) === 1.0}>
                     <div class="flex items-center gap-2">
                       <RotateCcw class="h-4"/>
                       Reset Zoom ({(getSessionZoom(sessionId) * 100).toFixed(0)}%)
+                    </div>
+                  </ContextMenu.Item>
+                  <ContextMenu.Separator/>
+                  <ContextMenu.Item onclick={() => toggleActiveReceiver(sessionId)}>
+                    <div class="flex w-full items-center justify-between gap-4">
+                      <div class="flex items-center gap-2">
+                        <RadioTower class="h-4"/>
+                        Active Receiver
+                      </div>
+                      {#if isActiveReceiver(sessionId)}
+                        <Check class="h-4"/>
+                      {/if}
                     </div>
                   </ContextMenu.Item>
                 </ContextMenu.SubContent>
@@ -490,7 +596,7 @@
     <BookOpen class="size-3.5"/>
   </Button>
   <Button size="icon-xs" variant="outline" onclick={openFlyffipedia} class="cursor-pointer" title="Open Flyffipedia">
-    <Globe class="size-3.5"/>
+    <BookMarked class="size-3.5"/>
   </Button>
 
   <Button

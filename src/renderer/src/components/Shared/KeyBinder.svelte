@@ -306,7 +306,7 @@
 
 <Popover.Root open={open} onOpenChange={handleOpenChange}>
   <Popover.Trigger class="h-9 px-3 inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm whitespace-nowrap">
-    <span class="truncate {currentKey ? 'text-foreground' : 'text-muted-foreground'}">{currentKey || 'Click to Bind'}</span>
+    <span class="truncate text-foreground">Record Keybind</span>
   </Popover.Trigger>
 
   <Popover.Content class="w-80 space-y-4">
@@ -316,7 +316,7 @@
         <p class="text-sm font-semibold">{isRecording ? 'Listening…' : 'Record mode ready'}</p>
       </div>
       <p class="text-xs text-muted-foreground">
-        Press a key, Mouse 4/5, or middle click. Escape cancels.
+        Press a Key to record Keybind. Press Escape to Cancel.
       </p>
       {#if isRecording && !gamepadDetected}
         <p class="text-xs text-muted-foreground">No gamepad detected — keyboard and mouse capture still active</p>

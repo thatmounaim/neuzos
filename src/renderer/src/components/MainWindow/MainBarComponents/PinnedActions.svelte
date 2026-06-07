@@ -261,6 +261,15 @@
 </script>
 
 <!-- Pinned Actions -->
+{#if pinnedActionsToShow.length > 0}
+  <div
+    class="flex size-7 shrink-0 items-center justify-center rounded-md bg-accent/30 text-muted-foreground"
+    title="Action Pins"
+  >
+    <Swords class="size-4"/>
+  </div>
+{/if}
+
 {#each pinnedActionsToShow as sessionPinned, sessionIndex (sessionPinned.sessionId)}
   {#if sessionIndex > 0}
     <Separator orientation="vertical" class="h-4"/>

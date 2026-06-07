@@ -290,7 +290,7 @@
                           {#each layoutIcons as icon}
                             <Command.Item
                               value={icon}
-                              keywords={[icon.replace('misc/', '').replace('levels/', '').replace(/_/g, ' ').toLowerCase()]}
+                              keywords={[icon.replace('misc/', '').replace('levels/', '').replace('jobs/', '').replace('pets/', '').replace(/_/g, ' ').toLowerCase()]}
                               onSelect={() => {
                                 layout.icon.slug = icon;
                                 iconPopoverStates[layout.id] = false;
@@ -299,7 +299,7 @@
                             >
                               <img class="size-6 mr-2" src="icons/{icon}.png" alt=""/>
                               <span
-                                class="text-xs truncate">{icon.replace('misc/', '').replace('levels/', '').replace('jobs/', '')}</span>
+                                class="text-xs truncate">{icon.replace('misc/', '').replace('levels/', '').replace('jobs/', '').replace('pets/', '')}</span>
                             </Command.Item>
                           {/each}
                         </Command.Group>

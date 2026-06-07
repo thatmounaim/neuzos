@@ -5,6 +5,14 @@
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
   import { getNeuzosBridgeContext } from "$lib/contexts/neuzosBridgeContext";
 
+  type Props = {
+    onRequestClose?: () => void;
+  };
+
+  let {
+    onRequestClose
+  }: Props = $props();
+
   const neuzosBridge = getNeuzosBridgeContext()
 </script>
 <div
@@ -65,7 +73,11 @@
   <Button
     variant="outline"
     onclick={() => {
-         neuzosBridge.settingsWindow.close()
+         if (onRequestClose) {
+           onRequestClose()
+         } else {
+           neuzosBridge.settingsWindow.close()
+         }
       }}
     size="icon-xs"
     class="cursor-pointer"

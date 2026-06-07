@@ -54,6 +54,136 @@
     [key: string]: { label: string, args?: string[], unique?: boolean }
   } = $state({});
   let uiActions: UIActionDescriptor[] = $state([]);
+  const systemActionEventIds = [
+    'ui.toggle_quest_log',
+    'fullscreen_toggle',
+    'close_focus_session',
+    'toggle_keybinds',
+    'layout_swap',
+    'layout_switch',
+    'layout_cycle_forward',
+    'layout_cycle_backward'
+  ];
+
+  const isSystemActionEvent = (event: string) => systemActionEventIds.includes(event);
+
+  function getSystemActionInfo(event: string): { label: string; category: string } {
+    const uiAction = uiActions.find(action => action.id === event);
+    if (uiAction) {
+      return {label: uiAction.label, category: uiAction.category};
+    }
+
+    if (['layout_swap', 'layout_switch', 'layout_cycle_forward', 'layout_cycle_backward'].includes(event)) {
+      return {
+        label: allowedEventKeybinds[event]?.label ?? event,
+        category: 'Layout'
+      };
+    }
+
+    if (event === 'fullscreen_toggle' || event === 'close_focus_session') {
+      return {
+        label: allowedEventKeybinds[event]?.label ?? event,
+        category: 'Window'
+      };
+    }
+
+    return {
+      label: allowedEventKeybinds[event]?.label ?? event,
+      category: 'System'
+    };
+  }
+
+  function getKeybindActionCategory(event: string, fallback: string): string {
+    if (event === 'send_session_action' || event === 'send_to_receiver') {
+      return 'Action';
+    }
+
+    if (['layout_swap', 'layout_switch', 'layout_cycle_forward', 'layout_cycle_backward'].includes(event)) {
+      return 'Layout';
+    }
+
+    if (event === 'fullscreen_toggle' || event === 'close_focus_session') {
+      return 'Window';
+    }
+
+    if (event === 'custom_event') {
+      return 'Custom';
+    }
+
+    return fallback;
+  }
+
+  function getKeybindEventDescription(event: string): string {
+    switch (event) {
+      case 'ui.toggle_quest_log':
+        return 'Show / Hide the Quest Log Panel.';
+      case 'fullscreen_toggle':
+        return 'Toggles Fullscreen Mode.';
+      case 'close_focus_session':
+        return 'Closes the active Focus Session Window.';
+      case 'toggle_keybinds':
+        return 'Enable or Disable NeuzOS Keybinds.';
+      case 'layout_swap':
+        return 'Switches between the two last used Layouts.';
+      case 'layout_cycle_forward':
+        return 'Cycles to the Next Layout.';
+      case 'layout_cycle_backward':
+        return 'Cycles to the Previous Layout.';
+      case 'send_session_action':
+        return 'Sends the Selected Action to the Selected Session.';
+      case 'send_to_receiver':
+        return 'Sends the Selected Key to the Active Receiver Session.';
+      case 'custom_event':
+        return 'Dispatches a Custom NeuzOS Event.';
+      default:
+        return 'No Additional Event Data Required.';
+    }
+  }
+
+  function getKeybindEventDataDescription(event: string): string | null {
+    switch (event) {
+      case 'layout_switch':
+        return 'Jump to a Specific Layout.';
+      case 'send_session_action':
+        return 'Choose the Session and Action for this Keybind.';
+      case 'send_to_receiver':
+        return 'Choose the Key sent to the Active Receiver Session.';
+      default:
+        return null;
+    }
+  }
+
+  function getAddableGlobalEventIds(): string[] {
+    const knownSystemEvents = systemActionEventIds.filter(event => {
+      return event.startsWith('ui.') || allowedEventKeybinds[event];
+    });
+    const regularEvents = Object.keys(allowedEventKeybinds).filter(event => !isSystemActionEvent(event));
+
+    return [...knownSystemEvents, ...regularEvents];
+  }
+
+  function canAddGlobalKeybind(event: string): boolean {
+    const existing = neuzosConfig.keyBinds.find(keyBind => keyBind.event === event);
+    if (event === 'layout_switch') {
+      return true;
+    }
+
+    if (isSystemActionEvent(event)) {
+      return !existing;
+    }
+
+    return !(allowedEventKeybinds[event]?.unique && existing);
+  }
+
+  function addGlobalKeybind(event: string) {
+    const argCount = allowedEventKeybinds[event]?.args?.length || 0;
+    neuzosConfig.keyBinds.push({
+      key: '',
+      event,
+      args: new Array(argCount).fill('')
+    });
+    addKeybindPopoverOpen = false;
+  }
 
   function parseKeybind(keybind: string): { modifier: string; key: string } {
     const parts = keybind.split("+");
@@ -71,6 +201,14 @@
   const electronApi = getElectronContext();
   const neuzosConfig = getContext<NeuzConfig>("neuzosConfig");
 
+  const systemActionKeybinds = $derived(
+    neuzosConfig.keyBinds.filter(keyBind => isSystemActionEvent(keyBind.event))
+  );
+
+  const regularGlobalKeybinds = $derived(
+    neuzosConfig.keyBinds.filter(keyBind => !isSystemActionEvent(keyBind.event))
+  );
+
   onMount(async () => {
     allowedEventKeybinds = await electronApi.invoke("config.get_available_event_keybinds");
     uiActions = await electronApi.invoke("config.get_available_ui_actions");
@@ -82,18 +220,12 @@
   let layoutSelectorStates: { [index: number]: boolean } = $state({});
   let sessionSelectorStates: { [index: number]: boolean } = $state({});
   let actionSelectorStates: { [index: number]: boolean } = $state({});
-  let uiActionComboboxStates: Array<{ open: boolean; modifierOpen: boolean }> = $state([]);
-  let uiActionConflictWarnings: { [actionId: string]: string } = $state({});
+  let systemActionConflictWarnings: { [index: number]: string } = $state({});
 
   $effect(() => {
     const neededLength = neuzosConfig.keyBinds.length;
     while (comboboxStates.length < neededLength) comboboxStates.push({open: false, modifierOpen: false});
     if (comboboxStates.length > neededLength) comboboxStates.length = neededLength;
-  });
-
-  $effect(() => {
-    while (uiActionComboboxStates.length < uiActions.length) uiActionComboboxStates.push({open: false, modifierOpen: false});
-    if (uiActionComboboxStates.length > uiActions.length) uiActionComboboxStates.length = uiActions.length;
   });
 
   function moveKeybindUp(index: number) {
@@ -116,6 +248,34 @@
       [states[index], states[index + 1]] = [states[index + 1], states[index]];
       comboboxStates = states;
     }
+  }
+
+  function moveSystemActionUp(keyBind: NeuzKeybind) {
+    const currentSystemIndex = systemActionKeybinds.indexOf(keyBind);
+    if (currentSystemIndex <= 0) return;
+
+    const previousSystemBind = systemActionKeybinds[currentSystemIndex - 1];
+    const currentIndex = neuzosConfig.keyBinds.indexOf(keyBind);
+    const previousIndex = neuzosConfig.keyBinds.indexOf(previousSystemBind);
+    if (currentIndex < 0 || previousIndex < 0) return;
+
+    const keybinds = [...neuzosConfig.keyBinds];
+    [keybinds[currentIndex], keybinds[previousIndex]] = [keybinds[previousIndex], keybinds[currentIndex]];
+    neuzosConfig.keyBinds = keybinds;
+  }
+
+  function moveSystemActionDown(keyBind: NeuzKeybind) {
+    const currentSystemIndex = systemActionKeybinds.indexOf(keyBind);
+    if (currentSystemIndex < 0 || currentSystemIndex >= systemActionKeybinds.length - 1) return;
+
+    const nextSystemBind = systemActionKeybinds[currentSystemIndex + 1];
+    const currentIndex = neuzosConfig.keyBinds.indexOf(keyBind);
+    const nextIndex = neuzosConfig.keyBinds.indexOf(nextSystemBind);
+    if (currentIndex < 0 || nextIndex < 0) return;
+
+    const keybinds = [...neuzosConfig.keyBinds];
+    [keybinds[currentIndex], keybinds[nextIndex]] = [keybinds[nextIndex], keybinds[currentIndex]];
+    neuzosConfig.keyBinds = keybinds;
   }
 
   // ── Profile management ───────────────────────────────────────────────────────
@@ -227,65 +387,47 @@
     profileAddKeybindPopovers[profile.id] = false;
   }
 
-  function getUiActionKeybind(actionId: string): NeuzKeybind | undefined {
-    const activeProfile = getActiveProfile();
-    return activeProfile?.keybinds.find(keyBind => keyBind.event === actionId);
-  }
+  function applySystemActionKeybind(keyBind: NeuzKeybind, keybind: string): boolean {
+    const keyBindIndex = neuzosConfig.keyBinds.indexOf(keyBind);
+    if (keyBindIndex < 0) return false;
 
-  function setUiActionKeybind(actionId: string, keybind: string) {
-    const activeProfile = getActiveProfile();
-    if (!activeProfile) return;
-
-    const existingIndex = activeProfile.keybinds.findIndex(keyBind => keyBind.event === actionId);
     if (!keybind) {
-      if (existingIndex !== -1) {
-        activeProfile.keybinds.splice(existingIndex, 1);
-      }
-      return;
-    }
-
-    if (existingIndex !== -1) {
-      activeProfile.keybinds[existingIndex].key = keybind;
-      return;
-    }
-
-    activeProfile.keybinds.push({key: keybind, event: actionId});
-  }
-
-  function applyUiActionKeybind(actionId: string, keybind: string): boolean {
-    if (!keybind) {
-      removeUiActionKeybind(actionId);
-      delete uiActionConflictWarnings[actionId];
+      removeSystemActionKeybind(keyBind);
+      delete systemActionConflictWarnings[keyBindIndex];
       return true;
     }
 
-    const conflictLabel = getUiActionConflict(actionId, keybind);
+    const conflictLabel = getSystemActionConflict(keyBind, keybind);
     if (conflictLabel) {
-      uiActionConflictWarnings[actionId] = conflictLabel;
+      systemActionConflictWarnings[keyBindIndex] = conflictLabel;
       return false;
     }
 
-    delete uiActionConflictWarnings[actionId];
-    setUiActionKeybind(actionId, keybind);
+    delete systemActionConflictWarnings[keyBindIndex];
+    keyBind.key = keybind;
     return true;
   }
 
-  function removeUiActionKeybind(actionId: string) {
-    delete uiActionConflictWarnings[actionId];
-    setUiActionKeybind(actionId, "");
+  function removeSystemActionKeybind(keyBind: NeuzKeybind) {
+    const keyBindIndex = neuzosConfig.keyBinds.indexOf(keyBind);
+    if (keyBindIndex < 0) return;
+
+    delete systemActionConflictWarnings[keyBindIndex];
+    neuzosConfig.keyBinds.splice(keyBindIndex, 1);
   }
 
-  function getUiActionConflict(actionId: string, keybind: string): string | null {
+  function getSystemActionConflict(currentKeyBind: NeuzKeybind, keybind: string): string | null {
     if (!keybind) return null;
 
-    const activeProfile = getActiveProfile();
-    const conflict = activeProfile?.keybinds.find(existingBind => {
-      return existingBind.event !== actionId && existingBind.key.toLowerCase() === keybind.toLowerCase();
+    const conflict = neuzosConfig.keyBinds.find(existingBind => {
+      return existingBind !== currentKeyBind && existingBind.key.toLowerCase() === keybind.toLowerCase();
     });
 
     if (!conflict) return null;
 
-    return uiActions.find(action => action.id === conflict.event)?.label ?? conflict.event;
+    return uiActions.find(action => action.id === conflict.event)?.label
+      ?? allowedEventKeybinds[conflict.event]?.label
+      ?? conflict.event;
   }
 
   function removeProfileKeybind(profile: NeuzKeyBindProfile, index: number) {
@@ -339,6 +481,10 @@
 
     <!-- ── Keybind Profiles ───────────────────────────────────────────────── -->
     <div class="w-full flex flex-col gap-3">
+      <div>
+        <h3 class="text-sm font-semibold">Profile Keybinds</h3>
+        <p class="text-xs text-muted-foreground mt-1">These Keybinds are only active while their assigned profile is active.</p>
+      </div>
       <div class="flex items-center gap-2">
         <Button variant="outline" size="sm" onclick={addProfile}>
           <Plus class="size-4 mr-2"/>
@@ -391,7 +537,7 @@
                       <span class="font-medium">{profile.name}</span>
                     {/if}
                     <span class="text-sm text-muted-foreground">
-                      {profile.keybinds.length} keybind{profile.keybinds.length !== 1 ? 's' : ''}
+                      {profile.keybinds.length} Keybind{profile.keybinds.length !== 1 ? 's' : ''}
                       {#if isActive}<span class="ml-1 text-primary font-semibold">· Active</span>{/if}
                     </span>
                   </div>
@@ -424,24 +570,24 @@
                 <div class="space-y-3">
                   {#if profile.keybinds.length > 0}
                     <div class="rounded-md border">
-                      <Table.Root>
+                      <Table.Root class="table-fixed min-w-[1040px]">
                         <Table.Header>
                           <Table.Row>
                             <Table.Head class="font-bold w-[60px]">Order</Table.Head>
-                            <Table.Head class="font-bold">Modifier</Table.Head>
-                            <Table.Head class="font-bold">Key</Table.Head>
-                            <Table.Head class="font-bold">Record</Table.Head>
+                            <Table.Head class="font-bold w-[220px]">Action</Table.Head>
+                            <Table.Head class="font-bold w-[460px]">Modifier + Key</Table.Head>
                             <Table.Head class="font-bold">Event</Table.Head>
-                            <Table.Head class="w-full"></Table.Head>
-                            <Table.Head></Table.Head>
+                            <Table.Head class="w-[56px]"></Table.Head>
                           </Table.Row>
                         </Table.Header>
                         <Table.Body>
                           {#each profile.keybinds as keyBind, index (index)}
-                            {@const eventInfo = allowedEventKeybinds[keyBind.event]}
-                            {@const parsed = parseKeybind(keyBind.key)}
-                            {@const state = profileStates[index] ?? {open: false, modifierOpen: false}}
-                            <Table.Row class="hover:bg-muted/50">
+                            {#if !isSystemActionEvent(keyBind.event)}
+                              {@const eventInfo = allowedEventKeybinds[keyBind.event]}
+                              {@const parsed = parseKeybind(keyBind.key)}
+                              {@const keyOnly = parsed.key}
+                              {@const state = profileStates[index] ?? {open: false, modifierOpen: false}}
+                              <Table.Row class="hover:bg-muted/50">
                               <Table.Cell>
                                 <div class="flex flex-col gap-0.5">
                                   <Button variant="outline" size="icon-xs" onclick={() => moveProfileKeybindUp(profile, index)} disabled={index === 0}>
@@ -452,73 +598,76 @@
                                   </Button>
                                 </div>
                               </Table.Cell>
-                              <!-- Modifier -->
-                              <Table.Cell>
-                                <Popover.Root bind:open={state.modifierOpen}>
-                                  <Popover.Trigger class="w-48 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
-                                    {@const selectedMod = modifierOptions.find(m => m.value === parsed.modifier)?.label ?? 'None'}
-                                    <span class="truncate {parsed.modifier ? 'text-foreground' : 'text-muted-foreground'}">{selectedMod}</span>
-                                    <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
-                                  </Popover.Trigger>
-                                  <Popover.Content class="w-[220px] p-0">
-                                    <Command.Root shouldFilter={true}>
-                                      <Command.Input placeholder="Search modifier..." class="h-10"/>
-                                      <Command.Empty>No modifier found.</Command.Empty>
-                                      <Command.List class="max-h-[320px]">
-                                        <Command.Group>
-                                          {#each modifierOptions as modifier}
-                                            <Command.Item value={modifier.value} keywords={[modifier.label.toLowerCase()]} onSelect={() => { keyBind.key = buildKeybind(modifier.value, parsed.key); state.modifierOpen = false; }} class="font-medium py-2.5">
-                                              <Check class={parsed.modifier === modifier.value ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
-                                              <span class={parsed.modifier === modifier.value ? "text-primary" : ""}>{modifier.label}</span>
-                                            </Command.Item>
-                                          {/each}
-                                        </Command.Group>
-                                      </Command.List>
-                                    </Command.Root>
-                                  </Popover.Content>
-                                </Popover.Root>
+                              <Table.Cell class="font-medium">
+                                <div class="flex flex-col gap-0.5">
+                                  <span>{eventInfo?.label}</span>
+                                  <span class="text-xs text-muted-foreground">{getKeybindActionCategory(keyBind.event, 'Profile')}</span>
+                                </div>
                               </Table.Cell>
-                              <!-- Key -->
                               <Table.Cell>
-                                {@const keyOnly = parsed.key}
-                                <Popover.Root open={state.open} onOpenChange={(open) => { state.open = open; }}>
-                                  <Popover.Trigger class="w-40 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-mono font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
-                                    <span class="truncate {keyOnly ? 'text-foreground uppercase' : 'text-muted-foreground font-sans font-normal lowercase'}">{keyOnly || "select key..."}</span>
-                                    <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
-                                  </Popover.Trigger>
-                                  <Popover.Content class="w-[220px] p-0">
-                                    <Command.Root shouldFilter={true}>
-                                      <Command.Input placeholder="Search key..." class="h-10"/>
-                                      <Command.Empty>No key found.</Command.Empty>
-                                      <Command.List class="max-h-[320px]">
-                                        <Command.Group>
-                                          {#each allowedKeys as key}
-                                            <Command.Item value={key} onSelect={() => { keyBind.key = buildKeybind(parsed.modifier, key); state.open = false; }} class="font-mono font-semibold uppercase py-2.5">
-                                              <Check class={keyOnly === key ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
-                                              <span class={keyOnly === key ? "text-primary" : ""}>{key}</span>
-                                            </Command.Item>
-                                          {/each}
-                                        </Command.Group>
-                                      </Command.List>
-                                    </Command.Root>
-                                  </Popover.Content>
-                                </Popover.Root>
+                                <div class="flex items-center gap-2">
+                                  <Popover.Root bind:open={state.modifierOpen}>
+                                    <Popover.Trigger class="w-36 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
+                                      {@const selectedMod = modifierOptions.find(m => m.value === parsed.modifier)?.label ?? 'None'}
+                                      <span class="truncate {parsed.modifier ? 'text-foreground' : 'text-muted-foreground'}">{selectedMod}</span>
+                                      <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
+                                    </Popover.Trigger>
+                                    <Popover.Content class="w-[220px] p-0">
+                                      <Command.Root shouldFilter={true}>
+                                        <Command.Input placeholder="Search modifier..." class="h-10"/>
+                                        <Command.Empty>No modifier found.</Command.Empty>
+                                        <Command.List class="max-h-[320px]">
+                                          <Command.Group>
+                                            {#each modifierOptions as modifier}
+                                              <Command.Item value={modifier.value} keywords={[modifier.label.toLowerCase()]} onSelect={() => { keyBind.key = buildKeybind(modifier.value, parsed.key); state.modifierOpen = false; }} class="font-medium py-2.5">
+                                                <Check class={parsed.modifier === modifier.value ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
+                                                <span class={parsed.modifier === modifier.value ? "text-primary" : ""}>{modifier.label}</span>
+                                              </Command.Item>
+                                            {/each}
+                                          </Command.Group>
+                                        </Command.List>
+                                      </Command.Root>
+                                    </Popover.Content>
+                                  </Popover.Root>
+                                  <Popover.Root open={state.open} onOpenChange={(open) => { state.open = open; }}>
+                                    <Popover.Trigger class="w-32 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-mono font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
+                                      <span class="truncate {keyOnly ? 'text-foreground uppercase' : 'text-muted-foreground font-sans font-normal lowercase'}">{keyOnly || "select key..."}</span>
+                                      <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
+                                    </Popover.Trigger>
+                                    <Popover.Content class="w-[220px] p-0">
+                                      <Command.Root shouldFilter={true}>
+                                        <Command.Input placeholder="Search key..." class="h-10"/>
+                                        <Command.Empty>No key found.</Command.Empty>
+                                        <Command.List class="max-h-[320px]">
+                                          <Command.Group>
+                                            {#each allowedKeys as key}
+                                              <Command.Item value={key} onSelect={() => { keyBind.key = buildKeybind(parsed.modifier, key); state.open = false; }} class="font-mono font-semibold uppercase py-2.5">
+                                                <Check class={keyOnly === key ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
+                                                <span class={keyOnly === key ? "text-primary" : ""}>{key}</span>
+                                              </Command.Item>
+                                            {/each}
+                                          </Command.Group>
+                                        </Command.List>
+                                      </Command.Root>
+                                    </Popover.Content>
+                                  </Popover.Root>
+                                  <KeyBinder
+                                    actionId={keyBind.event}
+                                    currentKey={keyBind.key}
+                                    onBind={(capturedKey) => { keyBind.key = capturedKey; return true; }}
+                                    onCancel={() => {}}
+                                  />
+                                </div>
                               </Table.Cell>
-                              <!-- Record (KeyBinder) -->
-                              <Table.Cell>
-                                <KeyBinder
-                                  actionId={keyBind.event}
-                                  currentKey={keyBind.key}
-                                  onBind={(capturedKey) => { keyBind.key = capturedKey; return true; }}
-                                  onCancel={() => {}}
-                                />
-                              </Table.Cell>
-                              <!-- Event label -->
-                              <Table.Cell class="text-sm text-muted-foreground">{eventInfo?.label}</Table.Cell>
                               <!-- Args -->
                               <Table.Cell>
                                 {#if eventInfo?.args?.length > 0}
-                                  <div class="flex flex-wrap items-start gap-2">
+                                  {@const eventDataDescription = getKeybindEventDataDescription(keyBind.event)}
+                                  <div class="flex flex-col gap-2">
+                                    {#if eventDataDescription}
+                                      <span class="text-xs text-muted-foreground">{eventDataDescription}</span>
+                                    {/if}
+                                    <div class="flex flex-wrap items-start gap-2">
                                     {#each eventInfo?.args ?? [] as arg, argIndex}
                                       {#if arg === 'layout_id'}
                                         {@const isOpen = (profileLayoutStates[profile.id]?.[index]) ?? false}
@@ -677,9 +826,10 @@
                                         </div>
                                       {/if}
                                     {/each}
+                                    </div>
                                   </div>
                                 {:else}
-                                  <i class="text-accent-foreground opacity-50">No extra data needed.</i>
+                                  <span class="text-xs text-muted-foreground">{getKeybindEventDescription(keyBind.event)}</span>
                                 {/if}
                               </Table.Cell>
                               <Table.Cell>
@@ -687,13 +837,12 @@
                                   <Trash2 class="size-4"/>
                                 </Button>
                               </Table.Cell>
-                            </Table.Row>
+                              </Table.Row>
+                            {/if}
                           {/each}
                         </Table.Body>
                       </Table.Root>
                     </div>
-                  {:else}
-                    <p class="text-sm text-muted-foreground italic">No keybinds yet. Add one below.</p>
                   {/if}
 
                   <!-- Add keybind to profile -->
@@ -711,7 +860,7 @@
                         <Command.List class="max-h-[320px]">
                           <Command.Group>
                             {#each Object.keys(allowedEventKeybinds) as event (event)}
-                              {#if !(allowedEventKeybinds[event]?.unique && profile.keybinds.find(kb => kb.event === event))}
+                              {#if !allowedEventKeybinds[event]?.unique && !isSystemActionEvent(event)}
                                 {@const eventInfo = allowedEventKeybinds[event]}
                                 <Command.Item value={event} keywords={[eventInfo?.label.toLowerCase()]} onSelect={() => addProfileKeybind(profile, event)} class="py-2">
                                   <span>{eventInfo?.label}</span>
@@ -731,30 +880,44 @@
       </div>
     </div>
 
-    {#if uiActions.length > 0}
-      <div class="w-full flex flex-col gap-3">
-        <div>
-          <h3 class="text-sm font-semibold">Interface Actions</h3>
-          <p class="text-xs text-muted-foreground mt-1">These bindings live in the active profile and use the same modifier + key editor.</p>
-        </div>
+    <div class="w-full border-t border-border"></div>
 
-        <Table.Root>
-          <Table.Header>
-            <Table.Row>
-              <Table.Head class="font-bold">Action</Table.Head>
-              <Table.Head class="font-bold">Modifier</Table.Head>
-              <Table.Head class="font-bold">Key</Table.Head>
-              <Table.Head class="font-bold">Record</Table.Head>
-              <Table.Head class="w-full"></Table.Head>
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
-            {#each uiActions as action, actionIndex (action.id)}
-              {@const bind = getUiActionKeybind(action.id)}
-              {@const parsed = parseKeybind(bind?.key ?? '')}
-              {@const state = uiActionComboboxStates[actionIndex] ?? {open: false, modifierOpen: false}}
-              {@const conflictLabel = uiActionConflictWarnings[action.id] ?? getUiActionConflict(action.id, bind?.key ?? '')}
+    <div class="w-full flex flex-col gap-3">
+      <div>
+        <h3 class="text-sm font-semibold">System Actions</h3>
+        <p class="text-xs text-muted-foreground mt-1">These system Keybinds interact with interface and window behavior. They are independent of profiles.</p>
+      </div>
+
+      <Table.Root class="table-fixed min-w-[1040px]">
+        <Table.Header>
+          <Table.Row>
+            <Table.Head class="font-bold w-[60px]">Order</Table.Head>
+            <Table.Head class="font-bold w-[220px]">Action</Table.Head>
+            <Table.Head class="font-bold w-[460px]">Modifier + Key</Table.Head>
+            <Table.Head class="font-bold">Event</Table.Head>
+            <Table.Head class="w-[56px]"></Table.Head>
+          </Table.Row>
+        </Table.Header>
+        <Table.Body>
+            {#each systemActionKeybinds as keyBind, actionIndex (keyBind)}
+              {@const action = getSystemActionInfo(keyBind.event)}
+              {@const eventInfo = allowedEventKeybinds[keyBind.event]}
+              {@const parsed = parseKeybind(keyBind.key)}
+              {@const keyOnly = parsed.key}
+              {@const globalIndex = neuzosConfig.keyBinds.indexOf(keyBind)}
+              {@const state = comboboxStates[globalIndex] ?? {open: false, modifierOpen: false}}
+              {@const conflictLabel = systemActionConflictWarnings[globalIndex] ?? getSystemActionConflict(keyBind, keyBind.key)}
               <Table.Row>
+                <Table.Cell>
+                  <div class="flex flex-col gap-0.5">
+                    <Button variant="outline" size="icon-xs" onclick={() => moveSystemActionUp(keyBind)} disabled={actionIndex === 0}>
+                      <ChevronUp class="h-3 w-3"/>
+                    </Button>
+                    <Button variant="outline" size="icon-xs" onclick={() => moveSystemActionDown(keyBind)} disabled={actionIndex >= systemActionKeybinds.length - 1}>
+                      <ChevronDown class="h-3 w-3"/>
+                    </Button>
+                  </div>
+                </Table.Cell>
                 <Table.Cell class="font-medium">
                   <div class="flex flex-col gap-0.5">
                     <span>{action.label}</span>
@@ -762,73 +925,120 @@
                   </div>
                 </Table.Cell>
                 <Table.Cell>
-                  <Popover.Root bind:open={state.modifierOpen}>
-                    <Popover.Trigger class="w-48 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
-                      {@const selectedMod = modifierOptions.find(m => m.value === parsed.modifier)?.label ?? 'None'}
-                      <span class="truncate {parsed.modifier ? 'text-foreground' : 'text-muted-foreground'}">{selectedMod}</span>
-                      <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
-                    </Popover.Trigger>
-                    <Popover.Content class="w-[220px] p-0">
-                      <Command.Root shouldFilter={true}>
-                        <Command.Input placeholder="Search modifier..." class="h-10"/>
-                        <Command.Empty>No modifier found.</Command.Empty>
-                        <Command.List class="max-h-[320px]">
-                          <Command.Group>
-                            {#each modifierOptions as modifier}
-                              <Command.Item value={modifier.value} keywords={[modifier.label.toLowerCase()]} onSelect={() => { if (applyUiActionKeybind(action.id, buildKeybind(modifier.value, parsed.key))) state.modifierOpen = false; }} class="font-medium py-2.5">
-                                <Check class={parsed.modifier === modifier.value ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
-                                <span class={parsed.modifier === modifier.value ? "text-primary" : ""}>{modifier.label}</span>
-                              </Command.Item>
-                            {/each}
-                          </Command.Group>
-                        </Command.List>
-                      </Command.Root>
-                    </Popover.Content>
-                  </Popover.Root>
+                  <div class="flex items-center gap-2">
+                    <Popover.Root bind:open={state.modifierOpen}>
+                      <Popover.Trigger class="w-36 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
+                        {@const selectedMod = modifierOptions.find(m => m.value === parsed.modifier)?.label ?? 'None'}
+                        <span class="truncate {parsed.modifier ? 'text-foreground' : 'text-muted-foreground'}">{selectedMod}</span>
+                        <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
+                      </Popover.Trigger>
+                      <Popover.Content class="w-[220px] p-0">
+                        <Command.Root shouldFilter={true}>
+                          <Command.Input placeholder="Search modifier..." class="h-10"/>
+                          <Command.Empty>No modifier found.</Command.Empty>
+                          <Command.List class="max-h-[320px]">
+                            <Command.Group>
+                              {#each modifierOptions as modifier}
+                                <Command.Item value={modifier.value} keywords={[modifier.label.toLowerCase()]} onSelect={() => { if (applySystemActionKeybind(keyBind, buildKeybind(modifier.value, parsed.key))) state.modifierOpen = false; }} class="font-medium py-2.5">
+                                  <Check class={parsed.modifier === modifier.value ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
+                                  <span class={parsed.modifier === modifier.value ? "text-primary" : ""}>{modifier.label}</span>
+                                </Command.Item>
+                              {/each}
+                            </Command.Group>
+                          </Command.List>
+                        </Command.Root>
+                      </Popover.Content>
+                    </Popover.Root>
+                    <Popover.Root open={state.open} onOpenChange={(open) => { state.open = open; }}>
+                      <Popover.Trigger class="w-32 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-mono font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
+                        <span class="truncate {keyOnly ? 'text-foreground uppercase' : 'text-muted-foreground font-sans font-normal lowercase'}">{keyOnly || "select key..."}</span>
+                        <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
+                      </Popover.Trigger>
+                      <Popover.Content class="w-[220px] p-0">
+                        <Command.Root shouldFilter={true}>
+                          <Command.Input placeholder="Search key..." class="h-10"/>
+                          <Command.Empty>No key found.</Command.Empty>
+                          <Command.List class="max-h-[320px]">
+                            <Command.Group>
+                              {#each allowedKeys as key}
+                                <Command.Item value={key} onSelect={() => { if (applySystemActionKeybind(keyBind, buildKeybind(parsed.modifier, key))) state.open = false; }} class="font-mono font-semibold uppercase py-2.5">
+                                  <Check class={keyOnly === key ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
+                                  <span class={keyOnly === key ? "text-primary" : ""}>{key}</span>
+                                </Command.Item>
+                              {/each}
+                            </Command.Group>
+                          </Command.List>
+                        </Command.Root>
+                      </Popover.Content>
+                    </Popover.Root>
+                    <div>
+                      <KeyBinder
+                        actionId={keyBind.event}
+                        currentKey={keyBind.key}
+                        conflictLabel={conflictLabel ?? undefined}
+                        onBind={(key) => applySystemActionKeybind(keyBind, key)}
+                        onCancel={() => { delete systemActionConflictWarnings[globalIndex]; }}
+                      />
+                      {#if keyBind.key.startsWith('Mouse') || keyBind.key.startsWith('Gamepad')}
+                        <p class="mt-1 text-xs text-muted-foreground">Fires only when neuzOS window has focus</p>
+                      {/if}
+                    </div>
+                  </div>
                 </Table.Cell>
                 <Table.Cell>
-                  {@const keyOnly = parsed.key}
-                  <Popover.Root open={state.open} onOpenChange={(open) => { state.open = open; }}>
-                    <Popover.Trigger class="w-40 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-mono font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
-                      <span class="truncate {keyOnly ? 'text-foreground uppercase' : 'text-muted-foreground font-sans font-normal lowercase'}">{keyOnly || "select key..."}</span>
-                      <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
-                    </Popover.Trigger>
-                    <Popover.Content class="w-[220px] p-0">
-                      <Command.Root shouldFilter={true}>
-                        <Command.Input placeholder="Search key..." class="h-10"/>
-                        <Command.Empty>No key found.</Command.Empty>
-                        <Command.List class="max-h-[320px]">
-                          <Command.Group>
-                            {#each allowedKeys as key}
-                              <Command.Item value={key} onSelect={() => { if (applyUiActionKeybind(action.id, buildKeybind(parsed.modifier, key))) state.open = false; }} class="font-mono font-semibold uppercase py-2.5">
-                                <Check class={keyOnly === key ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
-                                <span class={keyOnly === key ? "text-primary" : ""}>{key}</span>
-                              </Command.Item>
-                            {/each}
-                          </Command.Group>
-                        </Command.List>
-                      </Command.Root>
-                    </Popover.Content>
-                  </Popover.Root>
-                </Table.Cell>
-                <Table.Cell>
-                  <KeyBinder
-                    actionId={action.id}
-                    currentKey={bind?.key ?? ''}
-                    conflictLabel={conflictLabel ?? undefined}
-                    onBind={(key) => applyUiActionKeybind(action.id, key)}
-                    onCancel={() => { delete uiActionConflictWarnings[action.id]; }}
-                  />
-                  {#if (bind?.key ?? '').startsWith('Mouse') || (bind?.key ?? '').startsWith('Gamepad')}
-                    <p class="mt-1 text-xs text-muted-foreground">Fires only when neuzOS window has focus</p>
+                  {#if eventInfo?.args?.length > 0}
+                    {@const eventDataDescription = getKeybindEventDataDescription(keyBind.event)}
+                    <div class="flex flex-col gap-2">
+                      {#if eventDataDescription}
+                        <span class="text-xs text-muted-foreground">{eventDataDescription}</span>
+                      {/if}
+                      <div class="flex flex-wrap items-start gap-2">
+                      {#each eventInfo?.args ?? [] as arg, argIndex}
+                        {#if arg === 'layout_id'}
+                          {@const isLayoutSelectorOpen = layoutSelectorStates[globalIndex] ?? false}
+                          {@const selectedLayout = neuzosConfig.layouts.find(layout => layout.id === keyBind.args?.[argIndex])}
+                          <div class="flex items-center gap-2">
+                            <span class="text-xs text-muted-foreground whitespace-nowrap">Layout:</span>
+                            <Popover.Root open={isLayoutSelectorOpen} onOpenChange={(open) => { layoutSelectorStates[globalIndex] = open; }}>
+                              <Popover.Trigger>
+                                <Button variant="outline" size="sm" class="h-9">
+                                  {#if selectedLayout}<img class="w-4 h-4 mr-2" src="icons/{selectedLayout.icon.slug}.png" alt=""/>{selectedLayout.label}{:else}Select Layout{/if}
+                                </Button>
+                              </Popover.Trigger>
+                              <Popover.Content class="w-[280px] p-0">
+                                <Command.Root shouldFilter={true}>
+                                  <Command.Input placeholder="Search layouts..." class="h-10"/>
+                                  <Command.Empty>No layout found.</Command.Empty>
+                                  <Command.List class="max-h-[320px]">
+                                    <Command.Group>
+                                      {#each neuzosConfig.layouts as layout}
+                                        <Command.Item value={layout.id} keywords={[layout.label.toLowerCase()]} onSelect={() => { if (!keyBind.args) keyBind.args = []; keyBind.args[argIndex] = layout.id; layoutSelectorStates[globalIndex] = false; }} class="py-2">
+                                          <img class="size-5 mr-2" src="icons/{layout.icon.slug}.png" alt=""/><span>{layout.label}</span>
+                                        </Command.Item>
+                                      {/each}
+                                    </Command.Group>
+                                  </Command.List>
+                                </Command.Root>
+                              </Popover.Content>
+                            </Popover.Root>
+                          </div>
+                        {:else}
+                          <div class="flex items-center gap-2">
+                            <span class="text-xs text-muted-foreground whitespace-nowrap">{arg}:</span>
+                            <input type="text" class="w-48 h-9 px-3 py-2 rounded-md text-sm border-2 border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2" placeholder="Enter {arg}..." bind:value={keyBind.args[argIndex]}/>
+                          </div>
+                        {/if}
+                      {/each}
+                      </div>
+                    </div>
+                  {:else}
+                    <span class="text-xs text-muted-foreground">{getKeybindEventDescription(keyBind.event)}</span>
                   {/if}
                 </Table.Cell>
                 <Table.Cell class="text-right">
-                  {#if bind}
-                    <Button variant="outline" size="sm" onclick={() => removeUiActionKeybind(action.id)}>
-                      <Trash2 class="size-4"/>
-                    </Button>
-                  {/if}
+                  <Button variant="outline" size="sm" onclick={() => removeSystemActionKeybind(keyBind)}>
+                    <Trash2 class="size-4"/>
+                  </Button>
                 </Table.Cell>
               </Table.Row>
               {#if conflictLabel}
@@ -839,10 +1049,9 @@
                 </Table.Row>
               {/if}
             {/each}
-          </Table.Body>
-        </Table.Root>
-      </div>
-    {/if}
+        </Table.Body>
+      </Table.Root>
+    </div>
 
     <div class="w-full border-t border-border"></div>
 
@@ -850,25 +1059,25 @@
     <div class="w-full flex flex-col gap-3">
       <div>
         <h3 class="text-sm font-semibold">Global Keybinds</h3>
-        <p class="text-xs text-muted-foreground mt-1">These keybinds are always active regardless of the selected profile.</p>
+        <p class="text-xs text-muted-foreground mt-1">These Keybinds are always active regardless of the selected profile.</p>
       </div>
-      <Table.Root>
+      {#if regularGlobalKeybinds.length > 0}
+      <Table.Root class="table-fixed min-w-[1040px]">
         <Table.Header>
           <Table.Row>
             <Table.Head class="font-bold w-[60px]">Order</Table.Head>
-            <Table.Head class="font-bold">Modifier</Table.Head>
-            <Table.Head class="font-bold">Key</Table.Head>
-                          <Table.Head class="font-bold">Record</Table.Head>
+            <Table.Head class="font-bold w-[220px]">Action</Table.Head>
+            <Table.Head class="font-bold w-[460px]">Modifier + Key</Table.Head>
             <Table.Head class="font-bold">Event</Table.Head>
-            <Table.Head class="w-full"></Table.Head>
-            <Table.Head class="font-bold"></Table.Head>
+            <Table.Head class="font-bold w-[56px]"></Table.Head>
           </Table.Row>
         </Table.Header>
         <Table.Body>
           {#each neuzosConfig.keyBinds as keyBind, index}
             {@const eventInfo = allowedEventKeybinds[keyBind.event]}
             {@const parsed = parseKeybind(keyBind.key)}
-            {#if comboboxStates[index]}
+            {@const keyOnly = parsed.key}
+            {#if !isSystemActionEvent(keyBind.event) && comboboxStates[index]}
               {@const state = comboboxStates[index]}
               <Table.Row>
                 <Table.Cell>
@@ -881,72 +1090,79 @@
                     </Button>
                   </div>
                 </Table.Cell>
+                <Table.Cell class="font-medium">
+                  <div class="flex flex-col gap-0.5">
+                    <span>{eventInfo?.label}</span>
+                    <span class="text-xs text-muted-foreground">{getKeybindActionCategory(keyBind.event, 'Global')}</span>
+                  </div>
+                </Table.Cell>
                 <Table.Cell>
                   {@const modifierState = comboboxStates[index]}
-                  <Popover.Root bind:open={modifierState.modifierOpen}>
-                    <Popover.Trigger class="w-48 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
-                      {@const selectedMod = modifierOptions.find(m => m.value === parsed.modifier)?.label ?? 'None'}
-                      <span class="truncate {parsed.modifier ? 'text-foreground' : 'text-muted-foreground'}">{selectedMod}</span>
-                      <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
-                    </Popover.Trigger>
-                    <Popover.Content class="w-[220px] p-0">
-                      <Command.Root shouldFilter={true}>
-                        <Command.Input placeholder="Search modifier..." class="h-10"/>
-                        <Command.Empty>No modifier found.</Command.Empty>
-                        <Command.List class="max-h-[320px]">
-                          <Command.Group>
-                            {#each modifierOptions as modifier}
-                              <Command.Item value={modifier.value} keywords={[modifier.label.toLowerCase()]} onSelect={() => { keyBind.key = buildKeybind(modifier.value, parsed.key); modifierState.modifierOpen = false; }} class="font-medium py-2.5">
-                                <Check class={parsed.modifier === modifier.value ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
-                                <span class={parsed.modifier === modifier.value ? "text-primary" : ""}>{modifier.label}</span>
-                              </Command.Item>
-                            {/each}
-                          </Command.Group>
-                        </Command.List>
-                      </Command.Root>
-                    </Popover.Content>
-                  </Popover.Root>
+                  <div class="flex items-center gap-2">
+                    <Popover.Root bind:open={modifierState.modifierOpen}>
+                      <Popover.Trigger class="w-36 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
+                        {@const selectedMod = modifierOptions.find(m => m.value === parsed.modifier)?.label ?? 'None'}
+                        <span class="truncate {parsed.modifier ? 'text-foreground' : 'text-muted-foreground'}">{selectedMod}</span>
+                        <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
+                      </Popover.Trigger>
+                      <Popover.Content class="w-[220px] p-0">
+                        <Command.Root shouldFilter={true}>
+                          <Command.Input placeholder="Search modifier..." class="h-10"/>
+                          <Command.Empty>No modifier found.</Command.Empty>
+                          <Command.List class="max-h-[320px]">
+                            <Command.Group>
+                              {#each modifierOptions as modifier}
+                                <Command.Item value={modifier.value} keywords={[modifier.label.toLowerCase()]} onSelect={() => { keyBind.key = buildKeybind(modifier.value, parsed.key); modifierState.modifierOpen = false; }} class="font-medium py-2.5">
+                                  <Check class={parsed.modifier === modifier.value ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
+                                  <span class={parsed.modifier === modifier.value ? "text-primary" : ""}>{modifier.label}</span>
+                                </Command.Item>
+                              {/each}
+                            </Command.Group>
+                          </Command.List>
+                        </Command.Root>
+                      </Popover.Content>
+                    </Popover.Root>
+                    <Popover.Root open={state.open} onOpenChange={(open) => { state.open = open; }}>
+                      <Popover.Trigger class="w-32 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-mono font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
+                        <span class="truncate {keyOnly ? 'text-foreground uppercase' : 'text-muted-foreground font-sans font-normal lowercase'}">{keyOnly || "select key..."}</span>
+                        <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
+                      </Popover.Trigger>
+                      <Popover.Content class="w-[220px] p-0">
+                        <Command.Root shouldFilter={true}>
+                          <Command.Input placeholder="Search key..." class="h-10"/>
+                          <Command.Empty>No key found.</Command.Empty>
+                          <Command.List class="max-h-[320px]">
+                            <Command.Group>
+                              {#each allowedKeys as key}
+                                <Command.Item value={key} onSelect={() => { keyBind.key = buildKeybind(parsed.modifier, key); state.open = false; }} class="font-mono font-semibold uppercase py-2.5">
+                                  <Check class={keyOnly === key ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
+                                  <span class={keyOnly === key ? "text-primary" : ""}>{key}</span>
+                                </Command.Item>
+                              {/each}
+                            </Command.Group>
+                          </Command.List>
+                        </Command.Root>
+                      </Popover.Content>
+                    </Popover.Root>
+                    <KeyBinder
+                      actionId={keyBind.event}
+                      currentKey={keyBind.key}
+                      onBind={(key) => {
+                        keyBind.key = key;
+                        return true;
+                      }}
+                      onCancel={() => {}}
+                    />
+                  </div>
                 </Table.Cell>
-                <Table.Cell>
-                  {@const keyOnly = parsed.key}
-                  <Popover.Root open={state.open} onOpenChange={(open) => { state.open = open; }}>
-                    <Popover.Trigger class="w-40 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-mono font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
-                      <span class="truncate {keyOnly ? 'text-foreground uppercase' : 'text-muted-foreground font-sans font-normal lowercase'}">{keyOnly || "select key..."}</span>
-                      <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
-                    </Popover.Trigger>
-                    <Popover.Content class="w-[220px] p-0">
-                      <Command.Root shouldFilter={true}>
-                        <Command.Input placeholder="Search key..." class="h-10"/>
-                        <Command.Empty>No key found.</Command.Empty>
-                        <Command.List class="max-h-[320px]">
-                          <Command.Group>
-                            {#each allowedKeys as key}
-                              <Command.Item value={key} onSelect={() => { keyBind.key = buildKeybind(parsed.modifier, key); state.open = false; }} class="font-mono font-semibold uppercase py-2.5">
-                                <Check class={keyOnly === key ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
-                                <span class={keyOnly === key ? "text-primary" : ""}>{key}</span>
-                              </Command.Item>
-                            {/each}
-                          </Command.Group>
-                        </Command.List>
-                      </Command.Root>
-                    </Popover.Content>
-                  </Popover.Root>
-                </Table.Cell>
-                <Table.Cell>
-                  <KeyBinder
-                    actionId={keyBind.event}
-                    currentKey={keyBind.key}
-                    onBind={(key) => {
-                      keyBind.key = key;
-                      return true;
-                    }}
-                    onCancel={() => {}}
-                  />
-                </Table.Cell>
-                <Table.Cell class="text-sm text-muted-foreground">{eventInfo?.label}</Table.Cell>
                 <Table.Cell>
                   {#if eventInfo?.args?.length > 0}
-                    <div class="flex flex-wrap items-start gap-2">
+                    {@const eventDataDescription = getKeybindEventDataDescription(keyBind.event)}
+                    <div class="flex flex-col gap-2">
+                      {#if eventDataDescription}
+                        <span class="text-xs text-muted-foreground">{eventDataDescription}</span>
+                      {/if}
+                      <div class="flex flex-wrap items-start gap-2">
                       {#each eventInfo?.args ?? [] as arg, argIndex}
                         {#if arg === 'layout_id'}
                           {@const isLayoutSelectorOpen = layoutSelectorStates[index] ?? false}
@@ -1105,12 +1321,13 @@
                           </div>
                         {/if}
                       {/each}
+                      </div>
                     </div>
                   {:else}
-                    <i class="text-accent-foreground opacity-50"> No extra data is needed for this event.</i>
+                    <span class="text-xs text-muted-foreground">{getKeybindEventDescription(keyBind.event)}</span>
                   {/if}
                 </Table.Cell>
-                <Table.Cell class="text-sm text-muted-foreground">
+                <Table.Cell class="text-right">
                   <Button variant="outline" size="sm" onclick={() => { neuzosConfig.keyBinds.splice(neuzosConfig.keyBinds.indexOf(keyBind), 1) }}>
                     <Trash2 class="size-4"/>
                   </Button>
@@ -1120,11 +1337,12 @@
           {/each}
         </Table.Body>
       </Table.Root>
+      {/if}
       <Popover.Root open={addKeybindPopoverOpen} onOpenChange={(open) => { addKeybindPopoverOpen = open; }}>
-        <Popover.Trigger>
+        <Popover.Trigger class="self-start">
           <Button variant="outline" size="sm">
             <Plus class="size-4 mr-2"/>
-            Add a Global Shortcut Keybind
+            Add Global Keybind
           </Button>
         </Popover.Trigger>
         <Popover.Content class="w-[320px] p-0">
@@ -1133,21 +1351,13 @@
             <Command.Empty>No event found.</Command.Empty>
             <Command.List class="max-h-[320px]">
               <Command.Group>
-                {#each Object.keys(allowedEventKeybinds) as event (event)}
-                  {#if !(allowedEventKeybinds[event]?.unique && neuzosConfig.keyBinds.find(keyBind => keyBind.event === event))}
-                    {@const eventInfo = allowedEventKeybinds[event]}
+                {#each getAddableGlobalEventIds() as event (event)}
+                  {#if canAddGlobalKeybind(event)}
+                    {@const eventInfo = getSystemActionInfo(event)}
                     <Command.Item
                       value={event}
                       keywords={[eventInfo?.label.toLowerCase()]}
-                      onSelect={() => {
-                        const argCount = eventInfo?.args?.length || 0;
-                        neuzosConfig.keyBinds.push({
-                          key: '',
-                          event: event,
-                          args: new Array(argCount).fill('')
-                        });
-                        addKeybindPopoverOpen = false;
-                      }}
+                      onSelect={() => addGlobalKeybind(event)}
                       class="py-2"
                     >
                       <span>{eventInfo?.label}</span>

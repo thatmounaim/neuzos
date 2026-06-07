@@ -145,8 +145,8 @@
 </script>
 
 <div
-  class="flex flex-col h-full w-80 border-border/60 bg-background absolute top-0 bottom-0 z-40 shadow-lg {questPanel.sidebarSide === 'right' ? 'left-0 right-auto border-r border-l-0' : 'right-0 left-auto border-l border-r-0'}"
-  transition:fly={{ x: questPanel.sidebarSide === 'right' ? -320 : 320, duration: 250, easing: cubicOut }}
+  class="flex flex-col h-full w-80 border-border/60 bg-background absolute top-0 bottom-0 z-40 shadow-lg {questPanel.sidebarSide === 'right' ? 'right-0 left-auto border-l border-r-0' : 'left-0 right-auto border-r border-l-0'}"
+  transition:fly={{ x: questPanel.sidebarSide === 'right' ? 320 : -320, duration: 250, easing: cubicOut }}
 >
   <!-- TODO Checklist (character-specific) -->
   <TodoChecklist />

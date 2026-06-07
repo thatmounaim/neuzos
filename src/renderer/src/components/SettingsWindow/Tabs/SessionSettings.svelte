@@ -5,7 +5,6 @@
     ChevronUp,
     Copy,
     FileX,
-    HardDrive,
     Plus,
     Trash,
     Globe,
@@ -55,10 +54,6 @@
 
   const clearCache = (sessionId: string) => {
     neuzosBridge.sessions.clearCache(sessionId)
-  }
-
-  const clearStorage = (sessionId: string) => {
-    neuzosBridge.sessions.clearStorage(sessionId)
   }
 
   const clampZoom = (value: number) => Math.min(1.5, Math.max(0.5, Math.round(value * 20) / 20))
@@ -251,7 +246,6 @@
   }
 
   let clearCacheOpenModal: string | null = $state(null)
-  let clearStorageOpenModal: string | null = $state(null)
   let clearAllCacheOpenModal: boolean = $state(false)
   let deleteSessionModal: { sessionId: string; sessionLabel: string; isRunning: boolean } | null = $state(null)
   let deleteErrorModal: { sessionLabel: string; error: string } | null = $state(null)
@@ -606,38 +600,6 @@
               </AlertDialog.Footer>
             </AlertDialog.Content>
           </AlertDialog.Root>
-          <AlertDialog.Root open={clearStorageOpenModal === session.id} onOpenChange={(open) => {
-            clearStorageOpenModal = open ? session.id : null;
-          }}>
-            <Tooltip.Root>
-              <Tooltip.Trigger>
-                <AlertDialog.Trigger>
-                  <Button variant="outline" size="icon" class="h-8 w-8">
-                    <HardDrive class="h-4 w-4"/>
-                  </Button>
-                </AlertDialog.Trigger>
-              </Tooltip.Trigger>
-              <Tooltip.Content>Clear session data</Tooltip.Content>
-            </Tooltip.Root>
-            <AlertDialog.Content>
-              <AlertDialog.Header>
-                <AlertDialog.Title>Clear "{session.label}" session's data.</AlertDialog.Title>
-                <AlertDialog.Description>
-                  This action will still clear any session data for <b>"{session.label}"</b> even
-                  without saving your changes later on.
-                </AlertDialog.Description>
-              </AlertDialog.Header>
-              <AlertDialog.Footer>
-                <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
-                <AlertDialog.Action
-                  onclick={() => {
-                    clearStorage(session.id)
-                    clearStorageOpenModal = null
-                  }}>Clear Data
-                </AlertDialog.Action>
-              </AlertDialog.Footer>
-            </AlertDialog.Content>
-          </AlertDialog.Root>
           <Tooltip.Root>
             <Tooltip.Trigger>
               <Button
@@ -865,20 +827,22 @@
             Clear All Cache
           </Button>
         </AlertDialog.Trigger>
-        <AlertDialog.Content>
+        <AlertDialog.Content class="max-h-[85vh] overflow-hidden">
           <AlertDialog.Header>
             <AlertDialog.Title>Clear all sessions' cache?</AlertDialog.Title>
             <AlertDialog.Description>
               This action will clear the cache for all sessions even without saving your changes later on.<br/><br/>
               <strong>Sessions that will be affected:</strong>
-              <ul class="mt-2 space-y-1 list-disc list-inside">
-                {#each neuzosConfig.sessions as session}
-                  <li class="text-sm">
-                    <span class="font-medium">{session.label}</span>
-                    <span class="text-muted-foreground"> (ID: {session.id})</span>
-                  </li>
-                {/each}
-              </ul>
+              <div class="mt-2 max-h-[40vh] overflow-y-auto rounded-md border border-border/60 bg-muted/20 p-2">
+                <ul class="space-y-1 list-disc list-inside">
+                  {#each neuzosConfig.sessions as session}
+                    <li class="text-sm">
+                      <span class="font-medium">{session.label}</span>
+                      <span class="text-muted-foreground"> (ID: {session.id})</span>
+                    </li>
+                  {/each}
+                </ul>
+              </div>
               <br/>
               Your session data will still be saved.
             </AlertDialog.Description>
