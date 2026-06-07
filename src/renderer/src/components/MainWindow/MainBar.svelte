@@ -48,6 +48,7 @@
 
   let shortcutsEnabled = $state(true);
   let collapsedSessionGroupIds: Record<string, boolean> = $state({});
+  let hasVisibleActionPins = $state(false);
 
   onMount(async () => {
     try {
@@ -572,13 +573,17 @@
     style="-webkit-app-region: drag;"
   ></div>
 
-  <PinnedActions/>
-  <Separator orientation="vertical" class="h-4"/>
+  <PinnedActions onHasPinnedActionsChange={(hasPinnedActions) => hasVisibleActionPins = hasPinnedActions}/>
+
+  {#if hasVisibleActionPins}
+    <Separator orientation="vertical" class="h-4"/>
+  {/if}
 
   {#if mainWindowState.config.changed}
-    <Button size="icon-xs" variant="outline" onclick={reloadConfing} class="cursor-pointer" title="Reload config">
+    <Button size="icon-xs" variant="outline" onclick={reloadConfing} class="cursor-pointer" title="Reload Config">
       <RefreshCw class="size-3.5"/>
     </Button>
+    <Separator orientation="vertical" class="h-4"/>
   {/if}
 
   <PinnedWidgetLaunchers/>

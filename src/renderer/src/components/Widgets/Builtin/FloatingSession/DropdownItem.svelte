@@ -73,110 +73,108 @@
   );
 </script>
 
-{#if floatableSessions.length > 0 || widgets.length > 0}
-  <DropdownMenu.Sub>
-    <DropdownMenu.SubTrigger>
-      <PictureInPicture2 class="h-4 w-4 mr-2" />
-      <span>Floating Sessions</span>
-    </DropdownMenu.SubTrigger>
-    <DropdownMenu.SubContent class="min-w-44 overflow-visible">
-      {#if availableSessionsForFloating.length > 0}
-        {#each availableSessionsForFloating as sessionInfo}
-          <DropdownMenu.Item onclick={() => createWidget(sessionInfo.id)}>
-            <img class="w-4 h-4 mr-2" src="icons/{sessionInfo.icon}.png" alt="" />
-            <span>{sessionInfo.label}</span>
-          </DropdownMenu.Item>
-        {/each}
-      {:else}
-        {#if floatableSessions.length === 0}
-          <div class="px-2 py-1.5 text-xs text-muted-foreground">
-            No Floatable Sessions found.
-          </div>
-        {/if}
+<DropdownMenu.Sub>
+  <DropdownMenu.SubTrigger>
+    <PictureInPicture2 class="h-4 w-4 mr-2" />
+    <span>Floating Sessions</span>
+  </DropdownMenu.SubTrigger>
+  <DropdownMenu.SubContent class="min-w-44 overflow-visible">
+    {#if availableSessionsForFloating.length > 0}
+      {#each availableSessionsForFloating as sessionInfo}
+        <DropdownMenu.Item onclick={() => createWidget(sessionInfo.id)}>
+          <img class="w-4 h-4 mr-2" src="icons/{sessionInfo.icon}.png" alt="" />
+          <span>{sessionInfo.label}</span>
+        </DropdownMenu.Item>
+      {/each}
+    {:else}
+      {#if floatableSessions.length === 0}
+        <div class="px-2 py-1.5 text-xs text-muted-foreground">
+          No Floatable Sessions found.
+        </div>
       {/if}
+    {/if}
 
-      {#if widgets.length > 0}
-        <DropdownMenu.Separator />
-        <DropdownMenu.Label class="text-xs">Active Floating Sessions ({widgets.length})</DropdownMenu.Label>
-        {#each widgets as widget}
-          {@const sessionInfo = floatableSessions.find(s => s.id === widget.data?.sessionId)}
-          <div class="flex items-center justify-between px-2 py-1.5 text-sm gap-2">
-            <div class="flex items-center gap-2">
+    {#if widgets.length > 0}
+      <DropdownMenu.Separator />
+      <DropdownMenu.Label class="text-xs">Active Floating Sessions ({widgets.length})</DropdownMenu.Label>
+      {#each widgets as widget}
+        {@const sessionInfo = floatableSessions.find(s => s.id === widget.data?.sessionId)}
+        <div class="flex items-center justify-between px-2 py-1.5 text-sm gap-2">
+          <div class="flex items-center gap-2">
+            <img class="w-4 h-4 mr-2" src="icons/{sessionInfo?.icon || 'misc/browser'}.png" alt="" />
+            <span class="text-xs">{sessionInfo?.label || 'Unknown Session'}</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <Button
+              size="icon"
+              variant="ghost"
+              class="h-6 w-6"
+              onclick={() => toggleWidget(widget.id)}
+              title={widget.visible ? 'Hide' : 'Show'}
+            >
+              {#if widget.visible}
+                <Eye class="h-3 w-3" />
+              {:else}
+                <EyeOff class="h-3 w-3" />
+              {/if}
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              class="h-6 w-6 hover:bg-destructive hover:text-destructive-foreground"
+              onclick={() => destroyWidget(widget.id)}
+              title="Close"
+            >
+              <X class="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+      {/each}
+
+      <DropdownMenu.Separator />
+      <DropdownMenu.Sub>
+        <DropdownMenu.SubTrigger class="cursor-pointer">
+          <RotateCcw class="h-3 w-3 mr-2" />
+          <span>Reset Position</span>
+        </DropdownMenu.SubTrigger>
+        <DropdownMenu.SubContent>
+          {#each widgets as widget}
+            {@const sessionInfo = floatableSessions.find(s => s.id === widget.data?.sessionId)}
+            <DropdownMenu.Item onclick={() => resetPosition(widget.data?.sessionId)}>
               <img class="w-4 h-4 mr-2" src="icons/{sessionInfo?.icon || 'misc/browser'}.png" alt="" />
-              <span class="text-xs">{sessionInfo?.label || 'Unknown Session'}</span>
-            </div>
-            <div class="flex items-center gap-1">
-              <Button
-                size="icon"
-                variant="ghost"
-                class="h-6 w-6"
-                onclick={() => toggleWidget(widget.id)}
-                title={widget.visible ? 'Hide' : 'Show'}
-              >
-                {#if widget.visible}
-                  <Eye class="h-3 w-3" />
-                {:else}
-                  <EyeOff class="h-3 w-3" />
-                {/if}
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                class="h-6 w-6 hover:bg-destructive hover:text-destructive-foreground"
-                onclick={() => destroyWidget(widget.id)}
-                title="Close"
-              >
-                <X class="h-3 w-3" />
-              </Button>
-            </div>
-          </div>
-        {/each}
+              <span>{sessionInfo?.label || 'Unknown Session'}</span>
+            </DropdownMenu.Item>
+          {/each}
+        </DropdownMenu.SubContent>
+      </DropdownMenu.Sub>
+    {/if}
 
+    {#if floatableSessions.length > 0}
+      {#if widgets.length === 0}
         <DropdownMenu.Separator />
-        <DropdownMenu.Sub>
-          <DropdownMenu.SubTrigger class="cursor-pointer">
-            <RotateCcw class="h-3 w-3 mr-2" />
-            <span>Reset Position</span>
-          </DropdownMenu.SubTrigger>
-          <DropdownMenu.SubContent>
-            {#each widgets as widget}
-              {@const sessionInfo = floatableSessions.find(s => s.id === widget.data?.sessionId)}
-              <DropdownMenu.Item onclick={() => resetPosition(widget.data?.sessionId)}>
-                <img class="w-4 h-4 mr-2" src="icons/{sessionInfo?.icon || 'misc/browser'}.png" alt="" />
-                <span>{sessionInfo?.label || 'Unknown Session'}</span>
-              </DropdownMenu.Item>
-            {/each}
-          </DropdownMenu.SubContent>
-        </DropdownMenu.Sub>
       {/if}
-
-      {#if floatableSessions.length > 0}
-        {#if widgets.length === 0}
-          <DropdownMenu.Separator />
-        {/if}
-        <DropdownMenu.Sub>
-          <DropdownMenu.SubTrigger class="cursor-pointer">
-            <RadioTower class="h-3 w-3 mr-2" />
-            <span>Active Receiver</span>
-          </DropdownMenu.SubTrigger>
-          <DropdownMenu.SubContent>
-            {#each floatableSessions as sessionInfo}
-              <DropdownMenu.Item onclick={() => toggleActiveReceiver(sessionInfo.id)}>
-                <div class="flex w-full items-center justify-between gap-4">
-                  <div class="flex items-center gap-2">
-                    <img class="w-4 h-4" src="icons/{sessionInfo.icon}.png" alt="" />
-                    <span>{sessionInfo.label}</span>
-                  </div>
-                  {#if isActiveReceiver(sessionInfo.id)}
-                    <Check class="h-4 w-4" />
-                  {/if}
+      <DropdownMenu.Sub>
+        <DropdownMenu.SubTrigger class="cursor-pointer">
+          <RadioTower class="h-3 w-3 mr-2" />
+          <span>Active Receiver</span>
+        </DropdownMenu.SubTrigger>
+        <DropdownMenu.SubContent>
+          {#each floatableSessions as sessionInfo}
+            <DropdownMenu.Item onclick={() => toggleActiveReceiver(sessionInfo.id)}>
+              <div class="flex w-full items-center justify-between gap-4">
+                <div class="flex items-center gap-2">
+                  <img class="w-4 h-4" src="icons/{sessionInfo.icon}.png" alt="" />
+                  <span>{sessionInfo.label}</span>
                 </div>
-              </DropdownMenu.Item>
-            {/each}
-          </DropdownMenu.SubContent>
-        </DropdownMenu.Sub>
-      {/if}
-    </DropdownMenu.SubContent>
-  </DropdownMenu.Sub>
-{/if}
+                {#if isActiveReceiver(sessionInfo.id)}
+                  <Check class="h-4 w-4" />
+                {/if}
+              </div>
+            </DropdownMenu.Item>
+          {/each}
+        </DropdownMenu.SubContent>
+      </DropdownMenu.Sub>
+    {/if}
+  </DropdownMenu.SubContent>
+</DropdownMenu.Sub>
 

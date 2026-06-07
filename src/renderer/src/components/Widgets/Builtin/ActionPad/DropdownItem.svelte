@@ -43,27 +43,26 @@
   );
 </script>
 
-{#if allSessionsWithActions.length > 0}
-  <DropdownMenu.Sub>
-    <DropdownMenu.SubTrigger>
-      <SquareAsterisk class="h-4 w-4 mr-2" />
-      <span>Action Pads</span>
-    </DropdownMenu.SubTrigger>
-    <DropdownMenu.SubContent class="min-w-44">
-      {#if availableSessionsForActionPad.length > 0}
-        {#each availableSessionsForActionPad as sessionInfo}
-          <DropdownMenu.Item onclick={() => createWidget(sessionInfo.id)}>
-            <img class="w-4 h-4 mr-2" src="icons/{sessionInfo.icon}.png" alt="" />
-            <span>{sessionInfo.label}</span>
-            <span class="ml-auto text-[10px] opacity-50">({sessionInfo.actionsCount})</span>
-          </DropdownMenu.Item>
-        {/each}
-      {:else}
-        <div class="px-2 py-1.5 text-xs text-muted-foreground">
-          All sessions have action pads
-        </div>
-      {/if}
-        <!-- Show active action pad instances -->
+<DropdownMenu.Sub>
+  <DropdownMenu.SubTrigger>
+    <SquareAsterisk class="h-4 w-4 mr-2" />
+    <span>Action Pads</span>
+  </DropdownMenu.SubTrigger>
+  <DropdownMenu.SubContent class="min-w-44">
+    {#if availableSessionsForActionPad.length > 0}
+      {#each availableSessionsForActionPad as sessionInfo}
+        <DropdownMenu.Item onclick={() => createWidget(sessionInfo.id)}>
+          <img class="w-4 h-4 mr-2" src="icons/{sessionInfo.icon}.png" alt="" />
+          <span>{sessionInfo.label}</span>
+          <span class="ml-auto text-[10px] opacity-50">({sessionInfo.actionsCount})</span>
+        </DropdownMenu.Item>
+      {/each}
+    {:else}
+      <div class="px-2 py-1.5 text-xs text-muted-foreground">
+        {allSessionsWithActions.length === 0 ? 'No Session Actions found.' : 'All Sessions have Action Pads.'}
+      </div>
+    {/if}
+      <!-- Show active action pad instances -->
   {#if widgets.length > 0}
     <DropdownMenu.Separator />
     <DropdownMenu.Label class="text-xs">Active Action Pads ({widgets.length})</DropdownMenu.Label>
@@ -88,7 +87,6 @@
       </div>
     {/each}
   {/if}
-    </DropdownMenu.SubContent>
-  </DropdownMenu.Sub>
-{/if}
+  </DropdownMenu.SubContent>
+</DropdownMenu.Sub>
 

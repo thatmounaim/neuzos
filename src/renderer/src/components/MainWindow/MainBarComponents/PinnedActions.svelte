@@ -7,6 +7,12 @@
   import {getCooldownsContext} from '$lib/contexts/cooldownsContext';
   import {getWidgetsContext} from '$lib/contexts/widgetsContext.svelte.js';
 
+  type Props = {
+    onHasPinnedActionsChange?: (hasPinnedActions: boolean) => void;
+  };
+
+  let {onHasPinnedActionsChange}: Props = $props();
+
   const mainWindowState = getContext<MainWindowState>('mainWindowState');
   const cooldownsContext = getCooldownsContext();
   const widgetsContext = getWidgetsContext();
@@ -169,6 +175,10 @@
     });
 
     return result;
+  });
+
+  $effect(() => {
+    onHasPinnedActionsChange?.(pinnedActionsToShow.length > 0);
   });
 
   function triggerPinnedAction(sessionId: string, actionId: string) {
