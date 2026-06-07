@@ -2,7 +2,7 @@
   import FloatingWindow from '../../../Shared/FloatingWindow.svelte';
   import { Button } from '$lib/components/ui/button';
   import { Input } from '$lib/components/ui/input';
-  import { Globe, RefreshCw, ChevronLeft, ChevronRight, Star, Trash2 } from '@lucide/svelte';
+  import { Expand, Globe, Minimize, RefreshCw, ChevronLeft, ChevronRight, Star, Trash2 } from '@lucide/svelte';
   import { onMount } from 'svelte';
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 
@@ -36,6 +36,7 @@
   let pageTitle = $state('New Tab');
   let favorites = $state<Favorite[]>(loadFavorites());
   let isEditingFavorites = $state(false);
+  let isBrowserExpanded = $state(false);
 
   const isFavorited = $derived(favorites.some(f => f.url === inputUrl));
 
@@ -148,6 +149,7 @@
         isLoading = false;
         canGoBack = webview.canGoBack();
         canGoForward = webview.canGoForward();
+        isBrowserExpanded = false;
       });
 
       webview.addEventListener('did-navigate-in-page', (event: any) => {
@@ -200,8 +202,26 @@
       </div>
     {/snippet}
 
+    {#snippet controlSnippet()}
+      <button
+        class="bg-transparent border-none p-1 cursor-pointer rounded flex items-center justify-center text-foreground transition-colors hover:bg-accent"
+        onclick={(e) => {
+          e.stopPropagation();
+          isBrowserExpanded = !isBrowserExpanded;
+        }}
+        title={isBrowserExpanded ? 'Minimize Browser Content' : 'Expand Browser Content'}
+      >
+        {#if isBrowserExpanded}
+          <Minimize size={14} />
+        {:else}
+          <Expand size={14} />
+        {/if}
+      </button>
+    {/snippet}
+
     <div class="flex flex-col h-full overflow-hidden">
       <!-- Navigation Bar -->
+      {#if !isBrowserExpanded}
       <div class="flex items-center gap-2 p-2 border-b border-border bg-muted/30 shrink-0">
         <Button
           size="icon"
@@ -329,6 +349,7 @@
           />
         </form>
       </div>
+      {/if}
 
       <!-- Webview -->
       <div class="flex-1 overflow-hidden bg-white">
