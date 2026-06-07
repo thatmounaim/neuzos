@@ -1,9 +1,19 @@
 <script lang="ts">
   import FloatingWindow from '../../../Shared/FloatingWindow.svelte';
-  import {Check, Settings, Swords} from '@lucide/svelte';
+  import {Check, GripVertical, Settings, Swords} from '@lucide/svelte';
   import {getContext} from 'svelte';
   import type {MainWindowState, SessionAction} from '$lib/types';
   import {getCooldownsContext} from '$lib/contexts/cooldownsContext';
+
+  type ActionPadRow = {
+    id: string;
+    actionIds: string[];
+    name?: string;
+  };
+
+  type OrganizedActionPadRow = ActionPadRow & {
+    actions: SessionAction[];
+  };
 
   interface Props {
     visible?: boolean;
@@ -65,15 +75,18 @@
   // Edit mode state
   let isEditMode = $state(false);
 
-  // Row structure: { rowId: string, actionIds: string[] }
+  // Row structure: { rowId: string, actionIds: string[], name?: string }
   const WIDGET_IDENTIFIER = 'widget.builtin.action_pad';
   const STORAGE_KEY = WIDGET_IDENTIFIER + `rows-${sessionId}`;
   const PERSIST_ID = WIDGET_IDENTIFIER + 'session-' + sessionId;
   const TRANSPARENCY_STORAGE_KEY = `${PERSIST_ID}-background-transparency`;
   const DEFAULT_BACKGROUND_TRANSPARENCY = 100;
 
-  let rows = $state<{ id: string; actionIds: string[] }[]>(loadRowsFromStorage());
+  let rows = $state<ActionPadRow[]>(loadRowsFromStorage());
   let backgroundTransparency = $state(loadBackgroundTransparency());
+  let draggedActionId = $state<string | null>(null);
+  let draggedSourceRowId = $state<string | null>(null);
+  let activeDropTarget = $state<{ rowId: string; index: number } | null>(null);
 
   function sanitizeTransparency(value: unknown): number {
     const parsed = Number(value);
@@ -106,15 +119,32 @@
     saveBackgroundTransparency(backgroundTransparency);
   }
 
-  function loadRowsFromStorage(): { id: string; actionIds: string[] }[] {
+  function normalizeRow(row: any): ActionPadRow | null {
+    if (!row || !row.id || !Array.isArray(row.actionIds)) {
+      return null;
+    }
+
+    return {
+      id: String(row.id),
+      actionIds: row.actionIds.filter((id: unknown): id is string => typeof id === 'string'),
+      name: typeof row.name === 'string' ? row.name : undefined
+    };
+  }
+
+  function loadRowsFromStorage(): ActionPadRow[] {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        // Validate that stored rows still have valid actions
-        return parsed.filter((row: any) =>
-          row.actionIds && Array.isArray(row.actionIds)
-        );
+        if (Array.isArray(parsed)) {
+          const normalized = parsed
+            .map(normalizeRow)
+            .filter((row): row is ActionPadRow => row !== null);
+
+          if (normalized.length > 0) {
+            return normalized;
+          }
+        }
       }
     } catch (e) {
       console.error('Failed to load rows:', e);
@@ -132,7 +162,7 @@
   }
 
   // Get actions organized by rows
-  const organizedActions = $derived.by(() => {
+  const organizedActions = $derived.by<OrganizedActionPadRow[]>(() => {
     const organized = rows.map(row => ({
       ...row,
       actions: row.actionIds
@@ -173,21 +203,99 @@
     saveRowsToStorage();
   }
 
-  function moveActionToRow(actionId: string, targetRowId: string) {
-    // Remove from all rows
-    rows = rows.map(row => ({
+  function updateRowName(rowId: string, name: string) {
+    rows = rows.map(row => row.id === rowId ? {...row, name} : row);
+    saveRowsToStorage();
+  }
+
+  function getRowDisplayName(row: ActionPadRow, index: number): string {
+    const name = row.name?.trim();
+    return name || `Row ${index + 1}`;
+  }
+
+  function shouldShowRowTitle(row: ActionPadRow): boolean {
+    return Boolean(row.name?.trim());
+  }
+
+  function moveDraggedAction(targetRowId: string, targetIndex: number) {
+    if (!draggedActionId) return;
+
+    const nextRows = rows.map(row => ({
       ...row,
-      actionIds: row.actionIds.filter(id => id !== actionId)
+      actionIds: row.actionIds.filter(actionId => actionId !== draggedActionId)
     }));
 
-    // Add to target row
-    const targetRow = rows.find(r => r.id === targetRowId);
-    if (targetRow) {
-      targetRow.actionIds = [...targetRow.actionIds, actionId];
-    }
+    const targetRow = nextRows.find(row => row.id === targetRowId);
+    if (!targetRow) return;
 
-    rows = [...rows]; // Trigger reactivity
+    const sourceRow = rows.find(row => row.id === draggedSourceRowId);
+    const sourceIndex = sourceRow?.actionIds.indexOf(draggedActionId) ?? -1;
+    const adjustedTargetIndex =
+      draggedSourceRowId === targetRowId && sourceIndex >= 0 && sourceIndex < targetIndex
+        ? targetIndex - 1
+        : targetIndex;
+    const insertIndex = Math.max(0, Math.min(adjustedTargetIndex, targetRow.actionIds.length));
+
+    targetRow.actionIds = [
+      ...targetRow.actionIds.slice(0, insertIndex),
+      draggedActionId,
+      ...targetRow.actionIds.slice(insertIndex)
+    ];
+
+    rows = nextRows;
     saveRowsToStorage();
+  }
+
+  function handleActionDragStart(event: DragEvent, rowId: string, actionId: string) {
+    if (!isEditMode) return;
+
+    draggedActionId = actionId;
+    draggedSourceRowId = rowId;
+    event.dataTransfer?.setData('text/plain', actionId);
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+    }
+  }
+
+  function handleDragOver(event: DragEvent) {
+    if (!isEditMode || !draggedActionId) return;
+
+    event.preventDefault();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'move';
+    }
+  }
+
+  function handleDropZoneDragOver(event: DragEvent, rowId: string, index: number) {
+    handleDragOver(event);
+    if (!isEditMode || !draggedActionId) return;
+
+    activeDropTarget = {rowId, index};
+  }
+
+  function handleDropZoneDragLeave(rowId: string, index: number) {
+    if (activeDropTarget?.rowId === rowId && activeDropTarget.index === index) {
+      activeDropTarget = null;
+    }
+  }
+
+  function isDropTarget(rowId: string, index: number): boolean {
+    return activeDropTarget?.rowId === rowId && activeDropTarget.index === index;
+  }
+
+  function handleDropOnZone(event: DragEvent, rowId: string, index: number) {
+    if (!isEditMode || !draggedActionId) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    moveDraggedAction(rowId, index);
+    activeDropTarget = null;
+  }
+
+  function handleActionDragEnd() {
+    draggedActionId = null;
+    draggedSourceRowId = null;
+    activeDropTarget = null;
   }
 
   // Function to trigger an action
@@ -340,41 +448,77 @@
         </span>
             </div>
           </div>
+          <p class="mb-3 text-[11px] text-muted-foreground">
+            Drag and Drop Actions to reorder them or move them between Rows.
+          </p>
 
         {/if}
         <div class="flex flex-col gap-3">
-          {#each organizedActions as row (row.id)}
+          {#each organizedActions as row, rowIndex (row.id)}
             <div class="action-row">
               {#if isEditMode}
                 <div class="flex items-center gap-2 mb-2">
-                  <span class="text-xs text-muted-foreground">
-                    {row.id === 'default' ? 'Default Row' : 'Row'}
-                  </span>
+                  <input
+                    class="min-w-0 flex-1 rounded border border-border bg-background px-2 py-1 text-xs"
+                    value={row.name ?? ''}
+                    placeholder={getRowDisplayName(row, rowIndex)}
+                    onmousedown={(e) => e.stopPropagation()}
+                    oninput={(e) => updateRowName(row.id, e.currentTarget.value)}
+                  />
                   {#if row.id !== 'default'}
                     <button
-                      class="text-xs px-1 py-0.5 rounded border border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors"
+                      class="shrink-0 text-xs px-1 py-0.5 rounded border border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors"
                       onclick={() => deleteRow(row.id)}
                     >
                       Delete Row
                     </button>
                   {/if}
                 </div>
+              {:else if shouldShowRowTitle(row)}
+                <div class="mb-1 text-xs font-medium text-muted-foreground">
+                  {row.name}
+                </div>
               {/if}
 
-              <div class="flex flex-wrap gap-2">
+              <div
+                class="relative flex flex-wrap gap-2 min-h-12"
+              >
                 {#if row.actions.length === 0 && isEditMode}
                   <div
-                    class="empty-row-placeholder text-xs text-muted-foreground italic px-3 py-2 border border-dashed border-border rounded">
-                    Empty row - assign actions using the dropdown below each skill
+                    class="empty-row-placeholder text-xs text-muted-foreground italic px-3 py-2 border border-dashed rounded transition-colors {isDropTarget(row.id, 0) ? 'border-primary bg-primary/10' : 'border-border'}"
+                    ondragover={(event) => handleDropZoneDragOver(event, row.id, 0)}
+                    ondragleave={() => handleDropZoneDragLeave(row.id, 0)}
+                    ondrop={(event) => handleDropOnZone(event, row.id, 0)}
+                    role="button"
+                    tabindex="0"
+                  >
+                    Empty Row - Drag Actions here.
                   </div>
                 {/if}
-                {#each row.actions as action (action.id)}
+                {#each row.actions as action, actionIndex (action.id)}
                   {#if sessionId}
                     {@const state = getActionStateReactive(action.id)}
                     {@const isOnCooldown = state.cooldownProgress > 0 || state.isCasting}
                     {@const cooldownAngle = (1 - state.cooldownProgress) * 360}
 
-                    <div class="action-container">
+                    {#if isEditMode}
+                      <div
+                        class="action-drop-zone {actionIndex === 0 ? 'first-drop-zone' : ''} {isDropTarget(row.id, actionIndex) ? 'active' : ''}"
+                        ondragover={(event) => handleDropZoneDragOver(event, row.id, actionIndex)}
+                        ondragleave={() => handleDropZoneDragLeave(row.id, actionIndex)}
+                        ondrop={(event) => handleDropOnZone(event, row.id, actionIndex)}
+                        aria-label="Drop action here"
+                        role="button"
+                        tabindex="0"
+                      ></div>
+                    {/if}
+
+                    <div
+                      class="action-container {draggedActionId === action.id ? 'opacity-40' : ''}"
+                      draggable={isEditMode}
+                      ondragstart={(event) => handleActionDragStart(event, row.id, action.id)}
+                      ondragend={handleActionDragEnd}
+                    >
                       <button
                         class="action-button relative w-12 h-12 p-0 rounded-md border-2 border-border hover:border-primary transition-all overflow-hidden"
                         onclick={() => !isEditMode && triggerAction(action)}
@@ -390,6 +534,12 @@
                           />
                         {:else}
                           <Swords class="h-8 w-8 {state.isCasting ? 'brightness-150' : ''}"/>
+                        {/if}
+
+                        {#if isEditMode}
+                          <div class="absolute left-0.5 top-0.5 rounded bg-black/60 p-0.5 text-white">
+                            <GripVertical class="h-3 w-3" />
+                          </div>
                         {/if}
 
                         <!-- Radial cooldown overlay -->
@@ -428,22 +578,20 @@
                           </div>
                         {/if}
                       </button>
-
-                      {#if isEditMode}
-                        <select
-                          class="text-[10px] px-1 py-0.5 rounded border border-border bg-background mt-1"
-                          onchange={(e) => moveActionToRow(action.id, e.currentTarget.value)}
-                        >
-                          {#each rows as selectRow}
-                            <option value={selectRow.id} selected={selectRow.id === row.id}>
-                              {selectRow.id === 'default' ? 'Default' : `Row ${rows.indexOf(selectRow)}`}
-                            </option>
-                          {/each}
-                        </select>
-                      {/if}
                     </div>
                   {/if}
                 {/each}
+                {#if isEditMode && row.actions.length > 0}
+                  <div
+                    class="action-drop-zone {isDropTarget(row.id, row.actions.length) ? 'active' : ''}"
+                    ondragover={(event) => handleDropZoneDragOver(event, row.id, row.actions.length)}
+                    ondragleave={() => handleDropZoneDragLeave(row.id, row.actions.length)}
+                    ondrop={(event) => handleDropOnZone(event, row.id, row.actions.length)}
+                    aria-label="Drop action here"
+                    role="button"
+                    tabindex="0"
+                  ></div>
+                {/if}
               </div>
             </div>
           {/each}
@@ -489,6 +637,37 @@
   .action-button:disabled:not(.edit-mode) {
     cursor: not-allowed;
     opacity: 0.9;
+  }
+
+  .action-drop-zone {
+    width: 0.5rem;
+    min-height: 3rem;
+    border-radius: 9999px;
+    border: 1px dashed transparent;
+    overflow: hidden;
+    transition: background-color 120ms ease, border-color 120ms ease, width 120ms ease;
+  }
+
+  .action-drop-zone.first-drop-zone {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 1;
+    width: 0;
+    min-width: 0.75rem;
+    opacity: 0;
+  }
+
+  .action-drop-zone.first-drop-zone.active {
+    position: static;
+    min-width: 0;
+  }
+
+  .action-drop-zone.active {
+    width: 1rem;
+    border-color: hsl(var(--primary));
+    background-color: hsl(var(--primary) / 0.18);
+    opacity: 1;
   }
 
   .action-row {
