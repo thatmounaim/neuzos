@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { BookMarked, BookOpen, Coins, ScrollText, StickyNote } from '@lucide/svelte';
+  import { BookMarked, BookOpen, Coins, ListTodo, ScrollText, StickyNote } from '@lucide/svelte';
   import { Button } from '$lib/components/ui/button';
   import { getWidgetsContext } from '$lib/contexts/widgetsContext.svelte';
   import { getQuestPanelContext } from '$lib/contexts/questPanelContext.svelte';
@@ -26,11 +26,11 @@
     openViewerTypes = await neuzosBridge.viewerWindow.getOpenTypes();
   }
 
-  function isSingleWidgetOpen(type: 'widget.builtin.fcoin_calculator' | 'widget.builtin.notepad'): boolean {
+  function isSingleWidgetOpen(type: 'widget.builtin.fcoin_calculator' | 'widget.builtin.notepad' | 'widget.builtin.todo'): boolean {
     return widgetsContext.getWidgetsByType(type).length > 0;
   }
 
-  function toggleSingleWidget(type: 'widget.builtin.fcoin_calculator' | 'widget.builtin.notepad') {
+  function toggleSingleWidget(type: 'widget.builtin.fcoin_calculator' | 'widget.builtin.notepad' | 'widget.builtin.todo') {
     const existing = widgetsContext.getWidgetsByType(type);
     if (existing.length > 0) {
       widgetsContext.destroyWidget(existing[0].id);
@@ -46,6 +46,8 @@
         return isSingleWidgetOpen('widget.builtin.fcoin_calculator');
       case 'notepad':
         return isSingleWidgetOpen('widget.builtin.notepad');
+      case 'todo':
+        return isSingleWidgetOpen('widget.builtin.todo');
       case 'navi_guide':
       case 'flyffipedia':
         return openViewerTypes.includes(id);
@@ -61,6 +63,9 @@
         break;
       case 'notepad':
         toggleSingleWidget('widget.builtin.notepad');
+        break;
+      case 'todo':
+        toggleSingleWidget('widget.builtin.todo');
         break;
       case 'navi_guide':
         if (openViewerTypes.includes('navi_guide')) {
@@ -92,6 +97,8 @@
         return 'FCoin Calculator';
       case 'notepad':
         return 'Notepad';
+      case 'todo':
+        return 'To-Do';
       case 'navi_guide':
         return 'Navi Guide';
       case 'flyffipedia':
@@ -128,6 +135,8 @@
       <Coins class="size-3.5" />
     {:else if launcherId === 'notepad'}
       <StickyNote class="size-3.5" />
+    {:else if launcherId === 'todo'}
+      <ListTodo class="size-3.5" />
     {:else if launcherId === 'navi_guide'}
       <BookOpen class="size-3.5" />
     {:else if launcherId === 'flyffipedia'}

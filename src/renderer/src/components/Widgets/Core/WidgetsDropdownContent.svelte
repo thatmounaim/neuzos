@@ -8,6 +8,7 @@
   import type { ViewerWindowType } from '$lib/types';
   import FCoinCalculatorDropdownItem from '../Builtin/FCoinCalculator/DropdownItem.svelte';
   import NotepadDropdownItem from '../Builtin/Notepad/DropdownItem.svelte';
+  import TodoDropdownItem from '../Builtin/Todo/DropdownItem.svelte';
   import MiniBrowserDropdownItem from '../Builtin/MiniBrowser/DropdownItem.svelte';
   import ActionPadDropdownItem from '../Builtin/ActionPad/DropdownItem.svelte';
   import ActionPinDropdownItem from '../Builtin/ActionPin/DropdownItem.svelte';
@@ -95,6 +96,7 @@
       <WidgetLauncherPinButton launcherId="quest_log" />
     </DropdownMenu.Item>
   {/if}
+  <TodoDropdownItem />
   {#if isViewerOpen('navi_guide')}
     <DropdownMenu.Item class="justify-between gap-2 data-highlighted:bg-transparent data-highlighted:text-foreground" onclick={ignoreActiveLauncherClick}>
       <div class="flex min-w-0 items-center gap-2">

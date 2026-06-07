@@ -14,7 +14,6 @@
   import { isQuestInFWCFilter, getRecommendationTextColor } from '$lib/data/questFilters';
   import type { MainWindowState, NeuzIcon } from '$lib/types';
   import QuestlineGroup from './QuestlineGroup.svelte';
-  import TodoChecklist from './TodoChecklist.svelte';
 
   const questPanel = getQuestPanelContext();
   const mainWindowState = getContext<MainWindowState>('mainWindowState');
@@ -148,9 +147,6 @@
   class="flex flex-col h-full w-80 border-border/60 bg-background absolute top-0 bottom-0 z-40 shadow-lg {questPanel.sidebarSide === 'right' ? 'right-0 left-auto border-l border-r-0' : 'left-0 right-auto border-r border-l-0'}"
   transition:fly={{ x: questPanel.sidebarSide === 'right' ? 320 : -320, duration: 250, easing: cubicOut }}
 >
-  <!-- TODO Checklist (character-specific) -->
-  <TodoChecklist />
-
   <!-- Character Tabs (always visible) -->
   <div class="flex items-center gap-2 px-2 py-1.5 border-b border-border overflow-x-auto">
     {#each questPanel.characters as char (char.id)}

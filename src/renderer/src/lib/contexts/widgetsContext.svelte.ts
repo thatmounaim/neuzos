@@ -6,6 +6,7 @@ const WIDGETS_CONTEXT_KEY = Symbol('widgets');
 export type WidgetType =
   | 'widget.builtin.fcoin_calculator'
   | 'widget.builtin.notepad'
+  | 'widget.builtin.todo'
   | 'widget.builtin.mini_browser'
   | 'widget.builtin.action_pad'
   | 'widget.builtin.action_pin'

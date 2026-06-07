@@ -1,6 +1,7 @@
 export type WidgetLauncherId =
   | 'fcoin_calculator'
   | 'notepad'
+  | 'todo'
   | 'navi_guide'
   | 'flyffipedia'
   | 'quest_log';
@@ -11,6 +12,7 @@ export const WIDGET_LAUNCHER_PINS_CHANGED = 'widget-launcher-pins-changed';
 const validLauncherIds: WidgetLauncherId[] = [
   'fcoin_calculator',
   'notepad',
+  'todo',
   'navi_guide',
   'flyffipedia',
   'quest_log'
