@@ -141,6 +141,9 @@ export const neuzosBridge = {
     minimize: () => {
       electronApi?.send('viewer_window.minimize');
     },
+    maximize: () => {
+      electronApi?.send('viewer_window.maximize');
+    },
     setAlwaysOnTop: (alwaysOnTop: boolean) => {
       electronApi?.send('viewer_window.set_always_on_top', alwaysOnTop);
     },

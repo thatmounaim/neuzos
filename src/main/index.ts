@@ -1672,6 +1672,21 @@ function registerSessionKeybinds(mode: LaunchMode) {
       }
     });
 
+    ipcMain.on('viewer_window.maximize', (event) => {
+      try {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        if (!win) return;
+
+        if (win.isMaximized()) {
+          win.unmaximize();
+        } else {
+          win.maximize();
+        }
+      } catch (error) {
+        console.error('Failed to maximize viewer window:', error);
+      }
+    });
+
     ipcMain.on('viewer_window.set_always_on_top', (event, alwaysOnTop: boolean) => {
       try {
         const win = BrowserWindow.fromWebContents(event.sender);

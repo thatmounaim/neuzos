@@ -50,6 +50,10 @@
     neuzosBridge.viewerWindow.minimize();
   }
 
+  function maximizeWindow() {
+    neuzosBridge.viewerWindow.maximize();
+  }
+
   function closeWindow() {
     neuzosBridge.viewerWindow.close();
   }
@@ -77,6 +81,7 @@
       isLoading={isLoading}
       onToggleAlwaysOnTop={toggleAlwaysOnTop}
       onMinimize={minimizeWindow}
+      onMaximize={maximizeWindow}
       onClose={closeWindow}
     />
 
