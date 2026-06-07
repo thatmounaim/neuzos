@@ -104,7 +104,7 @@
       case 'flyffipedia':
         return 'Flyffipedia';
       case 'quest_log':
-        return 'Questlog';
+        return 'Quest Log';
     }
   }
 

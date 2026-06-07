@@ -61,6 +61,12 @@ function createDefaultCharacter(name: string, flyffClass: FlyffClassName | null 
   };
 }
 
+function normalizeQuestlineName(name: string): string {
+  if (name === '1st job change') return '1st Job Change';
+  if (name === "Rhisis' Catacombs") return 'Rhisis Catacombs';
+  return name;
+}
+
 function loadPersistedState(): PersistedState {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -75,7 +81,9 @@ function loadPersistedState(): PersistedState {
             level: c.level ?? null,
             completedQuests: Array.isArray(c.completedQuests) ? c.completedQuests : [],
             hiddenQuests: Array.isArray(c.hiddenQuests) ? c.hiddenQuests : [],
-            expandedQuestlines: Array.isArray(c.expandedQuestlines) ? c.expandedQuestlines : [],
+            expandedQuestlines: Array.isArray(c.expandedQuestlines)
+              ? c.expandedQuestlines.map((name: string) => normalizeQuestlineName(name))
+              : [],
           }))
         : [];
 

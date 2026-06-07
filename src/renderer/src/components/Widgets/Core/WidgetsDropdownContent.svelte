@@ -72,7 +72,7 @@
     <DropdownMenu.Item class="justify-between gap-2 data-highlighted:bg-transparent data-highlighted:text-foreground" onclick={ignoreActiveLauncherClick}>
       <div class="flex min-w-0 items-center gap-2">
         <ScrollText class="h-4 w-4" />
-        <span>Questlog</span>
+        <span>Quest Log</span>
       </div>
       <div class="flex items-center gap-1">
         <WidgetLauncherPinButton launcherId="quest_log" />
@@ -91,7 +91,7 @@
     <DropdownMenu.Item class="justify-between gap-2" onclick={() => questPanel.toggle()}>
       <div class="flex min-w-0 items-center gap-2">
         <ScrollText class="h-4 w-4" />
-        <span>Questlog</span>
+        <span>Quest Log</span>
       </div>
       <WidgetLauncherPinButton launcherId="quest_log" />
     </DropdownMenu.Item>

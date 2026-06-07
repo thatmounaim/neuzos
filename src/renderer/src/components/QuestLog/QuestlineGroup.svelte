@@ -63,7 +63,7 @@
     }
   }
 
-  const isFirstJobChange = $derived(questline === '1st job change');
+  const isFirstJobChange = $derived(questline === '1st Job Change');
 
   const OVERRIDE_KEY_MAP: Record<string, keyof typeof FIRST_JOB_QUEST_OVERRIDES[keyof typeof FIRST_JOB_QUEST_OVERRIDES]> = {
     'vagrant master': 'vagrantMaster',
