@@ -27,7 +27,8 @@
     class?: string;
     children?: Snippet;
     titleSnippet?: Snippet;
-    backgroundTransparency?: number
+    backgroundTransparency?: number;
+    flushBottom?: boolean;
   }
 
   let {
@@ -52,6 +53,7 @@
     children,
     titleSnippet,
     backgroundTransparency = 100,
+    flushBottom = false,
   }: Props = $props();
 
   let x = $state(defaultX);
@@ -251,7 +253,7 @@
 </script>
 
 <div
-  class="absolute border border-border rounded-lg shadow-md flex flex-col overflow-hidden {zIndex} {className}"
+  class="absolute border border-border {flushBottom ? 'rounded-t-lg' : 'rounded-lg'} shadow-md flex flex-col overflow-hidden {zIndex} {className}"
   style="left: {x}px; top: {y}px; width: {width}px; height: {isMinimized ? 'auto' : height + 'px'};"
   onclick={() => windowContext.setActiveWindow(windowId)}
   role="dialog"
@@ -317,7 +319,7 @@
   </div>
 
   <div
-    class="flex-1 overflow-auto p-3"
+    class="flex-1 overflow-auto {flushBottom ? 'p-0' : 'p-3'}"
     style="display: {isMinimized ? 'none' : 'block'}; background-color: color-mix(in oklab, var(--background) {backgroundOpacity}%, transparent);"
   >
     {@render children?.()}

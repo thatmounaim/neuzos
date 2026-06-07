@@ -191,6 +191,7 @@
     minHeight={300}
     onClose={onClose}
     onHide={onHide}
+    flushBottom={true}
   >
     {#snippet titleSnippet()}
       <div class="flex items-center gap-2">
@@ -199,7 +200,7 @@
       </div>
     {/snippet}
 
-    <div class="flex flex-col h-full -m-3">
+    <div class="flex flex-col h-full overflow-hidden">
       <!-- Navigation Bar -->
       <div class="flex items-center gap-2 p-2 border-b border-border bg-muted/30 shrink-0">
         <Button

@@ -55,6 +55,7 @@
     minHeight={480}
     onClose={onClose}
     onHide={onHide}
+    flushBottom={true}
   >
     {#snippet titleSnippet()}
       <div class="flex items-center gap-2 min-w-0">
@@ -66,7 +67,7 @@
       </div>
     {/snippet}
 
-    <div class="h-full -m-3 bg-background">
+    <div class="h-full bg-background overflow-hidden">
       {#if session}
         <NeuzClient
           layoutId={layoutId}
