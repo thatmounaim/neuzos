@@ -2,7 +2,7 @@
   import { getWidgetsContext } from "$lib/contexts/widgetsContext.svelte";
   import { getContext, onMount } from "svelte";
   import { Button } from "$lib/components/ui/button";
-  import { Swords, X } from "@lucide/svelte";
+  import { Check, Pin, Swords, X } from "@lucide/svelte";
   import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
   import type { MainWindowState } from "$lib/types";
 
@@ -21,6 +21,10 @@
 
   function destroyWidget(id: string) {
     widgetsContext.destroyWidget(id);
+  }
+
+  function toggleAutoLoadLatestPins() {
+    autoLoadLatestPins = !autoLoadLatestPins;
   }
 
   function readAutoLoadPreference(): boolean {
@@ -94,9 +98,13 @@
       <span>Action Pins</span>
     </DropdownMenu.SubTrigger>
     <DropdownMenu.SubContent class="min-w-44">
-      <DropdownMenu.CheckboxItem bind:checked={autoLoadLatestPins}>
-        Persist last used pins
-      </DropdownMenu.CheckboxItem>
+      <DropdownMenu.Item onclick={toggleAutoLoadLatestPins}>
+        <Pin class="h-4 w-4 mr-2" />
+        <span>Save Action Pins</span>
+        {#if autoLoadLatestPins}
+          <Check class="h-4 w-4 ml-auto" />
+        {/if}
+      </DropdownMenu.Item>
       <DropdownMenu.Separator />
       {#if availableSessionsForActionPin.length > 0}
         {#each availableSessionsForActionPin as sessionInfo}

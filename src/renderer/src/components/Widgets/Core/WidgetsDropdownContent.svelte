@@ -67,6 +67,34 @@
 <DropdownMenu.Group>
   <FCoinCalculatorDropdownItem />
   <NotepadDropdownItem />
+  {#if questPanel.isOpen}
+    <DropdownMenu.Item class="justify-between gap-2 data-highlighted:bg-transparent data-highlighted:text-foreground" onclick={ignoreActiveLauncherClick}>
+      <div class="flex min-w-0 items-center gap-2">
+        <ScrollText class="h-4 w-4" />
+        <span>Questlog</span>
+      </div>
+      <div class="flex items-center gap-1">
+        <WidgetLauncherPinButton launcherId="quest_log" />
+        <Button
+          size="icon"
+          variant="ghost"
+          class="h-6 w-6 hover:bg-destructive hover:text-destructive-foreground"
+          onclick={closeQuestPanel}
+          title="Close"
+        >
+          <X class="h-3 w-3" />
+        </Button>
+      </div>
+    </DropdownMenu.Item>
+  {:else}
+    <DropdownMenu.Item class="justify-between gap-2" onclick={() => questPanel.toggle()}>
+      <div class="flex min-w-0 items-center gap-2">
+        <ScrollText class="h-4 w-4" />
+        <span>Questlog</span>
+      </div>
+      <WidgetLauncherPinButton launcherId="quest_log" />
+    </DropdownMenu.Item>
+  {/if}
   {#if isViewerOpen('navi_guide')}
     <DropdownMenu.Item class="justify-between gap-2 data-highlighted:bg-transparent data-highlighted:text-foreground" onclick={ignoreActiveLauncherClick}>
       <div class="flex min-w-0 items-center gap-2">
@@ -121,34 +149,6 @@
         <span>Flyffipedia</span>
       </div>
       <WidgetLauncherPinButton launcherId="flyffipedia" />
-    </DropdownMenu.Item>
-  {/if}
-  {#if questPanel.isOpen}
-    <DropdownMenu.Item class="justify-between gap-2 data-highlighted:bg-transparent data-highlighted:text-foreground" onclick={ignoreActiveLauncherClick}>
-      <div class="flex min-w-0 items-center gap-2">
-        <ScrollText class="h-4 w-4" />
-        <span>Questlog</span>
-      </div>
-      <div class="flex items-center gap-1">
-        <WidgetLauncherPinButton launcherId="quest_log" />
-        <Button
-          size="icon"
-          variant="ghost"
-          class="h-6 w-6 hover:bg-destructive hover:text-destructive-foreground"
-          onclick={closeQuestPanel}
-          title="Close"
-        >
-          <X class="h-3 w-3" />
-        </Button>
-      </div>
-    </DropdownMenu.Item>
-  {:else}
-    <DropdownMenu.Item class="justify-between gap-2" onclick={() => questPanel.toggle()}>
-      <div class="flex min-w-0 items-center gap-2">
-        <ScrollText class="h-4 w-4" />
-        <span>Questlog</span>
-      </div>
-      <WidgetLauncherPinButton launcherId="quest_log" />
     </DropdownMenu.Item>
   {/if}
   <DropdownMenu.Separator />

@@ -2,7 +2,7 @@
   import { getWidgetsContext } from '$lib/contexts/widgetsContext.svelte';
   import { getContext } from 'svelte';
   import { Button } from '$lib/components/ui/button';
-  import { SquareAsterisk, Eye, EyeOff, X } from '@lucide/svelte';
+  import { SquareAsterisk, X } from '@lucide/svelte';
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
   import type { MainWindowState } from '$lib/types';
 
@@ -11,10 +11,6 @@
 
   function createWidget(sessionId: string) {
     widgetsContext.createWidget('widget.builtin.action_pad', { sessionId });
-  }
-
-  function toggleWidget(id: string) {
-    widgetsContext.toggleWidget(id);
   }
 
   function destroyWidget(id: string) {
@@ -79,19 +75,6 @@
           <span class="text-xs">{sessionInfo?.label || 'Unknown'}</span>
         </div>
         <div class="flex items-center gap-1">
-          <Button
-            size="icon"
-            variant="ghost"
-            class="h-6 w-6"
-            onclick={() => toggleWidget(widget.id)}
-            title={widget.visible ? 'Hide' : 'Show'}
-          >
-            {#if widget.visible}
-              <Eye class="h-3 w-3" />
-            {:else}
-              <EyeOff class="h-3 w-3" />
-            {/if}
-          </Button>
           <Button
             size="icon"
             variant="ghost"

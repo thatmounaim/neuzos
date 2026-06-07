@@ -34,7 +34,6 @@
       visible={widget.visible}
       data={widget.data}
       onClose={() => widgetsContext.destroyWidget(widget.id)}
-      onHide={() => widgetsContext.hideWidget(widget.id)}
     />
    {:else if widget.type === 'widget.builtin.floating_session'}
     <FloatingSessionWidget

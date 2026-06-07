@@ -1,6 +1,6 @@
 <script lang="ts">
   import FloatingWindow from '../../../Shared/FloatingWindow.svelte';
-  import {Swords} from '@lucide/svelte';
+  import {Check, Settings, Swords} from '@lucide/svelte';
   import {getContext} from 'svelte';
   import type {MainWindowState, SessionAction} from '$lib/types';
   import {getCooldownsContext} from '$lib/contexts/cooldownsContext';
@@ -8,11 +8,10 @@
   interface Props {
     visible?: boolean;
     onClose?: () => void;
-    onHide?: () => void;
     data?: { sessionId?: string };
   }
 
-  let {visible = true, onClose, onHide, data}: Props = $props();
+  let {visible = true, onClose, data}: Props = $props();
 
   const mainWindowState = getContext<MainWindowState>('mainWindowState');
   const cooldownsContext = getCooldownsContext();
@@ -55,6 +54,7 @@
   // Get session info
   const session = $derived(mainWindowState.config.sessions.find(s => s.id === sessionId));
   const sessionLabel = $derived(session?.label || 'Unknown Session');
+  const sessionIcon = $derived(session?.icon?.slug || 'misc/browser');
 
   // Get session actions
   const sessionActionsData = $derived(
@@ -273,16 +273,23 @@
 </script>
 
 {#snippet customTitleSnippet()}
-  <div class="flex items-center gap-2">
-    <span>Action Pad - {sessionLabel}</span>
-    <div class="ml-auto flex items-center gap-2">
-
+  <div class="flex items-center gap-3">
+    <div class="flex min-w-0 items-center gap-2">
+      <img class="h-4 w-4 shrink-0" src="icons/{sessionIcon}.png" alt="" />
+      <span class="truncate">{sessionLabel}</span>
+    </div>
+    <div class="ml-auto mr-1 flex items-center gap-2">
       <button
-        class="text-xs px-2 py-0.5 rounded border border-border hover:bg-accent transition-colors"
+        class="p-1 rounded border border-border hover:bg-accent transition-colors"
         onclick={() => { isEditMode = !isEditMode; }}
         onmousedown={(e) => e.stopPropagation()}
+        title={isEditMode ? 'Done' : 'Edit'}
       >
-        {isEditMode ? 'Done' : 'Edit'}
+        {#if isEditMode}
+          <Check class="h-3.5 w-3.5" />
+        {:else}
+          <Settings class="h-3.5 w-3.5" />
+        {/if}
       </button>
     </div>
   </div>
@@ -297,7 +304,6 @@
     minWidth={280}
     minHeight={200}
     {onClose}
-    {onHide}
     resizable={true}
     titleSnippet={customTitleSnippet}
     backgroundTransparency={backgroundTransparency}

@@ -273,6 +273,18 @@
       {/if}
     </div>
     <div class="flex gap-1 items-center window-controls">
+      {#if hidable && onHide}
+        <button
+          class="bg-transparent border-none p-1 cursor-pointer rounded flex items-center justify-center text-foreground transition-colors hover:bg-accent"
+          onclick={(e) => {
+            e.stopPropagation();
+            onHide?.();
+          }}
+          title="Hide"
+        >
+          <EyeOff size={14} />
+        </button>
+      {/if}
       {#if minimizable}
         <button
           class="bg-transparent border-none p-1 cursor-pointer rounded flex items-center justify-center text-foreground transition-colors hover:bg-accent"
@@ -287,18 +299,6 @@
           {:else}
             <Minimize2 size={14} />
           {/if}
-        </button>
-      {/if}
-      {#if hidable && onHide}
-        <button
-          class="bg-transparent border-none p-1 cursor-pointer rounded flex items-center justify-center text-foreground transition-colors hover:bg-accent"
-          onclick={(e) => {
-            e.stopPropagation();
-            onHide?.();
-          }}
-          title="Hide"
-        >
-          <EyeOff size={14} />
         </button>
       {/if}
       {#if closable}

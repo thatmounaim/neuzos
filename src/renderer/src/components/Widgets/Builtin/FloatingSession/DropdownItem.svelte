@@ -88,13 +88,11 @@
           </DropdownMenu.Item>
         {/each}
       {:else}
-        <div class="px-2 py-1.5 text-xs text-muted-foreground">
-          {#if floatableSessions.length === 0}
-            No floatable sessions configured
-          {:else}
-            All floatable sessions already have floating widgets
-          {/if}
-        </div>
+        {#if floatableSessions.length === 0}
+          <div class="px-2 py-1.5 text-xs text-muted-foreground">
+            No Floatable Sessions found.
+          </div>
+        {/if}
       {/if}
 
       {#if widgets.length > 0}
