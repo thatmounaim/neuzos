@@ -1,6 +1,6 @@
 <script lang="ts">
   import FloatingWindow from '../../../Shared/FloatingWindow.svelte';
-  import {Check, GripVertical, Settings, Swords} from '@lucide/svelte';
+  import {Check, EyeOff, GripVertical, Plus, Settings, Swords} from '@lucide/svelte';
   import {getContext} from 'svelte';
   import type {MainWindowState, SessionAction} from '$lib/types';
   import {getCooldownsContext} from '$lib/contexts/cooldownsContext';
@@ -81,6 +81,8 @@
   const PERSIST_ID = WIDGET_IDENTIFIER + 'session-' + sessionId;
   const TRANSPARENCY_STORAGE_KEY = `${PERSIST_ID}-background-transparency`;
   const DEFAULT_BACKGROUND_TRANSPARENCY = 100;
+  const HIDDEN_ROW_ID = '__hidden';
+  const HIDDEN_ROW_NAME = 'Hidden Actions';
 
   let rows = $state<ActionPadRow[]>(loadRowsFromStorage());
   let backgroundTransparency = $state(loadBackgroundTransparency());
@@ -142,7 +144,9 @@
             .filter((row): row is ActionPadRow => row !== null);
 
           if (normalized.length > 0) {
-            return normalized;
+            return normalized.map(row =>
+              row.id === HIDDEN_ROW_ID ? {...row, name: HIDDEN_ROW_NAME} : row
+            );
           }
         }
       }
@@ -165,6 +169,7 @@
   const organizedActions = $derived.by<OrganizedActionPadRow[]>(() => {
     const organized = rows.map(row => ({
       ...row,
+      name: row.id === HIDDEN_ROW_ID ? HIDDEN_ROW_NAME : row.name,
       actions: row.actionIds
         .map(id => actions.find(a => a.id === id))
         .filter(Boolean) as SessionAction[]
@@ -187,34 +192,84 @@
       }
     }
 
-    // In edit mode, show all rows including empty ones
-    // In normal mode, only show rows with actions
-    return isEditMode ? organized : organized.filter(row => row.actions.length > 0);
+    const visibleRows = organized.filter(row => row.id !== HIDDEN_ROW_ID);
+    const hiddenRow = organized.find(row => row.id === HIDDEN_ROW_ID);
+
+    // In edit mode, show all normal rows and the hidden row when it contains actions.
+    // In normal mode, hide the hidden row completely.
+    if (isEditMode) {
+      return hiddenRow && hiddenRow.actions.length > 0
+        ? [...visibleRows, hiddenRow]
+        : visibleRows;
+    }
+
+    return visibleRows.filter(row => row.actions.length > 0);
   });
 
   function addRow() {
-    rows = [...rows, {id: `row-${Date.now()}`, actionIds: []}];
+    const hiddenRow = rows.find(row => row.id === HIDDEN_ROW_ID);
+    const visibleRows = rows.filter(row => row.id !== HIDDEN_ROW_ID);
+    const newRow = {id: `row-${Date.now()}`, actionIds: []};
+
+    rows = hiddenRow ? [...visibleRows, newRow, hiddenRow] : [...visibleRows, newRow];
     saveRowsToStorage();
   }
 
   function deleteRow(rowId: string) {
-    if (rowId === 'default') return; // Can't delete default row
+    if (rowId === 'default' || rowId === HIDDEN_ROW_ID) return; // Can't delete default or hidden row
     rows = rows.filter(r => r.id !== rowId);
     saveRowsToStorage();
   }
 
   function updateRowName(rowId: string, name: string) {
+    if (rowId === HIDDEN_ROW_ID) return;
     rows = rows.map(row => row.id === rowId ? {...row, name} : row);
     saveRowsToStorage();
   }
 
   function getRowDisplayName(row: ActionPadRow, index: number): string {
+    if (row.id === HIDDEN_ROW_ID) return HIDDEN_ROW_NAME;
+
     const name = row.name?.trim();
     return name || `Row ${index + 1}`;
   }
 
   function shouldShowRowTitle(row: ActionPadRow): boolean {
     return Boolean(row.name?.trim());
+  }
+
+  function isHiddenRow(rowId: string): boolean {
+    return rowId === HIDDEN_ROW_ID;
+  }
+
+  function moveActionToSpecialRow(actionId: string, targetRow: ActionPadRow) {
+    const nextRows = rows.map(row => ({
+      ...row,
+      actionIds: row.actionIds.filter(id => id !== actionId)
+    }));
+
+    const existingTargetRow = nextRows.find(row => row.id === targetRow.id);
+    if (existingTargetRow) {
+      existingTargetRow.actionIds = [...existingTargetRow.actionIds, actionId];
+    } else {
+      nextRows.push({...targetRow, actionIds: [actionId]});
+    }
+
+    rows = nextRows;
+    saveRowsToStorage();
+  }
+
+  function hideAction(actionId: string) {
+    moveActionToSpecialRow(actionId, {
+      id: HIDDEN_ROW_ID,
+      actionIds: [],
+      name: HIDDEN_ROW_NAME
+    });
+  }
+
+  function restoreAction(actionId: string) {
+    const defaultRow = rows.find(row => row.id === 'default');
+    moveActionToSpecialRow(actionId, defaultRow ?? {id: 'default', actionIds: []});
   }
 
   function moveDraggedAction(targetRowId: string, targetIndex: number) {
@@ -457,23 +512,29 @@
           {#each organizedActions as row, rowIndex (row.id)}
             <div class="action-row">
               {#if isEditMode}
-                <div class="flex items-center gap-2 mb-2">
-                  <input
-                    class="min-w-0 flex-1 rounded border border-border bg-background px-2 py-1 text-xs"
-                    value={row.name ?? ''}
-                    placeholder={getRowDisplayName(row, rowIndex)}
-                    onmousedown={(e) => e.stopPropagation()}
-                    oninput={(e) => updateRowName(row.id, e.currentTarget.value)}
-                  />
-                  {#if row.id !== 'default'}
-                    <button
-                      class="shrink-0 text-xs px-1 py-0.5 rounded border border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors"
-                      onclick={() => deleteRow(row.id)}
-                    >
-                      Delete Row
-                    </button>
-                  {/if}
-                </div>
+                {#if isHiddenRow(row.id)}
+                  <div class="mb-2 text-xs font-medium text-muted-foreground">
+                    {HIDDEN_ROW_NAME}
+                  </div>
+                {:else}
+                  <div class="flex items-center gap-2 mb-2">
+                    <input
+                      class="min-w-0 flex-1 rounded border border-border bg-background px-2 py-1 text-xs"
+                      value={row.name ?? ''}
+                      placeholder={getRowDisplayName(row, rowIndex)}
+                      onmousedown={(e) => e.stopPropagation()}
+                      oninput={(e) => updateRowName(row.id, e.currentTarget.value)}
+                    />
+                    {#if row.id !== 'default'}
+                      <button
+                        class="shrink-0 text-xs px-1 py-0.5 rounded border border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors"
+                        onclick={() => deleteRow(row.id)}
+                      >
+                        Delete Row
+                      </button>
+                    {/if}
+                  </div>
+                {/if}
               {:else if shouldShowRowTitle(row)}
                 <div class="mb-1 text-xs font-medium text-muted-foreground">
                   {row.name}
@@ -540,6 +601,29 @@
                           <div class="absolute left-0.5 top-0.5 rounded bg-black/60 p-0.5 text-white">
                             <GripVertical class="h-3 w-3" />
                           </div>
+                          <span
+                            class="absolute right-0.5 top-0.5 rounded bg-black/70 p-0.5 text-white hover:bg-primary transition-colors"
+                            role="button"
+                            tabindex="0"
+                            title={isHiddenRow(row.id) ? 'Add Action' : 'Hide Action'}
+                            aria-label={isHiddenRow(row.id) ? 'Add Action' : 'Hide Action'}
+                            onmousedown={(event) => event.stopPropagation()}
+                            onclick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              if (isHiddenRow(row.id)) {
+                                restoreAction(action.id);
+                              } else {
+                                hideAction(action.id);
+                              }
+                            }}
+                          >
+                            {#if isHiddenRow(row.id)}
+                              <Plus class="h-3 w-3" />
+                            {:else}
+                              <EyeOff class="h-3 w-3" />
+                            {/if}
+                          </span>
                         {/if}
 
                         <!-- Radial cooldown overlay -->
