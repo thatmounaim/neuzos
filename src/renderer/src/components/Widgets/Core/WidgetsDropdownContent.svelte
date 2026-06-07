@@ -53,6 +53,14 @@
 
   onMount(() => {
     void refreshOpenViewerTypes();
+
+    const removeViewerStateListener = neuzosBridge.viewerWindow.onStateChanged(() => {
+      void refreshOpenViewerTypes();
+    });
+
+    return () => {
+      removeViewerStateListener();
+    };
   });
 </script>
 

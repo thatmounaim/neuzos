@@ -105,9 +105,13 @@
     refreshPinnedLaunchers();
     void refreshOpenViewerTypes();
     window.addEventListener(WIDGET_LAUNCHER_PINS_CHANGED, refreshPinnedLaunchers);
+    const removeViewerStateListener = neuzosBridge.viewerWindow.onStateChanged(() => {
+      void refreshOpenViewerTypes();
+    });
 
     return () => {
       window.removeEventListener(WIDGET_LAUNCHER_PINS_CHANGED, refreshPinnedLaunchers);
+      removeViewerStateListener();
     };
   });
 </script>

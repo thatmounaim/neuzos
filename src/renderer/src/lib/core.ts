@@ -152,6 +152,11 @@ export const neuzosBridge = {
     },
     getOpenTypes: (): Promise<ViewerWindowType[]> => {
       return electronApi?.invoke('viewer_window.get_open_types') ?? Promise.resolve([]);
+    },
+    onStateChanged: (callback: () => void): (() => void) => {
+      const listener = () => callback();
+      electronApi?.on('viewer_window.state_changed', listener);
+      return () => electronApi?.removeListener?.('viewer_window.state_changed', listener);
     }
   },
   sidebarPanel: {

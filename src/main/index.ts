@@ -613,6 +613,11 @@ function getViewerWindowTypeFromWindow(win: BrowserWindow | null): ViewerWindowT
   return (win as any).viewerType ?? null;
 }
 
+function sendViewerWindowStateChanged(): void {
+  mainWindow?.webContents.send('viewer_window.state_changed');
+  settingsWindow?.webContents.send('viewer_window.state_changed');
+}
+
 function isViewerWindowBoundsVisible(bounds: { x: number; y: number; width: number; height: number }): boolean {
   const displays = screen.getAllDisplays();
   return displays.some(display => {
@@ -704,6 +709,7 @@ function createViewerWindow(type: ViewerWindowType): BrowserWindow | null {
 
   (window as any).viewerType = type;
   viewerWindows.set(type, window);
+  sendViewerWindowStateChanged();
 
   const cleanup = () => {
     const timer = viewerBoundsSaveTimers.get(type);
@@ -719,6 +725,8 @@ function createViewerWindow(type: ViewerWindowType): BrowserWindow | null {
     if (viewerWindows.get(type) === window) {
       viewerWindows.delete(type);
     }
+
+    sendViewerWindowStateChanged();
   };
 
   window.on('move', () => scheduleViewerWindowBoundsSave(type, window));
