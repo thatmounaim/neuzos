@@ -18,7 +18,11 @@
     Code,
     NotebookPen,
     Eye,
-    Settings
+    Settings,
+    PanelLeftClose,
+    PanelLeftOpen,
+    PanelTopClose,
+    PanelTopOpen
   } from '@lucide/svelte';
   import * as Tabs from '$lib/components/ui/tabs';
 
@@ -334,6 +338,7 @@
   let textEditorRefs = $state<Record<string, HTMLDivElement | null>>({});
   let previewTodoCollapsedByFile = $state<Record<string, Record<string, boolean>>>({});
   let settingsOpen = $state<boolean>(false);
+  let filesPanelOpen = $state<boolean>(true);
 
   function normalizeEditableText(content: string | null | undefined): string {
     return (content ?? '').replace(/\u00a0/g, ' ');
@@ -754,7 +759,7 @@
   const hasOnlyTextBlock = $derived(
     activeBlocks.length === 1 && activeBlocks[0]?.type === 'text'
   );
-  const activeEditorMode = $derived(editorModeByFile[activeFileId] ?? 'preview');
+  const activeEditorMode = $derived(editorModeByFile[activeFileId] ?? 'wysiwyg');
   const isEditMode = $derived(activeEditorMode !== 'preview');
 
   $effect(() => {
@@ -783,7 +788,7 @@
     };
     editorModeByFile = {
       ...editorModeByFile,
-      [fileId]: editorModeByFile[fileId] ?? 'preview'
+      [fileId]: editorModeByFile[fileId] ?? 'wysiwyg'
     };
     lastEditModeByFile = {
       ...lastEditModeByFile,
@@ -826,7 +831,7 @@
     };
     files = [...files, newFile];
     blocksByFile = { ...blocksByFile, [newId]: [createTextBlock('')] };
-    editorModeByFile = { ...editorModeByFile, [newId]: 'preview' };
+    editorModeByFile = { ...editorModeByFile, [newId]: 'wysiwyg' };
     lastEditModeByFile = { ...lastEditModeByFile, [newId]: 'wysiwyg' };
     activeFileId = newId;
     saveFiles();
@@ -1552,7 +1557,29 @@
           <span class="truncate">Notepad - {activeFile?.name || 'Untitled'}</span>
         </div>
 
-        <div class="relative" onmousedown={(e) => e.stopPropagation()}>
+        <div class="flex shrink-0 items-center gap-2" onmousedown={(e) => e.stopPropagation()}>
+          <div class="flex items-center gap-1 rounded-md border border-border bg-background/80 p-0.5">
+            <Button
+              size="sm"
+              variant={isEditMode ? 'default' : 'ghost'}
+              class="h-6 px-2 text-xs"
+              onclick={() => setTopLevelMode('edit')}
+            >
+              <NotebookPen class="h-3.5 w-3.5 mr-1" />
+              Edit
+            </Button>
+            <Button
+              size="sm"
+              variant={activeEditorMode === 'preview' ? 'default' : 'ghost'}
+              class="h-6 px-2 text-xs"
+              onclick={() => setTopLevelMode('preview')}
+            >
+              <Eye class="h-3.5 w-3.5 mr-1" />
+              Preview
+            </Button>
+          </div>
+
+        <div class="relative">
           <Button
             size="icon"
             variant={settingsOpen ? 'secondary' : 'ghost'}
@@ -1593,12 +1620,13 @@
             </div>
           {/if}
         </div>
+        </div>
       </div>
     {/snippet}
 
     <div class="flex flex-col h-full -m-3">
       <Tabs.Root value={activeFileId} onValueChange={handleTabChange} class="flex flex-col h-full min-h-0">
-        {#if tabLayoutMode === 'horizontal'}
+        {#if tabLayoutMode === 'horizontal' && filesPanelOpen}
         <!-- Tabs List with Add Button -->
         <div class="flex items-center border-b border-border bg-muted/30 shrink-0">
           <Button
@@ -1702,7 +1730,7 @@
         {/if}
 
         <div class={tabLayoutMode === 'vertical' ? 'flex flex-1 min-h-0' : 'flex flex-col flex-1 min-h-0'}>
-          {#if tabLayoutMode === 'vertical'}
+          {#if tabLayoutMode === 'vertical' && filesPanelOpen}
             <div class="w-56 border-r border-border bg-muted/20 flex flex-col min-h-0">
               <div class="flex items-center justify-between px-2 py-2 border-b border-border shrink-0">
                 <span class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Files</span>
@@ -1790,30 +1818,33 @@
           <div class="flex flex-1 min-h-0 min-w-0 flex-col">
 
         <div class="shrink-0 border-b border-border bg-muted/20 px-3 py-2 flex items-center justify-between gap-3">
-          <div class="flex items-center gap-1 rounded-md border border-border bg-background p-1">
+          <div class="flex items-center gap-2">
             <Button
-              size="sm"
-              variant={activeEditorMode === 'preview' ? 'default' : 'ghost'}
-              class="h-7 px-2"
-              onclick={() => setTopLevelMode('preview')}
+              size="icon"
+              variant={filesPanelOpen ? 'secondary' : 'ghost'}
+              class="h-9 w-9"
+              onclick={() => filesPanelOpen = !filesPanelOpen}
+              title={filesPanelOpen ? 'Hide Open Files' : 'Show Open Files'}
             >
-              <Eye class="h-3.5 w-3.5 mr-1" />
-              Preview
-            </Button>
-            <Button
-              size="sm"
-              variant={isEditMode ? 'default' : 'ghost'}
-              class="h-7 px-2"
-              onclick={() => setTopLevelMode('edit')}
-            >
-              <NotebookPen class="h-3.5 w-3.5 mr-1" />
-              Edit
+              {#if tabLayoutMode === 'vertical'}
+                {#if filesPanelOpen}
+                  <PanelLeftClose class="h-4 w-4" />
+                {:else}
+                  <PanelLeftOpen class="h-4 w-4" />
+                {/if}
+              {:else}
+                {#if filesPanelOpen}
+                  <PanelTopClose class="h-4 w-4" />
+                {:else}
+                  <PanelTopOpen class="h-4 w-4" />
+                {/if}
+              {/if}
             </Button>
           </div>
 
-          <div class="relative flex items-center gap-2">
+          <div class="relative flex min-w-0 flex-1 items-center gap-2">
             {#if activeEditorMode === 'wysiwyg'}
-              <div class="flex items-center gap-1 rounded-md border border-border bg-background p-1">
+              <div class="flex min-w-0 items-center gap-1 rounded-md border border-border bg-background p-1">
                 <Button size="icon" variant="ghost" class="h-7 w-7" onmousedown={(e) => e.preventDefault()} onclick={() => runToolbarAction(() => wrapSelection('**'))} title="Bold">
                   <Bold class="h-3.5 w-3.5" />
                 </Button>
@@ -1838,23 +1869,21 @@
               </div>
             {/if}
           </div>
+
+          {#if isEditMode}
+            <Button
+              size="sm"
+              variant="outline"
+              class="h-9 px-2 shrink-0"
+              onclick={() => setEditorMode(activeEditorMode === 'raw' ? 'wysiwyg' : 'raw')}
+              title="Toggle Edit Mode"
+            >
+              {activeEditorMode === 'raw' ? 'Raw' : 'Editor'}
+            </Button>
+          {/if}
         </div>
 
         <div class="relative flex-1 overflow-auto p-3 space-y-3 bg-background/40">
-          {#if isEditMode}
-            <div class="absolute right-3 top-3 z-10">
-              <Button
-                size="sm"
-                variant="outline"
-                class="h-7 px-2"
-                onclick={() => setEditorMode(activeEditorMode === 'raw' ? 'wysiwyg' : 'raw')}
-                title="Toggle Edit Mode"
-              >
-                {activeEditorMode === 'raw' ? 'Raw' : 'Editor'}
-              </Button>
-            </div>
-          {/if}
-
           {#if activeEditorMode === 'raw'}
             <div
               contenteditable="true"
