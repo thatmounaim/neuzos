@@ -2,7 +2,7 @@
   import { getWidgetsContext } from '$lib/contexts/widgetsContext.svelte';
   import { getContext } from 'svelte';
   import { Button } from '$lib/components/ui/button';
-  import { SquareAsterisk, Eye, EyeOff, X } from '@lucide/svelte';
+  import { SquareAsterisk, X } from '@lucide/svelte';
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
   import type { MainWindowState } from '$lib/types';
 
@@ -11,10 +11,6 @@
 
   function createWidget(sessionId: string) {
     widgetsContext.createWidget('widget.builtin.action_pad', { sessionId });
-  }
-
-  function toggleWidget(id: string) {
-    widgetsContext.toggleWidget(id);
   }
 
   function destroyWidget(id: string) {
@@ -47,27 +43,26 @@
   );
 </script>
 
-{#if allSessionsWithActions.length > 0}
-  <DropdownMenu.Sub>
-    <DropdownMenu.SubTrigger>
-      <SquareAsterisk class="h-4 w-4 mr-2" />
-      <span>Action Pads</span>
-    </DropdownMenu.SubTrigger>
-    <DropdownMenu.SubContent class="min-w-44">
-      {#if availableSessionsForActionPad.length > 0}
-        {#each availableSessionsForActionPad as sessionInfo}
-          <DropdownMenu.Item onclick={() => createWidget(sessionInfo.id)}>
-            <img class="w-4 h-4 mr-2" src="icons/{sessionInfo.icon}.png" alt="" />
-            <span>{sessionInfo.label}</span>
-            <span class="ml-auto text-[10px] opacity-50">({sessionInfo.actionsCount})</span>
-          </DropdownMenu.Item>
-        {/each}
-      {:else}
-        <div class="px-2 py-1.5 text-xs text-muted-foreground">
-          All sessions have action pads
-        </div>
-      {/if}
-        <!-- Show active action pad instances -->
+<DropdownMenu.Sub>
+  <DropdownMenu.SubTrigger>
+    <SquareAsterisk class="h-4 w-4 mr-2" />
+    <span>Action Pads</span>
+  </DropdownMenu.SubTrigger>
+  <DropdownMenu.SubContent class="min-w-44">
+    {#if availableSessionsForActionPad.length > 0}
+      {#each availableSessionsForActionPad as sessionInfo}
+        <DropdownMenu.Item onclick={() => createWidget(sessionInfo.id)}>
+          <img class="w-4 h-4 mr-2" src="icons/{sessionInfo.icon}.png" alt="" />
+          <span>{sessionInfo.label}</span>
+          <span class="ml-auto text-[10px] opacity-50">({sessionInfo.actionsCount})</span>
+        </DropdownMenu.Item>
+      {/each}
+    {:else}
+      <div class="px-2 py-1.5 text-xs text-muted-foreground">
+        {allSessionsWithActions.length === 0 ? 'No Session Actions found.' : 'All Sessions have Action Pads.'}
+      </div>
+    {/if}
+      <!-- Show active action pad instances -->
   {#if widgets.length > 0}
     <DropdownMenu.Separator />
     <DropdownMenu.Label class="text-xs">Active Action Pads ({widgets.length})</DropdownMenu.Label>
@@ -82,19 +77,6 @@
           <Button
             size="icon"
             variant="ghost"
-            class="h-6 w-6"
-            onclick={() => toggleWidget(widget.id)}
-            title={widget.visible ? 'Hide' : 'Show'}
-          >
-            {#if widget.visible}
-              <Eye class="h-3 w-3" />
-            {:else}
-              <EyeOff class="h-3 w-3" />
-            {/if}
-          </Button>
-          <Button
-            size="icon"
-            variant="ghost"
             class="h-6 w-6 hover:bg-destructive hover:text-destructive-foreground"
             onclick={() => destroyWidget(widget.id)}
             title="Close"
@@ -105,7 +87,6 @@
       </div>
     {/each}
   {/if}
-    </DropdownMenu.SubContent>
-  </DropdownMenu.Sub>
-{/if}
+  </DropdownMenu.SubContent>
+</DropdownMenu.Sub>
 

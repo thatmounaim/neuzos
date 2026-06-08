@@ -2,7 +2,7 @@
   import { fly } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
   import { getContext } from 'svelte';
-  import { X, Search, Plus, Minus, Settings2, Trash2, Pencil, Check, ChevronDown, ChevronRight, PanelLeft, PanelRight } from '@lucide/svelte';
+  import { X, Search, Plus, Minus, Settings2, Trash2, Pencil, Check, ChevronDown, PanelLeft, PanelRight } from '@lucide/svelte';
   import { Button } from '$lib/components/ui/button';
   import { Input } from '$lib/components/ui/input';
   import * as Dialog from '$lib/components/ui/dialog';
@@ -14,13 +14,11 @@
   import { isQuestInFWCFilter, getRecommendationTextColor } from '$lib/data/questFilters';
   import type { MainWindowState, NeuzIcon } from '$lib/types';
   import QuestlineGroup from './QuestlineGroup.svelte';
-  import TodoChecklist from './TodoChecklist.svelte';
 
   const questPanel = getQuestPanelContext();
   const mainWindowState = getContext<MainWindowState>('mainWindowState');
 
   let searchFilter = $state('');
-  let collapsed = $state(false);
   let showSettings = $state(false);
   let createCharacterModalOpen = $state(false);
   let selectedSessionId = $state<string | null>(null);
@@ -148,8 +146,31 @@
   class="flex flex-col h-full w-80 border-border/60 bg-background absolute top-0 bottom-0 z-40 shadow-lg {questPanel.sidebarSide === 'right' ? 'right-0 left-auto border-l border-r-0' : 'left-0 right-auto border-r border-l-0'}"
   transition:fly={{ x: questPanel.sidebarSide === 'right' ? 320 : -320, duration: 250, easing: cubicOut }}
 >
-  <!-- TODO Checklist (character-specific) -->
-  <TodoChecklist />
+  <!-- Header Controls -->
+  <div class="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-border">
+    <span class="text-sm font-semibold">Quest Log</span>
+    <div class="flex items-center gap-1">
+    <Button
+      size="icon"
+      variant="ghost"
+      class="size-6"
+      onclick={() => questPanel.setSidebarSide(questPanel.sidebarSide === 'left' ? 'right' : 'left')}
+      title={questPanel.sidebarSide === 'left' ? 'Move sidebar to right' : 'Move sidebar to left'}
+    >
+      {#if questPanel.sidebarSide === 'left'}
+        <PanelRight class="size-3.5" />
+      {:else}
+        <PanelLeft class="size-3.5" />
+      {/if}
+    </Button>
+    <Button size="icon" variant={showSettings ? 'secondary' : 'ghost'} class="size-6" onclick={() => showSettings = !showSettings}>
+      <Settings2 class="size-3.5" />
+    </Button>
+    <Button size="icon" variant="ghost" class="size-6" onclick={() => questPanel.close()}>
+      <X class="size-3.5" />
+    </Button>
+    </div>
+  </div>
 
   <!-- Character Tabs (always visible) -->
   <div class="flex items-center gap-2 px-2 py-1.5 border-b border-border overflow-x-auto">
@@ -209,7 +230,7 @@
       <Dialog.Content class="sm:max-w-md">
         <Dialog.Header>
           <Dialog.Title>Add Character</Dialog.Title>
-          <Dialog.Description>Create a quest log character from a session or manually.</Dialog.Description>
+          <Dialog.Description>Create a Character from a Session or manually.</Dialog.Description>
         </Dialog.Header>
 
         <div class="space-y-3 py-1">
@@ -222,17 +243,17 @@
                     <span class="truncate">
                       {#if selectedSessionId}
                         {@const selectedSession = mainWindowState.sessions.find((session) => session.id === selectedSessionId)}
-                        {selectedSession?.label ?? 'Select session'}
+                        {selectedSession?.label ?? 'Select Session'}
                       {:else}
-                        Select session
+                        Select Session
                       {/if}
                     </span>
                     <ChevronDown class="size-3 shrink-0 opacity-60" />
                   </Popover.Trigger>
                   <Popover.Content class="w-64 p-0">
                     <Command.Root shouldFilter={true}>
-                      <Command.Input placeholder="Search sessions..." class="h-10" />
-                      <Command.Empty>No sessions found.</Command.Empty>
+                      <Command.Input placeholder="Search Sessions..." class="h-10" />
+                      <Command.Empty>No Sessions found.</Command.Empty>
                       <Command.List class="max-h-56">
                         <Command.Group>
                           {#each mainWindowState.sessions as session (session.id)}
@@ -261,7 +282,7 @@
               </div>
             {:else}
               <div class="h-8 flex items-center rounded border border-dashed border-border px-2 text-xs text-muted-foreground">
-                No sessions configured
+                No Sessions configured.
               </div>
             {/if}
           </div>
@@ -288,7 +309,7 @@
                   {/if}
                   <span class="truncate">{newCharClass}</span>
                 {:else}
-                  <span class="truncate">Select class</span>
+                  <span class="truncate">Select Class</span>
                 {/if}
                 <ChevronDown class="size-3 shrink-0 opacity-60 ml-auto" />
               </Popover.Trigger>
@@ -325,44 +346,10 @@
     </Dialog.Root>
   </div>
 
-  <!-- Header -->
-  <div class="flex items-center justify-between px-3 py-2 border-b border-border">
-    <button class="flex items-center gap-1 cursor-pointer" onclick={() => collapsed = !collapsed}>
-      {#if collapsed}
-        <ChevronRight class="size-3.5 text-muted-foreground" />
-      {:else}
-        <ChevronDown class="size-3.5 text-muted-foreground" />
-      {/if}
-      <span class="text-sm font-semibold">Quest Log</span>
-    </button>
-    <div class="flex items-center gap-1">
-      <Button
-        size="icon"
-        variant="ghost"
-        class="size-6"
-        onclick={() => questPanel.setSidebarSide(questPanel.sidebarSide === 'left' ? 'right' : 'left')}
-        title={questPanel.sidebarSide === 'left' ? 'Move sidebar to right' : 'Move sidebar to left'}
-      >
-        {#if questPanel.sidebarSide === 'left'}
-          <PanelRight class="size-3.5" />
-        {:else}
-          <PanelLeft class="size-3.5" />
-        {/if}
-      </Button>
-      <Button size="icon" variant={showSettings ? 'secondary' : 'ghost'} class="size-6" onclick={() => showSettings = !showSettings}>
-        <Settings2 class="size-3.5" />
-      </Button>
-      <Button size="icon" variant="ghost" class="size-6" onclick={() => questPanel.close()}>
-        <X class="size-3.5" />
-      </Button>
-    </div>
-  </div>
-
-  {#if !collapsed}
   <!-- Settings Panel -->
   {#if showSettings}
     <div class="px-3 py-2 border-b border-border space-y-2">
-      <span class="text-xs font-medium text-muted-foreground">Show recommendations:</span>
+      <span class="text-xs font-medium text-muted-foreground">Show Recommendations:</span>
       <div class="grid grid-cols-2 gap-1.5">
         {#each RECOMMENDATION_CATEGORIES as cat (cat)}
           <label class="flex items-center gap-1.5 cursor-pointer">
@@ -424,7 +411,7 @@
       <Search class="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground" />
       <Input
         type="text"
-        placeholder="Search quests..."
+        placeholder="Search Quests..."
         class="h-7 text-xs pl-7"
         bind:value={searchFilter}
       />
@@ -435,11 +422,11 @@
   <div class="flex-1 overflow-y-auto">
     {#if !questPanel.activeCharacterId}
       <div class="flex items-center justify-center h-32 text-sm text-muted-foreground">
-        Add a character to get started
+        Add a Character to get started.
       </div>
     {:else if filteredQuestlines.size === 0}
       <div class="flex items-center justify-center h-32 text-sm text-muted-foreground">
-        No quests match filters
+        No Quests found.
       </div>
     {:else}
       {#each [...filteredQuestlines.entries()] as [questline, questsInLine] (questline)}
@@ -450,6 +437,4 @@
       {/each}
     {/if}
   </div>
-
-  {/if}
 </div>

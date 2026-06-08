@@ -613,6 +613,11 @@ function getViewerWindowTypeFromWindow(win: BrowserWindow | null): ViewerWindowT
   return (win as any).viewerType ?? null;
 }
 
+function sendViewerWindowStateChanged(): void {
+  mainWindow?.webContents.send('viewer_window.state_changed');
+  settingsWindow?.webContents.send('viewer_window.state_changed');
+}
+
 function isViewerWindowBoundsVisible(bounds: { x: number; y: number; width: number; height: number }): boolean {
   const displays = screen.getAllDisplays();
   return displays.some(display => {
@@ -704,6 +709,7 @@ function createViewerWindow(type: ViewerWindowType): BrowserWindow | null {
 
   (window as any).viewerType = type;
   viewerWindows.set(type, window);
+  sendViewerWindowStateChanged();
 
   const cleanup = () => {
     const timer = viewerBoundsSaveTimers.get(type);
@@ -719,6 +725,8 @@ function createViewerWindow(type: ViewerWindowType): BrowserWindow | null {
     if (viewerWindows.get(type) === window) {
       viewerWindows.delete(type);
     }
+
+    sendViewerWindowStateChanged();
   };
 
   window.on('move', () => scheduleViewerWindowBoundsSave(type, window));
@@ -1651,12 +1659,39 @@ function registerSessionKeybinds(mode: LaunchMode) {
       }
     });
 
+    ipcMain.on('viewer_window.close_type', (_event, type: ViewerWindowType) => {
+      try {
+        if (!viewerWindowTypes.includes(type)) return;
+        const win = viewerWindows.get(type);
+        if (win && !win.isDestroyed()) {
+          win.close();
+        }
+      } catch (error) {
+        console.error('Failed to close viewer window by type:', error);
+      }
+    });
+
     ipcMain.on('viewer_window.minimize', (event) => {
       try {
         const win = BrowserWindow.fromWebContents(event.sender);
         win?.minimize();
       } catch (error) {
         console.error('Failed to minimize viewer window:', error);
+      }
+    });
+
+    ipcMain.on('viewer_window.maximize', (event) => {
+      try {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        if (!win) return;
+
+        if (win.isMaximized()) {
+          win.unmaximize();
+        } else {
+          win.maximize();
+        }
+      } catch (error) {
+        console.error('Failed to maximize viewer window:', error);
       }
     });
 
@@ -1697,6 +1732,13 @@ function registerSessionKeybinds(mode: LaunchMode) {
       } catch (error: any) {
         return { error: error?.message ?? String(error) };
       }
+    });
+
+    ipcMain.handle('viewer_window.get_open_types', () => {
+      return viewerWindowTypes.filter((type) => {
+        const win = viewerWindows.get(type);
+        return Boolean(win && !win.isDestroyed());
+      });
     });
 
     ipcMain.handle('sidebar_panel.get_side', () => {

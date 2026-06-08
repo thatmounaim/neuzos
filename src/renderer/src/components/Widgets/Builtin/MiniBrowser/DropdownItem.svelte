@@ -52,8 +52,7 @@
         <div class="flex items-center justify-between px-2 py-1.5 text-sm gap-2">
           <div class="flex items-center gap-2">
             <Globe class="h-4 w-4" />
-            <span class="text-xs">Browser <span class="text-[10px] opacity-50">({widget.data?.instanceNumber || '?'}
-              )</span></span>
+              <span class="text-xs">Browser <span class="text-[10px] opacity-50">({widget.data?.instanceNumber || '?'})</span></span>
           </div>
           <div class="flex items-center gap-1">
             <Button

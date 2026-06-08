@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Button } from '$lib/components/ui/button';
-  import { Loader2, Minus, Pin, PinOff, X } from '@lucide/svelte';
+  import { ArrowUpToLine, Loader2, Maximize, Minus, X } from '@lucide/svelte';
 
   interface Props {
     title: string;
@@ -9,6 +9,7 @@
     isLoading?: boolean;
     onToggleAlwaysOnTop: (alwaysOnTop: boolean) => void;
     onMinimize: () => void;
+    onMaximize: () => void;
     onClose: () => void;
   }
 
@@ -19,6 +20,7 @@
     isLoading = false,
     onToggleAlwaysOnTop,
     onMinimize,
+    onMaximize,
     onClose,
   }: Props = $props();
 </script>
@@ -44,14 +46,13 @@
       title={alwaysOnTop ? 'Disable always-on-top' : 'Enable always-on-top'}
       onclick={() => onToggleAlwaysOnTop(!alwaysOnTop)}
     >
-      {#if alwaysOnTop}
-        <Pin class="size-3.5" />
-      {:else}
-        <PinOff class="size-3.5" />
-      {/if}
+      <ArrowUpToLine class="size-3.5" />
     </Button>
     <Button size="icon" variant="ghost" class="size-7" title="Minimize" onclick={onMinimize}>
       <Minus class="size-3.5" />
+    </Button>
+    <Button size="icon" variant="ghost" class="size-7" title="Maximize / Restore" onclick={onMaximize}>
+      <Maximize class="size-3.5" />
     </Button>
     <Button size="icon" variant="ghost" class="size-7" title="Close" onclick={onClose}>
       <X class="size-3.5" />

@@ -2,6 +2,7 @@
   import { getWidgetsContext } from '$lib/contexts/widgetsContext.svelte.js';
   import FCoinCalculatorWidget from "../Builtin/FCoinCalculator/Widget.svelte";
   import NotepadWidget from "../Builtin/Notepad/Widget.svelte";
+  import TodoWidget from "../Builtin/Todo/Widget.svelte";
   import MiniBrowserWidget from "../Builtin/MiniBrowser/Widget.svelte";
   import ActionPadWidget from "../Builtin/ActionPad/Widget.svelte";
   import FloatingSessionWidget from "../Builtin/FloatingSession/Widget.svelte";
@@ -15,14 +16,18 @@
       visible={widget.visible}
       data={widget.data}
       onClose={() => widgetsContext.destroyWidget(widget.id)}
-      onHide={() => widgetsContext.hideWidget(widget.id)}
     />
   {:else if widget.type === 'widget.builtin.notepad'}
     <NotepadWidget
       visible={widget.visible}
       data={widget.data}
       onClose={() => widgetsContext.destroyWidget(widget.id)}
-      onHide={() => widgetsContext.hideWidget(widget.id)}
+    />
+  {:else if widget.type === 'widget.builtin.todo'}
+    <TodoWidget
+      visible={widget.visible}
+      data={widget.data}
+      onClose={() => widgetsContext.destroyWidget(widget.id)}
     />
   {:else if widget.type === 'widget.builtin.mini_browser'}
     <MiniBrowserWidget
@@ -36,7 +41,6 @@
       visible={widget.visible}
       data={widget.data}
       onClose={() => widgetsContext.destroyWidget(widget.id)}
-      onHide={() => widgetsContext.hideWidget(widget.id)}
     />
    {:else if widget.type === 'widget.builtin.floating_session'}
     <FloatingSessionWidget

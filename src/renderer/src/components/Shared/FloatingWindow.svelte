@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, getContext } from 'svelte';
   import type { Snippet } from 'svelte';
-  import { X, Minus, Maximize2, EyeOff } from '@lucide/svelte';
+  import { X, Minimize2, Maximize2, EyeOff } from '@lucide/svelte';
   import { FLOATING_WINDOW_CONTEXT_KEY, type FloatingWindowContext } from '$lib/contexts/floatingWindowContext';
 
   const windowContext = getContext<FloatingWindowContext>(FLOATING_WINDOW_CONTEXT_KEY);
@@ -27,7 +27,9 @@
     class?: string;
     children?: Snippet;
     titleSnippet?: Snippet;
-    backgroundTransparency?: number
+    controlSnippet?: Snippet;
+    backgroundTransparency?: number;
+    flushBottom?: boolean;
   }
 
   let {
@@ -51,7 +53,9 @@
     class: className = '',
     children,
     titleSnippet,
+    controlSnippet,
     backgroundTransparency = 100,
+    flushBottom = false,
   }: Props = $props();
 
   let x = $state(defaultX);
@@ -251,7 +255,7 @@
 </script>
 
 <div
-  class="absolute border border-border rounded-lg shadow-md flex flex-col overflow-hidden {zIndex} {className}"
+  class="absolute border border-border {flushBottom ? 'rounded-t-lg' : 'rounded-lg'} shadow-md flex flex-col overflow-hidden {zIndex} {className}"
   style="left: {x}px; top: {y}px; width: {width}px; height: {isMinimized ? 'auto' : height + 'px'};"
   onclick={() => windowContext.setActiveWindow(windowId)}
   role="dialog"
@@ -273,6 +277,21 @@
       {/if}
     </div>
     <div class="flex gap-1 items-center window-controls">
+      {#if controlSnippet}
+        {@render controlSnippet()}
+      {/if}
+      {#if hidable && onHide}
+        <button
+          class="bg-transparent border-none p-1 cursor-pointer rounded flex items-center justify-center text-foreground transition-colors hover:bg-accent"
+          onclick={(e) => {
+            e.stopPropagation();
+            onHide?.();
+          }}
+          title="Hide"
+        >
+          <EyeOff size={14} />
+        </button>
+      {/if}
       {#if minimizable}
         <button
           class="bg-transparent border-none p-1 cursor-pointer rounded flex items-center justify-center text-foreground transition-colors hover:bg-accent"
@@ -285,20 +304,8 @@
           {#if isMinimized}
             <Maximize2 size={14} />
           {:else}
-            <Minus size={14} />
+            <Minimize2 size={14} />
           {/if}
-        </button>
-      {/if}
-      {#if hidable}
-        <button
-          class="bg-transparent border-none p-1 cursor-pointer rounded flex items-center justify-center text-foreground transition-colors hover:bg-accent"
-          onclick={(e) => {
-            e.stopPropagation();
-            onHide?.();
-          }}
-          title="Hide"
-        >
-          <EyeOff size={14} />
         </button>
       {/if}
       {#if closable}
@@ -317,7 +324,7 @@
   </div>
 
   <div
-    class="flex-1 overflow-auto p-3"
+    class="flex-1 overflow-auto {flushBottom ? 'p-0' : 'p-3'}"
     style="display: {isMinimized ? 'none' : 'block'}; background-color: color-mix(in oklab, var(--background) {backgroundOpacity}%, transparent);"
   >
     {@render children?.()}

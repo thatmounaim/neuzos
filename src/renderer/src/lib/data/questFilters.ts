@@ -1,7 +1,7 @@
 import type { Quest } from "./quests";
 
 const FWC_QUESTLINES = new Set([
-  "1st job change",
+  "1st Job Change",
   "2nd Job Change",
   "3rd Job Change",
   "The Clockworks War",
