@@ -21,13 +21,18 @@
   let started: boolean = $state(false)
   let webview: WebviewTag | HTMLElement = $state()
   let muted: boolean = $state(false)
+  let webviewReady: boolean = $state(false)
   const mainWindowState = getContext<MainWindowState>('mainWindowState')
 
   const ensureSessionState = () => {
-    const sessionState = mainWindowState.sessionsLayoutsRef[session.id] ??= {
-      layouts: {},
-      healthStatus: 'healthy',
-      healthDetail: ''
+    let sessionState = mainWindowState.sessionsLayoutsRef[session.id]
+    if (!sessionState) {
+      sessionState = {
+        layouts: {},
+        healthStatus: 'healthy',
+        healthDetail: ''
+      }
+      mainWindowState.sessionsLayoutsRef[session.id] = sessionState
     }
 
     sessionState.healthStatus ??= 'healthy'
@@ -52,19 +57,18 @@
   // effect to take an early-return path that drops $derived from the dependency graph.
   $effect(() => {
     const wv = webview?.tagName === 'WEBVIEW' ? (webview as WebviewTag) : null
-    if (!wv) return
-    initZoom(wv, 3)
+    if (!wv || !webviewReady) return
+    initZoom(wv, 0)
   })
 
   const initZoom = (wv: WebviewTag, retryLeft: number) => {
     try {
       wv.setZoomFactor(mainWindowState.config.sessionZoomLevels?.[session.id] ?? 1.0)
     } catch (e) {
-      console.log('Failed to set zoom, retrying...', e)
       if (retryLeft > 0) {
         setTimeout(() => initZoom(wv, retryLeft - 1), 1000)
       } else {
-        console.error('Failed to set zoom after multiple retries')
+        console.warn('Failed to set zoom after webview became ready:', e)
       }
     }
   }
@@ -114,6 +118,7 @@ window.open = function(...args) {
   }
   export const startClient = () => {
     started = true
+    webviewReady = false
     onUpdate(session.id)
     const wv = getWebview()
     if (wv) {
@@ -131,6 +136,7 @@ window.open = function(...args) {
     }
     clearSessionHealth()
     started = false
+    webviewReady = false
     if (session.autoDeleteCache) {
       void neuzosBridge.sessions.clearCache(session.id)
     }
@@ -353,9 +359,12 @@ window.open = function(...args) {
     // did-finish-load also fires after failed loads (Electron renders the error page),
     // so we use it only for re-applying zoom, not for clearing health.
     const onDidNavigate = () => clearSessionHealth()
-    const onDidFinishLoad = () => {
-      getWebview()?.setZoomFactor(mainWindowState.config.sessionZoomLevels?.[session.id] ?? 1.0)
+    const applyZoomWhenReady = () => {
+      webviewReady = true
+      initZoom(webviewEl, 0)
     }
+    const onDidFinishLoad = () => applyZoomWhenReady()
+    const onDomReady = () => applyZoomWhenReady()
 
     const onUnresponsive = () => setSessionHealth('unresponsive', '')
     const onResponsive = () => clearSessionHealth()
@@ -367,6 +376,7 @@ window.open = function(...args) {
     webviewEl.addEventListener('responsive', onResponsive)
     webviewEl.addEventListener('did-navigate', onDidNavigate)
     webviewEl.addEventListener('did-finish-load', onDidFinishLoad)
+    webviewEl.addEventListener('dom-ready', onDomReady)
 
     return () => {
       webviewEl.removeEventListener('ipc-message', onIpcMessage)
@@ -376,6 +386,7 @@ window.open = function(...args) {
       webviewEl.removeEventListener('responsive', onResponsive)
       webviewEl.removeEventListener('did-navigate', onDidNavigate)
       webviewEl.removeEventListener('did-finish-load', onDidFinishLoad)
+      webviewEl.removeEventListener('dom-ready', onDomReady)
     }
   })
 

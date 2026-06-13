@@ -36,7 +36,7 @@
   });
 
   // Get the session ID from data
-  const sessionId = data?.sessionId;
+  const sessionId = (() => data?.sessionId)();
 
   // Helper to get action state that depends on cooldownTrigger for reactivity
   function getActionStateReactive(actionId: string) {
@@ -498,7 +498,7 @@
                 onmousedown={(e) => e.stopPropagation()}
                 oninput={(e) => updateBackgroundTransparency(e.currentTarget.value)}
               />
-              <span class="w-9 text-right text-[10px] text-muted-foreground" onmousedown={(e) => e.stopPropagation()}>
+              <span class="w-9 text-right text-[10px] text-muted-foreground" role="presentation" onmousedown={(e) => e.stopPropagation()}>
           {backgroundTransparency}%
         </span>
             </div>
@@ -576,6 +576,7 @@
 
                     <div
                       class="action-container {draggedActionId === action.id ? 'opacity-40' : ''}"
+                      role="presentation"
                       draggable={isEditMode}
                       ondragstart={(event) => handleActionDragStart(event, row.id, action.id)}
                       ondragend={handleActionDragEnd}
@@ -609,6 +610,16 @@
                             aria-label={isHiddenRow(row.id) ? 'Add Action' : 'Hide Action'}
                             onmousedown={(event) => event.stopPropagation()}
                             onclick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              if (isHiddenRow(row.id)) {
+                                restoreAction(action.id);
+                              } else {
+                                hideAction(action.id);
+                              }
+                            }}
+                            onkeydown={(event) => {
+                              if (event.key !== 'Enter' && event.key !== ' ') return;
                               event.preventDefault();
                               event.stopPropagation();
                               if (isHiddenRow(row.id)) {

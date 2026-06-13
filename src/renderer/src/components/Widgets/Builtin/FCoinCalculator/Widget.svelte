@@ -33,11 +33,12 @@
       console.error('Failed to save FCoin rate to localStorage:', e);
     }
   }
-  let rate = $state(loadRate());
+  const initialRate = loadRate();
+  let rate = $state(initialRate);
   let fcoin = $state(0);
   let penya = $state(0);
   let lastModified: 'rate' | 'fcoin' | 'penya' = 'fcoin';
-  let rateInput = $state(formatPenya(rate));
+  let rateInput = $state(formatPenya(initialRate));
   let fcoinInput = $state('0');
   let penyaInput = $state('0');
   function handleRateInput(e: Event) {

@@ -1030,8 +1030,9 @@ function createMainWindow(): void {
     }
   });
 
-  mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
-    console.log(`[renderer:${level}] ${message} (${sourceId}:${line})`);
+  mainWindow.webContents.on('console-message', (event) => {
+    const messageEvent = event as any;
+    console.log(`[renderer:${messageEvent.level}] ${messageEvent.message} (${messageEvent.sourceId}:${messageEvent.lineNumber})`);
   });
 
   mainWindow.webContents.on('render-process-gone', (_event, details) => {

@@ -58,10 +58,16 @@
     flushBottom = false,
   }: Props = $props();
 
-  let x = $state(defaultX);
-  let y = $state(defaultY);
-  let width = $state(defaultWidth);
-  let height = $state(defaultHeight);
+  const initialX = (() => defaultX)();
+  const initialY = (() => defaultY)();
+  const initialWidth = (() => defaultWidth)();
+  const initialHeight = (() => defaultHeight)();
+  const initialPersistId = (() => persistId)();
+
+  let x = $state(initialX);
+  let y = $state(initialY);
+  let width = $state(initialWidth);
+  let height = $state(initialHeight);
   let isMinimized = $state(false);
   let isDragging = $state(false);
   let isResizing = $state(false);
@@ -74,8 +80,8 @@
   let resizeStartWidth = 0;
   let resizeStartHeight = 0;
 
-  const windowId = persistId || `window-${Math.random().toString(36).substr(2, 9)}`;
-  const STORAGE_KEY = persistId ? `floating-window-${persistId}` : null;
+  const windowId = initialPersistId || `window-${Math.random().toString(36).substr(2, 9)}`;
+  const STORAGE_KEY = initialPersistId ? `floating-window-${initialPersistId}` : null;
 
   // Compute if this window is active
   const isActive = $derived(windowContext.activeWindowId === windowId);
@@ -92,10 +98,10 @@
     if (stored) {
       try {
         const state = JSON.parse(stored);
-        x = state.x ?? defaultX;
-        y = state.y ?? defaultY;
-        width = resizable ? (state.width ?? defaultWidth) : defaultWidth;
-        height =  resizable ? (state.height ?? defaultHeight) : defaultHeight;
+        x = state.x ?? initialX;
+        y = state.y ?? initialY;
+        width = resizable ? (state.width ?? initialWidth) : initialWidth;
+        height =  resizable ? (state.height ?? initialHeight) : initialHeight;
         isMinimized = state.isMinimized ?? false;
       } catch (e) {
         console.error('Failed to parse stored window state:', e);
@@ -235,10 +241,10 @@
 
   // Reset window to default position and size
   export function reset() {
-    x = defaultX;
-    y = defaultY;
-    width = defaultWidth;
-    height = defaultHeight;
+    x = initialX;
+    y = initialY;
+    width = initialWidth;
+    height = initialHeight;
     isMinimized = false;
     persistState();
   }
@@ -256,8 +262,12 @@
 
 <div
   class="absolute border border-border {flushBottom ? 'rounded-t-lg' : 'rounded-lg'} shadow-md flex flex-col overflow-hidden {zIndex} {className}"
-  style="left: {x}px; top: {y}px; width: {width}px; height: {isMinimized ? 'auto' : height + 'px'};"
+  style="left: {x}px; top: {y}px; width: {width}px; height: {isMinimized ? 'auto' : height + 'px'}; --floating-window-scrollbar-alpha: {backgroundOpacity / 100};"
   onclick={() => windowContext.setActiveWindow(windowId)}
+  onkeydown={(event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    windowContext.setActiveWindow(windowId);
+  }}
   role="dialog"
   aria-label={title}
   tabindex="-1"

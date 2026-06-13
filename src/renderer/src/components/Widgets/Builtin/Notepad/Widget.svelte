@@ -333,7 +333,7 @@
   let lastEditModeByFile = $state<Record<string, 'wysiwyg' | 'raw'>>({});
   let editingFileId = $state<string | null>(null);
   let editingFileName = $state<string>('');
-  let tabsListRef: HTMLDivElement;
+  let tabsListRef: HTMLDivElement | null = $state(null);
   let rawEditorRef: HTMLDivElement | null = null;
   let textEditorRefs = $state<Record<string, HTMLDivElement | null>>({});
   let previewTodoCollapsedByFile = $state<Record<string, Record<string, boolean>>>({});
@@ -1557,7 +1557,7 @@
           <span class="truncate">Notepad - {activeFile?.name || 'Untitled'}</span>
         </div>
 
-        <div class="flex shrink-0 items-center gap-2" onmousedown={(e) => e.stopPropagation()}>
+        <div class="flex shrink-0 items-center gap-2" role="presentation" onmousedown={(e) => e.stopPropagation()}>
           <div class="flex items-center gap-1 rounded-md border border-border bg-background/80 p-0.5">
             <Button
               size="sm"
@@ -1596,6 +1596,7 @@
           {#if settingsOpen}
             <div
               class="absolute right-0 top-8 z-30 w-44 rounded-md border border-border bg-popover p-2 shadow-md"
+              role="presentation"
               onmousedown={(e) => e.stopPropagation()}
             >
               <div class="mb-2 text-xs font-medium text-muted-foreground">Tab Layout</div>

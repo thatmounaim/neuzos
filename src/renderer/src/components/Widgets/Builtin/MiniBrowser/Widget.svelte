@@ -25,10 +25,8 @@
 
   const FAVORITES_STORAGE_KEY = 'widget.builtin.mini_browser.favorites';
 
-  // Get instance number - from data when widget is created
-  const instanceNumber = data?.instanceNumber || 1;
-
-  const initialUrl = data?.url || 'https://www.google.com';
+  const instanceNumber = (() => data?.instanceNumber || 1)();
+  const initialUrl = (() => data?.url || 'https://www.google.com')();
   let inputUrl = $state(initialUrl);
   let isLoading = $state(false);
   let canGoBack = $state(false);
