@@ -261,8 +261,8 @@
         </Popover.Trigger>
         <Popover.Content class="w-[280px] p-0">
           <Command.Root shouldFilter={true}>
-            <Command.Input placeholder="Search sessions..." class="h-10"/>
-            <Command.Empty>No session found.</Command.Empty>
+            <Command.Input placeholder="Search Sessions..." class="h-10"/>
+            <Command.Empty>No Session found.</Command.Empty>
             <Command.List class="max-h-[320px]">
               <Command.Group>
                 {#each neuzosConfig.sessions as session}
@@ -434,8 +434,8 @@
                                 </Popover.Trigger>
                                 <Popover.Content class="w-[220px] p-0">
                                   <Command.Root shouldFilter={true}>
-                                    <Command.Input placeholder="Search modifier..." class="h-10"/>
-                                    <Command.Empty>No modifier found.</Command.Empty>
+                                    <Command.Input placeholder="Search Modifier..." class="h-10"/>
+                                    <Command.Empty>No Modifier found.</Command.Empty>
                                     <Command.List class="max-h-[320px]">
                                       <Command.Group>
                                         {#each modifierOptions as modifier}
@@ -470,14 +470,14 @@
                                   class="w-full h-9 px-3 py-2 inline-flex items-center justify-between rounded-md border border-input bg-background text-sm font-mono shadow-sm hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50">
                                     <span
                                       class="truncate {keyOnly ? 'text-foreground font-semibold' : 'text-muted-foreground font-sans font-normal lowercase'}">
-                                      {keyOnly ? formatKeyLabel(keyOnly) : "select key..."}
+                                      {keyOnly ? formatKeyLabel(keyOnly) : "Select Key..."}
                                     </span>
                                   <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
                                 </Popover.Trigger>
                                 <Popover.Content class="w-[220px] p-0">
                                   <Command.Root shouldFilter={true}>
-                                    <Command.Input placeholder="Search key..." class="h-10"/>
-                                    <Command.Empty>No key found.</Command.Empty>
+                                    <Command.Input placeholder="Search Key..." class="h-10"/>
+                                    <Command.Empty>No Key found.</Command.Empty>
                                     <Command.List class="max-h-[320px]">
                                       <Command.Group>
                                         {#each allowedKeys as key}
@@ -554,8 +554,8 @@
                                 </Popover.Trigger>
                                 <Popover.Content class="w-[220px] p-0">
                                   <Command.Root shouldFilter={true}>
-                                    <Command.Input placeholder="Search category..." class="h-10"/>
-                                    <Command.Empty>No category found.</Command.Empty>
+                                    <Command.Input placeholder="Search Category..." class="h-10"/>
+                                    <Command.Empty>No Category found.</Command.Empty>
                                     <Command.List class="max-h-[320px]">
                                       <Command.Group>
                                         {#each cooldownCategoryOptions as category}

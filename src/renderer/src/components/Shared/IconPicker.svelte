@@ -25,8 +25,8 @@
     contentClass = 'w-[280px] p-0',
     itemClass = 'py-2',
     imageClass = 'size-6 mr-2',
-    searchPlaceholder = 'Search icons...',
-    emptyText = 'No icon found.'
+    searchPlaceholder = 'Search Icons...',
+    emptyText = 'No Icon found.'
   }: Props = $props();
 
   function iconLabel(iconSlug: string): string {
@@ -47,7 +47,7 @@
 </script>
 
 <Popover.Root bind:open>
-  <Popover.Trigger class={triggerClass} title={selected?.slug ?? 'Select icon'}>
+  <Popover.Trigger class={triggerClass} title={selected?.slug ?? 'Select Icon'}>
     {#if selected?.slug}
       <img class="size-8" src={`icons/${selected.slug}.png`} alt={selected.slug} style={iconStyle(selected)} />
     {:else}

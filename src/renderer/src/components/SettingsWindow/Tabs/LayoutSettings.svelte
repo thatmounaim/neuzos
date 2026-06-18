@@ -184,8 +184,8 @@
       </Popover.Trigger>
       <Popover.Content class="w-[280px] p-0">
         <Command.Root shouldFilter={true}>
-          <Command.Input placeholder="Search layouts..." class="h-10"/>
-          <Command.Empty>No layout found.</Command.Empty>
+          <Command.Input placeholder="Search Layouts..." class="h-10"/>
+          <Command.Empty>No Layout found.</Command.Empty>
           <Command.List class="max-h-[320px]">
             <Command.Group>
               {#each neuzosConfig.layouts as layout}
@@ -283,8 +283,8 @@
                   </Popover.Trigger>
                   <Popover.Content class="w-[280px] p-0">
                     <Command.Root shouldFilter={true}>
-                      <Command.Input placeholder="Search icons..." class="h-10"/>
-                      <Command.Empty>No icon found.</Command.Empty>
+                      <Command.Input placeholder="Search Icons..." class="h-10"/>
+                      <Command.Empty>No Icon found.</Command.Empty>
                       <Command.List class="max-h-[320px]">
                         <Command.Group>
                           {#each layoutIcons as icon}
@@ -384,8 +384,8 @@
                         </Popover.Trigger>
                         <Popover.Content class="w-[280px] p-0">
                           <Command.Root shouldFilter={true}>
-                            <Command.Input placeholder="Search sessions..." class="h-10"/>
-                            <Command.Empty>No session found.</Command.Empty>
+                            <Command.Input placeholder="Search Sessions..." class="h-10"/>
+                            <Command.Empty>No Session found.</Command.Empty>
                             <Command.List class="max-h-[320px]">
                               <Command.Group>
                                 {#each neuzosConfig.sessions as session}

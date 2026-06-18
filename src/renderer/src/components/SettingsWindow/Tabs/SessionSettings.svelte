@@ -416,8 +416,8 @@
           </Popover.Trigger>
           <Popover.Content class="w-[280px] p-0">
             <Command.Root shouldFilter={true}>
-              <Command.Input placeholder="Search icons..." class="h-10" />
-              <Command.Empty>No icon found.</Command.Empty>
+              <Command.Input placeholder="Search Icons..." class="h-10" />
+              <Command.Empty>No Icon found.</Command.Empty>
               <Command.List class="max-h-[320px]">
                 <Command.Group>
                   {#each sessionIcons as icon}

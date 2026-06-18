@@ -618,8 +618,8 @@
                                     </Popover.Trigger>
                                     <Popover.Content class="w-[220px] p-0">
                                       <Command.Root shouldFilter={true}>
-                                        <Command.Input placeholder="Search modifier..." class="h-10"/>
-                                        <Command.Empty>No modifier found.</Command.Empty>
+                                        <Command.Input placeholder="Search Modifier..." class="h-10"/>
+                                        <Command.Empty>No Modifier found.</Command.Empty>
                                         <Command.List class="max-h-[320px]">
                                           <Command.Group>
                                             {#each modifierOptions as modifier}
@@ -635,13 +635,13 @@
                                   </Popover.Root>
                                   <Popover.Root open={state.open} onOpenChange={(open) => { state.open = open; }}>
                                     <Popover.Trigger class="w-32 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-mono font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
-                                      <span class="truncate {keyOnly ? 'text-foreground' : 'text-muted-foreground font-sans font-normal lowercase'}">{keyOnly ? formatKeyLabel(keyOnly) : "select key..."}</span>
+                                      <span class="truncate {keyOnly ? 'text-foreground' : 'text-muted-foreground font-sans font-normal lowercase'}">{keyOnly ? formatKeyLabel(keyOnly) : "Select Key..."}</span>
                                       <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
                                     </Popover.Trigger>
                                     <Popover.Content class="w-[220px] p-0">
                                       <Command.Root shouldFilter={true}>
-                                        <Command.Input placeholder="Search key..." class="h-10"/>
-                                        <Command.Empty>No key found.</Command.Empty>
+                                        <Command.Input placeholder="Search Key..." class="h-10"/>
+                                        <Command.Empty>No Key found.</Command.Empty>
                                         <Command.List class="max-h-[320px]">
                                           <Command.Group>
                                             {#each allowedKeys as key}
@@ -686,8 +686,8 @@
                                             </Popover.Trigger>
                                             <Popover.Content class="w-[280px] p-0">
                                               <Command.Root shouldFilter={true}>
-                                                <Command.Input placeholder="Search layouts..." class="h-10"/>
-                                                <Command.Empty>No layout found.</Command.Empty>
+                                                <Command.Input placeholder="Search Layouts..." class="h-10"/>
+                                                <Command.Empty>No Layout found.</Command.Empty>
                                                 <Command.List class="max-h-[320px]">
                                                   <Command.Group>
                                                     {#each neuzosConfig.layouts as layout}
@@ -714,8 +714,8 @@
                                             </Popover.Trigger>
                                             <Popover.Content class="w-[280px] p-0">
                                               <Command.Root shouldFilter={true}>
-                                                <Command.Input placeholder="Search sessions..." class="h-10"/>
-                                                <Command.Empty>No session found.</Command.Empty>
+                                                <Command.Input placeholder="Search Sessions..." class="h-10"/>
+                                                <Command.Empty>No Session found.</Command.Empty>
                                                 <Command.List class="max-h-[320px]">
                                                   <Command.Group>
                                                     {#each neuzosConfig.sessions as session}
@@ -744,8 +744,8 @@
                                             </Popover.Trigger>
                                             <Popover.Content class="w-[280px] p-0">
                                               <Command.Root shouldFilter={true}>
-                                                <Command.Input placeholder="Search actions..." class="h-10"/>
-                                                <Command.Empty>No action found.</Command.Empty>
+                                                <Command.Input placeholder="Search Actions..." class="h-10"/>
+                                                <Command.Empty>No Action found.</Command.Empty>
                                                 <Command.List class="max-h-[320px]">
                                                   <Command.Group>
                                                     {#if sessionActionsData}
@@ -775,8 +775,8 @@
                                             </Popover.Trigger>
                                             <Popover.Content class="w-[220px] p-0">
                                               <Command.Root shouldFilter={true}>
-                                                <Command.Input placeholder="Search modifier..." class="h-10"/>
-                                                <Command.Empty>No modifier found.</Command.Empty>
+                                                <Command.Input placeholder="Search Modifier..." class="h-10"/>
+                                                <Command.Empty>No Modifier found.</Command.Empty>
                                                 <Command.List class="max-h-[320px]">
                                                   <Command.Group>
                                                     {#each modifierOptions as modifier}
@@ -792,13 +792,13 @@
                                           </Popover.Root>
                                           <Popover.Root open={isKeyOpen} onOpenChange={(open) => { if (!profileIngameKeyStates[profile.id]) profileIngameKeyStates[profile.id] = {}; profileIngameKeyStates[profile.id][index] = open; }}>
                                             <Popover.Trigger class="w-32 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-mono font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
-                                              <span class="truncate {ingameParsed.key ? 'text-foreground' : 'text-muted-foreground font-sans font-normal lowercase'}">{ingameParsed.key ? formatKeyLabel(ingameParsed.key) : 'select key...'}</span>
+                                              <span class="truncate {ingameParsed.key ? 'text-foreground' : 'text-muted-foreground font-sans font-normal lowercase'}">{ingameParsed.key ? formatKeyLabel(ingameParsed.key) : 'Select Key...'}</span>
                                               <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
                                             </Popover.Trigger>
                                             <Popover.Content class="w-[220px] p-0">
                                               <Command.Root shouldFilter={true}>
-                                                <Command.Input placeholder="Search key..." class="h-10"/>
-                                                <Command.Empty>No key found.</Command.Empty>
+                                                <Command.Input placeholder="Search Key..." class="h-10"/>
+                                                <Command.Empty>No Key found.</Command.Empty>
                                                 <Command.List class="max-h-[320px]">
                                                   <Command.Group>
                                                     {#each allowedKeys as key}
@@ -859,8 +859,8 @@
                     </Popover.Trigger>
                     <Popover.Content class="w-[320px] p-0">
                       <Command.Root shouldFilter={true}>
-                        <Command.Input placeholder="Search events..." class="h-10"/>
-                        <Command.Empty>No event found.</Command.Empty>
+                        <Command.Input placeholder="Search Events..." class="h-10"/>
+                        <Command.Empty>No Event found.</Command.Empty>
                         <Command.List class="max-h-[320px]">
                           <Command.Group>
                             {#each Object.keys(allowedEventKeybinds) as event (event)}
@@ -938,8 +938,8 @@
                       </Popover.Trigger>
                       <Popover.Content class="w-[220px] p-0">
                         <Command.Root shouldFilter={true}>
-                          <Command.Input placeholder="Search modifier..." class="h-10"/>
-                          <Command.Empty>No modifier found.</Command.Empty>
+                          <Command.Input placeholder="Search Modifier..." class="h-10"/>
+                          <Command.Empty>No Modifier found.</Command.Empty>
                           <Command.List class="max-h-[320px]">
                             <Command.Group>
                               {#each modifierOptions as modifier}
@@ -955,13 +955,13 @@
                     </Popover.Root>
                     <Popover.Root open={state.open} onOpenChange={(open) => { state.open = open; }}>
                       <Popover.Trigger class="w-32 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-mono font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
-                        <span class="truncate {keyOnly ? 'text-foreground' : 'text-muted-foreground font-sans font-normal lowercase'}">{keyOnly ? formatKeyLabel(keyOnly) : "select key..."}</span>
+                        <span class="truncate {keyOnly ? 'text-foreground' : 'text-muted-foreground font-sans font-normal lowercase'}">{keyOnly ? formatKeyLabel(keyOnly) : "Select Key..."}</span>
                         <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
                       </Popover.Trigger>
                       <Popover.Content class="w-[220px] p-0">
                         <Command.Root shouldFilter={true}>
-                          <Command.Input placeholder="Search key..." class="h-10"/>
-                          <Command.Empty>No key found.</Command.Empty>
+                          <Command.Input placeholder="Search Key..." class="h-10"/>
+                          <Command.Empty>No Key found.</Command.Empty>
                           <Command.List class="max-h-[320px]">
                             <Command.Group>
                               {#each allowedKeys as key}
@@ -1011,8 +1011,8 @@
                               </Popover.Trigger>
                               <Popover.Content class="w-[280px] p-0">
                                 <Command.Root shouldFilter={true}>
-                                  <Command.Input placeholder="Search layouts..." class="h-10"/>
-                                  <Command.Empty>No layout found.</Command.Empty>
+                                  <Command.Input placeholder="Search Layouts..." class="h-10"/>
+                                  <Command.Empty>No Layout found.</Command.Empty>
                                   <Command.List class="max-h-[320px]">
                                     <Command.Group>
                                       {#each neuzosConfig.layouts as layout}
@@ -1111,8 +1111,8 @@
                       </Popover.Trigger>
                       <Popover.Content class="w-[220px] p-0">
                         <Command.Root shouldFilter={true}>
-                          <Command.Input placeholder="Search modifier..." class="h-10"/>
-                          <Command.Empty>No modifier found.</Command.Empty>
+                          <Command.Input placeholder="Search Modifier..." class="h-10"/>
+                          <Command.Empty>No Modifier found.</Command.Empty>
                           <Command.List class="max-h-[320px]">
                             <Command.Group>
                               {#each modifierOptions as modifier}
@@ -1128,13 +1128,13 @@
                     </Popover.Root>
                     <Popover.Root open={state.open} onOpenChange={(open) => { state.open = open; }}>
                       <Popover.Trigger class="w-32 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-mono font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
-                        <span class="truncate {keyOnly ? 'text-foreground' : 'text-muted-foreground font-sans font-normal lowercase'}">{keyOnly ? formatKeyLabel(keyOnly) : "select key..."}</span>
+                        <span class="truncate {keyOnly ? 'text-foreground' : 'text-muted-foreground font-sans font-normal lowercase'}">{keyOnly ? formatKeyLabel(keyOnly) : "Select Key..."}</span>
                         <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
                       </Popover.Trigger>
                       <Popover.Content class="w-[220px] p-0">
                         <Command.Root shouldFilter={true}>
-                          <Command.Input placeholder="Search key..." class="h-10"/>
-                          <Command.Empty>No key found.</Command.Empty>
+                          <Command.Input placeholder="Search Key..." class="h-10"/>
+                          <Command.Empty>No Key found.</Command.Empty>
                           <Command.List class="max-h-[320px]">
                             <Command.Group>
                               {#each allowedKeys as key}
@@ -1181,8 +1181,8 @@
                               </Popover.Trigger>
                               <Popover.Content class="w-[280px] p-0">
                                 <Command.Root shouldFilter={true}>
-                                  <Command.Input placeholder="Search layouts..." class="h-10"/>
-                                  <Command.Empty>No layout found.</Command.Empty>
+                                  <Command.Input placeholder="Search Layouts..." class="h-10"/>
+                                  <Command.Empty>No Layout found.</Command.Empty>
                                   <Command.List class="max-h-[320px]">
                                     <Command.Group>
                                       {#each neuzosConfig.layouts as layout}
@@ -1209,8 +1209,8 @@
                               </Popover.Trigger>
                               <Popover.Content class="w-[280px] p-0">
                                 <Command.Root shouldFilter={true}>
-                                  <Command.Input placeholder="Search sessions..." class="h-10"/>
-                                  <Command.Empty>No session found.</Command.Empty>
+                                  <Command.Input placeholder="Search Sessions..." class="h-10"/>
+                                  <Command.Empty>No Session found.</Command.Empty>
                                   <Command.List class="max-h-[320px]">
                                     <Command.Group>
                                       {#each neuzosConfig.sessions as session}
@@ -1239,8 +1239,8 @@
                               </Popover.Trigger>
                               <Popover.Content class="w-[280px] p-0">
                                 <Command.Root shouldFilter={true}>
-                                  <Command.Input placeholder="Search actions..." class="h-10"/>
-                                  <Command.Empty>No action found.</Command.Empty>
+                                  <Command.Input placeholder="Search Actions..." class="h-10"/>
+                                  <Command.Empty>No Action found.</Command.Empty>
                                   <Command.List class="max-h-[320px]">
                                     <Command.Group>
                                       {#if sessionActionsData}
@@ -1270,8 +1270,8 @@
                               </Popover.Trigger>
                               <Popover.Content class="w-[220px] p-0">
                                 <Command.Root shouldFilter={true}>
-                                  <Command.Input placeholder="Search modifier..." class="h-10"/>
-                                  <Command.Empty>No modifier found.</Command.Empty>
+                                  <Command.Input placeholder="Search Modifier..." class="h-10"/>
+                                  <Command.Empty>No Modifier found.</Command.Empty>
                                   <Command.List class="max-h-[320px]">
                                     <Command.Group>
                                       {#each modifierOptions as modifier}
@@ -1287,13 +1287,13 @@
                             </Popover.Root>
                             <Popover.Root open={isKeyOpen} onOpenChange={(open) => { ingameKeyStates[index] = open; }}>
                               <Popover.Trigger class="w-32 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-mono font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
-                                <span class="truncate {ingameParsed.key ? 'text-foreground' : 'text-muted-foreground font-sans font-normal lowercase'}">{ingameParsed.key ? formatKeyLabel(ingameParsed.key) : 'select key...'}</span>
+                                <span class="truncate {ingameParsed.key ? 'text-foreground' : 'text-muted-foreground font-sans font-normal lowercase'}">{ingameParsed.key ? formatKeyLabel(ingameParsed.key) : 'Select Key...'}</span>
                                 <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
                               </Popover.Trigger>
                               <Popover.Content class="w-[220px] p-0">
                                 <Command.Root shouldFilter={true}>
-                                  <Command.Input placeholder="Search key..." class="h-10"/>
-                                  <Command.Empty>No key found.</Command.Empty>
+                                  <Command.Input placeholder="Search Key..." class="h-10"/>
+                                  <Command.Empty>No Key found.</Command.Empty>
                                   <Command.List class="max-h-[320px]">
                                     <Command.Group>
                                       {#each allowedKeys as key}
@@ -1351,8 +1351,8 @@
         </Popover.Trigger>
         <Popover.Content class="w-[320px] p-0">
           <Command.Root shouldFilter={true}>
-            <Command.Input placeholder="Search events..." class="h-10"/>
-            <Command.Empty>No event found.</Command.Empty>
+            <Command.Input placeholder="Search Events..." class="h-10"/>
+            <Command.Empty>No Event found.</Command.Empty>
             <Command.List class="max-h-[320px]">
               <Command.Group>
                 {#each getAddableGlobalEventIds() as event (event)}
