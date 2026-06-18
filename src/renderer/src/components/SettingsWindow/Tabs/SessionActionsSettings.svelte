@@ -65,7 +65,7 @@
     // Special
     "printscreen",
     // Punctuation
-    ")", "!", "@", "#", "$", "%", "^", "&", "*", "(", ":", ";", ":", "+", "=", "<", ",", "_", "-", ">", ".", "?", "/", "~", "`", "{", "]", "[", "|", "\\", "}"
+    ")", "!", "@", "#", "$", "%", "^", "&", "*", "(", ":", ";", ":", "+", "=", "<", ",", "_", "-", ">", ".", "?", "/", "~", "`", "´", "ß", "{", "]", "[", "|", "\\", "}"
   ];
 
   function parseKeybind(keybind: string): { modifier: string; key: string } {
@@ -83,6 +83,10 @@
       return key;
     }
     return key ? `${modifier}+${key}` : modifier;
+  }
+
+  function formatKeyLabel(key: string): string {
+    return key === 'ß' ? 'ß' : key.toUpperCase();
   }
 
   const neuzosConfig = getContext<NeuzConfig>("neuzosConfig");
@@ -465,8 +469,8 @@
                                 <Popover.Trigger
                                   class="w-full h-9 px-3 py-2 inline-flex items-center justify-between rounded-md border border-input bg-background text-sm font-mono shadow-sm hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50">
                                     <span
-                                      class="truncate {keyOnly ? 'text-foreground uppercase font-semibold' : 'text-muted-foreground font-sans font-normal lowercase'}">
-                                      {keyOnly || "select key..."}
+                                      class="truncate {keyOnly ? 'text-foreground font-semibold' : 'text-muted-foreground font-sans font-normal lowercase'}">
+                                      {keyOnly ? formatKeyLabel(keyOnly) : "select key..."}
                                     </span>
                                   <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
                                 </Popover.Trigger>
@@ -483,11 +487,11 @@
                                                 action.ingameKey = buildKeybind(parsed.modifier, key);
                                                 state.keyOpen = false;
                                               }}
-                                            class="font-mono font-semibold uppercase py-2.5"
+                                            class="font-mono font-semibold py-2.5"
                                           >
                                             <Check
                                               class={keyOnly === key ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
-                                            <span class={keyOnly === key ? "text-primary" : ""}>{key}</span>
+                                            <span class={keyOnly === key ? "text-primary" : ""}>{formatKeyLabel(key)}</span>
                                           </Command.Item>
                                         {/each}
                                       </Command.Group>

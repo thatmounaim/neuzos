@@ -47,7 +47,7 @@
     "num0", "num1", "num2", "num3", "num4", "num5", "num6", "num7", "num8", "num9",
     "numdec", "numadd", "numsub", "nummult", "numdiv",
     "printscreen", "pause",
-    ")", "!", "@", "#", "$", "%", "^", "&", "*", "(", ":", ";", ":", "+", "=", "<", ",", "_", "-", ">", ".", "?", "/", "~", "`", "{", "]", "[", "|", "\\", "}",
+    ")", "!", "@", "#", "$", "%", "^", "&", "*", "(", ":", ";", ":", "+", "=", "<", ",", "_", "-", ">", ".", "?", "/", "~", "`", "´", "ß", "{", "]", "[", "|", "\\", "}",
   ];
 
   let allowedEventKeybinds: {
@@ -196,6 +196,10 @@
   function buildKeybind(modifier: string, key: string): string {
     if (!modifier || modifier === "") return key;
     return key ? `${modifier}+${key}` : modifier;
+  }
+
+  function formatKeyLabel(key: string): string {
+    return key === 'ß' ? 'ß' : key.toUpperCase();
   }
 
   const electronApi = getElectronContext();
@@ -631,7 +635,7 @@
                                   </Popover.Root>
                                   <Popover.Root open={state.open} onOpenChange={(open) => { state.open = open; }}>
                                     <Popover.Trigger class="w-32 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-mono font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
-                                      <span class="truncate {keyOnly ? 'text-foreground uppercase' : 'text-muted-foreground font-sans font-normal lowercase'}">{keyOnly || "select key..."}</span>
+                                      <span class="truncate {keyOnly ? 'text-foreground' : 'text-muted-foreground font-sans font-normal lowercase'}">{keyOnly ? formatKeyLabel(keyOnly) : "select key..."}</span>
                                       <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
                                     </Popover.Trigger>
                                     <Popover.Content class="w-[220px] p-0">
@@ -641,9 +645,9 @@
                                         <Command.List class="max-h-[320px]">
                                           <Command.Group>
                                             {#each allowedKeys as key}
-                                              <Command.Item value={key} onSelect={() => { keyBind.key = buildKeybind(parsed.modifier, key); state.open = false; }} class="font-mono font-semibold uppercase py-2.5">
+                                              <Command.Item value={key} onSelect={() => { keyBind.key = buildKeybind(parsed.modifier, key); state.open = false; }} class="font-mono font-semibold py-2.5">
                                                 <Check class={keyOnly === key ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
-                                                <span class={keyOnly === key ? "text-primary" : ""}>{key}</span>
+                                                <span class={keyOnly === key ? "text-primary" : ""}>{formatKeyLabel(key)}</span>
                                               </Command.Item>
                                             {/each}
                                           </Command.Group>
@@ -788,7 +792,7 @@
                                           </Popover.Root>
                                           <Popover.Root open={isKeyOpen} onOpenChange={(open) => { if (!profileIngameKeyStates[profile.id]) profileIngameKeyStates[profile.id] = {}; profileIngameKeyStates[profile.id][index] = open; }}>
                                             <Popover.Trigger class="w-32 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-mono font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
-                                              <span class="truncate {ingameParsed.key ? 'text-foreground uppercase' : 'text-muted-foreground font-sans font-normal lowercase'}">{ingameParsed.key || 'select key...'}</span>
+                                              <span class="truncate {ingameParsed.key ? 'text-foreground' : 'text-muted-foreground font-sans font-normal lowercase'}">{ingameParsed.key ? formatKeyLabel(ingameParsed.key) : 'select key...'}</span>
                                               <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
                                             </Popover.Trigger>
                                             <Popover.Content class="w-[220px] p-0">
@@ -798,9 +802,9 @@
                                                 <Command.List class="max-h-[320px]">
                                                   <Command.Group>
                                                     {#each allowedKeys as key}
-                                                      <Command.Item value={key} onSelect={() => { if (!keyBind.args) keyBind.args = []; keyBind.args[argIndex] = buildKeybind(ingameParsed.modifier, key); if (!profileIngameKeyStates[profile.id]) profileIngameKeyStates[profile.id] = {}; profileIngameKeyStates[profile.id][index] = false; }} class="font-mono font-semibold uppercase py-2.5">
+                                                      <Command.Item value={key} onSelect={() => { if (!keyBind.args) keyBind.args = []; keyBind.args[argIndex] = buildKeybind(ingameParsed.modifier, key); if (!profileIngameKeyStates[profile.id]) profileIngameKeyStates[profile.id] = {}; profileIngameKeyStates[profile.id][index] = false; }} class="font-mono font-semibold py-2.5">
                                                         <Check class={ingameParsed.key === key ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
-                                                        <span class={ingameParsed.key === key ? "text-primary" : ""}>{key}</span>
+                                                        <span class={ingameParsed.key === key ? "text-primary" : ""}>{formatKeyLabel(key)}</span>
                                                       </Command.Item>
                                                     {/each}
                                                   </Command.Group>
@@ -951,7 +955,7 @@
                     </Popover.Root>
                     <Popover.Root open={state.open} onOpenChange={(open) => { state.open = open; }}>
                       <Popover.Trigger class="w-32 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-mono font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
-                        <span class="truncate {keyOnly ? 'text-foreground uppercase' : 'text-muted-foreground font-sans font-normal lowercase'}">{keyOnly || "select key..."}</span>
+                        <span class="truncate {keyOnly ? 'text-foreground' : 'text-muted-foreground font-sans font-normal lowercase'}">{keyOnly ? formatKeyLabel(keyOnly) : "select key..."}</span>
                         <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
                       </Popover.Trigger>
                       <Popover.Content class="w-[220px] p-0">
@@ -961,9 +965,9 @@
                           <Command.List class="max-h-[320px]">
                             <Command.Group>
                               {#each allowedKeys as key}
-                                <Command.Item value={key} onSelect={() => { if (applySystemActionKeybind(keyBind, buildKeybind(parsed.modifier, key))) state.open = false; }} class="font-mono font-semibold uppercase py-2.5">
+                                <Command.Item value={key} onSelect={() => { if (applySystemActionKeybind(keyBind, buildKeybind(parsed.modifier, key))) state.open = false; }} class="font-mono font-semibold py-2.5">
                                   <Check class={keyOnly === key ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
-                                  <span class={keyOnly === key ? "text-primary" : ""}>{key}</span>
+                                  <span class={keyOnly === key ? "text-primary" : ""}>{formatKeyLabel(key)}</span>
                                 </Command.Item>
                               {/each}
                             </Command.Group>
@@ -1124,7 +1128,7 @@
                     </Popover.Root>
                     <Popover.Root open={state.open} onOpenChange={(open) => { state.open = open; }}>
                       <Popover.Trigger class="w-32 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-mono font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
-                        <span class="truncate {keyOnly ? 'text-foreground uppercase' : 'text-muted-foreground font-sans font-normal lowercase'}">{keyOnly || "select key..."}</span>
+                        <span class="truncate {keyOnly ? 'text-foreground' : 'text-muted-foreground font-sans font-normal lowercase'}">{keyOnly ? formatKeyLabel(keyOnly) : "select key..."}</span>
                         <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
                       </Popover.Trigger>
                       <Popover.Content class="w-[220px] p-0">
@@ -1134,9 +1138,9 @@
                           <Command.List class="max-h-[320px]">
                             <Command.Group>
                               {#each allowedKeys as key}
-                                <Command.Item value={key} onSelect={() => { keyBind.key = buildKeybind(parsed.modifier, key); state.open = false; }} class="font-mono font-semibold uppercase py-2.5">
+                                <Command.Item value={key} onSelect={() => { keyBind.key = buildKeybind(parsed.modifier, key); state.open = false; }} class="font-mono font-semibold py-2.5">
                                   <Check class={keyOnly === key ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
-                                  <span class={keyOnly === key ? "text-primary" : ""}>{key}</span>
+                                  <span class={keyOnly === key ? "text-primary" : ""}>{formatKeyLabel(key)}</span>
                                 </Command.Item>
                               {/each}
                             </Command.Group>
@@ -1283,7 +1287,7 @@
                             </Popover.Root>
                             <Popover.Root open={isKeyOpen} onOpenChange={(open) => { ingameKeyStates[index] = open; }}>
                               <Popover.Trigger class="w-32 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-mono font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
-                                <span class="truncate {ingameParsed.key ? 'text-foreground uppercase' : 'text-muted-foreground font-sans font-normal lowercase'}">{ingameParsed.key || 'select key...'}</span>
+                                <span class="truncate {ingameParsed.key ? 'text-foreground' : 'text-muted-foreground font-sans font-normal lowercase'}">{ingameParsed.key ? formatKeyLabel(ingameParsed.key) : 'select key...'}</span>
                                 <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
                               </Popover.Trigger>
                               <Popover.Content class="w-[220px] p-0">
@@ -1293,9 +1297,9 @@
                                   <Command.List class="max-h-[320px]">
                                     <Command.Group>
                                       {#each allowedKeys as key}
-                                        <Command.Item value={key} onSelect={() => { keyBind.args[argIndex] = buildKeybind(ingameParsed.modifier, key); ingameKeyStates[index] = false; }} class="font-mono font-semibold uppercase py-2.5">
+                                        <Command.Item value={key} onSelect={() => { keyBind.args[argIndex] = buildKeybind(ingameParsed.modifier, key); ingameKeyStates[index] = false; }} class="font-mono font-semibold py-2.5">
                                           <Check class={ingameParsed.key === key ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
-                                          <span class={ingameParsed.key === key ? "text-primary" : ""}>{key}</span>
+                                          <span class={ingameParsed.key === key ? "text-primary" : ""}>{formatKeyLabel(key)}</span>
                                         </Command.Item>
                                       {/each}
                                     </Command.Group>
