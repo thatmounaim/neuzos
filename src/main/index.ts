@@ -1291,6 +1291,62 @@ function dispatchKeybindEvent(bind: any) {
   }
 }
 
+const inputFallbackKeybindKeys = new Set(["delete", "^", "<", ">", ".", "`", "\u00b4", "\u00df"]);
+
+function isInputFallbackKeybind(key: string): boolean {
+  const normalizedKey = key.toLowerCase();
+  return inputFallbackKeybindKeys.has(normalizedKey);
+}
+
+function normalizeWebviewInputKey(input: any): string | null {
+  let key = "";
+
+  if (input.code === "Backquote") {
+    key = input.shift ? "`" : "^";
+  } else if (input.code === "Equal") {
+    key = input.shift ? "`" : "\u00b4";
+  } else if (input.code === "IntlBackslash") {
+    key = input.shift ? ">" : "<";
+  } else if (input.code === "Minus") {
+    key = "\u00df";
+  } else if (input.code === "Period") {
+    key = ".";
+  } else if (input.code === "Delete") {
+    key = "delete";
+  } else if (input.key === "Dead") {
+    if (input.code === "Backquote") key = "^";
+    if (input.code === "Equal") key = "\u00b4";
+  } else if (input.key === "Delete") {
+    key = "delete";
+  } else if (typeof input.key === "string" && input.key.length === 1) {
+    key = input.key.toLowerCase();
+  }
+
+  if (!key || !inputFallbackKeybindKeys.has(key)) {
+    return null;
+  }
+
+  const modifiers: string[] = [];
+  if (input.control || input.meta) modifiers.push("commandorcontrol");
+  if (input.alt) modifiers.push("alt");
+  if (input.shift) modifiers.push("shift");
+
+  return modifiers.length > 0 ? `${modifiers.join("+")}+${key}` : key;
+}
+
+function isRegisteredSessionWebContents(wcId: number): boolean {
+  for (const registeredId of mouseBindWebContents.values()) {
+    if (registeredId === wcId) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function isSettingsWindowInputWebContents(wc: Electron.WebContents): boolean {
+  return settingsWindow?.webContents.id === wc.id;
+}
+
 function registerKeybinds() {
   globalShortcut.unregisterAll()
 
@@ -1311,6 +1367,9 @@ function registerKeybinds() {
     if (!bind.key) return;
     const normalizedKey = String(bind.key).toLowerCase();
     if (normalizedKey.startsWith('mouse') || normalizedKey.startsWith('gamepad')) {
+      return;
+    }
+    if (isInputFallbackKeybind(normalizedKey)) {
       return;
     }
     try {
@@ -1408,23 +1467,31 @@ function registerSessionKeybinds(mode: LaunchMode) {
     await cleanupQueuedSessionPartitions(neuzosConfig);
 
     // ── Mouse-button keybind interception for session webviews ──────────────
-    // Keyboard binds use globalShortcut (OS-level, works while webview has focus).
-    // Mouse extra buttons (Middle, Mouse4, Mouse5) cannot use globalShortcut, so
-    // we intercept them via before-input-event on each registered webview webContents.
+    // Mouse extra buttons and some keyboard keys cannot be handled reliably via globalShortcut.
+    // Intercept them through before-input-event while keeping mouse buttons scoped to session webviews.
     app.on("web-contents-created", (_e, wc) => {
-      wc.on("before-input-event", (_event, input) => {
-        if (input.type !== "mouseDown") return;
-        // Only handle extra mouse buttons (1=middle, 3=Mouse4, 4=Mouse5)
-        const buttonMap: Record<number, string> = { 1: "middle", 3: "mouse4", 4: "mouse5" };
-        const key = buttonMap[(input as any).button as number];
-        if (!key) return;
-        // Check if this webContents belongs to a registered session webview
+      wc.on("before-input-event", (event, input) => {
+        let key: string | null = null;
         const wcId = wc.id;
-        let matched = false;
-        for (const registeredId of mouseBindWebContents.values()) {
-          if (registeredId === wcId) { matched = true; break; }
+        let requiresRegisteredSessionWebview = false;
+
+        if (input.type === "mouseDown") {
+          // Only handle extra mouse buttons (1=middle, 3=Mouse4, 4=Mouse5)
+          const buttonMap: Record<number, string> = { 1: "middle", 3: "mouse4", 4: "mouse5" };
+          key = buttonMap[(input as any).button as number] ?? null;
+          requiresRegisteredSessionWebview = Boolean(key);
+        } else if (input.type === "keyDown" && !(input as any).isAutoRepeat) {
+          key = normalizeWebviewInputKey(input);
         }
-        if (!matched) return;
+
+        if (!key) return;
+
+        if (requiresRegisteredSessionWebview) {
+          if (!isRegisteredSessionWebContents(wcId)) return;
+        } else if (isSettingsWindowInputWebContents(wc)) {
+          return;
+        }
+
         // Find matching bind and dispatch
         const activeProfile = neuzosConfig?.keyBindProfiles?.find(
           (p: any) => p.id === neuzosConfig.activeKeyBindProfileId
@@ -1432,6 +1499,10 @@ function registerSessionKeybinds(mode: LaunchMode) {
         const allBinds: any[] = [...(neuzosConfig?.keyBinds ?? []), ...(activeProfile?.keybinds ?? [])];
         const bind = allBinds.find((b: any) => b.key && b.key.toLowerCase() === key);
         if (bind) {
+          if (!mainWindowShortcutsEnabled && bind.event !== "toggle_keybinds") {
+            return;
+          }
+          event.preventDefault();
           dispatchKeybindEvent(bind);
         }
       });
