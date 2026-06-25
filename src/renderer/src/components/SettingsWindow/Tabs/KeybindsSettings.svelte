@@ -305,6 +305,7 @@
   // Global ingame_key selector states
   let ingameKeyModifierStates: { [index: number]: boolean } = $state({});
   let ingameKeyStates: { [index: number]: boolean } = $state({});
+  let globalKeybindConflictWarnings: { [index: number]: string } = $state({});
 
   $effect(() => {
     ensureDefaultProfile();
@@ -432,6 +433,37 @@
     return uiActions.find(action => action.id === conflict.event)?.label
       ?? allowedEventKeybinds[conflict.event]?.label
       ?? conflict.event;
+  }
+
+  function getKeybindLabel(keyBind: NeuzKeybind): string {
+    return uiActions.find(action => action.id === keyBind.event)?.label
+      ?? allowedEventKeybinds[keyBind.event]?.label
+      ?? keyBind.event;
+  }
+
+  function getGlobalKeybindConflict(currentKeyBind: NeuzKeybind, keybind: string): string | null {
+    if (!keybind) return null;
+
+    const conflict = neuzosConfig.keyBinds.find(existingBind => {
+      return existingBind !== currentKeyBind && existingBind.key?.toLowerCase() === keybind.toLowerCase();
+    });
+
+    return conflict ? getKeybindLabel(conflict) : null;
+  }
+
+  function applyGlobalKeybind(keyBind: NeuzKeybind, keybind: string): boolean {
+    const keyBindIndex = neuzosConfig.keyBinds.indexOf(keyBind);
+    if (keyBindIndex < 0) return false;
+
+    const conflictLabel = getGlobalKeybindConflict(keyBind, keybind);
+    if (conflictLabel) {
+      globalKeybindConflictWarnings[keyBindIndex] = conflictLabel;
+      return false;
+    }
+
+    delete globalKeybindConflictWarnings[keyBindIndex];
+    keyBind.key = keybind;
+    return true;
   }
 
   function removeProfileKeybind(profile: NeuzKeyBindProfile, index: number) {
@@ -1083,6 +1115,7 @@
             {@const keyOnly = parsed.key}
             {#if !isSystemActionEvent(keyBind.event) && comboboxStates[index]}
               {@const state = comboboxStates[index]}
+              {@const conflictLabel = globalKeybindConflictWarnings[index] ?? getGlobalKeybindConflict(keyBind, keyBind.key)}
               <Table.Row>
                 <Table.Cell>
                   <div class="flex flex-col gap-0.5">
@@ -1116,7 +1149,7 @@
                           <Command.List class="max-h-[320px]">
                             <Command.Group>
                               {#each modifierOptions as modifier}
-                                <Command.Item value={modifier.value} keywords={[modifier.label.toLowerCase()]} onSelect={() => { keyBind.key = buildKeybind(modifier.value, parsed.key); modifierState.modifierOpen = false; }} class="font-medium py-2.5">
+                                <Command.Item value={modifier.value} keywords={[modifier.label.toLowerCase()]} onSelect={() => { if (applyGlobalKeybind(keyBind, buildKeybind(modifier.value, parsed.key))) modifierState.modifierOpen = false; }} class="font-medium py-2.5">
                                   <Check class={parsed.modifier === modifier.value ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
                                   <span class={parsed.modifier === modifier.value ? "text-primary" : ""}>{modifier.label}</span>
                                 </Command.Item>
@@ -1138,7 +1171,7 @@
                           <Command.List class="max-h-[320px]">
                             <Command.Group>
                               {#each allowedKeys as key}
-                                <Command.Item value={key} onSelect={() => { keyBind.key = buildKeybind(parsed.modifier, key); state.open = false; }} class="font-mono font-semibold py-2.5">
+                                <Command.Item value={key} onSelect={() => { if (applyGlobalKeybind(keyBind, buildKeybind(parsed.modifier, key))) state.open = false; }} class="font-mono font-semibold py-2.5">
                                   <Check class={keyOnly === key ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
                                   <span class={keyOnly === key ? "text-primary" : ""}>{formatKeyLabel(key)}</span>
                                 </Command.Item>
@@ -1151,11 +1184,11 @@
                     <KeyBinder
                       actionId={keyBind.event}
                       currentKey={keyBind.key}
+                      conflictLabel={conflictLabel ?? undefined}
                       onBind={(key) => {
-                        keyBind.key = key;
-                        return true;
+                        return applyGlobalKeybind(keyBind, key);
                       }}
-                      onCancel={() => {}}
+                      onCancel={() => { delete globalKeybindConflictWarnings[index]; }}
                     />
                   </div>
                 </Table.Cell>
@@ -1337,6 +1370,13 @@
                   </Button>
                 </Table.Cell>
               </Table.Row>
+              {#if conflictLabel}
+                <Table.Row>
+                  <Table.Cell colspan={5} class="pt-0 text-xs text-destructive">
+                    Conflicts with: {conflictLabel}
+                  </Table.Cell>
+                </Table.Row>
+              {/if}
             {/if}
           {/each}
         </Table.Body>
