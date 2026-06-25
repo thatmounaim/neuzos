@@ -17,7 +17,6 @@
   let isRecording = $state(false);
   let capturedKey = $state("");
   let validationMessage = $state("");
-  let gamepadDetected = $state(false);
   let suppressCancel = false;
   let gamepadRafId: number | null = null;
   let pressedGamepadButtons = new Set<string>();
@@ -200,7 +199,6 @@
       gamepadRafId = null;
     }
     pressedGamepadButtons = new Set();
-    gamepadDetected = false;
   }
 
   $effect(() => {
@@ -253,7 +251,6 @@
     const pollGamepads = () => {
       const gamepads = navigator.getGamepads();
       const activeButtons = new Set<string>();
-      gamepadDetected = Array.from(gamepads).some(Boolean);
 
       for (const gamepad of gamepads) {
         if (!gamepad) continue;
@@ -318,13 +315,10 @@
       <p class="text-xs text-muted-foreground">
         Press a Key to record Keybind. Press Escape to Cancel.
       </p>
-      {#if isRecording && !gamepadDetected}
-        <p class="text-xs text-muted-foreground">No gamepad detected — keyboard and mouse capture still active</p>
-      {/if}
       <div class="rounded-md border bg-muted/40 p-3">
         <p class="text-xs text-muted-foreground">Action</p>
         <p class="text-sm font-medium">{actionId}</p>
-        <p class="mt-2 text-xs text-muted-foreground">Current binding</p>
+        <p class="mt-2 text-xs text-muted-foreground">Current Binding</p>
         <p class="text-sm font-mono">{currentKey || 'none'}</p>
         {#if capturedKey}
           <p class="mt-2 text-xs text-muted-foreground">Captured</p>
