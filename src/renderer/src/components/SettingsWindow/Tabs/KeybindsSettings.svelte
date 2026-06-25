@@ -667,7 +667,7 @@
                                   </Popover.Root>
                                   <Popover.Root open={state.open} onOpenChange={(open) => { state.open = open; }}>
                                     <Popover.Trigger class="w-32 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-mono font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
-                                      <span class="truncate {keyOnly ? 'text-foreground' : 'text-muted-foreground font-sans font-normal lowercase'}">{keyOnly ? formatKeyLabel(keyOnly) : "Select Key..."}</span>
+                                      <span class="truncate {keyOnly ? 'text-foreground' : 'text-muted-foreground font-sans font-normal'}">{keyOnly ? formatKeyLabel(keyOnly) : "Select Key..."}</span>
                                       <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
                                     </Popover.Trigger>
                                     <Popover.Content class="w-[220px] p-0">
@@ -824,7 +824,7 @@
                                           </Popover.Root>
                                           <Popover.Root open={isKeyOpen} onOpenChange={(open) => { if (!profileIngameKeyStates[profile.id]) profileIngameKeyStates[profile.id] = {}; profileIngameKeyStates[profile.id][index] = open; }}>
                                             <Popover.Trigger class="w-32 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-mono font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
-                                              <span class="truncate {ingameParsed.key ? 'text-foreground' : 'text-muted-foreground font-sans font-normal lowercase'}">{ingameParsed.key ? formatKeyLabel(ingameParsed.key) : 'Select Key...'}</span>
+                                              <span class="truncate {ingameParsed.key ? 'text-foreground' : 'text-muted-foreground font-sans font-normal'}">{ingameParsed.key ? formatKeyLabel(ingameParsed.key) : 'Select Key...'}</span>
                                               <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
                                             </Popover.Trigger>
                                             <Popover.Content class="w-[220px] p-0">
@@ -987,7 +987,7 @@
                     </Popover.Root>
                     <Popover.Root open={state.open} onOpenChange={(open) => { state.open = open; }}>
                       <Popover.Trigger class="w-32 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-mono font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
-                        <span class="truncate {keyOnly ? 'text-foreground' : 'text-muted-foreground font-sans font-normal lowercase'}">{keyOnly ? formatKeyLabel(keyOnly) : "Select Key..."}</span>
+                        <span class="truncate {keyOnly ? 'text-foreground' : 'text-muted-foreground font-sans font-normal'}">{keyOnly ? formatKeyLabel(keyOnly) : "Select Key..."}</span>
                         <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
                       </Popover.Trigger>
                       <Popover.Content class="w-[220px] p-0">
@@ -1161,7 +1161,7 @@
                     </Popover.Root>
                     <Popover.Root open={state.open} onOpenChange={(open) => { state.open = open; }}>
                       <Popover.Trigger class="w-32 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-mono font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
-                        <span class="truncate {keyOnly ? 'text-foreground' : 'text-muted-foreground font-sans font-normal lowercase'}">{keyOnly ? formatKeyLabel(keyOnly) : "Select Key..."}</span>
+                        <span class="truncate {keyOnly ? 'text-foreground' : 'text-muted-foreground font-sans font-normal'}">{keyOnly ? formatKeyLabel(keyOnly) : "Select Key..."}</span>
                         <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
                       </Popover.Trigger>
                       <Popover.Content class="w-[220px] p-0">
@@ -1320,7 +1320,7 @@
                             </Popover.Root>
                             <Popover.Root open={isKeyOpen} onOpenChange={(open) => { ingameKeyStates[index] = open; }}>
                               <Popover.Trigger class="w-32 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-mono font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
-                                <span class="truncate {ingameParsed.key ? 'text-foreground' : 'text-muted-foreground font-sans font-normal lowercase'}">{ingameParsed.key ? formatKeyLabel(ingameParsed.key) : 'Select Key...'}</span>
+                                <span class="truncate {ingameParsed.key ? 'text-foreground' : 'text-muted-foreground font-sans font-normal'}">{ingameParsed.key ? formatKeyLabel(ingameParsed.key) : 'Select Key...'}</span>
                                 <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
                               </Popover.Trigger>
                               <Popover.Content class="w-[220px] p-0">
