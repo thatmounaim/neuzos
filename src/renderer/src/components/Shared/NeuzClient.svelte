@@ -120,11 +120,6 @@ window.open = function(...args) {
     started = true
     webviewReady = false
     onUpdate(session.id)
-    const wv = getWebview()
-    if (wv) {
-      const wid = wv.getWebContentsId()
-      window.electron.ipcRenderer.send('webview.register_mouse', { sessionId: session.id, webContentsId: wid })
-    }
   }
 
   export const stopClient = (onStopped?: () => void) => {
@@ -142,7 +137,6 @@ window.open = function(...args) {
     }
     onUpdate(session.id)
     koreanLinkFixed = false
-    window.electron.ipcRenderer.send('webview.unregister_mouse', { sessionId: session.id })
     // BUG-013: Await Svelte's DOM flush so the <webview> element is removed from the DOM
     // before the ACK reaches main. Without this, the 2-second grace period starts while
     // Chromium still holds file-system handles on the partition directory.
@@ -323,12 +317,18 @@ window.open = function(...args) {
 
     const onIpcMessage = (event: Event) => {
       const e = event as any
-      if (e.channel !== 'keydown') return
       const key: string = e.args?.[0]
       if (!key) return
-      document.dispatchEvent(new CustomEvent('neuz:keydown', {
-        detail: { sessionId: session.id, key }
-      }))
+
+      if (e.channel === 'keydown') {
+        document.dispatchEvent(new CustomEvent('neuz:keydown', {
+          detail: { sessionId: session.id, key }
+        }))
+      } else if (e.channel === 'mousebind') {
+        document.dispatchEvent(new CustomEvent('neuz:mousebind', {
+          detail: { sessionId: session.id, key }
+        }))
+      }
     }
 
     const onRenderProcessGone = (event: Event) => {

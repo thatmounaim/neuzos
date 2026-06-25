@@ -8,7 +8,15 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()]
   },
   preload: {
-    plugins: [externalizeDepsPlugin()]
+    plugins: [externalizeDepsPlugin()],
+    build: {
+      rollupOptions: {
+        input: {
+          index: path.resolve(__dirname, 'src/preload/index.ts'),
+          webview: path.resolve(__dirname, 'src/preload/webview.ts'),
+        },
+      },
+    },
   },
   renderer: {
     plugins: [tailwindcss(),svelte()],

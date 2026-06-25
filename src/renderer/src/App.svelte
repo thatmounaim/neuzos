@@ -445,6 +445,8 @@
   setContext('mainWindowState', mainWindowState)
 
   onMount(() => {
+    let shortcutsEnabled = true;
+
     const onUiActionFired = (_: any, payload: { actionId: string }) => {
       uiActionContext.dispatch(payload.actionId);
     };
@@ -459,6 +461,20 @@
       );
 
       return [...(mainWindowState.config.keyBinds ?? []), ...(activeProfile?.keybinds ?? [])];
+    };
+
+    const onShortcutsStateChanged = (_: any, enabled: boolean) => {
+      shortcutsEnabled = enabled;
+    };
+
+    const onWebviewMouseBind = (event: Event) => {
+      const key = String((event as CustomEvent).detail?.key ?? '').toLowerCase();
+      if (!key) return;
+
+      const bind = getAllKeybinds().find(candidate => candidate.key?.toLowerCase() === key);
+      if (!bind || (!shortcutsEnabled && bind.event !== 'toggle_keybinds')) return;
+
+      dispatchRendererBind(bind);
     };
 
     const refreshGamepadPolling = () => {
@@ -481,6 +497,11 @@
     electronApi.on('event.config_changed', refreshMouseListener);
     electronApi.on('event.active_keybind_profile_changed', refreshGamepadPolling);
     electronApi.on('event.active_keybind_profile_changed', refreshMouseListener);
+    electronApi.on('event.shortcuts_state_changed', onShortcutsStateChanged);
+    document.addEventListener('neuz:mousebind', onWebviewMouseBind);
+    void electronApi.invoke('shortcuts.get_state').then((state) => {
+      shortcutsEnabled = state.mainWindow;
+    }).catch(() => {});
     refreshGamepadPolling();
     refreshMouseListener();
 
@@ -490,6 +511,8 @@
       electronApi.removeListener('event.config_changed', refreshMouseListener);
       electronApi.removeListener('event.active_keybind_profile_changed', refreshGamepadPolling);
       electronApi.removeListener('event.active_keybind_profile_changed', refreshMouseListener);
+      electronApi.removeListener('event.shortcuts_state_changed', onShortcutsStateChanged);
+      document.removeEventListener('neuz:mousebind', onWebviewMouseBind);
       uiActionContext.stopGamepadPoll();
       uiActionContext.stopMouseListener();
     };

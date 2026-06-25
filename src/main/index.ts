@@ -110,8 +110,6 @@ let exitCount: number = 0;
 let mainWindowShortcutsEnabled: boolean = true;
 let sessionWindowShortcutsEnabled: boolean = true;
 
-// Maps sessionId -> webContentsId for mouse-bind interception via before-input-event
-const mouseBindWebContents = new Map<string, number>();
 const runningSessionIds = new Set<string>();
 // Tracks sessions actively being deleted so session.clear_cache does not recreate their partition folder
 const deletingSessionIds = new Set<string>();
@@ -1334,15 +1332,6 @@ function normalizeWebviewInputKey(input: any): string | null {
   return modifiers.length > 0 ? `${modifiers.join("+")}+${key}` : key;
 }
 
-function isRegisteredSessionWebContents(wcId: number): boolean {
-  for (const registeredId of mouseBindWebContents.values()) {
-    if (registeredId === wcId) {
-      return true;
-    }
-  }
-  return false;
-}
-
 function isSettingsWindowInputWebContents(wc: Electron.WebContents): boolean {
   return settingsWindow?.webContents.id === wc.id;
 }
@@ -1366,7 +1355,7 @@ function registerKeybinds() {
   allBinds.forEach((bind) => {
     if (!bind.key) return;
     const normalizedKey = String(bind.key).toLowerCase();
-    if (normalizedKey.startsWith('mouse') || normalizedKey.startsWith('gamepad')) {
+    if (normalizedKey === 'middle' || normalizedKey.startsWith('mouse') || normalizedKey.startsWith('gamepad')) {
       return;
     }
     if (isInputFallbackKeybind(normalizedKey)) {
@@ -1466,31 +1455,14 @@ function registerSessionKeybinds(mode: LaunchMode) {
     // handles on the target folders, and no session startup can recreate them mid-delete.
     await cleanupQueuedSessionPartitions(neuzosConfig);
 
-    // ── Mouse-button keybind interception for session webviews ──────────────
-    // Mouse extra buttons and some keyboard keys cannot be handled reliably via globalShortcut.
-    // Intercept them through before-input-event while keeping mouse buttons scoped to session webviews.
+    // Some keyboard keys cannot be handled reliably via globalShortcut.
+    // Intercept them through before-input-event.
     app.on("web-contents-created", (_e, wc) => {
       wc.on("before-input-event", (event, input) => {
-        let key: string | null = null;
-        const wcId = wc.id;
-        let requiresRegisteredSessionWebview = false;
-
-        if (input.type === "mouseDown") {
-          // Only handle extra mouse buttons (1=middle, 3=Mouse4, 4=Mouse5)
-          const buttonMap: Record<number, string> = { 1: "middle", 3: "mouse4", 4: "mouse5" };
-          key = buttonMap[(input as any).button as number] ?? null;
-          requiresRegisteredSessionWebview = Boolean(key);
-        } else if (input.type === "keyDown" && !(input as any).isAutoRepeat) {
-          key = normalizeWebviewInputKey(input);
-        }
-
+        if (input.type !== "keyDown" || (input as any).isAutoRepeat) return;
+        const key = normalizeWebviewInputKey(input);
         if (!key) return;
-
-        if (requiresRegisteredSessionWebview) {
-          if (!isRegisteredSessionWebContents(wcId)) return;
-        } else if (isSettingsWindowInputWebContents(wc)) {
-          return;
-        }
+        if (isSettingsWindowInputWebContents(wc)) return;
 
         // Find matching bind and dispatch
         const activeProfile = neuzosConfig?.keyBindProfiles?.find(
@@ -1891,19 +1863,6 @@ function registerSessionKeybinds(mode: LaunchMode) {
       runningSessionIds.add(sessionId);
       const win = BrowserWindow.fromWebContents(event.sender);
       win?.webContents.send("event.start_session", sessionId, layoutId);
-    });
-
-    ipcMain.on("webview.register_mouse", (_event, payload: { sessionId: string; webContentsId: number }) => {
-      const { sessionId, webContentsId } = payload ?? {};
-      if (typeof sessionId !== 'string' || typeof webContentsId !== 'number') return;
-      mouseBindWebContents.set(sessionId, webContentsId);
-    });
-
-    ipcMain.on("webview.unregister_mouse", (_event, payload: { sessionId: string }) => {
-      const { sessionId } = payload ?? {};
-      if (typeof sessionId === 'string') {
-        mouseBindWebContents.delete(sessionId);
-      }
     });
 
     ipcMain.on("session.restart", (event, sessionId: string, layoutId: string) => {

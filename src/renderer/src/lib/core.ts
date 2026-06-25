@@ -69,7 +69,11 @@ export const neuzosBridge = {
   keybinds: {
     dispatch: (bind: NeuzKeybind) => {
       // Spread into a plain object to avoid Svelte $state Proxy serialization error
-      electronApi?.send("keybinds.dispatch", { key: bind.key, event: bind.event, args: bind.args });
+      electronApi?.send("keybinds.dispatch", {
+        key: bind.key,
+        event: bind.event,
+        args: Array.isArray(bind.args) ? [...bind.args] : undefined
+      });
     }
   },
   sessions: {
