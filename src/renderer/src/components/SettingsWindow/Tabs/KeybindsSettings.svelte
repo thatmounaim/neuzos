@@ -49,6 +49,7 @@
     "printscreen", "pause",
     ")", "!", "@", "#", "$", "%", "^", "&", "*", "(", ":", ";", ":", "+", "=", "<", ",", "_", "-", ">", ".", "?", "/", "~", "`", "´", "ß", "{", "]", "[", "|", "\\", "}",
   ];
+  const mouseButtonKeys = ["Middle", "Mouse4", "Mouse5"];
 
   let allowedEventKeybinds: {
     [key: string]: { label: string, args?: string[], unique?: boolean }
@@ -683,6 +684,15 @@
                                               </Command.Item>
                                             {/each}
                                           </Command.Group>
+                                          <Command.Separator/>
+                                          <Command.Group heading="Mouse Buttons">
+                                            {#each mouseButtonKeys as key}
+                                              <Command.Item value={key} onSelect={() => { keyBind.key = buildKeybind(parsed.modifier, key); state.open = false; }} class="font-mono font-semibold py-2.5">
+                                                <Check class={keyOnly.toLowerCase() === key.toLowerCase() ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
+                                                <span class={keyOnly.toLowerCase() === key.toLowerCase() ? "text-primary" : ""}>{formatKeyLabel(key)}</span>
+                                              </Command.Item>
+                                            {/each}
+                                          </Command.Group>
                                         </Command.List>
                                       </Command.Root>
                                     </Popover.Content>
@@ -837,6 +847,15 @@
                                                       <Command.Item value={key} onSelect={() => { if (!keyBind.args) keyBind.args = []; keyBind.args[argIndex] = buildKeybind(ingameParsed.modifier, key); if (!profileIngameKeyStates[profile.id]) profileIngameKeyStates[profile.id] = {}; profileIngameKeyStates[profile.id][index] = false; }} class="font-mono font-semibold py-2.5">
                                                         <Check class={ingameParsed.key === key ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
                                                         <span class={ingameParsed.key === key ? "text-primary" : ""}>{formatKeyLabel(key)}</span>
+                                                      </Command.Item>
+                                                    {/each}
+                                                  </Command.Group>
+                                                  <Command.Separator/>
+                                                  <Command.Group heading="Mouse Buttons">
+                                                    {#each mouseButtonKeys as key}
+                                                      <Command.Item value={key} onSelect={() => { if (!keyBind.args) keyBind.args = []; keyBind.args[argIndex] = buildKeybind(ingameParsed.modifier, key); if (!profileIngameKeyStates[profile.id]) profileIngameKeyStates[profile.id] = {}; profileIngameKeyStates[profile.id][index] = false; }} class="font-mono font-semibold py-2.5">
+                                                        <Check class={ingameParsed.key.toLowerCase() === key.toLowerCase() ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
+                                                        <span class={ingameParsed.key.toLowerCase() === key.toLowerCase() ? "text-primary" : ""}>{formatKeyLabel(key)}</span>
                                                       </Command.Item>
                                                     {/each}
                                                   </Command.Group>
@@ -1000,6 +1019,15 @@
                                 <Command.Item value={key} onSelect={() => { if (applySystemActionKeybind(keyBind, buildKeybind(parsed.modifier, key))) state.open = false; }} class="font-mono font-semibold py-2.5">
                                   <Check class={keyOnly === key ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
                                   <span class={keyOnly === key ? "text-primary" : ""}>{formatKeyLabel(key)}</span>
+                                </Command.Item>
+                              {/each}
+                            </Command.Group>
+                            <Command.Separator/>
+                            <Command.Group heading="Mouse Buttons">
+                              {#each mouseButtonKeys as key}
+                                <Command.Item value={key} onSelect={() => { if (applySystemActionKeybind(keyBind, buildKeybind(parsed.modifier, key))) state.open = false; }} class="font-mono font-semibold py-2.5">
+                                  <Check class={keyOnly.toLowerCase() === key.toLowerCase() ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
+                                  <span class={keyOnly.toLowerCase() === key.toLowerCase() ? "text-primary" : ""}>{formatKeyLabel(key)}</span>
                                 </Command.Item>
                               {/each}
                             </Command.Group>
@@ -1177,6 +1205,15 @@
                                 </Command.Item>
                               {/each}
                             </Command.Group>
+                            <Command.Separator/>
+                            <Command.Group heading="Mouse Buttons">
+                              {#each mouseButtonKeys as key}
+                                <Command.Item value={key} onSelect={() => { if (applyGlobalKeybind(keyBind, buildKeybind(parsed.modifier, key))) state.open = false; }} class="font-mono font-semibold py-2.5">
+                                  <Check class={keyOnly.toLowerCase() === key.toLowerCase() ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
+                                  <span class={keyOnly.toLowerCase() === key.toLowerCase() ? "text-primary" : ""}>{formatKeyLabel(key)}</span>
+                                </Command.Item>
+                              {/each}
+                            </Command.Group>
                           </Command.List>
                         </Command.Root>
                       </Popover.Content>
@@ -1333,6 +1370,15 @@
                                         <Command.Item value={key} onSelect={() => { keyBind.args[argIndex] = buildKeybind(ingameParsed.modifier, key); ingameKeyStates[index] = false; }} class="font-mono font-semibold py-2.5">
                                           <Check class={ingameParsed.key === key ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
                                           <span class={ingameParsed.key === key ? "text-primary" : ""}>{formatKeyLabel(key)}</span>
+                                        </Command.Item>
+                                      {/each}
+                                    </Command.Group>
+                                    <Command.Separator/>
+                                    <Command.Group heading="Mouse Buttons">
+                                      {#each mouseButtonKeys as key}
+                                        <Command.Item value={key} onSelect={() => { keyBind.args[argIndex] = buildKeybind(ingameParsed.modifier, key); ingameKeyStates[index] = false; }} class="font-mono font-semibold py-2.5">
+                                          <Check class={ingameParsed.key.toLowerCase() === key.toLowerCase() ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
+                                          <span class={ingameParsed.key.toLowerCase() === key.toLowerCase() ? "text-primary" : ""}>{formatKeyLabel(key)}</span>
                                         </Command.Item>
                                       {/each}
                                     </Command.Group>
