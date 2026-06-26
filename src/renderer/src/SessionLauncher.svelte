@@ -14,6 +14,7 @@
   let sessions: NeuzSession[] = $state([]);
   let groups: NeuzSessionGroup[] = $state([]);
   let collapsedGroupIds: Record<string, boolean> = $state({});
+  const collapsedGroupsStorageKey = 'neuzos.sessionLauncher.collapsedGroups';
 
   setElectronContext(window.electron.ipcRenderer);
   setNeuzosBridgeContext(neuzosBridge);
@@ -26,8 +27,26 @@
     groups = await electronApi.invoke("session_launcher.get_groups");
   }
 
+  function loadCollapsedGroups() {
+    try {
+      const stored = localStorage.getItem(collapsedGroupsStorageKey);
+      if (!stored) return;
+      const parsed = JSON.parse(stored);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        collapsedGroupIds = parsed;
+      }
+    } catch {
+      collapsedGroupIds = {};
+    }
+  }
+
+  function saveCollapsedGroups() {
+    localStorage.setItem(collapsedGroupsStorageKey, JSON.stringify(collapsedGroupIds));
+  }
+
   onMount(() => {
     let disposed = false;
+    loadCollapsedGroups();
 
     const refreshData = async () => {
       if (disposed) {
@@ -79,6 +98,7 @@
 
   function toggleGroupCollapsed(groupId: string) {
     collapsedGroupIds[groupId] = !isGroupCollapsed(groupId);
+    saveCollapsedGroups();
   }
 
   function getGroupSessions(group: NeuzSessionGroup): NeuzSession[] {
@@ -95,6 +115,8 @@
   }
 
   const ungroupedSessions = $derived.by(() => getUngroupedSessions())
+
+  const formatSessionCount = (count: number) => `${count} ${count === 1 ? 'Session' : 'Sessions'}`
 
   const openSettings = () => {
     neuzosBridge.settingsWindow.open();
@@ -210,7 +232,7 @@
                   <ChevronDown class={`size-4 shrink-0 transition-transform ${isGroupCollapsed(group.id) ? 'rotate-180' : ''}`} />
                   <span class="truncate font-semibold">{group.label}</span>
                 </div>
-                <span class="shrink-0 text-xs text-muted-foreground">{groupSessions.length} session(s)</span>
+                <span class="shrink-0 text-xs text-muted-foreground">{formatSessionCount(groupSessions.length)}</span>
               </button>
 
               {#if !isGroupCollapsed(group.id)}
@@ -233,9 +255,9 @@
             <Card.Root class="overflow-hidden gap-0 border-border/70">
               <div class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left">
                 <div class="flex min-w-0 items-center gap-2">
-                  <span class="truncate font-semibold">Ungrouped</span>
+                  <span class="truncate font-semibold">Sessions</span>
                 </div>
-                <span class="shrink-0 text-xs text-muted-foreground">{ungroupedSessions.length} session(s)</span>
+                <span class="shrink-0 text-xs text-muted-foreground">{formatSessionCount(ungroupedSessions.length)}</span>
               </div>
 
               <Card.Content class="p-3 pt-0">
