@@ -1,6 +1,7 @@
 <script lang="ts">
   import * as Card from "$lib/components/ui/card";
   import {
+    Check,
     ChevronDown,
     ChevronUp,
     Copy,
@@ -9,6 +10,7 @@
     Trash,
     Globe,
     PersonStanding,
+    RotateCw,
     Users
   } from '@lucide/svelte'
 
@@ -60,6 +62,8 @@
   const clampZoom = (value: number) => Math.min(1.5, Math.max(0.5, Math.round(value * 20) / 20))
 
   const formatSessionCount = (count: number) => `${count} ${count === 1 ? 'Session' : 'Sessions'}`
+
+  const formatZoomPercent = (sessionId: string) => `${Math.round(getSessionZoom(sessionId) * 100)}%`
 
   const defaultGroupLabel = 'New Group'
 
@@ -381,6 +385,7 @@
   // Track icon popover state for each session
   let iconPopoverStates: { [sessionId: string]: boolean } = $state({});
   let groupPopoverStates: { [sessionId: string]: boolean } = $state({});
+  let zoomPopoverStates: { [sessionId: string]: boolean } = $state({});
 </script>
 
 {#snippet sessionRow(session, sessionIndex, sectionLength, groupId)}
@@ -499,39 +504,52 @@
         />
       </div>
     </Table.Cell>
-    <Table.Cell class="w-[300px]">
-      <div class="flex flex-col gap-2">
-        <input
-          class="w-full h-2 accent-primary cursor-pointer rounded-full"
-          type="range"
-          min="0.5"
-          max="1.5"
-          step="0.05"
-          value={getSessionZoom(session.id)}
-          oninput={(event) => {
-            const value = Number((event.currentTarget as HTMLInputElement).value)
-            setSessionZoom(session.id, value)
-          }}
-        />
-        <div class="flex items-center gap-2">
-          <Input
-            class="h-9 w-24 shrink-0 text-sm text-center tabular-nums"
-            type="number"
-            min="50"
-            max="150"
-            step="5"
-            value={Math.round(getSessionZoom(session.id) * 100)}
-            oninput={(event) => {
-              const value = Number((event.currentTarget as HTMLInputElement).value)
-              setSessionZoom(session.id, value / 100)
-            }}
-          />
-          <span class="text-xs text-muted-foreground shrink-0">%</span>
-          <Button variant="outline" size="sm" class="shrink-0" onclick={() => setSessionZoom(session.id, 1)}>
-            Reset
-          </Button>
-        </div>
-      </div>
+    <Table.Cell class="w-[130px]">
+      {@const zoomOpen = zoomPopoverStates[session.id] ?? false}
+      {@const zoomValue = getSessionZoom(session.id)}
+      <Popover.Root open={zoomOpen} onOpenChange={(open) => { zoomPopoverStates[session.id] = open; }}>
+        <Popover.Trigger class="h-9 w-20 inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium tabular-nums shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          {formatZoomPercent(session.id)}
+        </Popover.Trigger>
+        <Popover.Content class="w-[260px] p-3" align="start">
+          <div class="flex flex-col gap-3">
+            <input
+              class="w-full h-2 accent-primary cursor-pointer rounded-full"
+              type="range"
+              min="0.5"
+              max="1.5"
+              step="0.05"
+              value={zoomValue}
+              oninput={(event) => {
+                const value = Number((event.currentTarget as HTMLInputElement).value)
+                setSessionZoom(session.id, value)
+              }}
+            />
+            <div class="flex items-center gap-2">
+              <Input
+                class="h-8 w-20 shrink-0 text-sm text-center tabular-nums"
+                type="number"
+                min="50"
+                max="150"
+                step="5"
+                value={Math.round(getSessionZoom(session.id) * 100)}
+                oninput={(event) => {
+                  const value = Number((event.currentTarget as HTMLInputElement).value)
+                  setSessionZoom(session.id, value / 100)
+                }}
+              />
+              {#if Math.round(getSessionZoom(session.id) * 100) !== 100}
+                <Button variant="outline" size="icon" class="h-8 w-8 shrink-0" onclick={() => setSessionZoom(session.id, 1)}>
+                  <RotateCw class="h-4 w-4"/>
+                </Button>
+              {/if}
+              <Button variant="outline" size="icon" class="h-8 w-8 shrink-0 ml-auto" onclick={() => { zoomPopoverStates[session.id] = false; }}>
+                <Check class="h-4 w-4"/>
+              </Button>
+            </div>
+          </div>
+        </Popover.Content>
+      </Popover.Root>
     </Table.Cell>
     <Table.Cell class="w-1/2">
       <div class="flex items-center gap-2">
@@ -740,7 +758,7 @@
                     <Table.Head class="w-1/2">Label</Table.Head>
                     <Table.Head class="w-[90px] text-center">Group</Table.Head>
                     <Table.Head class="w-[110px] text-center">Floatable</Table.Head>
-                    <Table.Head class="w-[300px]">Zoom</Table.Head>
+                    <Table.Head class="w-[130px]">Zoom</Table.Head>
                     <Table.Head class="w-1/2">Launch URL Overwrite</Table.Head>
                     <Table.Head class="w-[190px] text-center">
                       <Tooltip.Provider>
@@ -787,7 +805,7 @@
                   <Table.Head class="w-1/2">Label</Table.Head>
                   <Table.Head class="w-[90px] text-center">Group</Table.Head>
                   <Table.Head class="w-[110px] text-center">Floatable</Table.Head>
-                  <Table.Head class="w-[300px]">Zoom</Table.Head>
+                  <Table.Head class="w-[130px]">Zoom</Table.Head>
                   <Table.Head class="w-1/2">Launch URL Overwrite</Table.Head>
                   <Table.Head class="w-[190px] text-center">
                     <Tooltip.Provider>
