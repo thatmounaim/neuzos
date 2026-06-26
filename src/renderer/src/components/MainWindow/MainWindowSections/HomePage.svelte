@@ -4,7 +4,7 @@
   import * as Tabs from "$lib/components/ui/tabs";
   import { Skeleton } from "$lib/components/ui/skeleton";
   import { Button } from "$lib/components/ui/button";
-  import { RefreshCcw } from "@lucide/svelte";
+  import { Github, RefreshCcw } from "@lucide/svelte";
   import type { MainWindowState } from "$lib/types";
   import { getElectronContext } from "$lib/contexts/electronContext";
 
@@ -41,6 +41,7 @@
       shop: []
     }
   });
+  let appVersion = $state("");
 
   let olderToggleStates: {
     updates: boolean
@@ -117,6 +118,11 @@
 
   onMount(() => {
     fetchFlyffPageData();
+    void electronApi.invoke("app.get_version").then((version) => {
+      appVersion = String(version ?? "");
+    }).catch(() => {
+      appVersion = "";
+    });
   });
 </script>
 
@@ -126,22 +132,58 @@
             : 'z-[0] hidden'} overflow-hidden"
 >
   <div class="h-full w-full overflow-auto p-4">
-    <h1 class="text-2xl font-bold mb-4">Welcome to NeuzOS!</h1>
-    <div class="flex items-center gap-4 justify-between">
-      <h1 class="text-lg mb-6 text-muted-foreground">Stay updated with the latest news and events from Flyff
-        Universe.</h1>
-
-      <Button variant="outline" onclick={fetchFlyffPageData} disabled={loading}>
-        Refresh News
-        <RefreshCcw />
-      </Button>
+    <div class="mb-4 flex flex-wrap items-start justify-between gap-4">
+      <div class="flex min-w-0 items-center gap-4">
+        <img src="/neuzos_pang.png" alt="NeuzOS Pang" class="h-20 w-20 shrink-0 object-contain" />
+        <div class="min-w-0">
+          <h1 class="text-2xl font-bold">Welcome to NeuzOS!</h1>
+          <p class="mt-1 text-lg text-muted-foreground">
+            Stay Updated with the Latest News and Events from Flyff Universe.
+          </p>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center justify-end gap-2">
+        <div class="inline-flex h-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md border bg-background px-4 py-2 text-sm font-medium text-foreground shadow-xs">
+          Current Version{appVersion ? ` ${appVersion}` : ""}
+        </div>
+        <Button
+          href="https://github.com/flyffu-community/neuzos"
+          target="_blank"
+          rel="noopener noreferrer"
+          variant="outline"
+        >
+          NeuzOS on GitHub
+          <Github />
+        </Button>
+        <Button
+          href="https://discord.gg/mNQ5UT5e9X"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="bg-[#5865F2] text-white hover:bg-[#4752C4]"
+        >
+          Join us on Discord!
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            class="size-4 fill-current"
+          >
+            <path d="M20.3 4.4A16.5 16.5 0 0 0 16.2 3l-.2.4a12.8 12.8 0 0 1 3.6 1.8 13.8 13.8 0 0 0-4.4-1.4 14 14 0 0 0-6.4 0 13.8 13.8 0 0 0-4.4 1.4A12.8 12.8 0 0 1 8 3.4L7.8 3a16.5 16.5 0 0 0-4.1 1.4C1.1 8.2.4 11.9.7 15.5A16.6 16.6 0 0 0 5.8 18l.6-.9a10.8 10.8 0 0 1-1.6-.8l.4-.3a11.9 11.9 0 0 0 13.6 0l.4.3a10.8 10.8 0 0 1-1.6.8l.6.9a16.6 16.6 0 0 0 5.1-2.5c.4-4.2-.7-7.8-3-11.1ZM8.6 13.3c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Zm6.8 0c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Z" />
+          </svg>
+        </Button>
+      </div>
     </div>
     <Tabs.Root value="updates" class="w-full">
-      <Tabs.List>
-        <Tabs.Trigger value="updates">Updates</Tabs.Trigger>
-        <Tabs.Trigger value="events">Events</Tabs.Trigger>
-        <Tabs.Trigger value="shop">Cash Shop</Tabs.Trigger>
-      </Tabs.List>
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <Tabs.List>
+          <Tabs.Trigger value="updates">Updates</Tabs.Trigger>
+          <Tabs.Trigger value="events">Events</Tabs.Trigger>
+          <Tabs.Trigger value="shop">Cash Shop</Tabs.Trigger>
+        </Tabs.List>
+        <Button variant="outline" onclick={fetchFlyffPageData} disabled={loading}>
+          Refresh News
+          <RefreshCcw />
+        </Button>
+      </div>
       <Tabs.Content value="updates">
         <Card.Root>
           <Card.Header>

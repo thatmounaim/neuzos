@@ -1810,6 +1810,10 @@ function registerSessionKeybinds(mode: LaunchMode) {
       };
     });
 
+    ipcMain.handle("app.get_version", () => {
+      return app.getVersion();
+    });
+
 
     ipcMain.on("settings_window.open", (_) => {
       createSettingsWindow();
