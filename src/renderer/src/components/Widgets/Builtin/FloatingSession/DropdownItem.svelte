@@ -81,7 +81,7 @@
   <DropdownMenu.SubContent class="min-w-44 overflow-visible">
     {#if availableSessionsForFloating.length > 0}
       {#each availableSessionsForFloating as sessionInfo}
-        <DropdownMenu.Item onclick={() => createWidget(sessionInfo.id)}>
+        <DropdownMenu.Item onSelect={(event) => event.preventDefault()} onclick={() => createWidget(sessionInfo.id)}>
           <img class="w-4 h-4 mr-2" src="icons/{sessionInfo.icon}.png" alt="" />
           <span>{sessionInfo.label}</span>
         </DropdownMenu.Item>
@@ -140,7 +140,7 @@
         <DropdownMenu.SubContent>
           {#each widgets as widget}
             {@const sessionInfo = floatableSessions.find(s => s.id === widget.data?.sessionId)}
-            <DropdownMenu.Item onclick={() => resetPosition(widget.data?.sessionId)}>
+            <DropdownMenu.Item onSelect={(event) => event.preventDefault()} onclick={() => resetPosition(widget.data?.sessionId)}>
               <img class="w-4 h-4 mr-2" src="icons/{sessionInfo?.icon || 'misc/browser'}.png" alt="" />
               <span>{sessionInfo?.label || 'Unknown Session'}</span>
             </DropdownMenu.Item>
@@ -160,7 +160,7 @@
         </DropdownMenu.SubTrigger>
         <DropdownMenu.SubContent>
           {#each floatableSessions as sessionInfo}
-            <DropdownMenu.Item onclick={() => toggleActiveReceiver(sessionInfo.id)}>
+            <DropdownMenu.Item onSelect={(event) => event.preventDefault()} onclick={() => toggleActiveReceiver(sessionInfo.id)}>
               <div class="flex w-full items-center justify-between gap-4">
                 <div class="flex items-center gap-2">
                   <img class="w-4 h-4" src="icons/{sessionInfo.icon}.png" alt="" />

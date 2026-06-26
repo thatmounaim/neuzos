@@ -51,7 +51,7 @@
   <DropdownMenu.SubContent class="min-w-44">
     {#if availableSessionsForActionPad.length > 0}
       {#each availableSessionsForActionPad as sessionInfo}
-        <DropdownMenu.Item onclick={() => createWidget(sessionInfo.id)}>
+        <DropdownMenu.Item onSelect={(event) => event.preventDefault()} onclick={() => createWidget(sessionInfo.id)}>
           <img class="w-4 h-4 mr-2" src="icons/{sessionInfo.icon}.png" alt="" />
           <span>{sessionInfo.label}</span>
           <span class="ml-auto text-[10px] opacity-50">({sessionInfo.actionsCount})</span>

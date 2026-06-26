@@ -39,7 +39,7 @@
     <span>Mini Browser</span>
   </DropdownMenu.SubTrigger>
   <DropdownMenu.SubContent>
-    <DropdownMenu.Item onclick={createWidget}>
+    <DropdownMenu.Item onSelect={(event) => event.preventDefault()} onclick={createWidget}>
       <Plus class="h-4 w-4 mr-2" />
       <span>New Browser</span>
     </DropdownMenu.Item>
