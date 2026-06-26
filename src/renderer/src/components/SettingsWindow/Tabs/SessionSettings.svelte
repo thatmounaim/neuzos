@@ -496,15 +496,7 @@
         </Tooltip.Root>
       </Tooltip.Provider>
     </Table.Cell>
-    <Table.Cell>
-      <div class="flex items-center justify-center">
-        <Switch
-          checked={session.floatable ?? false}
-          onCheckedChange={(checked) => { session.floatable = checked; }}
-        />
-      </div>
-    </Table.Cell>
-    <Table.Cell class="w-[130px]">
+    <Table.Cell class="w-[130px] text-center">
       {@const zoomOpen = zoomPopoverStates[session.id] ?? false}
       {@const zoomValue = getSessionZoom(session.id)}
       <Popover.Root open={zoomOpen} onOpenChange={(open) => { zoomPopoverStates[session.id] = open; }}>
@@ -551,6 +543,14 @@
         </Popover.Content>
       </Popover.Root>
     </Table.Cell>
+    <Table.Cell>
+      <div class="flex items-center justify-center">
+        <Switch
+          checked={session.floatable ?? false}
+          onCheckedChange={(checked) => { session.floatable = checked; }}
+        />
+      </div>
+    </Table.Cell>
     <Table.Cell class="w-1/2">
       <div class="flex items-center gap-2">
         {#if session.srcOverwrite}
@@ -590,7 +590,7 @@
         />
       </div>
     </Table.Cell>
-    <Table.Cell class="text-xs">{session.id}</Table.Cell>
+    <Table.Cell class="text-center text-xs">{session.id}</Table.Cell>
     <Table.Cell>
       <Tooltip.Provider>
         <div class="flex gap-2 items-center">
@@ -757,8 +757,8 @@
                     <Table.Head class="w-[100px]">Icon</Table.Head>
                     <Table.Head class="w-1/2">Label</Table.Head>
                     <Table.Head class="w-[90px] text-center">Group</Table.Head>
+                    <Table.Head class="w-[130px] text-center">Zoom</Table.Head>
                     <Table.Head class="w-[110px] text-center">Floatable</Table.Head>
-                    <Table.Head class="w-[130px]">Zoom</Table.Head>
                     <Table.Head class="w-1/2">Launch URL Overwrite</Table.Head>
                     <Table.Head class="w-[190px] text-center">
                       <Tooltip.Provider>
@@ -770,7 +770,7 @@
                         </Tooltip.Root>
                       </Tooltip.Provider>
                     </Table.Head>
-                    <Table.Head>Session ID</Table.Head>
+                    <Table.Head class="text-center">Session ID</Table.Head>
                     <Table.Head>Actions</Table.Head>
                   </Table.Row>
                 </Table.Header>
@@ -804,8 +804,8 @@
                   <Table.Head class="w-[100px]">Icon</Table.Head>
                   <Table.Head class="w-1/2">Label</Table.Head>
                   <Table.Head class="w-[90px] text-center">Group</Table.Head>
+                  <Table.Head class="w-[130px] text-center">Zoom</Table.Head>
                   <Table.Head class="w-[110px] text-center">Floatable</Table.Head>
-                  <Table.Head class="w-[130px]">Zoom</Table.Head>
                   <Table.Head class="w-1/2">Launch URL Overwrite</Table.Head>
                   <Table.Head class="w-[190px] text-center">
                     <Tooltip.Provider>
@@ -817,7 +817,7 @@
                       </Tooltip.Root>
                     </Tooltip.Provider>
                   </Table.Head>
-                  <Table.Head>Session ID</Table.Head>
+                  <Table.Head class="text-center">Session ID</Table.Head>
                   <Table.Head>Actions</Table.Head>
                 </Table.Row>
               </Table.Header>
