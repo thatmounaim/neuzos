@@ -197,7 +197,7 @@
 
   const addGroup = () => {
     const newGroup: NeuzSessionGroup = {
-      id: crypto.randomUUID(),
+      id: Date.now().toString(),
       label: defaultGroupLabel,
       sessionIds: []
     }
