@@ -1043,8 +1043,6 @@
                         onBind={(key) => applySystemActionKeybind(keyBind, key)}
                         onCancel={() => { delete systemActionConflictWarnings[globalIndex]; }}
                       />
-                      {#if keyBind.key.startsWith('Mouse') || keyBind.key.startsWith('Gamepad')}
-                      {/if}
                     </div>
                   </div>
                 </Table.Cell>
