@@ -5,11 +5,10 @@
     ChevronDown,
     ChevronUp,
     Copy,
+    FilePen,
     FileX,
     Plus,
     Trash,
-    Globe,
-    PersonStanding,
     RotateCw,
     Users
   } from '@lucide/svelte'
@@ -54,6 +53,7 @@
   ]
 
   const neuzosConfig = getContext<NeuzConfig>('neuzosConfig')
+  const defaultLaunchUrl = 'https://universe.flyff.com/play'
 
   const clearCache = (sessionId: string) => {
     neuzosBridge.sessions.clearCache(sessionId)
@@ -135,6 +135,23 @@
     neuzosConfig.sessionZoomLevels = neuzosConfig.sessionZoomLevels ?? {}
     neuzosConfig.sessionZoomLevels[sessionId] = zoom
     void neuzosBridge.sessions.setZoom(sessionId, zoom)
+  }
+
+  const openLaunchUrlOverwriteModal = (session: NeuzSession) => {
+    launchUrlOverwriteModal = session.id
+    launchUrlDraft = session.srcOverwrite ?? defaultLaunchUrl
+  }
+
+  const setLaunchUrlOverwrite = async (session: NeuzSession) => {
+    const nextUrl = launchUrlDraft.trim()
+    if (!nextUrl || nextUrl === defaultLaunchUrl) {
+      delete session.srcOverwrite
+    } else {
+      session.srcOverwrite = nextUrl
+    }
+    delete session.partitionOverwrite
+    await neuzosBridge.config.save(neuzosConfig)
+    launchUrlOverwriteModal = null
   }
 
   const clearAllCache = () => {
@@ -253,6 +270,8 @@
   }
 
   let clearCacheOpenModal: string | null = $state(null)
+  let launchUrlOverwriteModal: string | null = $state(null)
+  let launchUrlDraft = $state('')
   let clearAllCacheOpenModal: boolean = $state(false)
   let deleteSessionModal: { sessionId: string; sessionLabel: string; isRunning: boolean } | null = $state(null)
   let deleteErrorModal: { sessionLabel: string; error: string } | null = $state(null)
@@ -391,7 +410,7 @@
 {#snippet sessionRow(session, sessionIndex, sectionLength, groupId)}
   {@const currentGroupId = getSessionGroupId(session.id)}
   <Table.Row>
-    <Table.Cell>
+    <Table.Cell class="w-[48px]">
       <div class="flex flex-col gap-0.5">
         <Button
           onclick={() => moveSessionInSection(groupId, session.id, -1)}
@@ -411,7 +430,7 @@
         </Button>
       </div>
     </Table.Cell>
-    <Table.Cell>
+    <Table.Cell class="w-[72px]">
       {@const isOpen = iconPopoverStates[session.id] ?? false}
       <div class="flex items-center">
         <Popover.Root open={isOpen} onOpenChange={(open) => { iconPopoverStates[session.id] = open; }}>
@@ -449,9 +468,9 @@
         </Popover.Root>
       </div>
     </Table.Cell>
-    <Table.Cell class="w-1/2">
+    <Table.Cell class="w-[420px] min-w-[420px]">
       <Input
-        class="h-9 text-sm"
+        class="h-9 w-full text-sm"
         bind:value={session.label}
         onchange={(e) => {
           {/*@ts-ignore*/}
@@ -551,35 +570,8 @@
         />
       </div>
     </Table.Cell>
-    <Table.Cell class="w-1/2">
-      <div class="flex items-center gap-2">
-        {#if session.srcOverwrite}
-          {#if !session.partitionOverwrite}
-            <Button variant="outline" size="sm" onclick={() => {session.partitionOverwrite = 'browser'}}>
-              <PersonStanding/>
-            </Button>
-          {:else}
-            <Button variant="outline" size="sm" onclick={() => {delete(session.partitionOverwrite)}}>
-              <Globe/>
-            </Button>
-          {/if}
-          <Input class="h-9 text-sm w-full" bind:value={session.srcOverwrite} oninput={(e) => {
-            const target = e.currentTarget as HTMLInputElement
-            if (target.value.length == 0 || target.value === ' ') {
-              delete(session.srcOverwrite)
-              delete(session.partitionOverwrite)
-            }
-          }}/>
-
-        {:else}
-          <Button variant="outline" size="sm" onclick={() => {
-            session.srcOverwrite = 'https://'
-          }}>Overwrite
-          </Button>
-        {/if}
-      </div>
-    </Table.Cell>
-    <Table.Cell class="w-[190px]">
+    <Table.Cell class="w-full"></Table.Cell>
+    <Table.Cell class="w-[170px]">
       <div class="flex items-center justify-center">
         <Switch
           checked={session.autoDeleteCache ?? false}
@@ -590,10 +582,53 @@
         />
       </div>
     </Table.Cell>
-    <Table.Cell class="text-center text-xs">{session.id}</Table.Cell>
-    <Table.Cell>
+    <Table.Cell class="w-[150px] text-center text-xs">{session.id}</Table.Cell>
+    <Table.Cell class="w-[170px]">
       <Tooltip.Provider>
         <div class="flex gap-2 items-center">
+          <AlertDialog.Root open={launchUrlOverwriteModal === session.id} onOpenChange={(open) => {
+            if (open) {
+              openLaunchUrlOverwriteModal(session)
+            } else {
+              launchUrlOverwriteModal = null
+            }
+          }}>
+            <Tooltip.Root>
+              <Tooltip.Trigger>
+                <AlertDialog.Trigger>
+                  <Button variant={session.srcOverwrite ? 'default' : 'outline'} size="icon" class="h-8 w-8">
+                    <FilePen class="h-4 w-4"/>
+                  </Button>
+                </AlertDialog.Trigger>
+              </Tooltip.Trigger>
+              <Tooltip.Content>Launch URL Overwrite</Tooltip.Content>
+            </Tooltip.Root>
+            <AlertDialog.Content>
+              <AlertDialog.Header>
+                <AlertDialog.Title>Overwrite {session.label} Session's Launch URL</AlertDialog.Title>
+                <AlertDialog.Description>
+                  This Action will overwrite the default Launch URL from this Session.
+                </AlertDialog.Description>
+              </AlertDialog.Header>
+              <div class="flex items-center gap-2 py-2">
+                <Input
+                  class="h-9 text-sm"
+                  bind:value={launchUrlDraft}
+                />
+                {#if launchUrlDraft.trim() !== defaultLaunchUrl}
+                  <Button variant="outline" size="icon" class="h-9 w-9 shrink-0" onclick={() => { launchUrlDraft = defaultLaunchUrl }}>
+                    <RotateCw class="h-4 w-4"/>
+                  </Button>
+                {/if}
+              </div>
+              <AlertDialog.Footer>
+                <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+                <AlertDialog.Action onclick={() => void setLaunchUrlOverwrite(session)}>
+                  Set URL
+                </AlertDialog.Action>
+              </AlertDialog.Footer>
+            </AlertDialog.Content>
+          </AlertDialog.Root>
           <AlertDialog.Root open={clearCacheOpenModal === session.id} onOpenChange={(open) => {
             clearCacheOpenModal = open ? session.id : null;
           }}>
@@ -753,14 +788,14 @@
               <Table.Root>
                 <Table.Header>
                   <Table.Row>
-                    <Table.Head class=""></Table.Head>
-                    <Table.Head class="w-[100px]">Icon</Table.Head>
-                    <Table.Head class="w-1/2">Label</Table.Head>
+                    <Table.Head class="w-[48px]"></Table.Head>
+                    <Table.Head class="w-[72px]">Icon</Table.Head>
+                    <Table.Head class="w-[420px] min-w-[420px]">Label</Table.Head>
                     <Table.Head class="w-[90px] text-center">Group</Table.Head>
                     <Table.Head class="w-[130px] text-center">Zoom</Table.Head>
-                    <Table.Head class="w-[110px] text-center">Floatable</Table.Head>
-                    <Table.Head class="w-1/2">Launch URL Overwrite</Table.Head>
-                    <Table.Head class="w-[190px] text-center">
+                    <Table.Head class="w-[90px] text-center">Floatable</Table.Head>
+                    <Table.Head class="w-full"></Table.Head>
+                    <Table.Head class="w-[170px] text-center">
                       <Tooltip.Provider>
                         <Tooltip.Root>
                           <Tooltip.Trigger>
@@ -770,8 +805,8 @@
                         </Tooltip.Root>
                       </Tooltip.Provider>
                     </Table.Head>
-                    <Table.Head class="text-center">Session ID</Table.Head>
-                    <Table.Head>Actions</Table.Head>
+                    <Table.Head class="w-[150px] text-center">Session ID</Table.Head>
+                    <Table.Head class="w-[170px]">Actions</Table.Head>
                   </Table.Row>
                 </Table.Header>
                 <Table.Body>
@@ -800,14 +835,14 @@
             <Table.Root>
               <Table.Header>
                 <Table.Row>
-                  <Table.Head class=""></Table.Head>
-                  <Table.Head class="w-[100px]">Icon</Table.Head>
-                  <Table.Head class="w-1/2">Label</Table.Head>
+                  <Table.Head class="w-[48px]"></Table.Head>
+                  <Table.Head class="w-[72px]">Icon</Table.Head>
+                  <Table.Head class="w-[420px] min-w-[420px]">Label</Table.Head>
                   <Table.Head class="w-[90px] text-center">Group</Table.Head>
                   <Table.Head class="w-[130px] text-center">Zoom</Table.Head>
-                  <Table.Head class="w-[110px] text-center">Floatable</Table.Head>
-                  <Table.Head class="w-1/2">Launch URL Overwrite</Table.Head>
-                  <Table.Head class="w-[190px] text-center">
+                  <Table.Head class="w-[90px] text-center">Floatable</Table.Head>
+                  <Table.Head class="w-full"></Table.Head>
+                  <Table.Head class="w-[170px] text-center">
                     <Tooltip.Provider>
                       <Tooltip.Root>
                         <Tooltip.Trigger>
@@ -817,8 +852,8 @@
                       </Tooltip.Root>
                     </Tooltip.Provider>
                   </Table.Head>
-                  <Table.Head class="text-center">Session ID</Table.Head>
-                  <Table.Head>Actions</Table.Head>
+                  <Table.Head class="w-[150px] text-center">Session ID</Table.Head>
+                  <Table.Head class="w-[170px]">Actions</Table.Head>
                 </Table.Row>
               </Table.Header>
               <Table.Body>
