@@ -1215,7 +1215,7 @@ function setMainWindowShortcutsEnabled(enabled: boolean) {
 
 function registerKeybindToggleShortcut() {
   const toggleBind = neuzosConfig?.keyBinds?.find((bind: any) => bind.event === "toggle_keybinds");
-  if (!toggleBind?.key) return;
+  if (!toggleBind?.key || !canRegisterGlobalShortcutKey(toggleBind.key)) return;
 
   try {
     globalShortcut.unregister(toggleBind.key);
@@ -1296,6 +1296,16 @@ function isInputFallbackKeybind(key: string): boolean {
   return inputFallbackKeybindKeys.has(normalizedKey);
 }
 
+function canRegisterGlobalShortcutKey(key: string): boolean {
+  const normalizedKey = String(key).toLowerCase();
+  return (
+    normalizedKey !== "middle" &&
+    !normalizedKey.startsWith("mouse") &&
+    !normalizedKey.startsWith("gamepad") &&
+    !isInputFallbackKeybind(normalizedKey)
+  );
+}
+
 function normalizeWebviewInputKey(input: any): string | null {
   let key = "";
 
@@ -1354,11 +1364,7 @@ function registerKeybinds() {
 
   allBinds.forEach((bind) => {
     if (!bind.key) return;
-    const normalizedKey = String(bind.key).toLowerCase();
-    if (normalizedKey === 'middle' || normalizedKey.startsWith('mouse') || normalizedKey.startsWith('gamepad')) {
-      return;
-    }
-    if (isInputFallbackKeybind(normalizedKey)) {
+    if (!canRegisterGlobalShortcutKey(bind.key)) {
       return;
     }
     try {

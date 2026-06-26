@@ -1044,7 +1044,6 @@
                         onCancel={() => { delete systemActionConflictWarnings[globalIndex]; }}
                       />
                       {#if keyBind.key.startsWith('Mouse') || keyBind.key.startsWith('Gamepad')}
-                        <p class="mt-1 text-xs text-muted-foreground">Fires only when neuzOS window has focus</p>
                       {/if}
                     </div>
                   </div>

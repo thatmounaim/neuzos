@@ -452,6 +452,7 @@
     };
 
     const dispatchRendererBind = (bind: { key: string; event: string; args?: string[] }) => {
+      if (!shortcutsEnabled && bind.event !== 'toggle_keybinds') return;
       neuzosBridge.keybinds.dispatch(bind);
     };
 
@@ -472,7 +473,7 @@
       if (!key) return;
 
       const bind = getAllKeybinds().find(candidate => candidate.key?.toLowerCase() === key);
-      if (!bind || (!shortcutsEnabled && bind.event !== 'toggle_keybinds')) return;
+      if (!bind) return;
 
       dispatchRendererBind(bind);
     };
