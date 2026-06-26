@@ -49,8 +49,27 @@
   let shortcutsEnabled = $state(true);
   let collapsedSessionGroupIds: Record<string, boolean> = $state({});
   let hasVisibleActionPins = $state(false);
+  const collapsedSessionGroupsStorageKey = 'neuzos.mainbar.sessionPopup.collapsedGroups';
+
+  function loadCollapsedSessionGroups() {
+    try {
+      const stored = localStorage.getItem(collapsedSessionGroupsStorageKey);
+      if (!stored) return;
+      const parsed = JSON.parse(stored);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        collapsedSessionGroupIds = parsed;
+      }
+    } catch {
+      collapsedSessionGroupIds = {};
+    }
+  }
+
+  function saveCollapsedSessionGroups() {
+    localStorage.setItem(collapsedSessionGroupsStorageKey, JSON.stringify(collapsedSessionGroupIds));
+  }
 
   onMount(async () => {
+    loadCollapsedSessionGroups();
     try {
       const state = await electronApi.invoke("shortcuts.get_state");
       shortcutsEnabled = state.mainWindow;
@@ -238,6 +257,7 @@
 
   function toggleSessionGroupCollapsed(groupId: string) {
     collapsedSessionGroupIds[groupId] = !isSessionGroupCollapsed(groupId);
+    saveCollapsedSessionGroups();
   }
 
 </script>
@@ -358,7 +378,7 @@
                 <div class="space-y-2">
                   {#if getSessionGroups().length > 0}
                     <div class="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                      <span class="font-semibold text-foreground">Ungrouped</span>
+                      <span class="font-semibold text-foreground">Sessions</span>
                       <span>{getUngroupedSessions().length}</span>
                     </div>
                   {/if}

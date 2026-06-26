@@ -20,7 +20,7 @@
   import * as Table from '$lib/components/ui/table'
   import * as AlertDialog from '$lib/components/ui/alert-dialog'
   import type {NeuzConfig, NeuzSession, NeuzSessionGroup} from "$lib/types";
-  import {getContext} from "svelte";
+  import {getContext, onMount} from "svelte";
   import {Button} from "$lib/components/ui/button";
   import {Switch} from "$lib/components/ui/switch";
   import {neuzosBridge} from "$lib/core";
@@ -54,6 +54,7 @@
 
   const neuzosConfig = getContext<NeuzConfig>('neuzosConfig')
   const defaultLaunchUrl = 'https://universe.flyff.com/play'
+  const collapsedGroupsStorageKey = 'neuzos.sessionSettings.collapsedGroups'
 
   const clearCache = (sessionId: string) => {
     neuzosBridge.sessions.clearCache(sessionId)
@@ -281,6 +282,27 @@
   let groupLabelDraft = $state('')
   let groupLabelBackup = $state('')
 
+  const loadCollapsedGroups = () => {
+    try {
+      const stored = localStorage.getItem(collapsedGroupsStorageKey)
+      if (!stored) return
+      const parsed = JSON.parse(stored)
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        collapsedGroupIds = parsed
+      }
+    } catch {
+      collapsedGroupIds = {}
+    }
+  }
+
+  const saveCollapsedGroups = () => {
+    localStorage.setItem(collapsedGroupsStorageKey, JSON.stringify(collapsedGroupIds))
+  }
+
+  onMount(() => {
+    loadCollapsedGroups()
+  })
+
   const startEditingGroup = (group: NeuzSessionGroup) => {
     editingGroupId = group.id
     groupLabelDraft = group.label
@@ -309,6 +331,7 @@
 
   const toggleGroupCollapsed = (groupId: string) => {
     collapsedGroupIds[groupId] = !isGroupCollapsed(groupId)
+    saveCollapsedGroups()
   }
 
   const openDeleteSessionModal = async (sessionId: string, sessionLabel: string) => {
