@@ -543,6 +543,7 @@
                   </ContextMenu.Item>
                   <ContextMenu.Separator/>
                   <ContextMenu.Item
+                    onSelect={(event) => event.preventDefault()}
                     onclick={() => setSessionZoom(sessionId, getSessionZoom(sessionId) + 0.05)}
                     disabled={getSessionZoom(sessionId) >= 1.5}>
                     <div class="flex items-center gap-2">
@@ -551,6 +552,7 @@
                     </div>
                   </ContextMenu.Item>
                   <ContextMenu.Item
+                    onSelect={(event) => event.preventDefault()}
                     onclick={() => setSessionZoom(sessionId, getSessionZoom(sessionId) - 0.05)}
                     disabled={getSessionZoom(sessionId) <= 0.5}>
                     <div class="flex items-center gap-2">
@@ -559,6 +561,7 @@
                     </div>
                   </ContextMenu.Item>
                   <ContextMenu.Item
+                    onSelect={(event) => event.preventDefault()}
                     onclick={() => setSessionZoom(sessionId, 1.0)}
                     disabled={getSessionZoom(sessionId) === 1.0}>
                     <div class="flex items-center gap-2">
