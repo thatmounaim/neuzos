@@ -8,7 +8,8 @@
     Plus,
     Trash,
     Globe,
-    PersonStanding
+    PersonStanding,
+    Users
   } from '@lucide/svelte'
 
   import {Input} from '$lib/components/ui/input'
@@ -57,6 +58,8 @@
   }
 
   const clampZoom = (value: number) => Math.min(1.5, Math.max(0.5, Math.round(value * 20) / 20))
+
+  const formatSessionCount = (count: number) => `${count} ${count === 1 ? 'Session' : 'Sessions'}`
 
   const defaultGroupLabel = 'New Group'
 
@@ -453,6 +456,41 @@
         }}
       />
     </Table.Cell>
+    <Table.Cell class="w-[90px]">
+      {@const groupLabel = currentGroupId
+        ? (ensureSessionGroups().find(g => g.id === currentGroupId)?.label ?? 'Unknown')
+        : 'Ungrouped'}
+      {@const isGroupOpen = groupPopoverStates[session.id] ?? false}
+      <Tooltip.Provider>
+        <Tooltip.Root>
+          <Popover.Root open={isGroupOpen} onOpenChange={(open) => { groupPopoverStates[session.id] = open; }}>
+            <Tooltip.Trigger>
+              <Popover.Trigger class="h-9 w-9 inline-flex items-center justify-center rounded-md border border-input bg-background text-sm shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring {currentGroupId ? 'border-primary/50 text-primary' : ''}">
+                <Users class="h-4 w-4"/>
+              </Popover.Trigger>
+            </Tooltip.Trigger>
+            <Popover.Content class="w-[220px] p-1" align="start">
+              <button
+                class="w-full text-left px-2 py-1.5 text-sm rounded-sm hover:bg-accent hover:text-accent-foreground {!currentGroupId ? 'font-semibold' : ''}"
+                onclick={() => { assignSessionToGroup(session.id, null); groupPopoverStates[session.id] = false; }}
+              >
+                Ungrouped
+              </button>
+              <div class="my-1 h-px bg-border"></div>
+              {#each ensureSessionGroups() as group}
+                <button
+                  class="w-full text-left px-2 py-1.5 text-sm rounded-sm hover:bg-accent hover:text-accent-foreground {currentGroupId === group.id ? 'font-semibold' : ''}"
+                  onclick={() => { assignSessionToGroup(session.id, group.id); groupPopoverStates[session.id] = false; }}
+                >
+                  {group.label}
+                </button>
+              {/each}
+            </Popover.Content>
+          </Popover.Root>
+          <Tooltip.Content>{groupLabel}</Tooltip.Content>
+        </Tooltip.Root>
+      </Tooltip.Provider>
+    </Table.Cell>
     <Table.Cell>
       <div class="flex items-center justify-center">
         <Switch
@@ -533,34 +571,6 @@
           }}
         />
       </div>
-    </Table.Cell>
-    <Table.Cell class="w-[220px]">
-      {@const groupLabel = currentGroupId
-        ? (ensureSessionGroups().find(g => g.id === currentGroupId)?.label ?? 'Unknown')
-        : 'Unassigned'}
-      {@const isGroupOpen = groupPopoverStates[session.id] ?? false}
-      <Popover.Root open={isGroupOpen} onOpenChange={(open) => { groupPopoverStates[session.id] = open; }}>
-        <Popover.Trigger class="h-9 w-full inline-flex items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <span class="truncate">{groupLabel}</span>
-          <ChevronDown class="ml-2 h-4 w-4 shrink-0 opacity-50"/>
-        </Popover.Trigger>
-        <Popover.Content class="w-[220px] p-1" align="start">
-          <button
-            class="w-full text-left px-2 py-1.5 text-sm rounded-sm hover:bg-accent hover:text-accent-foreground {!currentGroupId ? 'font-semibold' : ''}"
-            onclick={() => { assignSessionToGroup(session.id, null); groupPopoverStates[session.id] = false; }}
-          >
-            Unassigned
-          </button>
-          {#each ensureSessionGroups() as group}
-            <button
-              class="w-full text-left px-2 py-1.5 text-sm rounded-sm hover:bg-accent hover:text-accent-foreground {currentGroupId === group.id ? 'font-semibold' : ''}"
-              onclick={() => { assignSessionToGroup(session.id, group.id); groupPopoverStates[session.id] = false; }}
-            >
-              {group.label}
-            </button>
-          {/each}
-        </Popover.Content>
-      </Popover.Root>
     </Table.Cell>
     <Table.Cell class="text-xs">{session.id}</Table.Cell>
     <Table.Cell>
@@ -670,9 +680,7 @@
       Manage Sessions
     </Card.Title>
     <Card.Description>
-      Configure your Flyff Universe sessions below. You can add, edit, reorder, and delete sessions as needed.<br>
-      You can overwrite the launch URL for each session to point to different website.<br>
-      Overwritten URLs for web use cases can be set to use a browser partition to avoid heavy storage usage.
+      Configure your Flyff Universe Sessions below. You can Add, Edit, Reorder, and Delete Sessions.
     </Card.Description>
   </Card.Header>
   <Card.Content class="flex flex-col gap-4">
@@ -709,7 +717,7 @@
               {/if}
             </div>
             <div class="flex items-center gap-2">
-              <span class="text-xs text-muted-foreground">{groupSessions.length} session(s)</span>
+              <span class="text-xs text-muted-foreground">{formatSessionCount(groupSessions.length)}</span>
               <Button variant="outline" size="icon-xs" onclick={() => moveGroup(group.id, -1)} disabled={gidx <= 0}>
                 <ChevronUp class="h-4 w-4"></ChevronUp>
               </Button>
@@ -730,6 +738,7 @@
                     <Table.Head class=""></Table.Head>
                     <Table.Head class="w-[100px]">Icon</Table.Head>
                     <Table.Head class="w-1/2">Label</Table.Head>
+                    <Table.Head class="w-[90px] text-center">Group</Table.Head>
                     <Table.Head class="w-[110px] text-center">Floatable</Table.Head>
                     <Table.Head class="w-[300px]">Zoom</Table.Head>
                     <Table.Head class="w-1/2">Launch URL Overwrite</Table.Head>
@@ -739,11 +748,10 @@
                           <Tooltip.Trigger>
                             <span class="inline-flex cursor-help items-center justify-center">Auto-Delete Cache</span>
                           </Tooltip.Trigger>
-                          <Tooltip.Content>Automatically clear this session's cache when it stops.</Tooltip.Content>
+                          <Tooltip.Content>Automatically Clear this Session's Cache, when the Session Stops and on every Startup of NeuzOS.</Tooltip.Content>
                         </Tooltip.Root>
                       </Tooltip.Provider>
                     </Table.Head>
-                    <Table.Head class="w-[220px]">Group</Table.Head>
                     <Table.Head>Session ID</Table.Head>
                     <Table.Head>Actions</Table.Head>
                   </Table.Row>
@@ -762,9 +770,9 @@
       <Card.Root class="overflow-hidden gap-0 border-border/70">
         <div class="flex items-center justify-between gap-3 border-b border-border px-3 py-2">
           <div class="flex min-w-0 items-center gap-2">
-            <span class="truncate text-sm font-semibold">Ungrouped</span>
+            <span class="truncate text-sm font-semibold">Sessions</span>
           </div>
-          <span class="text-xs text-muted-foreground">{ungroupedSessions.length} session(s)</span>
+          <span class="text-xs text-muted-foreground">{formatSessionCount(ungroupedSessions.length)}</span>
         </div>
 
         <Card.Content class="p-0">
@@ -777,6 +785,7 @@
                   <Table.Head class=""></Table.Head>
                   <Table.Head class="w-[100px]">Icon</Table.Head>
                   <Table.Head class="w-1/2">Label</Table.Head>
+                  <Table.Head class="w-[90px] text-center">Group</Table.Head>
                   <Table.Head class="w-[110px] text-center">Floatable</Table.Head>
                   <Table.Head class="w-[300px]">Zoom</Table.Head>
                   <Table.Head class="w-1/2">Launch URL Overwrite</Table.Head>
@@ -786,11 +795,10 @@
                         <Tooltip.Trigger>
                           <span class="inline-flex cursor-help items-center justify-center">Auto-Delete Cache</span>
                         </Tooltip.Trigger>
-                        <Tooltip.Content>Automatically clear this session's cache when it stops.</Tooltip.Content>
+                        <Tooltip.Content>Automatically Clear this Session's Cache, when the Session Stops and on every Startup of NeuzOS.</Tooltip.Content>
                       </Tooltip.Root>
                     </Tooltip.Provider>
                   </Table.Head>
-                  <Table.Head class="w-[220px]">Group</Table.Head>
                   <Table.Head>Session ID</Table.Head>
                   <Table.Head>Actions</Table.Head>
                 </Table.Row>
