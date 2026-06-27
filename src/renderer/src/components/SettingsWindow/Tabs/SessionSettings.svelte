@@ -7,6 +7,8 @@
     Copy,
     FilePen,
     FileX,
+    ArrowDownUp,
+    GripVertical,
     Plus,
     Trash,
     RotateCw,
@@ -55,6 +57,7 @@
   const neuzosConfig = getContext<NeuzConfig>('neuzosConfig')
   const defaultLaunchUrl = 'https://universe.flyff.com/play'
   const collapsedGroupsStorageKey = 'neuzos.sessionSettings.collapsedGroups'
+  const sessionSortModeStorageKey = 'neuzos.sessionSettings.sortMode'
   const ungroupedGroupId = 'ungrouped'
 
   const clearCache = (sessionId: string) => {
@@ -256,21 +259,22 @@
 
   const moveSessionInSection = (groupId: string | null, sessionId: string, direction: -1 | 1) => {
     if (groupId) {
-      const group = ensureSessionGroups().find((entry) => entry.id === groupId)
+      const groups = ensureSessionGroups()
+      const group = groups.find((entry) => entry.id === groupId)
       if (!group || isUngroupedGroup(group)) {
         return
       }
 
-      const groupSessionIds = group.sessionIds ?? []
+      const groupSessionIds = [...(group.sessionIds ?? [])]
       const currentIndex = groupSessionIds.indexOf(sessionId)
       const nextIndex = currentIndex + direction
       if (currentIndex < 0 || nextIndex < 0 || nextIndex >= groupSessionIds.length) {
         return
       }
 
-      const nextSessionIds = [...groupSessionIds]
-      ;[nextSessionIds[currentIndex], nextSessionIds[nextIndex]] = [nextSessionIds[nextIndex], nextSessionIds[currentIndex]]
-      group.sessionIds = nextSessionIds
+      ;[groupSessionIds[currentIndex], groupSessionIds[nextIndex]] = [groupSessionIds[nextIndex], groupSessionIds[currentIndex]]
+      group.sessionIds = groupSessionIds
+      neuzosConfig.sessionGroups = [...groups]
       return
     }
 
@@ -305,6 +309,115 @@
       .filter((session): session is NeuzSession => session !== undefined)
   }
 
+  let draggedSession: { sessionId: string; groupId: string | null } | null = $state(null)
+  let sessionDropTarget: { groupId: string | null; index: number } | null = $state(null)
+
+  const isSameSessionSection = (left: string | null, right: string | null) => left === right
+
+  const reorderSessionInSection = (groupId: string | null, sessionId: string, targetIndex: number) => {
+    if (groupId) {
+      const groups = ensureSessionGroups()
+      const group = groups.find((entry) => entry.id === groupId)
+      if (!group || isUngroupedGroup(group)) {
+        return
+      }
+
+      const groupSessionIds = [...(group.sessionIds ?? [])]
+      const currentIndex = groupSessionIds.indexOf(sessionId)
+      if (currentIndex < 0) {
+        return
+      }
+
+      const [movedSessionId] = groupSessionIds.splice(currentIndex, 1)
+      const nextIndex = Math.max(0, Math.min(targetIndex > currentIndex ? targetIndex - 1 : targetIndex, groupSessionIds.length))
+      groupSessionIds.splice(nextIndex, 0, movedSessionId)
+      group.sessionIds = groupSessionIds
+      neuzosConfig.sessionGroups = [...groups]
+      return
+    }
+
+    const groupedSessionIds = new Set(ensureSessionGroups().flatMap((group) => isUngroupedGroup(group) ? [] : (group.sessionIds ?? [])))
+    const ungroupedSessionIds = neuzosConfig.sessions
+      .filter((session) => !groupedSessionIds.has(session.id))
+      .map((session) => session.id)
+    const currentIndex = ungroupedSessionIds.indexOf(sessionId)
+    if (currentIndex < 0) {
+      return
+    }
+
+    const [movedSessionId] = ungroupedSessionIds.splice(currentIndex, 1)
+    const nextIndex = Math.max(0, Math.min(targetIndex > currentIndex ? targetIndex - 1 : targetIndex, ungroupedSessionIds.length))
+    ungroupedSessionIds.splice(nextIndex, 0, movedSessionId)
+
+    const ungroupedSessionMap = new Map(neuzosConfig.sessions.map((session) => [session.id, session]))
+    const reorderedUngroupedSessions = ungroupedSessionIds
+      .map((id) => ungroupedSessionMap.get(id))
+      .filter((session): session is NeuzSession => session !== undefined)
+    let ungroupedIndex = 0
+    neuzosConfig.sessions = neuzosConfig.sessions.map((session) => {
+      if (groupedSessionIds.has(session.id)) {
+        return session
+      }
+      return reorderedUngroupedSessions[ungroupedIndex++] ?? session
+    })
+  }
+
+  const handleSessionDragStart = (event: DragEvent, groupId: string | null, sessionId: string) => {
+    if (!useDragSessionSorting) {
+      event.preventDefault()
+      return
+    }
+    draggedSession = { sessionId, groupId }
+    event.dataTransfer?.setData('text/plain', sessionId)
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move'
+    }
+  }
+
+  const handleSessionDragOver = (event: DragEvent, groupId: string | null, index: number) => {
+    if (!useDragSessionSorting || !draggedSession || !isSameSessionSection(draggedSession.groupId, groupId)) {
+      return
+    }
+    event.preventDefault()
+    scrollSessionSettingsNearEdge(event)
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'move'
+    }
+    sessionDropTarget = { groupId, index }
+  }
+
+  const getSessionRowDropIndex = (event: DragEvent, sessionIndex: number) => {
+    const row = event.currentTarget as HTMLElement
+    const rect = row.getBoundingClientRect()
+    return event.clientY > rect.top + rect.height / 2 ? sessionIndex + 1 : sessionIndex
+  }
+
+  const handleSessionRowDragOver = (event: DragEvent, groupId: string | null, sessionIndex: number) => {
+    handleSessionDragOver(event, groupId, getSessionRowDropIndex(event, sessionIndex))
+  }
+
+  const handleSessionRowDrop = (event: DragEvent, groupId: string | null, sessionIndex: number) => {
+    handleSessionDrop(event, groupId, getSessionRowDropIndex(event, sessionIndex))
+  }
+
+  const handleSessionDrop = (event: DragEvent, groupId: string | null, index: number) => {
+    event.preventDefault()
+    if (draggedSession && isSameSessionSection(draggedSession.groupId, groupId)) {
+      reorderSessionInSection(groupId, draggedSession.sessionId, index)
+    }
+    draggedSession = null
+    sessionDropTarget = null
+  }
+
+  const handleSessionDragEnd = () => {
+    draggedSession = null
+    sessionDropTarget = null
+  }
+
+  const isSessionDropTarget = (groupId: string | null, index: number) => {
+    return sessionDropTarget?.index === index && isSameSessionSection(sessionDropTarget.groupId, groupId)
+  }
+
   let clearCacheOpenModal: string | null = $state(null)
   let launchUrlOverwriteModal: string | null = $state(null)
   let launchUrlDraft = $state('')
@@ -314,6 +427,8 @@
   let deletingSessionId: string | null = $state(null)
   let editingGroupId: string | null = $state(null)
   let collapsedGroupIds: Record<string, boolean> = $state({})
+  let sessionSettingsScrollContainer: HTMLElement | null = $state(null)
+  let useDragSessionSorting = $state(false)
   let groupLabelDraft = $state('')
   let groupLabelBackup = $state('')
 
@@ -334,8 +449,36 @@
     localStorage.setItem(collapsedGroupsStorageKey, JSON.stringify(collapsedGroupIds))
   }
 
+  const loadSessionSortMode = () => {
+    useDragSessionSorting = localStorage.getItem(sessionSortModeStorageKey) === 'drag'
+  }
+
+  const toggleSessionSortMode = () => {
+    useDragSessionSorting = !useDragSessionSorting
+    draggedSession = null
+    sessionDropTarget = null
+    localStorage.setItem(sessionSortModeStorageKey, useDragSessionSorting ? 'drag' : 'buttons')
+  }
+
+  const scrollSessionSettingsNearEdge = (event: DragEvent) => {
+    if (!sessionSettingsScrollContainer) {
+      return
+    }
+
+    const rect = sessionSettingsScrollContainer.getBoundingClientRect()
+    const edgeSize = 36
+    const scrollStep = 5
+
+    if (event.clientY < rect.top + edgeSize) {
+      sessionSettingsScrollContainer.scrollTop -= scrollStep
+    } else if (event.clientY > rect.bottom - edgeSize) {
+      sessionSettingsScrollContainer.scrollTop += scrollStep
+    }
+  }
+
   onMount(() => {
     loadCollapsedGroups()
+    loadSessionSortMode()
   })
 
   const startEditingGroup = (group: NeuzSessionGroup) => {
@@ -467,28 +610,61 @@
   let zoomPopoverStates: { [sessionId: string]: boolean } = $state({});
 </script>
 
+{#snippet sessionDropZone(groupId, index)}
+  {@const active = isSessionDropTarget(groupId, index)}
+  {#if useDragSessionSorting}
+    <Table.Row class="border-b-0 hover:[&,&>svelte-css-wrapper]:[&>th,td]:bg-transparent">
+      <Table.Cell
+        colspan={10}
+        class={`p-0 transition-[height] duration-150 ${active ? 'h-10' : 'h-1'}`}
+        ondragover={(event) => handleSessionDragOver(event, groupId, index)}
+        ondrop={(event) => handleSessionDrop(event, groupId, index)}
+      >
+        <div class={`mx-2 rounded-md transition-all duration-150 ${active ? 'h-8 border border-dashed border-primary/70 bg-primary/10 shadow-sm' : 'h-1 bg-transparent'}`}></div>
+      </Table.Cell>
+    </Table.Row>
+  {/if}
+{/snippet}
+
 {#snippet sessionRow(session, sessionIndex, sectionLength, groupId)}
   {@const currentGroupId = getSessionGroupId(session.id)}
-  <Table.Row>
+  <Table.Row
+    class={useDragSessionSorting && draggedSession?.sessionId === session.id ? 'opacity-50' : ''}
+    ondragover={(event) => handleSessionRowDragOver(event, groupId, sessionIndex)}
+    ondrop={(event) => handleSessionRowDrop(event, groupId, sessionIndex)}
+  >
     <Table.Cell class="w-[48px]">
-      <div class="flex flex-col gap-0.5">
-        <Button
-          onclick={() => moveSessionInSection(groupId, session.id, -1)}
-          disabled={sessionIndex <= 0}
-          variant="outline"
-          size="icon-xs"
+      {#if useDragSessionSorting}
+        <button
+          type="button"
+          draggable="true"
+          class="inline-flex h-8 w-8 cursor-grab items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:cursor-grabbing"
+          ondragstart={(event) => handleSessionDragStart(event, groupId, session.id)}
+          ondragend={handleSessionDragEnd}
+          aria-label="Drag session to reorder"
         >
-          <ChevronUp class="h-4 w-4"></ChevronUp>
-        </Button>
-        <Button
-          onclick={() => moveSessionInSection(groupId, session.id, 1)}
-          disabled={sessionIndex >= sectionLength - 1}
-          variant="outline"
-          size="icon-xs"
-        >
-          <ChevronDown class="h-4 w-4"></ChevronDown>
-        </Button>
-      </div>
+          <GripVertical class="h-4 w-4"></GripVertical>
+        </button>
+      {:else}
+        <div class="flex flex-col gap-0.5">
+          <Button
+            onclick={() => moveSessionInSection(groupId, session.id, -1)}
+            disabled={sessionIndex <= 0}
+            variant="outline"
+            size="icon-xs"
+          >
+            <ChevronUp class="h-4 w-4"></ChevronUp>
+          </Button>
+          <Button
+            onclick={() => moveSessionInSection(groupId, session.id, 1)}
+            disabled={sessionIndex >= sectionLength - 1}
+            variant="outline"
+            size="icon-xs"
+          >
+            <ChevronDown class="h-4 w-4"></ChevronDown>
+          </Button>
+        </div>
+      {/if}
     </Table.Cell>
     <Table.Cell class="w-[72px]">
       {@const isOpen = iconPopoverStates[session.id] ?? false}
@@ -787,11 +963,27 @@
     </Table.Cell>
   </Table.Row>
 {/snippet}
-<Card.Root class="h-full  overflow-y-auto">
+<Card.Root bind:ref={sessionSettingsScrollContainer} class="h-full overflow-y-auto">
   <Card.Header>
-    <Card.Title class="text-lg font-semibold">
-      Manage Sessions
-    </Card.Title>
+    <div class="flex items-center justify-between gap-3">
+      <Card.Title class="text-lg font-semibold">
+        Manage Sessions
+      </Card.Title>
+      <Tooltip.Provider>
+        <Tooltip.Root>
+          <Tooltip.Trigger>
+            <Button variant="outline" size="icon-sm" onclick={toggleSessionSortMode}>
+              {#if useDragSessionSorting}
+                <GripVertical class="h-4 w-4"></GripVertical>
+              {:else}
+                <ArrowDownUp class="h-4 w-4"></ArrowDownUp>
+              {/if}
+            </Button>
+          </Tooltip.Trigger>
+          <Tooltip.Content>{useDragSessionSorting ? 'Drag & Drop Sorting' : 'Arrow Sorting'}</Tooltip.Content>
+        </Tooltip.Root>
+      </Tooltip.Provider>
+    </div>
     <Card.Description>
       Configure your Flyff Universe Sessions below. You can Add, Edit, Reorder, and Delete Sessions.
     </Card.Description>
@@ -907,8 +1099,10 @@
                   </Table.Header>
                   <Table.Body>
                     {#each groupSessions as session, sidx (session.id)}
+                      {@render sessionDropZone(isUngroupedGroup(group) ? null : group.id, sidx)}
                       {@render sessionRow(session, sidx, groupSessions.length, isUngroupedGroup(group) ? null : group.id)}
                     {/each}
+                    {@render sessionDropZone(isUngroupedGroup(group) ? null : group.id, groupSessions.length)}
                   </Table.Body>
                 </Table.Root>
               {/if}
