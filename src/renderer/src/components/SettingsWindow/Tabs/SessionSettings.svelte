@@ -843,7 +843,7 @@
               <AlertDialog.Header>
                 <AlertDialog.Title>Overwrite {session.label} Session's Launch URL</AlertDialog.Title>
                 <AlertDialog.Description>
-                  This Action will overwrite the default Launch URL from this Session.
+                  This Action will overwrite the Default Launch URL from this Session.
                 </AlertDialog.Description>
               </AlertDialog.Header>
               <div class="flex items-center gap-2 py-2">
@@ -876,16 +876,15 @@
                   </Button>
                 </AlertDialog.Trigger>
               </Tooltip.Trigger>
-              <Tooltip.Content>Clear cache</Tooltip.Content>
+              <Tooltip.Content>Clear Cache</Tooltip.Content>
             </Tooltip.Root>
             <AlertDialog.Content>
               <AlertDialog.Header>
-                <AlertDialog.Title>Clear "{session.label}" session's cache.</AlertDialog.Title>
+                <AlertDialog.Title>Clear "{session.label}" Session's Cache.</AlertDialog.Title>
                 <AlertDialog.Description>
-                  This action will clear the cache for <b>"{session.label}"</b> even without
-                  saving your changes later on.<br/>
+                  This Action will clear the Cache for <b>"{session.label}"</b>.<br/>
 
-                  Your session data will still be saved
+                  Your Session Data will still be saved.
                 </AlertDialog.Description>
               </AlertDialog.Header>
               <AlertDialog.Footer>
@@ -910,7 +909,7 @@
                 <Copy class="h-4 w-4"/>
               </Button>
             </Tooltip.Trigger>
-            <Tooltip.Content>Clone session</Tooltip.Content>
+            <Tooltip.Content>Clone Session</Tooltip.Content>
           </Tooltip.Root>
           <AlertDialog.Root open={deleteSessionModal?.sessionId === session.id} onOpenChange={(open) => {
             if (!open) {
@@ -929,21 +928,21 @@
                   <Trash class="h-4 w-4"/>
                 </Button>
               </Tooltip.Trigger>
-              <Tooltip.Content>Delete session</Tooltip.Content>
+              <Tooltip.Content>Delete Session</Tooltip.Content>
             </Tooltip.Root>
             <AlertDialog.Content>
               <AlertDialog.Header>
                 <AlertDialog.Title>
                   {#if deleteSessionModal?.isRunning}
-                    Stop and delete running session "{session.label}"?
+                    Stop and Delete Running Session "{session.label}"?
                   {:else}
-                    Delete session "{session.label}"?
+                    Delete Session "{session.label}"?
                   {/if}
                 </AlertDialog.Title>
                 <AlertDialog.Description>
-                  This will <b>permanently delete</b> all data for <b>"{session.label}"</b>.<br/><br/>
+                  This will <b>permanently delete</b> all Data for <b>"{session.label}"</b>.<br/><br/>
                   {#if deleteSessionModal?.isRunning}
-                    This session is currently running. NeuzOS will stop it before deletion proceeds.<br/><br/>
+                    This Session is currently running. NeuzOS will stop it before deletion proceeds.<br/><br/>
                   {/if}
                   This cannot be undone.
                 </AlertDialog.Description>
@@ -1066,11 +1065,11 @@
           </div>
 
           {#if !isGroupCollapsed(group.id)}
-            <div class="border-b border-border mt-0.5"></div>
+            <div class="border-b border-border mt-2"></div>
             <Card.Content class="p-0">
               {#if groupSessions.length === 0}
                 <div class="px-3 py-3 text-sm text-muted-foreground">
-                  {isUngroupedGroup(group) ? 'No ungrouped sessions.' : 'No Sessions in this Group.'}
+                  {isUngroupedGroup(group) ? 'No Ungrouped Sessions.' : 'No Sessions in this Group.'}
                 </div>
               {:else}
                 <Table.Root>
@@ -1135,9 +1134,9 @@
         </AlertDialog.Trigger>
         <AlertDialog.Content class="max-h-[85vh] overflow-hidden">
           <AlertDialog.Header>
-            <AlertDialog.Title>Clear all sessions' cache?</AlertDialog.Title>
+            <AlertDialog.Title>Clear All Sessions' Cache?</AlertDialog.Title>
             <AlertDialog.Description>
-              This action will clear the cache for all sessions even without saving your changes later on.<br/><br/>
+              This Action will clear the Cache for all Sessions.<br/><br/>
               <strong>Sessions that will be affected:</strong>
               <div class="mt-2 max-h-[40vh] overflow-y-auto rounded-md border border-border/60 bg-muted/20 p-2">
                 <ul class="space-y-1 list-disc list-inside">
@@ -1150,7 +1149,7 @@
                 </ul>
               </div>
               <br/>
-              Your session data will still be saved.
+              Your Session Data will still be saved.
             </AlertDialog.Description>
           </AlertDialog.Header>
           <AlertDialog.Footer>
