@@ -5,7 +5,7 @@
   import * as Card from "$lib/components/ui/card";
   import {Button} from "$lib/components/ui/button";
   import type {NeuzSession, NeuzSessionGroup} from "$lib/types";
-  import {ChevronDown, Minus, Settings2, X} from "@lucide/svelte";
+  import {ChevronDown, ChevronUp, Minus, Settings2, X} from "@lucide/svelte";
   import {Separator} from "$lib/components/ui/separator";
   import {setElectronContext, getElectronContext} from "$lib/contexts/electronContext";
   import {setNeuzosBridgeContext} from "$lib/contexts/neuzosBridgeContext";
@@ -15,6 +15,7 @@
   let groups: NeuzSessionGroup[] = $state([]);
   let collapsedGroupIds: Record<string, boolean> = $state({});
   const collapsedGroupsStorageKey = 'neuzos.sessionLauncher.collapsedGroups';
+  const ungroupedGroupId = 'ungrouped';
 
   setElectronContext(window.electron.ipcRenderer);
   setNeuzosBridgeContext(neuzosBridge);
@@ -101,7 +102,14 @@
     saveCollapsedGroups();
   }
 
+  function isUngroupedGroup(group: NeuzSessionGroup): boolean {
+    return group.id === ungroupedGroupId || group.type === 'ungrouped';
+  }
+
   function getGroupSessions(group: NeuzSessionGroup): NeuzSession[] {
+    if (isUngroupedGroup(group)) {
+      return [];
+    }
     const sessionMap = new Map(sessions.map((session) => [session.id, session]));
     const sessionIds = Array.isArray(group.sessionIds) ? group.sessionIds : [];
     return sessionIds
@@ -110,11 +118,17 @@
   }
 
   function getUngroupedSessions(): NeuzSession[] {
-    const groupedSessionIds = new Set(groups.flatMap((group) => Array.isArray(group.sessionIds) ? group.sessionIds : []));
+    const groupedSessionIds = new Set(groups.flatMap((group) => isUngroupedGroup(group) ? [] : (Array.isArray(group.sessionIds) ? group.sessionIds : [])));
     return sessions.filter((session) => !groupedSessionIds.has(session.id));
   }
 
   const ungroupedSessions = $derived.by(() => getUngroupedSessions())
+
+  const orderedSessionSections = $derived.by(() => {
+    return groups.some((group) => isUngroupedGroup(group))
+      ? groups
+      : [...groups, { id: ungroupedGroupId, type: 'ungrouped' as const }];
+  })
 
   const formatSessionCount = (count: number) => `${count} ${count === 1 ? 'Session' : 'Sessions'}`
 
@@ -131,7 +145,6 @@
         <span>{session.label}</span>
         <span class="text-xs font-normal text-muted-foreground">({session.id})</span>
       </Card.Title>
-      <Card.Description class="text-xs truncate">{session.srcOverwrite ?? 'https://universe.flyff.com/play'}</Card.Description>
     </Card.Header>
     <Card.Content class="p-0">
       <div class="flex gap-1.5">
@@ -220,55 +233,42 @@
         </div>
       {:else}
         <div class="flex flex-col gap-3">
-          {#each groups as group (group.id)}
-            {@const groupSessions = getGroupSessions(group)}
-            <Card.Root class="overflow-hidden gap-0 border-border/70">
-              <button
-                type="button"
-                class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left transition-colors hover:bg-muted/60"
-                onclick={() => toggleGroupCollapsed(group.id)}
-              >
-                <div class="flex min-w-0 items-center gap-2">
-                  <ChevronDown class={`size-4 shrink-0 transition-transform ${isGroupCollapsed(group.id) ? 'rotate-180' : ''}`} />
-                  <span class="truncate font-semibold">{group.label}</span>
-                </div>
-                <span class="shrink-0 text-xs text-muted-foreground">{formatSessionCount(groupSessions.length)}</span>
-              </button>
+          {#each orderedSessionSections as group (group.id)}
+            {@const groupSessions = isUngroupedGroup(group) ? ungroupedSessions : getGroupSessions(group)}
+            {#if !isUngroupedGroup(group) || groupSessions.length > 0}
+              <Card.Root class="overflow-hidden gap-0 border-border/70">
+                <button
+                  type="button"
+                  class="flex h-7 w-full items-center justify-between gap-3 px-2.5 py-0 text-left transition-opacity hover:opacity-80"
+                  onclick={() => toggleGroupCollapsed(group.id)}
+                >
+                  <div class="flex min-w-0 items-center gap-1.5">
+                    {#if isGroupCollapsed(group.id)}
+                      <ChevronDown class="size-4 shrink-0" />
+                    {:else}
+                      <ChevronUp class="size-4 shrink-0" />
+                    {/if}
+                    <span class="truncate font-semibold">{isUngroupedGroup(group) ? 'Sessions' : (group.label ?? 'New Group')}</span>
+                  </div>
+                  <span class="inline-flex h-6 shrink-0 items-center text-xs leading-none text-muted-foreground">{formatSessionCount(groupSessions.length)}</span>
+                </button>
 
-              {#if !isGroupCollapsed(group.id)}
-                <Card.Content class="p-3 pt-0">
-                  {#if groupSessions.length === 0}
-                    <p class="text-sm text-muted-foreground">No sessions in this group.</p>
-                  {:else}
-                    <div class="grid gap-2">
-                      {#each groupSessions as session (session.id)}
-                        {@render sessionTile(session)}
-                      {/each}
-                    </div>
-                  {/if}
-                </Card.Content>
-              {/if}
-            </Card.Root>
+                {#if !isGroupCollapsed(group.id)}
+                  <Card.Content class="p-3 pt-1">
+                    {#if groupSessions.length === 0}
+                      <p class="text-sm text-muted-foreground">No Sessions in this Group.</p>
+                    {:else}
+                      <div class="grid gap-2">
+                        {#each groupSessions as session (session.id)}
+                          {@render sessionTile(session)}
+                        {/each}
+                      </div>
+                    {/if}
+                  </Card.Content>
+                {/if}
+              </Card.Root>
+            {/if}
           {/each}
-
-          {#if ungroupedSessions.length > 0}
-            <Card.Root class="overflow-hidden gap-0 border-border/70">
-              <div class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left">
-                <div class="flex min-w-0 items-center gap-2">
-                  <span class="truncate font-semibold">Sessions</span>
-                </div>
-                <span class="shrink-0 text-xs text-muted-foreground">{formatSessionCount(ungroupedSessions.length)}</span>
-              </div>
-
-              <Card.Content class="p-3 pt-0">
-                <div class="grid gap-2">
-                  {#each ungroupedSessions as session (session.id)}
-                    {@render sessionTile(session)}
-                  {/each}
-                </div>
-              </Card.Content>
-            </Card.Root>
-          {/if}
         </div>
       {/if}
     </div>

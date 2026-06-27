@@ -17,6 +17,7 @@
     ChevronLeft,
     ChevronRight,
     ChevronDown,
+    ChevronUp,
     RefreshCw,
     Fullscreen,
     Keyboard,
@@ -50,6 +51,7 @@
   let collapsedSessionGroupIds: Record<string, boolean> = $state({});
   let hasVisibleActionPins = $state(false);
   const collapsedSessionGroupsStorageKey = 'neuzos.mainbar.sessionPopup.collapsedGroups';
+  const ungroupedGroupId = 'ungrouped';
 
   function loadCollapsedSessionGroups() {
     try {
@@ -238,7 +240,21 @@
     return mainWindowState.config.sessionGroups ?? [];
   }
 
+  function isUngroupedGroup(group: NeuzSessionGroup): boolean {
+    return group.id === ungroupedGroupId || group.type === 'ungrouped';
+  }
+
+  function getOrderedSessionSections(): NeuzSessionGroup[] {
+    const groups = getSessionGroups();
+    return groups.some((group) => isUngroupedGroup(group))
+      ? groups
+      : [...groups, { id: ungroupedGroupId, type: 'ungrouped' }];
+  }
+
   function getGroupSessions(group: NeuzSessionGroup): NeuzSession[] {
+    if (isUngroupedGroup(group)) {
+      return [];
+    }
     const sessionMap = new Map(getLaunchableSessions().map((session) => [session.id, session]));
     const sessionIds = Array.isArray(group.sessionIds) ? group.sessionIds : [];
     return sessionIds
@@ -247,7 +263,7 @@
   }
 
   function getUngroupedSessions(): NeuzSession[] {
-    const groupedSessionIds = new Set(getSessionGroups().flatMap((group) => Array.isArray(group.sessionIds) ? group.sessionIds : []));
+    const groupedSessionIds = new Set(getSessionGroups().flatMap((group) => isUngroupedGroup(group) ? [] : (Array.isArray(group.sessionIds) ? group.sessionIds : [])));
     return getLaunchableSessions().filter((session) => !groupedSessionIds.has(session.id));
   }
 
@@ -260,16 +276,20 @@
     saveCollapsedSessionGroups();
   }
 
+  function formatSessionCount(count: number): string {
+    return `${count} ${count === 1 ? 'Session' : 'Sessions'}`;
+  }
+
 </script>
 {#snippet sessionLaunchCard(sessionTab)}
-  <Card.Root class="gap-2 pt-2 pb-3">
-    <Card.Header class="py-0">
+  <Card.Root class="p-3 gap-2">
+    <Card.Header class="p-0">
       <div class="flex items-center gap-2">
         <img src={getIconPath(sessionTab)} alt={sessionTab.label} class="w-4 h-4"/>
         <span>{sessionTab.label}</span>
       </div>
     </Card.Header>
-    <Card.Content class="py-0">
+    <Card.Content class="p-0">
       <div class="flex gap-1.5">
         <Button
           variant="outline"
@@ -324,18 +344,20 @@
       <Dialog.Header>
         <Dialog.Title>Chose a Layout / Session</Dialog.Title>
         <Dialog.Description
-        >Select a layout to use or a session to pop in a window
+        >
+          Layout → Add to Main Bar<br />
+          Session → Open in separate Window
         </Dialog.Description
         >
       </Dialog.Header>
-      <div class="flex gap-2 flex-col w-full min-h-[33vh]">
-        <Tabs.Root value="layouts" class="">
+      <div class="flex min-h-0 flex-col gap-2 w-full">
+        <Tabs.Root value="layouts" class="min-h-0">
           <Tabs.List class="grid w-full grid-cols-2">
             <Tabs.Trigger value="layouts">Layouts</Tabs.Trigger>
             <Tabs.Trigger value="sessions">Sessions</Tabs.Trigger>
           </Tabs.List>
-          <Tabs.Content value="layouts">
-            <div class="flex gap-2 flex-col h-full max-h-[33vh] overflow-y-auto px-6">
+          <Tabs.Content value="layouts" class="min-h-0">
+            <div class="flex h-[33vh] flex-col gap-2 overflow-y-auto px-6">
               {#each mainWindowState.layouts as layTab (layTab.id)}
                 {@const disabledAdd = mainWindowState.tabs.layoutsIds.includes(layTab.id)}
                 <Button variant="outline" size="sm" class="flex gap-2 justify-start items-center"
@@ -346,49 +368,39 @@
               {/each}
             </div>
           </Tabs.Content>
-          <Tabs.Content value="sessions">
-            <div class="flex flex-col gap-3 w-full h-full max-h-[33vh] overflow-y-auto px-6">
-              {#each getSessionGroups() as group (group.id)}
-                {@const groupSessions = getGroupSessions(group)}
+          <Tabs.Content value="sessions" class="min-h-0">
+            <div class="flex h-[33vh] w-full flex-col gap-3 overflow-y-auto px-6">
+              {#each getOrderedSessionSections() as group (group.id)}
+                {@const groupSessions = isUngroupedGroup(group) ? getUngroupedSessions() : getGroupSessions(group)}
                 {#if groupSessions.length > 0}
-                  <div class="space-y-2">
+                  <Card.Root class="shrink-0 overflow-hidden gap-0 border-border/70 py-0">
                     <button
                       type="button"
-                      class="flex w-full items-center justify-between gap-2 rounded-sm px-1 py-0.5 text-left text-xs text-muted-foreground hover:bg-muted/60"
+                      class="flex h-7 w-full items-center justify-between gap-3 px-2.5 py-0 text-left transition-opacity hover:opacity-80"
                       onclick={() => toggleSessionGroupCollapsed(group.id)}
                     >
                       <div class="flex min-w-0 items-center gap-1.5">
-                        <ChevronDown class={`size-3 shrink-0 transition-transform ${isSessionGroupCollapsed(group.id) ? 'rotate-180' : ''}`}/>
-                        <span class="truncate font-semibold text-foreground">{group.label}</span>
+                        {#if isSessionGroupCollapsed(group.id)}
+                          <ChevronDown class="size-4 shrink-0"/>
+                        {:else}
+                          <ChevronUp class="size-4 shrink-0"/>
+                        {/if}
+                        <span class="truncate font-semibold text-foreground">{isUngroupedGroup(group) ? 'Sessions' : (group.label ?? 'New Group')}</span>
                       </div>
-                      <span class="shrink-0">{groupSessions.length}</span>
+                      <span class="inline-flex h-6 shrink-0 items-center text-xs leading-none text-muted-foreground">{formatSessionCount(groupSessions.length)}</span>
                     </button>
                     {#if !isSessionGroupCollapsed(group.id)}
-                      <div class="grid gap-2">
-                        {#each groupSessions as sessionTab (sessionTab.id)}
-                          {@render sessionLaunchCard(sessionTab)}
-                        {/each}
-                      </div>
+                      <Card.Content class="p-3 pt-1">
+                        <div class="grid gap-2">
+                          {#each groupSessions as sessionTab (sessionTab.id)}
+                            {@render sessionLaunchCard(sessionTab)}
+                          {/each}
+                        </div>
+                      </Card.Content>
                     {/if}
-                  </div>
+                  </Card.Root>
                 {/if}
               {/each}
-
-              {#if getUngroupedSessions().length > 0}
-                <div class="space-y-2">
-                  {#if getSessionGroups().length > 0}
-                    <div class="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                      <span class="font-semibold text-foreground">Sessions</span>
-                      <span>{getUngroupedSessions().length}</span>
-                    </div>
-                  {/if}
-                  <div class="grid gap-2">
-                    {#each getUngroupedSessions() as sessionTab (sessionTab.id)}
-                      {@render sessionLaunchCard(sessionTab)}
-                    {/each}
-                  </div>
-                </div>
-              {/if}
 
               {#if getLaunchableSessions().length === 0}
                 <p class="text-center text-sm text-muted-foreground">No sessions available</p>

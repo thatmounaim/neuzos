@@ -387,6 +387,7 @@
     mainWindowState.config.changed = true
     const newConfig = JSON.parse(cfg)
     mainWindowState.config.sessions = newConfig.sessions
+    mainWindowState.config.sessionGroups = newConfig.sessionGroups ?? []
     mainWindowState.config.layouts = newConfig.layouts
     mainWindowState.config.defaultLayouts = newConfig.defaultLayouts
     mainWindowState.config.chromium.commandLineSwitches = newConfig.chromium.commandLineSwitches

@@ -323,7 +323,8 @@ function normalizeSessionGroups(groups: unknown, knownSessionIds: Set<string>): 
     return [];
   }
 
-  return groups.flatMap((group: any) => {
+  let hasUngroupedMarker = false;
+  return groups.flatMap<any>((group: any) => {
     if (!group || typeof group !== 'object') {
       return [];
     }
@@ -331,6 +332,14 @@ function normalizeSessionGroups(groups: unknown, knownSessionIds: Set<string>): 
     const id = typeof group.id === 'string' && group.id.trim() !== '' ? group.id.trim() : null;
     if (!id) {
       return [];
+    }
+
+    if (id === 'ungrouped' || group.type === 'ungrouped') {
+      if (hasUngroupedMarker) {
+        return [];
+      }
+      hasUngroupedMarker = true;
+      return [{id: 'ungrouped', type: 'ungrouped' as const}];
     }
 
     const label = typeof group.label === 'string' && group.label.trim() !== '' ? group.label.trim() : 'New Group';
@@ -830,10 +839,12 @@ function createSessionLauncherWindow(): void {
   sessionWindow = new BrowserWindow({
     width: 600,
     height: 400,
+    minWidth: 600,
+    minHeight: 400,
     show: false,
     frame: false,
     autoHideMenuBar: true,
-    resizable: false,
+    resizable: true,
     ...(process.platform === "linux" ? {icon} : {}),
     webPreferences: {
       contextIsolation: true,

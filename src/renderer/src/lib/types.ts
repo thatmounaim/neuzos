@@ -27,8 +27,9 @@ export type NeuzSessionState = {
 
 export type NeuzSessionGroup = {
   id: string;
-  label: string;
-  sessionIds: string[];
+  label?: string;
+  sessionIds?: string[];
+  type?: 'ungrouped';
 }
 
 export type NeuzLayout = {

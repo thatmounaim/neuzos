@@ -643,7 +643,7 @@
                               </Table.Cell>
                               <Table.Cell>
                                 <div class="flex items-center gap-2">
-                                  <Popover.Root bind:open={state.modifierOpen}>
+                                  <Popover.Root open={state.modifierOpen} onOpenChange={(open) => { state.modifierOpen = open; }}>
                                     <Popover.Trigger class="w-36 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
                                       {@const selectedMod = modifierOptions.find(m => m.value === parsed.modifier)?.label ?? 'None'}
                                       <span class="truncate {parsed.modifier ? 'text-foreground' : 'text-muted-foreground'}">{selectedMod}</span>
@@ -981,7 +981,7 @@
                 </Table.Cell>
                 <Table.Cell>
                   <div class="flex items-center gap-2">
-                    <Popover.Root bind:open={state.modifierOpen}>
+                    <Popover.Root open={state.modifierOpen} onOpenChange={(open) => { state.modifierOpen = open; }}>
                       <Popover.Trigger class="w-36 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
                         {@const selectedMod = modifierOptions.find(m => m.value === parsed.modifier)?.label ?? 'None'}
                         <span class="truncate {parsed.modifier ? 'text-foreground' : 'text-muted-foreground'}">{selectedMod}</span>
@@ -1161,7 +1161,7 @@
                 <Table.Cell>
                   {@const modifierState = comboboxStates[index]}
                   <div class="flex items-center gap-2">
-                    <Popover.Root bind:open={modifierState.modifierOpen}>
+                    <Popover.Root open={modifierState.modifierOpen} onOpenChange={(open) => { modifierState.modifierOpen = open; }}>
                       <Popover.Trigger class="w-36 h-9 px-3 py-2 inline-flex items-center justify-between gap-2 rounded-md text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm">
                         {@const selectedMod = modifierOptions.find(m => m.value === parsed.modifier)?.label ?? 'None'}
                         <span class="truncate {parsed.modifier ? 'text-foreground' : 'text-muted-foreground'}">{selectedMod}</span>

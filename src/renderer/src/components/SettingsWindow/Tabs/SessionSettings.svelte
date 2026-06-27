@@ -55,6 +55,7 @@
   const neuzosConfig = getContext<NeuzConfig>('neuzosConfig')
   const defaultLaunchUrl = 'https://universe.flyff.com/play'
   const collapsedGroupsStorageKey = 'neuzos.sessionSettings.collapsedGroups'
+  const ungroupedGroupId = 'ungrouped'
 
   const clearCache = (sessionId: string) => {
     neuzosBridge.sessions.clearCache(sessionId)
@@ -82,11 +83,14 @@
     return `${baseLabel} (${copyIndex})`
   }
 
+  const isUngroupedGroup = (group: NeuzSessionGroup) => group.id === ungroupedGroupId || group.type === 'ungrouped'
+
   const normalizeSessionGroups = (groups: unknown, knownSessionIds: Set<string>): NeuzSessionGroup[] => {
     if (!Array.isArray(groups)) {
       return []
     }
 
+    let hasUngroupedMarker = false
     return groups.flatMap((group: any) => {
       if (!group || typeof group !== 'object') {
         return []
@@ -95,6 +99,14 @@
       const id = typeof group.id === 'string' && group.id.trim() !== '' ? group.id.trim() : null
       if (!id) {
         return []
+      }
+
+      if (id === ungroupedGroupId || group.type === 'ungrouped') {
+        if (hasUngroupedMarker) {
+          return []
+        }
+        hasUngroupedMarker = true
+        return [{id: ungroupedGroupId, type: 'ungrouped' as const}]
       }
 
       const label = typeof group.label === 'string' && group.label.trim() !== '' ? group.label.trim() : defaultGroupLabel
@@ -108,20 +120,31 @@
 
   const currentGroups = $derived.by(() => {
     const knownSessionIds = new Set(neuzosConfig.sessions.map((session) => session.id))
-    return normalizeSessionGroups(neuzosConfig.sessionGroups ?? [], knownSessionIds)
+    return normalizeSessionGroups(neuzosConfig.sessionGroups ?? [], knownSessionIds).filter((group) => !isUngroupedGroup(group))
+  })
+
+  const orderedSessionSections = $derived.by(() => {
+    const knownSessionIds = new Set(neuzosConfig.sessions.map((session) => session.id))
+    const normalizedGroups = normalizeSessionGroups(neuzosConfig.sessionGroups ?? [], knownSessionIds)
+    return normalizedGroups.some((group) => isUngroupedGroup(group))
+      ? normalizedGroups
+      : [...normalizedGroups, {id: ungroupedGroupId, type: 'ungrouped' as const}]
   })
 
   const ungroupedSessions = $derived.by(() => {
-    const groupedSessionIds = new Set(currentGroups.flatMap((group) => group.sessionIds))
+    const groupedSessionIds = new Set(currentGroups.flatMap((group) => group.sessionIds ?? []))
     return neuzosConfig.sessions.filter((session) => !groupedSessionIds.has(session.id))
   })
 
   const ensureSessionGroups = () => {
     const knownSessionIds = new Set(neuzosConfig.sessions.map((session) => session.id))
     const normalizedGroups = normalizeSessionGroups(neuzosConfig.sessionGroups ?? [], knownSessionIds)
+    const nextGroups = normalizedGroups.some((group) => isUngroupedGroup(group))
+      ? normalizedGroups
+      : [...normalizedGroups, {id: ungroupedGroupId, type: 'ungrouped' as const}]
 
-    if (JSON.stringify(neuzosConfig.sessionGroups ?? []) !== JSON.stringify(normalizedGroups)) {
-      neuzosConfig.sessionGroups = normalizedGroups
+    if (JSON.stringify(neuzosConfig.sessionGroups ?? []) !== JSON.stringify(nextGroups)) {
+      neuzosConfig.sessionGroups = nextGroups
     }
 
     return neuzosConfig.sessionGroups
@@ -174,13 +197,15 @@
   }
 
   const getSessionGroupId = (sessionId: string) => {
-    return currentGroups.find((group) => group.sessionIds.includes(sessionId))?.id ?? null
+    return currentGroups.find((group) => (group.sessionIds ?? []).includes(sessionId))?.id ?? null
   }
 
   const assignSessionToGroup = (sessionId: string, groupId: string | null) => {
     const groups = ensureSessionGroups()
     groups.forEach((group) => {
-      group.sessionIds = group.sessionIds.filter((id) => id !== sessionId)
+      if (!isUngroupedGroup(group)) {
+        group.sessionIds = (group.sessionIds ?? []).filter((id) => id !== sessionId)
+      }
     })
 
     if (!groupId) {
@@ -188,11 +213,11 @@
     }
 
     const targetGroup = groups.find((group) => group.id === groupId)
-    if (!targetGroup) {
+    if (!targetGroup || isUngroupedGroup(targetGroup)) {
       return
     }
 
-    targetGroup.sessionIds = [...targetGroup.sessionIds, sessionId]
+    targetGroup.sessionIds = [...(targetGroup.sessionIds ?? []), sessionId]
   }
 
   const addGroup = () => {
@@ -201,12 +226,18 @@
       label: defaultGroupLabel,
       sessionIds: []
     }
-    ensureSessionGroups().push(newGroup)
+    const groups = ensureSessionGroups()
+    const ungroupedIndex = groups.findIndex((group) => isUngroupedGroup(group))
+    if (ungroupedIndex >= 0) {
+      groups.splice(ungroupedIndex, 0, newGroup)
+    } else {
+      groups.push(newGroup)
+    }
     startEditingGroup(newGroup)
   }
 
   const deleteGroup = (groupId: string) => {
-    neuzosConfig.sessionGroups = ensureSessionGroups().filter((group) => group.id !== groupId)
+    neuzosConfig.sessionGroups = ensureSessionGroups().filter((group) => group.id !== groupId || isUngroupedGroup(group))
   }
 
   const moveGroup = (groupId: string, direction: -1 | 1) => {
@@ -226,23 +257,24 @@
   const moveSessionInSection = (groupId: string | null, sessionId: string, direction: -1 | 1) => {
     if (groupId) {
       const group = ensureSessionGroups().find((entry) => entry.id === groupId)
-      if (!group) {
+      if (!group || isUngroupedGroup(group)) {
         return
       }
 
-      const currentIndex = group.sessionIds.indexOf(sessionId)
+      const groupSessionIds = group.sessionIds ?? []
+      const currentIndex = groupSessionIds.indexOf(sessionId)
       const nextIndex = currentIndex + direction
-      if (currentIndex < 0 || nextIndex < 0 || nextIndex >= group.sessionIds.length) {
+      if (currentIndex < 0 || nextIndex < 0 || nextIndex >= groupSessionIds.length) {
         return
       }
 
-      const nextSessionIds = [...group.sessionIds]
+      const nextSessionIds = [...groupSessionIds]
       ;[nextSessionIds[currentIndex], nextSessionIds[nextIndex]] = [nextSessionIds[nextIndex], nextSessionIds[currentIndex]]
       group.sessionIds = nextSessionIds
       return
     }
 
-    const groupedSessionIds = new Set(ensureSessionGroups().flatMap((group) => group.sessionIds))
+    const groupedSessionIds = new Set(ensureSessionGroups().flatMap((group) => isUngroupedGroup(group) ? [] : (group.sessionIds ?? [])))
     const ungroupedSessions = neuzosConfig.sessions.filter((session) => !groupedSessionIds.has(session.id))
     const currentIndex = ungroupedSessions.findIndex((session) => session.id === sessionId)
     const nextIndex = currentIndex + direction
@@ -264,8 +296,11 @@
   }
 
   const getGroupSessions = (group: NeuzSessionGroup) => {
+    if (isUngroupedGroup(group)) {
+      return []
+    }
     const sessionMap = new Map(neuzosConfig.sessions.map((session) => [session.id, session]))
-    return group.sessionIds
+    return (group.sessionIds ?? [])
       .map((sessionId) => sessionMap.get(sessionId))
       .filter((session): session is NeuzSession => session !== undefined)
   }
@@ -305,8 +340,8 @@
 
   const startEditingGroup = (group: NeuzSessionGroup) => {
     editingGroupId = group.id
-    groupLabelDraft = group.label
-    groupLabelBackup = group.label
+    groupLabelDraft = group.label ?? defaultGroupLabel
+    groupLabelBackup = group.label ?? defaultGroupLabel
   }
 
   const commitGroupLabel = (groupId: string) => {
@@ -386,7 +421,9 @@
     if (result.success) {
       neuzosConfig.sessions = neuzosConfig.sessions.filter(s => s.id !== sessionId)
       ensureSessionGroups().forEach((group) => {
-        group.sessionIds = group.sessionIds.filter((id) => id !== sessionId)
+        if (!isUngroupedGroup(group)) {
+          group.sessionIds = (group.sessionIds ?? []).filter((id) => id !== sessionId)
+        }
       })
       neuzosConfig.layouts = (neuzosConfig.layouts ?? []).map((layout) => ({
         ...layout,
@@ -505,7 +542,7 @@
     </Table.Cell>
     <Table.Cell class="w-[90px]">
       {@const groupLabel = currentGroupId
-        ? (ensureSessionGroups().find(g => g.id === currentGroupId)?.label ?? 'Unknown')
+        ? (currentGroups.find(g => g.id === currentGroupId)?.label ?? 'Unknown')
         : 'Ungrouped'}
       {@const isGroupOpen = groupPopoverStates[session.id] ?? false}
       <Tooltip.Provider>
@@ -524,12 +561,12 @@
                 Ungrouped
               </button>
               <div class="my-1 h-px bg-border"></div>
-              {#each ensureSessionGroups() as group}
+              {#each currentGroups as group}
                 <button
                   class="w-full text-left px-2 py-1.5 text-sm rounded-sm hover:bg-accent hover:text-accent-foreground {currentGroupId === group.id ? 'font-semibold' : ''}"
                   onclick={() => { assignSessionToGroup(session.id, group.id); groupPopoverStates[session.id] = false; }}
                 >
-                  {group.label}
+                  {group.label ?? defaultGroupLabel}
                 </button>
               {/each}
             </Popover.Content>
@@ -761,19 +798,32 @@
   </Card.Header>
   <Card.Content class="flex flex-col gap-4">
     <div class="flex flex-col gap-3">
-      {#each currentGroups as group, gidx (group.id)}
-        {@const groupSessions = getGroupSessions(group)}
+      {#each orderedSessionSections as group, gidx (group.id)}
+        {@const groupSessions = isUngroupedGroup(group) ? ungroupedSessions : getGroupSessions(group)}
+        {@const groupCollapsed = isGroupCollapsed(group.id)}
         <Card.Root class="overflow-hidden gap-0 border-border/70">
-          <div class="flex items-center justify-between gap-3 border-b border-border px-3 py-2">
-            <div class="flex min-w-0 items-center gap-2">
-              <Button variant="outline" size="icon-xs" onclick={() => toggleGroupCollapsed(group.id)}>
-                <ChevronDown class={`h-4 w-4 transition-transform ${isGroupCollapsed(group.id) ? 'rotate-180' : ''}`}></ChevronDown>
-              </Button>
-              {#if editingGroupId === group.id}
+          <div class={`flex items-center justify-between gap-3 px-2.5 ${groupCollapsed ? 'h-5 py-0' : 'h-7 py-0'}`}>
+            <button
+              type="button"
+              class="flex min-w-0 flex-1 items-center gap-1.5 self-stretch rounded-sm text-left leading-none transition-opacity hover:opacity-80"
+              onclick={() => toggleGroupCollapsed(group.id)}
+              aria-label={groupCollapsed ? 'Expand group' : 'Collapse group'}
+            >
+              <span class="inline-flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground">
+                {#if groupCollapsed}
+                  <ChevronDown class="h-4 w-4"></ChevronDown>
+                {:else}
+                  <ChevronUp class="h-4 w-4"></ChevronUp>
+                {/if}
+              </span>
+              {#if isUngroupedGroup(group)}
+                <span class="truncate text-sm font-semibold">Sessions</span>
+              {:else if editingGroupId === group.id}
                 <Input
                   autofocus
                   class="h-9 w-56 max-w-full text-sm"
                   bind:value={groupLabelDraft}
+                  onclick={(event) => event.stopPropagation()}
                   onblur={() => commitGroupLabel(group.id)}
                   onkeydown={(event) => {
                     if (event.key === 'Enter') {
@@ -787,107 +837,85 @@
                   }}
                 />
               {:else}
-                <button type="button" class="min-w-0 truncate text-left text-sm font-semibold hover:underline" onclick={() => startEditingGroup(group)}>
+                <span
+                  role="button"
+                  tabindex="0"
+                  class="min-w-0 truncate text-sm font-semibold hover:underline"
+                  onclick={(event) => {
+                    event.stopPropagation()
+                    startEditingGroup(group)
+                  }}
+                  onkeydown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      event.stopPropagation()
+                      startEditingGroup(group)
+                    }
+                  }}
+                >
                   {group.label}
-                </button>
+                </span>
               {/if}
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-xs text-muted-foreground">{formatSessionCount(groupSessions.length)}</span>
+            </button>
+            <div class="flex shrink-0 items-center gap-1.5">
+              <span class="inline-flex h-6 items-center text-xs leading-none text-muted-foreground">{formatSessionCount(groupSessions.length)}</span>
               <Button variant="outline" size="icon-xs" onclick={() => moveGroup(group.id, -1)} disabled={gidx <= 0}>
                 <ChevronUp class="h-4 w-4"></ChevronUp>
               </Button>
-              <Button variant="outline" size="icon-xs" onclick={() => moveGroup(group.id, 1)} disabled={gidx >= currentGroups.length - 1}>
+              <Button variant="outline" size="icon-xs" onclick={() => moveGroup(group.id, 1)} disabled={gidx >= orderedSessionSections.length - 1}>
                 <ChevronDown class="h-4 w-4"></ChevronDown>
               </Button>
-              <Button variant="outline" size="icon-xs" class="hover:bg-destructive hover:text-destructive-foreground" onclick={() => deleteGroup(group.id)}>
-                <Trash class="h-4 w-4"></Trash>
-              </Button>
+              {#if !isUngroupedGroup(group)}
+                <Button variant="outline" size="icon-xs" class="hover:bg-destructive hover:text-destructive-foreground" onclick={() => deleteGroup(group.id)}>
+                  <Trash class="h-4 w-4"></Trash>
+                </Button>
+              {/if}
             </div>
           </div>
 
           {#if !isGroupCollapsed(group.id)}
+            <div class="border-b border-border mt-0.5"></div>
             <Card.Content class="p-0">
-              <Table.Root>
-                <Table.Header>
-                  <Table.Row>
-                    <Table.Head class="w-[48px]"></Table.Head>
-                    <Table.Head class="w-[72px]">Icon</Table.Head>
-                    <Table.Head class="w-[420px] min-w-[420px]">Label</Table.Head>
-                    <Table.Head class="w-[90px] text-center">Group</Table.Head>
-                    <Table.Head class="w-[130px] text-center">Zoom</Table.Head>
-                    <Table.Head class="w-[90px] text-center">Floatable</Table.Head>
-                    <Table.Head class="w-full"></Table.Head>
-                    <Table.Head class="w-[170px] text-center">
-                      <Tooltip.Provider>
-                        <Tooltip.Root>
-                          <Tooltip.Trigger>
-                            <span class="inline-flex cursor-help items-center justify-center">Auto-Delete Cache</span>
-                          </Tooltip.Trigger>
-                          <Tooltip.Content>Automatically Clear this Session's Cache, when the Session Stops and on every Startup of NeuzOS.</Tooltip.Content>
-                        </Tooltip.Root>
-                      </Tooltip.Provider>
-                    </Table.Head>
-                    <Table.Head class="w-[150px] text-center">Session ID</Table.Head>
-                    <Table.Head class="w-[170px]">Actions</Table.Head>
-                  </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {#each groupSessions as session, sidx (session.id)}
-                    {@render sessionRow(session, sidx, groupSessions.length, group.id)}
-                  {/each}
-                </Table.Body>
-              </Table.Root>
+              {#if groupSessions.length === 0}
+                <div class="px-3 py-3 text-sm text-muted-foreground">
+                  {isUngroupedGroup(group) ? 'No ungrouped sessions.' : 'No Sessions in this Group.'}
+                </div>
+              {:else}
+                <Table.Root>
+                  <Table.Header>
+                    <Table.Row>
+                      <Table.Head class="w-[48px]"></Table.Head>
+                      <Table.Head class="w-[72px]">Icon</Table.Head>
+                      <Table.Head class="w-[420px] min-w-[420px]">Label</Table.Head>
+                      <Table.Head class="w-[90px] text-center">Group</Table.Head>
+                      <Table.Head class="w-[130px] text-center">Zoom</Table.Head>
+                      <Table.Head class="w-[90px] text-center">Floatable</Table.Head>
+                      <Table.Head class="w-full"></Table.Head>
+                      <Table.Head class="w-[170px] text-center">
+                        <Tooltip.Provider>
+                          <Tooltip.Root>
+                            <Tooltip.Trigger>
+                              <span class="inline-flex cursor-help items-center justify-center">Auto-Delete Cache</span>
+                            </Tooltip.Trigger>
+                            <Tooltip.Content>Automatically Clear this Session's Cache, when the Session Stops and on every Startup of NeuzOS.</Tooltip.Content>
+                          </Tooltip.Root>
+                        </Tooltip.Provider>
+                      </Table.Head>
+                      <Table.Head class="w-[150px] text-center">Session ID</Table.Head>
+                      <Table.Head class="w-[170px]">Actions</Table.Head>
+                    </Table.Row>
+                  </Table.Header>
+                  <Table.Body>
+                    {#each groupSessions as session, sidx (session.id)}
+                      {@render sessionRow(session, sidx, groupSessions.length, isUngroupedGroup(group) ? null : group.id)}
+                    {/each}
+                  </Table.Body>
+                </Table.Root>
+              {/if}
             </Card.Content>
           {/if}
         </Card.Root>
       {/each}
-
-      <Card.Root class="overflow-hidden gap-0 border-border/70">
-        <div class="flex items-center justify-between gap-3 border-b border-border px-3 py-2">
-          <div class="flex min-w-0 items-center gap-2">
-            <span class="truncate text-sm font-semibold">Sessions</span>
-          </div>
-          <span class="text-xs text-muted-foreground">{formatSessionCount(ungroupedSessions.length)}</span>
-        </div>
-
-        <Card.Content class="p-0">
-          {#if ungroupedSessions.length === 0}
-            <div class="px-3 py-3 text-sm text-muted-foreground">No ungrouped sessions.</div>
-          {:else}
-            <Table.Root>
-              <Table.Header>
-                <Table.Row>
-                  <Table.Head class="w-[48px]"></Table.Head>
-                  <Table.Head class="w-[72px]">Icon</Table.Head>
-                  <Table.Head class="w-[420px] min-w-[420px]">Label</Table.Head>
-                  <Table.Head class="w-[90px] text-center">Group</Table.Head>
-                  <Table.Head class="w-[130px] text-center">Zoom</Table.Head>
-                  <Table.Head class="w-[90px] text-center">Floatable</Table.Head>
-                  <Table.Head class="w-full"></Table.Head>
-                  <Table.Head class="w-[170px] text-center">
-                    <Tooltip.Provider>
-                      <Tooltip.Root>
-                        <Tooltip.Trigger>
-                          <span class="inline-flex cursor-help items-center justify-center">Auto-Delete Cache</span>
-                        </Tooltip.Trigger>
-                        <Tooltip.Content>Automatically Clear this Session's Cache, when the Session Stops and on every Startup of NeuzOS.</Tooltip.Content>
-                      </Tooltip.Root>
-                    </Tooltip.Provider>
-                  </Table.Head>
-                  <Table.Head class="w-[150px] text-center">Session ID</Table.Head>
-                  <Table.Head class="w-[170px]">Actions</Table.Head>
-                </Table.Row>
-              </Table.Header>
-              <Table.Body>
-                {#each ungroupedSessions as session, sidx (session.id)}
-                  {@render sessionRow(session, sidx, ungroupedSessions.length, null)}
-                {/each}
-              </Table.Body>
-            </Table.Root>
-          {/if}
-        </Card.Content>
-      </Card.Root>
     </div>
   </Card.Content>
   <Card.Footer>
