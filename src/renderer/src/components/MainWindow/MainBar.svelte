@@ -30,7 +30,7 @@
     RadioTower
   } from '@lucide/svelte'
   import {getContext, onMount} from "svelte";
-  import type {MainWindowState, NeuzSession, NeuzSessionGroup} from "$lib/types";
+  import type {MainWindowState, NeuzLayout, NeuzSession, NeuzSessionGroup} from "$lib/types";
   import * as Dialog from '$lib/components/ui/dialog'
   import * as ContextMenu from '$lib/components/ui/context-menu'
   import * as Tabs from '$lib/components/ui/tabs'
@@ -142,19 +142,58 @@
   }
 
   const isSessionMuted = (layoutId: string, sessionId: string) => {
-    return mainWindowState.sessionsLayoutsRef[sessionId]?.layouts[layoutId]?.isMuted()
+    const liveMuted = mainWindowState.sessionsLayoutsRef[sessionId]?.layouts[layoutId]?.isMuted()
+    if (liveMuted !== undefined) {
+      return liveMuted
+    }
+    return mainWindowState.config.layouts.find((layout) => layout.id === layoutId)?.mutedSessionIds?.includes(sessionId) ?? false
+  }
+
+  const setPersistedSessionMuted = (layoutId: string, sessionId: string, muted: boolean) => {
+    const updateLayout = (layout: NeuzLayout) => {
+      if (layout.id !== layoutId) {
+        return layout
+      }
+
+      const mutedSessionIds = new Set(layout.mutedSessionIds ?? [])
+      if (muted) {
+        mutedSessionIds.add(sessionId)
+      } else {
+        mutedSessionIds.delete(sessionId)
+      }
+
+      return {
+        ...layout,
+        mutedSessionIds: [...mutedSessionIds]
+      }
+    }
+
+    mainWindowState.config.layouts = mainWindowState.config.layouts.map(updateLayout)
+    mainWindowState.layouts = mainWindowState.layouts.map(updateLayout)
+  }
+
+  const saveMutedLayoutState = () => {
+    void neuzosBridge.config.saveSilent(mainWindowState.config)
+  }
+
+  const setSessionMuted = (layoutId: string, sessionId: string, muted: boolean, save: boolean = true) => {
+    setPersistedSessionMuted(layoutId, sessionId, muted)
+    mainWindowState.sessionsLayoutsRef[sessionId]?.layouts[layoutId]?.setAudioMuted?.(muted)
+    if (save) {
+      saveMutedLayoutState()
+    }
   }
 
   const muteAllSessions = (layoutId: string) => {
-    for (const sessionId in mainWindowState.sessionsLayoutsRef) {
-      mainWindowState.sessionsLayoutsRef[sessionId]?.layouts[layoutId]?.setAudioMuted(true)
-    }
+    const layout = mainWindowState.layouts.find((layout) => layout.id === layoutId)
+    layout?.rows.flatMap((row) => row.sessionIds).forEach((sessionId) => setSessionMuted(layoutId, sessionId, true, false))
+    saveMutedLayoutState()
   }
 
   const unmuteAllSessions = (layoutId: string) => {
-    for (const sessionId in mainWindowState.sessionsLayoutsRef) {
-      mainWindowState.sessionsLayoutsRef[sessionId]?.layouts[layoutId]?.setAudioMuted(false)
-    }
+    const layout = mainWindowState.layouts.find((layout) => layout.id === layoutId)
+    layout?.rows.flatMap((row) => row.sessionIds).forEach((sessionId) => setSessionMuted(layoutId, sessionId, false, false))
+    saveMutedLayoutState()
   }
 
   const stopAllSessions = (layoutId: string) => {
@@ -173,13 +212,11 @@
   }
 
   const muteSession = (layoutId: string, sessionId: string) => {
-    console.log(mainWindowState.sessionsLayoutsRef[sessionId]?.layouts[layoutId]?.isMuted())
-    mainWindowState.sessionsLayoutsRef[sessionId]?.layouts[layoutId]?.setAudioMuted(true)
-    console.log(mainWindowState.sessionsLayoutsRef[sessionId]?.layouts[layoutId]?.isMuted())
+    setSessionMuted(layoutId, sessionId, true)
   }
 
   const unmuteSession = (layoutId: string, sessionId: string) => {
-    mainWindowState.sessionsLayoutsRef[sessionId]?.layouts[layoutId]?.setAudioMuted(false)
+    setSessionMuted(layoutId, sessionId, false)
   }
 
   const reloadConfing = () => {

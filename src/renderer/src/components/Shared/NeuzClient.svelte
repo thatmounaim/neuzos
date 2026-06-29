@@ -20,9 +20,16 @@
   let partition: string = $state('')
   let started: boolean = $state(false)
   let webview: WebviewTag | HTMLElement = $state()
-  let muted: boolean = $state(false)
   let webviewReady: boolean = $state(false)
   const mainWindowState = getContext<MainWindowState>('mainWindowState')
+
+  const isPersistedMuted = () => {
+    return mainWindowState.config.layouts
+      .find((layout) => layout.id === layoutId)
+      ?.mutedSessionIds?.includes(session.id) ?? false
+  }
+
+  let muted: boolean = $state(isPersistedMuted())
 
   const ensureSessionState = () => {
     let sessionState = mainWindowState.sessionsLayoutsRef[session.id]
@@ -61,6 +68,14 @@
     initZoom(wv, 0)
   })
 
+  $effect(() => {
+    const wv = webview?.tagName === 'WEBVIEW' ? (webview as WebviewTag) : null
+    const shouldBeMuted = isPersistedMuted()
+
+    if (!wv || !webviewReady) return
+    applyAudioMuted(wv, shouldBeMuted)
+  })
+
   const initZoom = (wv: WebviewTag, retryLeft: number) => {
     try {
       wv.setZoomFactor(mainWindowState.config.sessionZoomLevels?.[session.id] ?? 1.0)
@@ -70,6 +85,15 @@
       } else {
         console.warn('Failed to set zoom after webview became ready:', e)
       }
+    }
+  }
+
+  const applyAudioMuted = (wv: WebviewTag, shouldBeMuted: boolean) => {
+    try {
+      wv.setAudioMuted(shouldBeMuted)
+      muted = wv.isAudioMuted() ?? false
+    } catch {
+      // Muting can be requested before the webview is fully ready; the persisted state is still kept.
     }
   }
 
@@ -163,13 +187,14 @@ window.open = function(...args) {
   }
 
   export const setAudioMuted = (mu: boolean) => {
+    muted = mu
     try {
       if (webview) {
         ;(webview as WebviewTag)?.setAudioMuted(mu)
         muted = (webview as WebviewTag)?.isAudioMuted() ?? false
       }
-    } catch (e) {
-      console.log('Cant mute, maybe client not started')
+    } catch {
+      // Muting can be requested before the webview is fully ready; the persisted state is still kept.
     }
     onUpdate(session.id)
   }

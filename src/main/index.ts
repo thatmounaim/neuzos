@@ -2142,6 +2142,12 @@ function registerSessionKeybinds(mode: LaunchMode) {
       mainWindow?.webContents?.send("event.config_changed", config);
     });
 
+    ipcMain.handle("config.save_silent", async (_, config: any) => {
+      const parsed = JSON.parse(config);
+      saveConfig(parsed);
+      neuzosConfig = parsed;
+    });
+
     ipcMain.handle("config.export", async (event, payload: ConfigExportPayloadV2) => {
       try {
         if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {

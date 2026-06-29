@@ -174,6 +174,9 @@ export const neuzosBridge = {
   config: {
     save: (config: object): Promise<void> => {
       return electronApi?.invoke('config.save', JSON.stringify(config)) ?? Promise.resolve();
+    },
+    saveSilent: (config: object): Promise<void> => {
+      return electronApi?.invoke('config.save_silent', JSON.stringify(config)) ?? Promise.resolve();
     }
   }
 }
