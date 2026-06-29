@@ -104,6 +104,12 @@ export const neuzosBridge = {
     setZoom: (sessionId: string, zoomLevel: number) => {
       return electronApi?.invoke("config.set_session_zoom", sessionId, zoomLevel) ?? Promise.resolve({success: false, error: "Electron API unavailable"});
     },
+    previewZoom: (sessionId: string, zoomLevel: number) => {
+      return electronApi
+        ?.invoke("config.preview_session_zoom", sessionId, zoomLevel)
+        .catch((error) => ({success: false, error: error?.message ?? String(error)}))
+        ?? Promise.resolve({success: false, error: "Electron API unavailable"});
+    },
     setSyncReceiver: (sessionId: string | null) => {
       electronApi?.invoke("config.set_sync_receiver", sessionId);
     }

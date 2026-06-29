@@ -162,10 +162,14 @@
         mutedSessionIds.delete(sessionId)
       }
 
-      return {
-        ...layout,
-        mutedSessionIds: [...mutedSessionIds]
+      const nextLayout = { ...layout }
+      if (mutedSessionIds.size === 0) {
+        delete nextLayout.mutedSessionIds
+      } else {
+        nextLayout.mutedSessionIds = [...mutedSessionIds]
       }
+
+      return nextLayout
     }
 
     mainWindowState.config.layouts = mainWindowState.config.layouts.map(updateLayout)
@@ -232,13 +236,17 @@
   const setSessionZoom = (sessionId: string, value: number) => {
     const clamped = clampZoom(value)
     mainWindowState.config.sessionZoomLevels = mainWindowState.config.sessionZoomLevels ?? {}
-    mainWindowState.config.sessionZoomLevels[sessionId] = clamped
+    if (clamped === 1.0) {
+      delete mainWindowState.config.sessionZoomLevels[sessionId]
+    } else {
+      mainWindowState.config.sessionZoomLevels[sessionId] = clamped
+    }
     // Imperatively apply to all running webviews for this session (reactive chain is unreliable)
     const layouts = mainWindowState.sessionsLayoutsRef[sessionId]?.layouts
     if (layouts) {
       Object.values(layouts).forEach((ref: any) => ref.setZoom?.(clamped))
     }
-    void neuzosBridge.sessions.setZoom(sessionId, clamped)
+    void neuzosBridge.config.saveSilent(mainWindowState.config)
   }
 
   const isActiveReceiver = (sessionId: string) => {

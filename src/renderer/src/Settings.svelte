@@ -60,6 +60,24 @@
   setContext("neuzosConfig", neuzosConfig);
   setContext("loadConfig", loadConfig);
 
+  const restoreSavedZoomPreview = (snapshot: string = lastConfigSnapshot) => {
+    if (!snapshot) return
+
+    try {
+      const savedConfig = JSON.parse(snapshot) as NeuzConfig
+      const sessionIds = new Set([
+        ...(neuzosConfig.sessions ?? []).map((session) => session.id),
+        ...(savedConfig.sessions ?? []).map((session) => session.id)
+      ])
+
+      sessionIds.forEach((sessionId) => {
+        void neuzosBridge.sessions.previewZoom(sessionId, savedConfig.sessionZoomLevels?.[sessionId] ?? 1.0)
+      })
+    } catch (error) {
+      console.error('Failed to restore saved zoom preview:', error)
+    }
+  }
+
   async function loadConfig() {
     isLoading = true;
     const conf = await electronApi.invoke("config.load", true);
@@ -85,6 +103,7 @@
 
     // Initialize snapshot after config is loaded
     lastConfigSnapshot = JSON.stringify(neuzosConfig);
+    restoreSavedZoomPreview();
 
     // Wait a bit to ensure contexts are initialized
     setTimeout(() => {
@@ -268,6 +287,7 @@
   };
 
   const closeWithoutSaving = () => {
+    restoreSavedZoomPreview();
     unsavedCloseDialogOpen = false;
     neuzosBridge.settingsWindow.close();
   };

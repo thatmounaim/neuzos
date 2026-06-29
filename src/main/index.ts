@@ -158,7 +158,17 @@ function pruneSessionReferences(config: any): void {
             })
             .filter((row: any) => row.sessionIds.length > 0)
         : [];
-      return { ...layout, rows };
+      const nextLayout = { ...layout, rows };
+      if (Array.isArray(nextLayout.mutedSessionIds)) {
+        const mutedSessionIds = [...new Set(nextLayout.mutedSessionIds.filter((id: string) => knownSessionIds.has(id)))];
+        if (mutedSessionIds.length > 0) {
+          nextLayout.mutedSessionIds = mutedSessionIds;
+        } else {
+          delete nextLayout.mutedSessionIds;
+        }
+      }
+
+      return nextLayout;
     });
   }
 
@@ -168,7 +178,7 @@ function pruneSessionReferences(config: any): void {
 
   if (config.sessionZoomLevels && typeof config.sessionZoomLevels === 'object') {
     for (const sessionId of Object.keys(config.sessionZoomLevels)) {
-      if (!knownSessionIds.has(sessionId)) {
+      if (!knownSessionIds.has(sessionId) || config.sessionZoomLevels[sessionId] === 1.0) {
         delete config.sessionZoomLevels[sessionId];
       }
     }
@@ -2524,9 +2534,29 @@ function registerSessionKeybinds(mode: LaunchMode) {
         }
 
         neuzosConfig.sessionZoomLevels = neuzosConfig.sessionZoomLevels ?? {};
-        neuzosConfig.sessionZoomLevels[sessionId] = zoomLevel;
+        if (zoomLevel === 1.0) {
+          delete neuzosConfig.sessionZoomLevels[sessionId];
+        } else {
+          neuzosConfig.sessionZoomLevels[sessionId] = zoomLevel;
+        }
         saveConfig(neuzosConfig);
         mainWindow?.webContents?.send("event.config_changed", JSON.stringify(neuzosConfig));
+        return {success: true};
+      } catch (error: any) {
+        return {success: false, error: error?.message ?? String(error)};
+      }
+    });
+
+    ipcMain.handle("config.preview_session_zoom", async (_, sessionId: string, zoomLevel: number) => {
+      try {
+        if (typeof sessionId !== 'string' || sessionId.trim() === '') {
+          return {success: false, error: 'Invalid session ID.'};
+        }
+        if (typeof zoomLevel !== 'number' || !Number.isFinite(zoomLevel) || zoomLevel < 0.5 || zoomLevel > 1.5) {
+          return {success: false, error: 'Invalid zoom level.'};
+        }
+
+        mainWindow?.webContents?.send("event.session_zoom_preview", sessionId, zoomLevel);
         return {success: true};
       } catch (error: any) {
         return {success: false, error: error?.message ?? String(error)};

@@ -383,6 +383,13 @@
     mainWindowState.config.syncReceiverSessionId = sessionId
   })
 
+  const applySessionZoomPreview = (sessionId: string, zoom: number) => {
+    const layouts = mainWindowState.sessionsLayoutsRef[sessionId]?.layouts
+    if (layouts) {
+      Object.values(layouts).forEach((ref: any) => ref.setZoom?.(zoom))
+    }
+  }
+
   listen('event.config_changed', (_, cfg: string) => {
     mainWindowState.config.changed = true
     const newConfig = JSON.parse(cfg)
@@ -410,11 +417,12 @@
     const zoomLevels = mainWindowState.config.sessionZoomLevels
     Object.entries(mainWindowState.sessionsLayoutsRef).forEach(([sessionId, sessionRef]: [string, any]) => {
       const zoom = zoomLevels[sessionId] ?? 1.0
-      const layouts = sessionRef?.layouts
-      if (layouts) {
-        Object.values(layouts).forEach((ref: any) => ref.setZoom?.(zoom))
-      }
+      applySessionZoomPreview(sessionId, zoom)
     })
+  })
+
+  listen('event.session_zoom_preview', (_, sessionId: string, zoom: number) => {
+    applySessionZoomPreview(sessionId, zoom)
   })
 
   const reloadNeuzos = () => {

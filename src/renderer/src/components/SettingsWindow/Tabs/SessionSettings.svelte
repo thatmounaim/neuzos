@@ -160,8 +160,12 @@
   const setSessionZoom = (sessionId: string, value: number) => {
     const zoom = clampZoom(value)
     neuzosConfig.sessionZoomLevels = neuzosConfig.sessionZoomLevels ?? {}
-    neuzosConfig.sessionZoomLevels[sessionId] = zoom
-    void neuzosBridge.sessions.setZoom(sessionId, zoom)
+    if (zoom === 1.0) {
+      delete neuzosConfig.sessionZoomLevels[sessionId]
+    } else {
+      neuzosConfig.sessionZoomLevels[sessionId] = zoom
+    }
+    void neuzosBridge.sessions.previewZoom(sessionId, zoom)
   }
 
   const openLaunchUrlOverwriteModal = (session: NeuzSession) => {
