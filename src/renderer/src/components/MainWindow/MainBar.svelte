@@ -460,7 +460,12 @@
   <!-----------------------------------!-->
   <div class="flex items-center text-sm gap-1">
     {#if mainWindowState.tabs.layoutsIds.length === 0}
-      <span class="text-center opacity-60">No active layouts</span>
+      <div
+        class="h-7 px-3 inline-flex items-center justify-center rounded-md border border-dashed border-border/70 text-xs text-muted-foreground cursor-help"
+        title="Click the + Button to Add a Layout to the Main Bar"
+      >
+        No Active Layouts
+      </div>
     {/if}
     {#each mainWindowState.tabs.layoutOrder as layoutId (layoutId)}
       {@const layTab = mainWindowState.layouts.find(l => l.id === layoutId)}

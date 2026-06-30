@@ -423,7 +423,7 @@
       <Dialog.Header>
         <Dialog.Title>Unsaved Changes</Dialog.Title>
         <Dialog.Description>
-          You have unsaved settings changes. Save them before closing?
+          You have unsaved Settings Changes. Save them before closing?
         </Dialog.Description>
       </Dialog.Header>
       <Dialog.Footer class="gap-2">
