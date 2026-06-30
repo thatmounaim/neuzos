@@ -6,7 +6,7 @@
   import {Button} from "$lib/components/ui/button";
   import * as Alert from "$lib/components/ui/alert";
   import {Separator} from "$lib/components/ui/separator";
-  import {AlertCircleIcon} from "@lucide/svelte";
+  import {AlertCircleIcon, Fullscreen, Keyboard, Moon, SquareArrowOutUpRight} from "@lucide/svelte";
 
   import {getContext, onMount} from "svelte";
   import {getElectronContext} from "$lib/contexts/electronContext";
@@ -334,27 +334,20 @@
 
 <Card.Root class="h-full overflow-y-auto">
   <Card.Header>
-    <Card.Title class="text-lg font-semibold">General Window(s) and Webview Settings</Card.Title>
+    <Card.Title class="text-lg font-semibold">General Window and Webview Settings</Card.Title>
     <Card.Description>
-      Configure general settings for application windows and webviews.
+      Configure General Settings for Application, Windows and Webviews.
     </Card.Description>
   </Card.Header>
   <Card.Content class="flex flex-col gap-6">
 
     <!-- Auto Save Settings Section -->
     <div class="space-y-3">
-      <div class="space-y-1">
-        <h3 class="text-base font-semibold">Auto Save</h3>
-        <p class="text-sm text-muted-foreground">
-          Automatically save settings when changes are made.
-        </p>
-      </div>
-
       <div class="flex items-center justify-between py-2">
         <div class="space-y-0.5">
-          <Label for="auto-save-settings" class="text-sm font-medium">Enable Auto Save</Label>
+          <Label for="auto-save-settings" class="text-sm font-medium">Auto Save</Label>
           <p class="text-xs text-muted-foreground">
-            Automatically save settings after 500ms of inactivity
+            Automatically Save Settings when Changes are made.
           </p>
         </div>
         <Switch
@@ -365,22 +358,13 @@
       </div>
     </div>
 
-    <Separator/>
-
-    <!-- Cache Lifecycle Section -->
+    <!-- Startup Cache Section -->
     <div class="space-y-3">
-      <div class="space-y-1">
-        <h3 class="text-base font-semibold">Cache Lifecycle</h3>
-        <p class="text-sm text-muted-foreground">
-          Automatically clear session caches when sessions stop or when the app starts.
-        </p>
-      </div>
-
       <div class="flex items-center justify-between py-2">
         <div class="space-y-0.5">
-          <Label for="startup-cache-clear" class="text-sm font-medium">Clear all caches on app startup</Label>
+          <Label for="startup-cache-clear" class="text-sm font-medium">Clear All Caches on Startup</Label>
           <p class="text-xs text-muted-foreground">
-            When enabled, all configured session caches are cleared silently during startup.
+            All Session Caches are cleared silently during every Startup.
           </p>
         </div>
         <Switch
@@ -398,7 +382,7 @@
       <div class="space-y-1">
         <h3 class="text-base font-semibold">Window Settings</h3>
         <p class="text-sm text-muted-foreground">
-          Configure default dimensions and zoom for windows.
+          Configure Default Window Sizes and Zoom Levels.
         </p>
       </div>
 
@@ -639,15 +623,15 @@
       <div class="space-y-1">
         <h3 class="text-base font-semibold">User Agent Settings</h3>
         <p class="text-sm text-muted-foreground">
-          Configure custom user agent string for webviews and sessions.
+          Configure Custom User Agent for Webviews and Sessions.
         </p>
       </div>
 
       <Alert.Root variant="destructive">
         <AlertCircleIcon class="h-4 w-4"/>
-        <Alert.Title>Important before changing the user agent</Alert.Title>
+        <Alert.Title>Important before Changing the User Agent!</Alert.Title>
         <Alert.Description>
-          In some cases, currently logged in sessions might become invalid with a new user agent.
+          In some cases logged in Sessions might become invalid with a new User Agent.
         </Alert.Description>
       </Alert.Root>
 
@@ -655,7 +639,7 @@
         <div class="space-y-0.5">
           <Label for="custom-user-agent" class="text-sm font-medium">Custom User Agent</Label>
           <p class="text-xs text-muted-foreground">
-            Enable custom user agent for all webviews and sessions
+            Enable Custom User Agent for All Webviews and Sessions
           </p>
         </div>
         <Switch
@@ -685,29 +669,34 @@
         </div>
       {:else}
         <p class="text-xs text-muted-foreground">
-          When disabled, the default Electron user agent will be used.
+          When Disabled, the Default Electron User Agent will be used.
         </p>
       {/if}
     </div>
 
     <Separator/>
 
-    <!-- Title Bar Buttons Section -->
+    <!-- Main Bar Buttons Section -->
     <div class="space-y-3">
       <div class="space-y-1">
-        <h3 class="text-base font-semibold">Title Bar Buttons</h3>
+        <h3 class="text-base font-semibold">Main Bar Buttons</h3>
         <p class="text-sm text-muted-foreground">
-          Configure which buttons are visible in the title bar.
+          Choose which Buttons are visible in the Main Bar.
         </p>
       </div>
 
       <div class="space-y-2">
         <div class="flex items-center justify-between py-2">
-          <div class="space-y-0.5">
-            <Label for="darkmode-toggle" class="text-sm font-medium">Dark Mode Toggle</Label>
-            <p class="text-xs text-muted-foreground">
-              Show/hide the dark mode toggle button in the title bar
-            </p>
+          <div class="flex items-start gap-3">
+            <div class="h-9 w-9 shrink-0 rounded-md border bg-muted/60 flex items-center justify-center">
+              <Moon class="h-4 w-4"/>
+            </div>
+            <div class="space-y-0.5">
+              <Label for="darkmode-toggle" class="text-sm font-medium">Light/ Dark Mode Toggle</Label>
+              <p class="text-xs text-muted-foreground">
+                Switch between Light/Dark Mode.
+              </p>
+            </div>
           </div>
           <Switch
             id="darkmode-toggle"
@@ -717,11 +706,16 @@
         </div>
 
         <div class="flex items-center justify-between py-2">
-          <div class="space-y-0.5">
-            <Label for="fullscreen-toggle" class="text-sm font-medium">Fullscreen Toggle</Label>
-            <p class="text-xs text-muted-foreground">
-              Show/hide the fullscreen toggle button in the title bar
-            </p>
+          <div class="flex items-start gap-3">
+            <div class="h-9 w-9 shrink-0 rounded-md border bg-muted/60 flex items-center justify-center">
+              <Fullscreen class="h-4 w-4"/>
+            </div>
+            <div class="space-y-0.5">
+              <Label for="fullscreen-toggle" class="text-sm font-medium">Fullscreen Toggle</Label>
+              <p class="text-xs text-muted-foreground">
+                Switch to Fullscreen Mode
+              </p>
+            </div>
           </div>
           <Switch
             id="fullscreen-toggle"
@@ -731,11 +725,16 @@
         </div>
 
         <div class="flex items-center justify-between py-2">
-          <div class="space-y-0.5">
-            <Label for="keybind-toggle" class="text-sm font-medium">Keybind Toggle</Label>
-            <p class="text-xs text-muted-foreground">
-              Show/hide the keybind toggle button in the title bar
-            </p>
+          <div class="flex items-start gap-3">
+            <div class="h-9 w-9 shrink-0 rounded-md border bg-muted/60 flex items-center justify-center">
+              <Keyboard class="h-4 w-4"/>
+            </div>
+            <div class="space-y-0.5">
+              <Label for="keybind-toggle" class="text-sm font-medium">Keybind Toggle</Label>
+              <p class="text-xs text-muted-foreground">
+                Enable/ Disable Keybinds & Switch Keybind Profiles
+              </p>
+            </div>
           </div>
           <Switch
             id="keybind-toggle"
@@ -753,16 +752,16 @@
       <div class="space-y-1">
         <h3 class="text-base font-semibold">Fullscreen Behavior</h3>
         <p class="text-sm text-muted-foreground">
-          Configure how fullscreen mode behaves in different window types.
+          Configure Fullscreen Mode Behavior in different Window Types.
         </p>
       </div>
 
       <div class="space-y-2">
         <div class="flex items-center justify-between py-2">
           <div class="space-y-0.5">
-            <Label for="hide-titlebar-main" class="text-sm font-medium">Hide Title Bar in Main Window Fullscreen</Label>
+            <Label for="hide-titlebar-main" class="text-sm font-medium">Hide Main Bar in the Main Window Fullscreen</Label>
             <p class="text-xs text-muted-foreground">
-              When enabled, the title bar will be hidden in fullscreen mode with a floating exit button
+              Hides the Main Bar in Fullscreen Mode with a floating Exit Button
             </p>
           </div>
           <Switch
@@ -774,9 +773,9 @@
 
         <div class="flex items-center justify-between py-2">
           <div class="space-y-0.5">
-            <Label for="hide-titlebar-session" class="text-sm font-medium">Hide Title Bar in Session Layouts Fullscreen</Label>
+            <Label for="hide-titlebar-session" class="text-sm font-medium">Hide Main Bar in the Session Window Fullscreen</Label>
             <p class="text-xs text-muted-foreground">
-              When enabled, the title bar will be hidden in fullscreen session layouts with a floating exit button
+              Hides the Main Bar in Fullscreen Mode with a floating Exit Button
             </p>
           </div>
           <Switch
@@ -795,7 +794,7 @@
       <div class="space-y-1">
         <h3 class="text-base font-semibold">App Data Folder</h3>
         <p class="text-sm text-muted-foreground">
-          Location where configuration and data files are stored.
+          Location where Configuration and Data Files are stored.
         </p>
       </div>
 
@@ -809,16 +808,14 @@
             <Button
               size="sm"
               variant="outline"
-              class="text-xs px-3 shrink-0"
+              class="text-xs px-3 shrink-0 gap-2"
               onclick={handleOpenAppDataFolder}
               disabled={!appDataPath}
             >
+              <SquareArrowOutUpRight class="h-4 w-4"/>
               Open Folder
             </Button>
           </div>
-          <p class="text-xs text-muted-foreground">
-            config.json is inside neuzos_config folder withing the app data directory.
-          </p>
         </div>
       </div>
     </div>
