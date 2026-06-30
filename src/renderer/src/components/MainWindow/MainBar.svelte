@@ -27,7 +27,9 @@
     ZoomOut,
     RotateCcw,
     Globe,
-    RadioTower
+    RadioTower,
+    Settings,
+    Columns2
   } from '@lucide/svelte'
   import {getContext, onMount} from "svelte";
   import type {MainWindowState, NeuzLayout, NeuzSession, NeuzSessionGroup} from "$lib/types";
@@ -105,8 +107,8 @@
     };
   });
 
-  const openSettings = () => {
-    neuzosBridge.settingsWindow.open()
+  const openSettings = (tab?: string) => {
+    neuzosBridge.settingsWindow.open(tab)
   }
 
   const switchToHome = () => {
@@ -115,6 +117,55 @@
 
   const addLayout = (layoutId: string) => {
     neuzosBridge.layouts.add(layoutId)
+  }
+
+  const getNextGuestLabel = (existingLabels: Set<string>) => {
+    let index = 1;
+    while (existingLabels.has(index === 1 ? 'Guest' : `Guest (${index})`)) {
+      index++;
+    }
+
+    return index === 1 ? 'Guest' : `Guest (${index})`;
+  }
+
+  const getNextGuestLabels = (existingLabels: Set<string>, count: number) => {
+    const labels: string[] = [];
+    const usedLabels = new Set(existingLabels);
+    for (let index = 0; index < count; index++) {
+      const label = getNextGuestLabel(usedLabels);
+      labels.push(label);
+      usedLabels.add(label);
+    }
+
+    return labels;
+  }
+
+  const quickCreateLayoutSession = async (sessionCount: 1 | 2) => {
+    const layoutLabel = getNextGuestLabel(new Set(mainWindowState.config.layouts.map((layout) => layout.label)));
+    const sessionLabels = getNextGuestLabels(new Set(mainWindowState.config.sessions.map((session) => session.label)), sessionCount);
+    const baseId = Date.now();
+    const sessionIds = Array.from({length: sessionCount}, (_, index) => (baseId + index).toString());
+    const layoutId = (baseId + sessionCount).toString();
+    const icon = {slug: 'jobs/vagrant'};
+    const sessions: NeuzSession[] = sessionIds.map((sessionId, index) => ({
+      id: sessionId,
+      label: sessionLabels[index],
+      icon
+    }));
+    const layout: NeuzLayout = {
+      id: layoutId,
+      label: layoutLabel,
+      icon,
+      rows: [{sessionIds}]
+    };
+
+    mainWindowState.config.sessions = [...mainWindowState.config.sessions, ...sessions];
+    mainWindowState.config.layouts = [...mainWindowState.config.layouts, layout];
+    mainWindowState.sessions = [...mainWindowState.sessions, ...sessions];
+    mainWindowState.layouts = [...mainWindowState.layouts, layout];
+
+    await neuzosBridge.config.saveSilent(mainWindowState.config);
+    addLayout(layoutId);
   }
 
   const switchToLayout = (layoutId: string) => {
@@ -375,7 +426,7 @@
           onclick={switchToHome} class="cursor-pointer">
     <Home class="size-3.5"/>
   </Button>
-  <Button size="icon-xs" variant="outline" onclick={openSettings} class="cursor-pointer">
+  <Button size="icon-xs" variant="outline" onclick={() => openSettings()} class="cursor-pointer">
     <Settings2 class="size-3.5"/>
   </Button>
   <!----------------------------------------!-->
@@ -397,9 +448,37 @@
       </Dialog.Header>
       <div class="flex min-h-0 flex-col gap-2 w-full">
         <Tabs.Root value="layouts" class="min-h-0">
-          <Tabs.List class="grid w-full grid-cols-2">
-            <Tabs.Trigger value="layouts">Layouts</Tabs.Trigger>
-            <Tabs.Trigger value="sessions">Sessions</Tabs.Trigger>
+          <Tabs.List class="grid w-full grid-cols-2 gap-1">
+            <div class="relative min-w-0">
+              <Tabs.Trigger value="layouts" class="w-full pl-9">Layouts</Tabs.Trigger>
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                class="absolute left-1 top-1/2 h-6 w-6 -translate-y-1/2 bg-transparent hover:bg-accent hover:text-accent-foreground"
+                title="Manage Layouts"
+                onclick={(event) => {
+                  event.stopPropagation();
+                  openSettings('layouts');
+                }}
+              >
+                <Settings class="size-3.5"/>
+              </Button>
+            </div>
+            <div class="relative min-w-0">
+              <Tabs.Trigger value="sessions" class="w-full pl-9">Sessions</Tabs.Trigger>
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                class="absolute left-1 top-1/2 h-6 w-6 -translate-y-1/2 bg-transparent hover:bg-accent hover:text-accent-foreground"
+                title="Manage Sessions"
+                onclick={(event) => {
+                  event.stopPropagation();
+                  openSettings('sessions');
+                }}
+              >
+                <Settings class="size-3.5"/>
+              </Button>
+            </div>
           </Tabs.List>
           <Tabs.Content value="layouts" class="min-h-0">
             <div class="flex h-[33vh] flex-col gap-2 overflow-y-auto px-6">
@@ -411,6 +490,36 @@
                   <img class="w-6 h-6" src="icons/{layTab.icon?.slug ?? 'misc/unknown'}.png" alt=""/> {layTab.label}
                 </Button>
               {/each}
+            </div>
+            <div class="px-6 pt-2">
+              <div class="rounded-md border border-border/70 bg-muted/20 p-3">
+                <div class="mb-2 flex items-center justify-center gap-1.5 text-sm font-semibold text-foreground">
+                  <Plus class="size-4"/>
+                  Quick Create Layout Session
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    class="justify-start gap-2"
+                    title="Creates a Layout with a Single Session."
+                    onclick={() => quickCreateLayoutSession(1)}
+                  >
+                    <Square class="size-4"/>
+                    Single Session
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    class="justify-start gap-2"
+                    title="Creates a Layout with two Sessions."
+                    onclick={() => quickCreateLayoutSession(2)}
+                  >
+                    <Columns2 class="size-4"/>
+                    Dual Session
+                  </Button>
+                </div>
+              </div>
             </div>
           </Tabs.Content>
           <Tabs.Content value="sessions" class="min-h-0">

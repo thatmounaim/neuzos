@@ -34,8 +34,8 @@ export const neuzosBridge = {
     }
   },
   settingsWindow: {
-    open: () => {
-      electronApi?.send("settings_window.open");
+    open: (tab?: string) => {
+      electronApi?.send("settings_window.open", tab);
     },
     close: () => {
       electronApi?.send("settings_window.close");

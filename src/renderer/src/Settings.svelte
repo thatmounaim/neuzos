@@ -111,8 +111,18 @@
     }, 100);
   }
 
-  onMount(async () => {
-    loadConfig()
+  onMount(() => {
+    void loadConfig()
+    const setTab = (_: unknown, tab?: string) => {
+      if (tab) {
+        activeTab = tab;
+      }
+    };
+    electronApi.on("settings_window.set_tab", setTab);
+
+    return () => {
+      electronApi.removeListener("settings_window.set_tab", setTab);
+    };
   });
 
   const allowedKeybindModifiers = [

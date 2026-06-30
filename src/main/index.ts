@@ -799,9 +799,12 @@ function createViewerWindow(type: ViewerWindowType): BrowserWindow | null {
 }
 
 
-function createSettingsWindow(): void {
+function createSettingsWindow(initialTab?: string): void {
   if (settingsWindow && !settingsWindow.isDestroyed()) {
     settingsWindow.focus();
+    if (initialTab) {
+      settingsWindow.webContents.send("settings_window.set_tab", initialTab);
+    }
     return;
   }
 
@@ -832,6 +835,9 @@ function createSettingsWindow(): void {
   settingsWindow.on("ready-to-show", () => {
     settingsWindow?.show();
     settingsWindow?.webContents.setZoomFactor(neuzosConfig.window.settings.zoom);
+    if (initialTab) {
+      settingsWindow?.webContents.send("settings_window.set_tab", initialTab);
+    }
 
     // Maximize if configured - must happen after show() with slight delay
     if (neuzosConfig.window.settings.maximized) {
@@ -1843,8 +1849,8 @@ function registerSessionKeybinds(mode: LaunchMode) {
     });
 
 
-    ipcMain.on("settings_window.open", (_) => {
-      createSettingsWindow();
+    ipcMain.on("settings_window.open", (_, tab?: string) => {
+      createSettingsWindow(tab);
     });
 
     ipcMain.on("settings_window.close", () => {
