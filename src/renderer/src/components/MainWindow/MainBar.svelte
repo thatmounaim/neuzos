@@ -72,20 +72,30 @@
     localStorage.setItem(collapsedSessionGroupsStorageKey, JSON.stringify(collapsedSessionGroupIds));
   }
 
-  onMount(async () => {
+  onMount(() => {
     loadCollapsedSessionGroups();
-    try {
-      const state = await electronApi.invoke("shortcuts.get_state");
-      shortcutsEnabled = state.mainWindow;
-    } catch (e) {
-      console.error("Failed to get shortcuts state:", e);
-    }
-    electronApi.on("event.shortcuts_state_changed", (_: any, newEnabled: boolean) => {
+    const handleShortcutsStateChanged = (_: any, newEnabled: boolean) => {
       shortcutsEnabled = newEnabled;
-    });
-    electronApi.on("event.active_keybind_profile_changed", (_: any, profileId: string) => {
+    };
+    const handleActiveKeybindProfileChanged = (_: any, profileId: string) => {
       mainWindowState.config.activeKeyBindProfileId = profileId;
-    });
+    };
+
+    void electronApi.invoke("shortcuts.get_state")
+      .then((state) => {
+        shortcutsEnabled = state.mainWindow;
+      })
+      .catch((e) => {
+        console.error("Failed to get shortcuts state:", e);
+      });
+
+    electronApi.on("event.shortcuts_state_changed", handleShortcutsStateChanged);
+    electronApi.on("event.active_keybind_profile_changed", handleActiveKeybindProfileChanged);
+
+    return () => {
+      electronApi.removeListener("event.shortcuts_state_changed", handleShortcutsStateChanged);
+      electronApi.removeListener("event.active_keybind_profile_changed", handleActiveKeybindProfileChanged);
+    };
   });
 
   async function swapProfile(profileId: string) {
