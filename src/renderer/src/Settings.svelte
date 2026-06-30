@@ -247,6 +247,23 @@
     });
   };
 
+  const cleanDefaultConfigValues = () => {
+    if (neuzosConfig.window?.sidebarSide === 'right') {
+      delete neuzosConfig.window.sidebarSide;
+    }
+
+    neuzosConfig.sessions = (neuzosConfig.sessions ?? []).map((session) => {
+      const cleanedSession = {...session};
+      if (cleanedSession.floatable === false) {
+        delete cleanedSession.floatable;
+      }
+      if (cleanedSession.autoDeleteCache === false) {
+        delete cleanedSession.autoDeleteCache;
+      }
+      return cleanedSession;
+    });
+  };
+
   const saveSettings = async (showToast: boolean = true) => {
     if (isSaving) return;
 
@@ -254,6 +271,7 @@
       isSaving = true;
       await sanitizeConfig();
       normalizeSingleSessionLayouts();
+      cleanDefaultConfigValues();
       await electronApi.invoke("config.save", JSON.stringify(neuzosConfig));
       window.dispatchEvent(new CustomEvent("neuzos:settings-saved"));
 

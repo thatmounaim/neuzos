@@ -479,7 +479,30 @@ function saveConfig(conf: any): void {
   console.log("Saving config...");
   const configPath = path.join(configDirectoryPath, "/config.json");
   console.log("Saving config to:", configPath);
-  fs.writeFileSync(configPath, JSON.stringify(conf, null, 2));
+  fs.writeFileSync(configPath, JSON.stringify(cleanConfigForSave(conf), null, 2));
+}
+
+function cleanConfigForSave(conf: any): any {
+  const cleaned = JSON.parse(JSON.stringify(conf));
+
+  if (cleaned.window?.sidebarSide === defaultSidebarSide) {
+    delete cleaned.window.sidebarSide;
+  }
+
+  if (Array.isArray(cleaned.sessions)) {
+    cleaned.sessions = cleaned.sessions.map((sessionConfig: any) => {
+      const cleanedSession = {...sessionConfig};
+      if (cleanedSession.floatable === false) {
+        delete cleanedSession.floatable;
+      }
+      if (cleanedSession.autoDeleteCache === false) {
+        delete cleanedSession.autoDeleteCache;
+      }
+      return cleanedSession;
+    });
+  }
+
+  return cleaned;
 }
 
 function loadConfig(reload: boolean = false): Promise<any> {
