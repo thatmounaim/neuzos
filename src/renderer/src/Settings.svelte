@@ -226,13 +226,36 @@
     return lastConfigSnapshot !== "" && JSON.stringify(neuzosConfig) !== lastConfigSnapshot;
   };
 
+  const normalizeSingleSessionLayouts = () => {
+    neuzosConfig.layouts = (neuzosConfig.layouts ?? []).map((layout) => {
+      const sessionIds = (layout.rows ?? []).flatMap((row) => row.sessionIds ?? []);
+      if (sessionIds.length > 1) {
+        return layout;
+      }
+
+      const [sessionId] = sessionIds;
+      const normalizedLayout = {
+        ...layout,
+        rows: [{sessionIds: sessionId ? [sessionId] : []}]
+      };
+
+      delete normalizedLayout.autoFocus;
+      delete normalizedLayout.locked;
+      delete normalizedLayout.columnFirst;
+
+      return normalizedLayout;
+    });
+  };
+
   const saveSettings = async (showToast: boolean = true) => {
     if (isSaving) return;
 
     try {
       isSaving = true;
       await sanitizeConfig();
+      normalizeSingleSessionLayouts();
       await electronApi.invoke("config.save", JSON.stringify(neuzosConfig));
+      window.dispatchEvent(new CustomEvent("neuzos:settings-saved"));
 
       // Update snapshot after successful save
       lastConfigSnapshot = JSON.stringify(neuzosConfig);
