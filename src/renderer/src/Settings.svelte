@@ -44,14 +44,14 @@
     sessionActions: [],
     sessionZoomLevels: {},
     titleBarButtons: {
-      darkModeToggle: true,
+      darkModeToggle: false,
       fullscreenToggle: true,
       keybindToggle: true
     },
     autoSaveSettings: false,
     fullscreen: {
-      hideTitleBarInMainWindow: false,
-      hideTitleBarInSessionLayouts: false
+      hideTitleBarInMainWindow: true,
+      hideTitleBarInSessionLayouts: true
     }
   });
 
@@ -97,8 +97,8 @@
     neuzosConfig.window = conf.window;
     neuzosConfig.autoSaveSettings = conf.autoSaveSettings ?? false;
     neuzosConfig.fullscreen = conf.fullscreen ?? {
-      hideTitleBarInMainWindow: false,
-      hideTitleBarInSessionLayouts: false
+      hideTitleBarInMainWindow: true,
+      hideTitleBarInSessionLayouts: true
     };
 
     // Initialize snapshot after config is loaded

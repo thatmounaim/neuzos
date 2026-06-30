@@ -69,7 +69,7 @@
   // Initialize titleBarButtons if it doesn't exist
   if (!neuzosConfig.titleBarButtons) {
     neuzosConfig.titleBarButtons = {
-      darkModeToggle: true,
+      darkModeToggle: false,
       fullscreenToggle: true,
       keybindToggle: true
     };
@@ -78,8 +78,8 @@
   // Initialize fullscreen config if it doesn't exist
   if (!neuzosConfig.fullscreen) {
     neuzosConfig.fullscreen = {
-      hideTitleBarInMainWindow: false,
-      hideTitleBarInSessionLayouts: false
+      hideTitleBarInMainWindow: true,
+      hideTitleBarInSessionLayouts: true
     };
   }
 
@@ -174,8 +174,8 @@
   function handleHideTitleBarInMainWindow(enabled: boolean) {
     if (!neuzosConfig.fullscreen) {
       neuzosConfig.fullscreen = {
-        hideTitleBarInMainWindow: false,
-        hideTitleBarInSessionLayouts: false
+        hideTitleBarInMainWindow: true,
+        hideTitleBarInSessionLayouts: true
       };
     }
     neuzosConfig.fullscreen.hideTitleBarInMainWindow = enabled;
@@ -184,8 +184,8 @@
   function handleHideTitleBarInSessionLayouts(enabled: boolean) {
     if (!neuzosConfig.fullscreen) {
       neuzosConfig.fullscreen = {
-        hideTitleBarInMainWindow: false,
-        hideTitleBarInSessionLayouts: false
+        hideTitleBarInMainWindow: true,
+        hideTitleBarInSessionLayouts: true
       };
     }
     neuzosConfig.fullscreen.hideTitleBarInSessionLayouts = enabled;
@@ -597,7 +597,7 @@
           </div>
           <Switch
             id="darkmode-toggle"
-            checked={neuzosConfig.titleBarButtons?.darkModeToggle ?? true}
+            checked={neuzosConfig.titleBarButtons?.darkModeToggle ?? false}
             onCheckedChange={handleDarkModeToggle}
           />
         </div>
@@ -663,7 +663,7 @@
           </div>
           <Switch
             id="hide-titlebar-main"
-            checked={neuzosConfig.fullscreen?.hideTitleBarInMainWindow ?? false}
+            checked={neuzosConfig.fullscreen?.hideTitleBarInMainWindow ?? true}
             onCheckedChange={handleHideTitleBarInMainWindow}
           />
         </div>
@@ -677,7 +677,7 @@
           </div>
           <Switch
             id="hide-titlebar-session"
-            checked={neuzosConfig.fullscreen?.hideTitleBarInSessionLayouts ?? false}
+            checked={neuzosConfig.fullscreen?.hideTitleBarInSessionLayouts ?? true}
             onCheckedChange={handleHideTitleBarInSessionLayouts}
           />
         </div>

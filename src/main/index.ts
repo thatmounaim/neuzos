@@ -363,16 +363,7 @@ const defaultNeuzosConfig: any = {
   autoDeleteAllCachesOnStartup: false,
   defaultLaunchMode: "normal",
   chromium: {
-    commandLineSwitches: [
-      "force_high_performance_gpu",
-      //"disable-frame-rate-limit",
-      "enable-accelerated-2d-canvas",
-      "enable-gpu-rasterization",
-      "enable-oop-rasterization",
-      "ignore-gpu-blocklist",
-      "max-active-webgl-contexts=16",
-      "enable-gpu-memory-buffer-compositor-resources",
-    ]
+    commandLineSwitches: []
   },
   sessions: [],
   layouts: [],
@@ -395,9 +386,13 @@ const defaultNeuzosConfig: any = {
   sessionZoomLevels: {},
   pendingPartitionDeletes: [],
   titleBarButtons: {
-    darkModeToggle: true,
+    darkModeToggle: false,
     fullscreenToggle: true,
     keybindToggle: true,
+  },
+  fullscreen: {
+    hideTitleBarInMainWindow: true,
+    hideTitleBarInSessionLayouts: true,
   },
 };
 

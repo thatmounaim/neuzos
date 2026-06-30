@@ -122,13 +122,13 @@
       autoSaveSettings: false,
       changed: false,
       titleBarButtons: {
-        darkModeToggle: true,
+        darkModeToggle: false,
         fullscreenToggle: true,
         keybindToggle: true
       },
       fullscreen: {
-        hideTitleBarInMainWindow: false,
-        hideTitleBarInSessionLayouts: false
+        hideTitleBarInMainWindow: true,
+        hideTitleBarInSessionLayouts: true
       }
     },
     sessions: [],
@@ -409,8 +409,8 @@
     mainWindowState.config.titleBarButtons = newConfig.titleBarButtons
     mainWindowState.config.window = newConfig.window
     mainWindowState.config.fullscreen = newConfig.fullscreen || {
-      hideTitleBarInMainWindow: false,
-      hideTitleBarInSessionLayouts: false
+      hideTitleBarInMainWindow: true,
+      hideTitleBarInSessionLayouts: true
     }
     // Imperatively push new zoom levels to all running webviews.
     // The reactive $effect in NeuzClient is unreliable for cross-component deep mutations.
