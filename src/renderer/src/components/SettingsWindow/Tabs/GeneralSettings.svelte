@@ -4,9 +4,8 @@
   import {Input} from "$lib/components/ui/input";
   import {Label} from "$lib/components/ui/label";
   import {Button} from "$lib/components/ui/button";
-  import * as Alert from "$lib/components/ui/alert";
   import {Separator} from "$lib/components/ui/separator";
-  import {AlertCircleIcon, Fullscreen, Keyboard, Moon, SquareArrowOutUpRight} from "@lucide/svelte";
+  import {Fullscreen, Keyboard, Moon, SquareArrowOutUpRight} from "@lucide/svelte";
 
   import {getContext, onMount} from "svelte";
   import {getElectronContext} from "$lib/contexts/electronContext";
@@ -15,9 +14,6 @@
   const electronApi = getElectronContext();
   const neuzosConfig = getContext<NeuzConfig>("neuzosConfig");
 
-  let userAgentEnabled = $state(false);
-  let userAgentValue = $state("");
-  let defaultUserAgent = $state("");
   let appDataPath = $state("");
   let currentWindowWidth = $state(0);
   let currentWindowHeight = $state(0);
@@ -87,31 +83,13 @@
     };
   }
 
-  // Get the default user agent when component mounts
   onMount(async () => {
-    // Get the default user agent from Electron's webContents
-    try {
-      defaultUserAgent = await electronApi.invoke("app.get_default_user_agent");
-    } catch (e) {
-      // Fallback to a standard user agent if the above fails
-      defaultUserAgent = navigator.userAgent;
-    }
-
     // Get app data path
     try {
       appDataPath = await electronApi.invoke("app.get_app_data_path");
     } catch (e) {
       console.error("Failed to get app data path:", e);
       appDataPath = "";
-    }
-
-    // Initialize state based on config
-    if (neuzosConfig.userAgent) {
-      userAgentEnabled = true;
-      userAgentValue = neuzosConfig.userAgent;
-    } else {
-      userAgentEnabled = false;
-      userAgentValue = defaultUserAgent;
     }
 
     // Get initial window dimensions
@@ -158,29 +136,6 @@
       await electronApi.invoke("app.open_app_data_folder");
     } catch (e) {
       console.error("Failed to open app data folder:", e);
-    }
-  }
-
-  // Handle switch toggle
-  function handleUserAgentToggle(enabled: boolean) {
-    userAgentEnabled = enabled;
-    if (enabled) {
-      // When enabling, populate with default if empty
-      if (!userAgentValue || userAgentValue === "") {
-        userAgentValue = defaultUserAgent;
-      }
-      neuzosConfig.userAgent = userAgentValue;
-    } else {
-      // When disabling, remove from config
-      delete neuzosConfig.userAgent;
-    }
-  }
-
-  // Handle input changes
-  function handleUserAgentInput(value: string) {
-    userAgentValue = value;
-    if (userAgentEnabled) {
-      neuzosConfig.userAgent = value;
     }
   }
 
@@ -614,64 +569,6 @@
           </div>
         </div>
       </div>
-    </div>
-
-    <Separator/>
-
-    <!-- User Agent Settings Section -->
-    <div class="space-y-3">
-      <div class="space-y-1">
-        <h3 class="text-base font-semibold">User Agent Settings</h3>
-        <p class="text-sm text-muted-foreground">
-          Configure Custom User Agent for Webviews and Sessions.
-        </p>
-      </div>
-
-      <Alert.Root variant="destructive">
-        <AlertCircleIcon class="h-4 w-4"/>
-        <Alert.Title>Important before Changing the User Agent!</Alert.Title>
-        <Alert.Description>
-          In some cases logged in Sessions might become invalid with a new User Agent.
-        </Alert.Description>
-      </Alert.Root>
-
-      <div class="flex items-center justify-between py-2">
-        <div class="space-y-0.5">
-          <Label for="custom-user-agent" class="text-sm font-medium">Custom User Agent</Label>
-          <p class="text-xs text-muted-foreground">
-            Enable Custom User Agent for All Webviews and Sessions
-          </p>
-        </div>
-        <Switch
-          id="custom-user-agent"
-          checked={userAgentEnabled}
-          onCheckedChange={handleUserAgentToggle}
-        />
-      </div>
-
-      {#if userAgentEnabled}
-        <div class="space-y-2">
-          <Label for="user-agent-input" class="text-xs">User Agent String</Label>
-          <Input
-            id="user-agent-input"
-            type="text"
-            placeholder="Enter custom user agent..."
-            bind:value={userAgentValue}
-            oninput={(e) => {
-              const target = e.target as HTMLInputElement;
-              handleUserAgentInput(target.value);
-            }}
-            class="h-8 text-sm w-full"
-          />
-          <p class="text-xs text-muted-foreground">
-            Default: <code class="bg-muted px-1 py-0.5 rounded text-xs">{defaultUserAgent}</code>
-          </p>
-        </div>
-      {:else}
-        <p class="text-xs text-muted-foreground">
-          When Disabled, the Default Electron User Agent will be used.
-        </p>
-      {/if}
     </div>
 
     <Separator/>

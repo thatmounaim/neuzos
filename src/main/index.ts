@@ -28,45 +28,45 @@ const allowedCommandLineSwitches = [
   // Thanks to Kumara finding this one flag to be useful
   //{flag: "site-per-process", description: "Enable site isolation for each site"},
   // 🚀 Rendering / GPU Performance
-  {flag: "force_high_performance_gpu", description: "Use high performance GPU on hybrid systems"},
+  {flag: "force_high_performance_gpu", description: "Forces the Application to use the Dedicated GPU instead of an Integrated GPU on Hybrid Systems like Laptops.", tooltip: "This ensures Maximum Graphical Performance and avoids the Application running on the slower Integrated GPU."},
   //{flag: "force_low_power_gpu", description: "Use integrated GPU on hybrid systems"},
-  {flag: "enable-gpu-rasterization", description: "Force GPU rasterization"},
-  {flag: "enable-zero-copy", description: "Use zero-copy textures for better WebGL performance"},
+  {flag: "enable-gpu-rasterization", description: "Enables GPU Rasterization.", tooltip: "Forces the GPU to perform Rasterization instead of the CPU, which can significantly improve Rendering Performance in Graphics-Heavy Applications."},
+  {flag: "enable-zero-copy", description: "Enables Zero-Copy Texture Uploads.", tooltip: "Allows the GPU to access Textures directly instead of copying them multiple times between CPU and GPU Memory, reducing Memory Bandwidth Usage and improving WebGL Performance."},
   // {flag: "enable-gpu-compositing", description: "Force GPU compositing"},
   //{flag: "enable-native-gpu-memory-buffers", description: "Use native GPU memory buffers"},
-  {flag: "enable-oop-rasterization", description: "Out-of-process rasterization"},
-  {flag: "enable-accelerated-2d-canvas", description: "Speed up canvas rendering"},
+  {flag: "enable-oop-rasterization", description: "Enables Out-Of-Process Rasterization.", tooltip: "Moves Rasterization into a separate GPU Process, improving Stability because Rasterization Crashes will not crash the Main Application."},
+  {flag: "enable-accelerated-2d-canvas", description: "Enables GPU Acceleration for HTML5 2D Canvas Rendering.", tooltip: "Offloads Canvas Rendering Operations such as Shapes, Images, and Animations to the GPU, significantly improving Canvas Performance."},
   //{flag: "enable-accelerated-video-decode", description: "Use GPU for video decoding"},
-  {flag: "disable-software-rasterizer", description: "Avoid CPU fallback for rendering"},
+  {flag: "disable-software-rasterizer", description: "Disables the Software Rasterizer Fallback.", tooltip: "Prevents Chromium from falling back to CPU Rendering if GPU Acceleration fails, forcing the Application to use GPU Rendering only."},
   //{flag: "enforce-gl-minimums", description: "Enforce OpenGL minimum requirements"},
   //{flag: "enable-webgl-draft-extensions", description: "Enable experimental WebGL extensions"},
-  {flag: "enable-gpu-memory-buffer-compositor-resources", description: "GPU memory buffer optimizations"},
+  {flag: "enable-gpu-memory-buffer-compositor-resources", description: "Enables GPU Memory Buffers for Compositor Resources.", tooltip: "Improves Memory Sharing between the GPU and Compositor, reducing Copy Overhead and increasing Rendering Efficiency."},
   // {flag: "enable-gpu-memory-buffer-video-frames", description: "GPU memory buffer for video frames"},
   //{flag: "video-capture-use-gpu-memory-buffer", description: "Use GPU memory buffer for video capture"},
 
   // 🧠 GPU Stability & Speed
-  {flag: "ignore-gpu-blocklist", description: "Forces all GPU features on all drivers"},
-  {flag: "enable-gpu-driver-workarounds", description: "GPU driver stability workarounds"},
+  {flag: "ignore-gpu-blocklist", description: "Ignores Chromium's GPU Blocklist.", tooltip: "Forces GPU Features to remain enabled even on unsupported Hardware or Drivers. This may improve Performance but can reduce Stability."},
+  {flag: "enable-gpu-driver-workarounds", description: "Enables GPU Driver Workarounds.", tooltip: "Keeps Chromium's Driver-Specific Compatibility Fixes enabled to improve Stability on GPUs with known Driver Issues."},
   //{flag: "enable-unsafe-webgpu", description: "Enable unsafe WebGPU features"},
 
   // ⚡ FPS & Frame Timing
-  {flag: "disable-frame-rate-limit", description: "Uncap FPS"},
-  {flag: "disable-gpu-vsync", description: "Disable vsync for uncapped rendering"},
+  {flag: "disable-frame-rate-limit", description: "Disables the Internal Frame Rate Limit.", tooltip: "Allows the Application to render Frames as fast as possible instead of respecting an internal FPS Limit."},
+  {flag: "disable-gpu-vsync", description: "Disables GPU Vertical Synchronization (VSync).", tooltip: "Removes VSync to allow uncapped Frame Rates, which may improve Responsiveness but can cause Screen Tearing."},
   //{flag: "enable-fast-unload", description: "Speeds up tab/window destruction"},
-  {flag: "disable-backgrounding-occluded-windows", description: "Keep background windows active"},
+  {flag: "disable-backgrounding-occluded-windows", description: "Disables Background Throttling for Occluded Windows.", tooltip: "Prevents Windows that are covered or hidden from being throttled, allowing them to continue Rendering at full Performance."},
 
   // 💤 Prevent Throttling / Background Slowdown
-  {flag: "disable-background-timer-throttling", description: "Prevent timers from slowing in background"},
-  {flag: "disable-renderer-backgrounding", description: "Prevent renderer throttling"},
-  {flag: "enable-gpu-shader-disk-cache", description: "Cache shaders to disk"},
+  {flag: "disable-background-timer-throttling", description: "Disables Background Timer Throttling.", tooltip: "Prevents JavaScript Timers from being slowed down while the Application is running in the Background."},
+  {flag: "disable-renderer-backgrounding", description: "Disables Renderer Background Prioritization.", tooltip: "Keeps the Renderer Process running at full CPU Priority even when the Application is minimized or inactive."},
+  {flag: "enable-gpu-shader-disk-cache", description: "Enables the GPU Shader Disk Cache.", tooltip: "Stores compiled GPU Shaders on Disk to reduce Shader Compilation Times, improve Startup Performance, and minimize Rendering Stutter."},
 
   // 🔧 Misc Performance Tweaks
   //{flag: "disable-low-res-tiling", description: "Avoid low-resolution tiles"},
-  {flag: "enable-threaded-compositing", description: "Use multi-threaded compositor"},
-  {flag: "max-active-webgl-contexts=16", description: "Allow more active WebGL contexts (16)"},
-  {flag: "max-active-webgl-contexts=32", description: "Allow more active WebGL contexts (32)"},
+  {flag: "enable-threaded-compositing", description: "Enables Threaded Compositing.", tooltip: "Moves Compositing Tasks onto multiple Threads to improve Rendering Performance and Application Responsiveness."},
+  {flag: "max-active-webgl-contexts=16", description: "Sets the Maximum Number of active WebGL Contexts to 16.", tooltip: "Allows up to 16 simultaneous WebGL Contexts, which is useful for Applications using multiple WebGL Canvases."},
+  {flag: "max-active-webgl-contexts=32", description: "Sets the Maximum Number of active WebGL Contexts to 32.", tooltip: "Allows up to 32 simultaneous WebGL Contexts for Applications with heavy WebGL Usage."},
   //{flag: "no-proxy-server", description: "Reduce network latency from proxy lookups"},
-  {flag: "enable-low-end-device-mode", description: "Low-end device mode optimizations (Reduced Performance)"},
+  {flag: "enable-low-end-device-mode", description: "Enables Low-End Device Optimizations.", tooltip: "Reduces Memory Usage and simplifies Rendering to improve Performance on Low-End Hardware."},
 ];
 
 let mainWindow: BrowserWindow | null = null;
