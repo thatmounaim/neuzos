@@ -1,5 +1,4 @@
-import { getContext, onMount, setContext } from 'svelte';
-import { neuzosBridge } from '$lib/core';
+import { getContext, setContext } from 'svelte';
 import type { NeuzIcon } from '$lib/types';
 
 const QUEST_PANEL_CONTEXT_KEY = Symbol('questPanel');
@@ -43,9 +42,14 @@ interface CharacterState {
 interface PersistedState {
   characters: CharacterState[];
   activeCharacterId: string | null;
+  sidebarSide: 'left' | 'right';
   recommendationFilters: Record<string, boolean>;
   levelAppropriateOnly: boolean;
   fwcFilterEnabled: boolean;
+}
+
+function normalizeSidebarSide(side: unknown): 'left' | 'right' {
+  return side === 'left' ? 'left' : 'right';
 }
 
 function createDefaultCharacter(name: string, flyffClass: FlyffClassName | null = null, icon: NeuzIcon | null = null): CharacterState {
@@ -98,6 +102,7 @@ function loadPersistedState(): PersistedState {
       return {
         characters,
         activeCharacterId: parsed.activeCharacterId ?? characters[0]?.id ?? null,
+        sidebarSide: normalizeSidebarSide(parsed.sidebarSide),
         recommendationFilters: { ...defaultRecommendationFilters(), ...(parsed.recommendationFilters ?? {}) },
         levelAppropriateOnly: parsed.levelAppropriateOnly ?? false,
         fwcFilterEnabled: parsed.fwcFilterEnabled ?? false,
@@ -109,6 +114,7 @@ function loadPersistedState(): PersistedState {
   return {
     characters: [],
     activeCharacterId: null,
+    sidebarSide: 'right',
     recommendationFilters: defaultRecommendationFilters(),
     levelAppropriateOnly: false,
     fwcFilterEnabled: false,
@@ -162,22 +168,12 @@ export function createQuestPanelContext(): QuestPanelContext {
   const persisted = loadPersistedState();
 
   let isOpen = $state(false);
-  let sidebarSide = $state<'left' | 'right'>('left');
+  let sidebarSide = $state<'left' | 'right'>(persisted.sidebarSide);
   let characters = $state<CharacterState[]>(persisted.characters.map(c => ({ ...c })));
   let activeCharacterId = $state<string | null>(persisted.activeCharacterId);
   let recommendationFilters = $state<Record<string, boolean>>({ ...persisted.recommendationFilters });
   let levelAppropriateOnly = $state(persisted.levelAppropriateOnly);
   let fwcFilterEnabled = $state(persisted.fwcFilterEnabled);
-
-  onMount(() => {
-    neuzosBridge.sidebarPanel.getSide()
-      .then((side) => {
-        sidebarSide = side;
-      })
-      .catch((error) => {
-        console.warn('[QuestPanel] Failed to load sidebar side from config:', error);
-      });
-  });
 
   // Derived index for the active character -- we use a getter pattern to avoid $derived proxy issues
   function getActiveChar(): CharacterState | null {
@@ -202,6 +198,7 @@ export function createQuestPanelContext(): QuestPanelContext {
           expandedQuestlines: [...c.expandedQuestlines],
         })),
         activeCharacterId,
+        sidebarSide,
         recommendationFilters: { ...recommendationFilters },
         levelAppropriateOnly,
         fwcFilterEnabled,
@@ -245,7 +242,7 @@ export function createQuestPanelContext(): QuestPanelContext {
     close() { isOpen = false; },
     setSidebarSide(side: 'left' | 'right') {
       sidebarSide = side;
-      neuzosBridge.sidebarPanel.setSide(side);
+      save();
     },
 
     // -- Character management --

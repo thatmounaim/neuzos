@@ -155,7 +155,7 @@
       variant="ghost"
       class="size-6"
       onclick={() => questPanel.setSidebarSide(questPanel.sidebarSide === 'left' ? 'right' : 'left')}
-      title={questPanel.sidebarSide === 'left' ? 'Move sidebar to right' : 'Move sidebar to left'}
+      title={questPanel.sidebarSide === 'left' ? 'Move Sidebar to Right' : 'Move Sidebar to Left'}
     >
       {#if questPanel.sidebarSide === 'left'}
         <PanelRight class="size-3.5" />

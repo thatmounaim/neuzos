@@ -101,6 +101,14 @@ function cloneSessionZoomLevels(sessionZoomLevels?: Record<string, number>): Rec
   return cloneValue(sessionZoomLevels ?? {});
 }
 
+function cloneWindowForExport(windowConfig: NeuzConfig['window']): NeuzConfig['window'] {
+  const cleanedWindow = cloneValue(windowConfig);
+  if (cleanedWindow?.sidebarSide !== undefined) {
+    delete cleanedWindow.sidebarSide;
+  }
+  return cleanedWindow;
+}
+
 function getSessionActionItemCount(sessionActions: NeuzConfig['sessionActions']): number {
   return (sessionActions ?? []).reduce((total, sessionActionGroup) => total + (sessionActionGroup.actions?.length ?? 0), 0);
 }
@@ -187,7 +195,7 @@ function cloneForExport(config: NeuzConfig, selectedCategories: ExportCategory[]
 
   if (isCategorySelected(selectedCategories, 'ui-layout')) {
     if (config.window !== undefined) {
-      payload.window = cloneValue(config.window);
+      payload.window = cloneWindowForExport(config.window);
     }
     payload.sessionZoomLevels = cloneSessionZoomLevels(config.sessionZoomLevels);
     if (config.fullscreen !== undefined) {

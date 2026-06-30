@@ -75,8 +75,6 @@ let sessionWindow: BrowserWindow | null = null;
 let lastKeybindToggleAt = 0;
 
 type ViewerWindowType = 'navi_guide' | 'flyffipedia';
-type SidebarSide = 'left' | 'right';
-
 type ViewerWindowConfig = {
   x: number | null;
   y: number | null;
@@ -100,8 +98,6 @@ const defaultViewerWindowConfig: ViewerWindowConfig = {
   height: 700,
   alwaysOnTop: true,
 };
-
-const defaultSidebarSide: SidebarSide = 'right';
 
 const viewerWindows: Map<ViewerWindowType, BrowserWindow> = new Map();
 const viewerBoundsSaveTimers: Map<ViewerWindowType, ReturnType<typeof setTimeout>> = new Map();
@@ -485,7 +481,7 @@ function saveConfig(conf: any): void {
 function cleanConfigForSave(conf: any): any {
   const cleaned = JSON.parse(JSON.stringify(conf));
 
-  if (cleaned.window?.sidebarSide === defaultSidebarSide) {
+  if (cleaned.window?.sidebarSide !== undefined) {
     delete cleaned.window.sidebarSide;
   }
 
@@ -500,6 +496,16 @@ function cleanConfigForSave(conf: any): any {
       }
       return cleanedSession;
     });
+  }
+
+  return cleaned;
+}
+
+function cleanConfigExportPayload(payload: ConfigExportPayloadV2): ConfigExportPayloadV2 {
+  const cleaned = JSON.parse(JSON.stringify(payload));
+
+  if (cleaned.window?.sidebarSide !== undefined) {
+    delete cleaned.window.sidebarSide;
   }
 
   return cleaned;
@@ -557,7 +563,6 @@ function loadConfig(reload: boolean = false): Promise<any> {
                   ...(loadedWindow.viewers?.flyffipedia || {}),
                 },
               },
-              sidebarSide: loadedWindow.sidebarSide || defaultSidebarSide,
             };
           }
 
@@ -625,10 +630,6 @@ function ensureViewerWindowState(): Record<ViewerWindowType, ViewerWindowConfig>
       ...defaultViewerWindowConfig,
       ...(neuzosConfig.window.viewers[type] || {}),
     };
-  }
-
-  if (!neuzosConfig.window.sidebarSide) {
-    neuzosConfig.window.sidebarSide = defaultSidebarSide;
   }
 
   return neuzosConfig.window.viewers;
@@ -1835,24 +1836,6 @@ function registerSessionKeybinds(mode: LaunchMode) {
       });
     });
 
-    ipcMain.handle('sidebar_panel.get_side', () => {
-      ensureViewerWindowState();
-      return neuzosConfig.window.sidebarSide || defaultSidebarSide;
-    });
-
-    ipcMain.on('sidebar_panel.set_side', (event, side: SidebarSide) => {
-      try {
-        if (side !== 'left' && side !== 'right') return;
-        ensureViewerWindowState();
-        neuzosConfig.window.sidebarSide = side;
-        saveConfig(neuzosConfig);
-        const win = BrowserWindow.fromWebContents(event.sender);
-        win?.webContents.send('event.sidebar_side_changed', side);
-      } catch (error) {
-        console.error('Failed to persist sidebar side:', error);
-      }
-    });
-
     ipcMain.handle("shortcuts.get_state", () => {
       return {
         mainWindow: mainWindowShortcutsEnabled,
@@ -2200,7 +2183,7 @@ function registerSessionKeybinds(mode: LaunchMode) {
           return {success: false, error: 'canceled'};
         }
 
-        await fs.promises.writeFile(saveResult.filePath, JSON.stringify(payload, null, 2), 'utf8');
+        await fs.promises.writeFile(saveResult.filePath, JSON.stringify(cleanConfigExportPayload(payload), null, 2), 'utf8');
         return {success: true, filePath: saveResult.filePath};
       } catch (error: any) {
         return {success: false, error: error?.message ?? String(error)};
@@ -2721,7 +2704,6 @@ function registerSessionKeybinds(mode: LaunchMode) {
         settings: defaultSettingsWindowConfig,
         session: defaultSessionWindowConfig,
         viewers: createDefaultViewerWindowConfigs(),
-        sidebarSide: defaultSidebarSide,
       };
     }
 
@@ -2778,8 +2760,6 @@ function registerSessionKeybinds(mode: LaunchMode) {
         ...(neuzosConfig.window.viewers?.flyffipedia || {}),
       },
     };
-
-    neuzosConfig.window.sidebarSide = neuzosConfig.window.sidebarSide || defaultSidebarSide;
 
     ensureViewerWindowState();
     saveConfig(neuzosConfig);

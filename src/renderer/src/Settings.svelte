@@ -248,7 +248,7 @@
   };
 
   const cleanDefaultConfigValues = () => {
-    if (neuzosConfig.window?.sidebarSide === 'right') {
+    if (neuzosConfig.window?.sidebarSide !== undefined) {
       delete neuzosConfig.window.sidebarSide;
     }
 
