@@ -101,6 +101,9 @@ export const neuzosBridge = {
     deleteSession: (sessionId: string): Promise<{ success: boolean; error?: string }> => {
       return electronApi?.invoke("session.delete", sessionId) ?? Promise.resolve({ success: false, error: "Electron API unavailable" });
     },
+    openPartitionFolder: (sessionId: string): Promise<boolean> => {
+      return electronApi?.invoke("session.open_partition_folder", sessionId) ?? Promise.resolve(false);
+    },
     setZoom: (sessionId: string, zoomLevel: number) => {
       return electronApi?.invoke("config.set_session_zoom", sessionId, zoomLevel) ?? Promise.resolve({success: false, error: "Electron API unavailable"});
     },

@@ -12,7 +12,9 @@
     Plus,
     Trash,
     RotateCw,
-    Users
+    Users,
+    ZoomIn,
+    SquareArrowOutUpRight
   } from '@lucide/svelte'
 
   import {Input} from '$lib/components/ui/input'
@@ -67,8 +69,6 @@
   const clampZoom = (value: number) => Math.min(1.5, Math.max(0.5, Math.round(value * 20) / 20))
 
   const formatSessionCount = (count: number) => `${count} ${count === 1 ? 'Session' : 'Sessions'}`
-
-  const formatZoomPercent = (sessionId: string) => `${Math.round(getSessionZoom(sessionId) * 100)}%`
 
   const defaultGroupLabel = 'New Group'
 
@@ -529,13 +529,13 @@
     const result = await neuzosBridge.sessions.clone(session.id)
 
     if (result.success === false) {
-      toast.error(result.error ?? 'Failed to clone session')
+      toast.error(result.error ?? 'Failed to Clone Session')
       return
     }
 
     const sourceIndex = neuzosConfig.sessions.findIndex((entry) => entry.id === session.id)
     if (sourceIndex < 0) {
-      toast.error('Source session was removed before cloning completed.')
+      toast.error('Source Session was removed before cloning completed.')
       return
     }
 
@@ -596,14 +596,14 @@
       await neuzosBridge.config.save(neuzosConfig)
       toast.dismiss(deletingToastId)
       deletingSessionId = null
-      toast.success(`"${sessionLabel}" deleted successfully.`)
+      toast.success(`"${sessionLabel}" Deleted Successfully.`)
       if ((result as any).deferred) {
         toast.info('Some partition files were still locked — NeuzOS will finish cleanup automatically on next start.')
       }
     } else {
       toast.dismiss(deletingToastId)
       deletingSessionId = null
-      toast.error(`Failed to delete "${sessionLabel}"`)
+      toast.error(`Failed to Delete "${sessionLabel}"`)
       deleteErrorModal = { sessionLabel, error: result.error ?? 'Unknown error' }
     }
   }
@@ -729,7 +729,7 @@
         <Tooltip.Root>
           <Popover.Root open={isGroupOpen} onOpenChange={(open) => { groupPopoverStates[session.id] = open; }}>
             <Tooltip.Trigger>
-              <Popover.Trigger class="h-9 w-9 inline-flex items-center justify-center rounded-md border border-input bg-background text-sm shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring {currentGroupId ? 'border-primary/50 text-primary' : ''}">
+              <Popover.Trigger class="h-9 w-9 inline-flex items-center justify-center rounded-md border border-input bg-muted/50 text-sm shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring {currentGroupId ? 'border-primary text-primary ring-1 ring-primary/50' : ''}">
                 <Users class="h-4 w-4"/>
               </Popover.Trigger>
             </Tooltip.Trigger>
@@ -759,8 +759,8 @@
       {@const zoomOpen = zoomPopoverStates[session.id] ?? false}
       {@const zoomValue = getSessionZoom(session.id)}
       <Popover.Root open={zoomOpen} onOpenChange={(open) => { zoomPopoverStates[session.id] = open; }}>
-        <Popover.Trigger class="h-9 w-20 inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium tabular-nums shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          {formatZoomPercent(session.id)}
+        <Popover.Trigger class="h-9 w-9 inline-flex items-center justify-center rounded-md border border-input bg-muted/50 px-2 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring {Math.round(zoomValue * 100) !== 100 ? 'border-primary text-primary ring-1 ring-primary/50' : ''}">
+          <ZoomIn class="h-4 w-4"/>
         </Popover.Trigger>
         <Popover.Content class="w-[260px] p-3" align="start">
           <div class="flex flex-col gap-3">
@@ -822,7 +822,26 @@
         />
       </div>
     </Table.Cell>
-    <Table.Cell class="w-[150px] text-center text-xs">{session.id}</Table.Cell>
+    <Table.Cell class="w-[170px]">
+      <div class="flex items-center justify-start gap-1.5">
+        <span class="text-xs">{session.id}</span>
+        <Tooltip.Provider>
+          <Tooltip.Root>
+            <Tooltip.Trigger>
+              <Button
+                variant="ghost"
+                size="icon"
+                class="h-7 w-7 text-muted-foreground hover:text-foreground"
+                onclick={() => void neuzosBridge.sessions.openPartitionFolder(session.id)}
+              >
+                <SquareArrowOutUpRight class="h-3.5 w-3.5"/>
+              </Button>
+            </Tooltip.Trigger>
+            <Tooltip.Content>Open Session Partition Folder</Tooltip.Content>
+          </Tooltip.Root>
+        </Tooltip.Provider>
+      </div>
+    </Table.Cell>
     <Table.Cell class="w-[170px]">
       <Tooltip.Provider>
         <div class="flex gap-2 items-center">
@@ -944,11 +963,11 @@
                   {/if}
                 </AlertDialog.Title>
                 <AlertDialog.Description>
-                  This will <b>permanently delete</b> all Data for <b>"{session.label}"</b>.<br/><br/>
+                  This Action will permanently Delete the Session Data for <b>"{session.label}"</b>.<br/><br/>
                   {#if deleteSessionModal?.isRunning}
                     This Session is currently running. NeuzOS will stop it before deletion proceeds.<br/><br/>
                   {/if}
-                  This cannot be undone.
+                  This Action cannot be undone.
                 </AlertDialog.Description>
               </AlertDialog.Header>
               <AlertDialog.Footer>
@@ -975,11 +994,13 @@
       <Tooltip.Provider>
         <Tooltip.Root>
           <Tooltip.Trigger>
-            <Button variant="outline" size="icon-sm" onclick={toggleSessionSortMode}>
+            <Button variant="outline" size="sm" class="h-8 gap-2" onclick={toggleSessionSortMode}>
               {#if useDragSessionSorting}
                 <GripVertical class="h-4 w-4"></GripVertical>
+                Drag & Drop Sorting
               {:else}
                 <ArrowDownUp class="h-4 w-4"></ArrowDownUp>
+                Arrow Sorting
               {/if}
             </Button>
           </Tooltip.Trigger>
@@ -1096,7 +1117,9 @@
                           </Tooltip.Root>
                         </Tooltip.Provider>
                       </Table.Head>
-                      <Table.Head class="w-[150px] text-center">Session ID</Table.Head>
+                      <Table.Head class="w-[170px] text-center">
+                        <div class="flex justify-start">Session ID</div>
+                      </Table.Head>
                       <Table.Head class="w-[170px]">Actions</Table.Head>
                     </Table.Row>
                   </Table.Header>
@@ -1172,7 +1195,7 @@
 <AlertDialog.Root open={deleteErrorModal !== null} onOpenChange={(open) => { if (!open) deleteErrorModal = null; }}>
   <AlertDialog.Content>
     <AlertDialog.Header>
-      <AlertDialog.Title>Failed to delete "{deleteErrorModal?.sessionLabel}"</AlertDialog.Title>
+      <AlertDialog.Title>Failed to Delete "{deleteErrorModal?.sessionLabel}"</AlertDialog.Title>
       <AlertDialog.Description>
         {deleteErrorModal?.error}
       </AlertDialog.Description>

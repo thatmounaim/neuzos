@@ -2645,6 +2645,22 @@ function registerSessionKeybinds(mode: LaunchMode) {
       }
     })
 
+    ipcMain.handle('session.open_partition_folder', async (_, sessionId: string) => {
+      try {
+        const { paths } = getSessionPartitionPaths(sessionId);
+        const targetPath = paths.find((partitionPath) => fs.existsSync(partitionPath)) ?? paths[0];
+        if (!targetPath) {
+          return false;
+        }
+        await fs.promises.mkdir(targetPath, { recursive: true });
+        await shell.openPath(targetPath);
+        return true;
+      } catch (e) {
+        console.error('Failed to open session partition folder:', e);
+        return false;
+      }
+    })
+
     const primaryDisplay = screen.getPrimaryDisplay();
     const {width: defaultScreenWidth, height: defaultScreenHeight} = primaryDisplay.workAreaSize;
     const aspectRatio = defaultScreenWidth / defaultScreenHeight;
