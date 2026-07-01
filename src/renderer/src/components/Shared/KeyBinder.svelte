@@ -1,6 +1,7 @@
 <script lang="ts">
   import * as Popover from "$lib/components/ui/popover";
   import {Button} from "$lib/components/ui/button";
+  import {Keyboard} from "@lucide/svelte";
 
   type Props = {
     actionId: string;
@@ -302,7 +303,8 @@
 </script>
 
 <Popover.Root open={open} onOpenChange={handleOpenChange}>
-  <Popover.Trigger class="h-9 px-3 inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm whitespace-nowrap">
+  <Popover.Trigger class="h-9 px-3 inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm whitespace-nowrap">
+    <Keyboard class="h-4 w-4 shrink-0"></Keyboard>
     <span class="truncate text-foreground">Record Keybind</span>
   </Popover.Trigger>
 
@@ -310,10 +312,11 @@
     <div class="space-y-2">
       <div class="flex items-center gap-2">
         <span class={`size-2 rounded-full ${isRecording ? 'bg-primary animate-pulse' : 'bg-muted-foreground/40'}`}></span>
-        <p class="text-sm font-semibold">{isRecording ? 'Listening…' : 'Record mode ready'}</p>
+        <p class="text-sm font-semibold">{isRecording ? 'Listening…' : 'Record Mode Ready'}</p>
       </div>
       <p class="text-xs text-muted-foreground">
-        Press a Key to record Keybind. Press Escape to Cancel.
+        Press a Keyboard or Mouse Key to Record.<br/>
+        Press Escape to Cancel.
       </p>
       <div class="rounded-md border bg-muted/40 p-3">
         <p class="text-xs text-muted-foreground">Action</p>
