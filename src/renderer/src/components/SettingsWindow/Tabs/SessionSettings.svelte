@@ -991,22 +991,25 @@
       <Card.Title class="text-lg font-semibold">
         Manage Sessions
       </Card.Title>
-      <Tooltip.Provider>
-        <Tooltip.Root>
-          <Tooltip.Trigger>
-            <Button variant="outline" size="sm" class="h-8 gap-2" onclick={toggleSessionSortMode}>
-              {#if useDragSessionSorting}
-                <GripVertical class="h-4 w-4"></GripVertical>
-                Drag & Drop Sorting
-              {:else}
-                <ArrowDownUp class="h-4 w-4"></ArrowDownUp>
-                Arrow Sorting
-              {/if}
-            </Button>
-          </Tooltip.Trigger>
-          <Tooltip.Content>{useDragSessionSorting ? 'Drag & Drop Sorting' : 'Arrow Sorting'}</Tooltip.Content>
-        </Tooltip.Root>
-      </Tooltip.Provider>
+      <div class="flex items-center gap-2">
+        <span class="text-sm font-medium text-muted-foreground">Sorting:</span>
+        <Tooltip.Provider>
+          <Tooltip.Root>
+            <Tooltip.Trigger>
+              <Button variant="outline" size="sm" class="h-8 gap-2" onclick={toggleSessionSortMode}>
+                {#if useDragSessionSorting}
+                  <GripVertical class="h-4 w-4"></GripVertical>
+                  Drag & Drop
+                {:else}
+                  <ArrowDownUp class="h-4 w-4"></ArrowDownUp>
+                  Arrows
+                {/if}
+              </Button>
+            </Tooltip.Trigger>
+            <Tooltip.Content>{useDragSessionSorting ? 'Drag & Drop Sorting' : 'Arrow Sorting'}</Tooltip.Content>
+          </Tooltip.Root>
+        </Tooltip.Provider>
+      </div>
     </div>
     <Card.Description>
       Configure your Flyff Universe Sessions below. You can Add, Edit, Reorder, and Delete Sessions.
@@ -1103,9 +1106,42 @@
                       <Table.Head class="w-[48px]"></Table.Head>
                       <Table.Head class="w-[72px]">Icon</Table.Head>
                       <Table.Head class="w-[420px] min-w-[420px]">Label</Table.Head>
-                      <Table.Head class="w-[90px] text-center">Group</Table.Head>
-                      <Table.Head class="w-[130px] text-center">Zoom</Table.Head>
-                      <Table.Head class="w-[90px] text-center">Floatable</Table.Head>
+                      <Table.Head class="w-[90px] text-center">
+                        <Tooltip.Provider>
+                          <Tooltip.Root>
+                            <Tooltip.Trigger>
+                              <span class="inline-flex cursor-help items-center justify-center">Group</span>
+                            </Tooltip.Trigger>
+                            <Tooltip.Content class="max-w-xs">
+                              Assign this Session to a Group. Sessions are displayed under their assigned Group in the Session Launcher. Groups can be collapsed to keep the Session List organized.
+                            </Tooltip.Content>
+                          </Tooltip.Root>
+                        </Tooltip.Provider>
+                      </Table.Head>
+                      <Table.Head class="w-[130px] text-center">
+                        <Tooltip.Provider>
+                          <Tooltip.Root>
+                            <Tooltip.Trigger>
+                              <span class="inline-flex cursor-help items-center justify-center">Zoom</span>
+                            </Tooltip.Trigger>
+                            <Tooltip.Content class="max-w-xs">
+                              Set the Zoom level for this Session. This changes the Zoom of the Session's Webview content.
+                            </Tooltip.Content>
+                          </Tooltip.Root>
+                        </Tooltip.Provider>
+                      </Table.Head>
+                      <Table.Head class="w-[90px] text-center">
+                        <Tooltip.Provider>
+                          <Tooltip.Root>
+                            <Tooltip.Trigger>
+                              <span class="inline-flex cursor-help items-center justify-center">Floatable</span>
+                            </Tooltip.Trigger>
+                            <Tooltip.Content class="max-w-xs">
+                              Choose whether this Session can be selected in the Floating Sessions Widget. Only enabled Sessions will appear in the Widget's Session dropdown.
+                            </Tooltip.Content>
+                          </Tooltip.Root>
+                        </Tooltip.Provider>
+                      </Table.Head>
                       <Table.Head class="w-full"></Table.Head>
                       <Table.Head class="w-[170px] text-center">
                         <Tooltip.Provider>
