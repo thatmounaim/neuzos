@@ -14,7 +14,9 @@
     RotateCw,
     Users,
     ZoomIn,
-    SquareArrowOutUpRight
+    SquareArrowOutUpRight,
+    List,
+    Grid3X3
   } from '@lucide/svelte'
 
   import {Input} from '$lib/components/ui/input'
@@ -30,30 +32,67 @@
   import {neuzosBridge} from "$lib/core";
   import {toast} from 'svelte-sonner'
 
-  const sessionIcons: string[] = [
-    "neuzos_pang",
-    'misc/browser',
-    'jobs/vagrant',
-    'jobs/assist',
-    'jobs/ringmaster',
-    'jobs/seraph',
-    'jobs/billposter',
-    'jobs/forcemaster',
-    'jobs/acrobat',
-    'jobs/ranger',
-    'jobs/crackshooter',
-    'jobs/jester',
-    'jobs/harlequin',
-    'jobs/magician',
-    'jobs/psykeeper',
-    'jobs/mentalist',
-    'jobs/elementor',
-    'jobs/arcanist',
-    'jobs/mercenary',
-    'jobs/knight',
-    'jobs/templar',
-    'jobs/blade',
-    'jobs/slayer',
+  type SessionIconOption = {
+    slug: string
+    label: string
+  }
+
+  type SessionIconGroup = {
+    heading: string
+    icons: SessionIconOption[]
+  }
+
+  const sessionIconGroups: SessionIconGroup[] = [
+    {
+      heading: 'Beginner Class',
+      icons: [
+        {slug: 'jobs/vagrant', label: 'Vagrant'}
+      ]
+    },
+    {
+      heading: '1st Job Classes',
+      icons: [
+        {slug: 'jobs/acrobat', label: 'Acrobat'},
+        {slug: 'jobs/assist', label: 'Assist'},
+        {slug: 'jobs/mercenary', label: 'Mercenary'},
+        {slug: 'jobs/magician', label: 'Magician'}
+      ]
+    },
+    {
+      heading: '2nd Job Classes',
+      icons: [
+        {slug: 'jobs/ranger', label: 'Ranger'},
+        {slug: 'jobs/jester', label: 'Jester'},
+        {slug: 'jobs/ringmaster', label: 'Ringmaster'},
+        {slug: 'jobs/billposter', label: 'Billposter'},
+        {slug: 'jobs/blade', label: 'Blade'},
+        {slug: 'jobs/knight', label: 'Knight'},
+        {slug: 'jobs/elementor', label: 'Elementor'},
+        {slug: 'jobs/psykeeper', label: 'Psykeeper'}
+      ]
+    },
+    {
+      heading: '3rd Job Classes',
+      icons: [
+        {slug: 'jobs/crackshooter', label: 'Crackshooter'},
+        {slug: 'jobs/harlequin', label: 'Harlequin'},
+        {slug: 'jobs/seraph', label: 'Seraph'},
+        {slug: 'jobs/forcemaster', label: 'Forcemaster'},
+        {slug: 'jobs/slayer', label: 'Slayer'},
+        {slug: 'jobs/templar', label: 'Templar'},
+        {slug: 'jobs/arcanist', label: 'Arcanist'},
+        {slug: 'jobs/mentalist', label: 'Mentalist'}
+      ]
+    },
+    {
+      heading: 'Other Icons',
+      icons: [
+        {slug: 'neuzos_pang', label: 'NeuzOS'},
+        {slug: 'misc/browser', label: 'Browser'},
+        {slug: 'misc/bag', label: 'Bag'},
+        {slug: 'misc/item', label: 'Item'}
+      ]
+    }
   ]
 
   const neuzosConfig = getContext<NeuzConfig>('neuzosConfig')
@@ -610,6 +649,7 @@
 
   // Track icon popover state for each session
   let iconPopoverStates: { [sessionId: string]: boolean } = $state({});
+  let sessionIconViewMode: 'grid' | 'list' = $state('grid');
   let groupPopoverStates: { [sessionId: string]: boolean } = $state({});
   let zoomPopoverStates: { [sessionId: string]: boolean } = $state({});
 </script>
@@ -681,27 +721,65 @@
               <img class="w-6 h-6" src="icons/neuzos_pang.png" alt=""/>
             {/if}
           </Popover.Trigger>
-          <Popover.Content class="w-[280px] p-0">
+          <Popover.Content class="w-[230px] p-0">
             <Command.Root shouldFilter={true}>
-              <Command.Input placeholder="Search Icons..." class="h-10" />
+              <div class="flex items-center gap-2 border-b px-2 py-2">
+                <Command.Input placeholder="Search Icons..." class="h-9 border-0 px-1 focus-visible:ring-0 focus-visible:ring-offset-0" />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  title={sessionIconViewMode === 'grid' ? 'List View' : 'Grid View'}
+                  onclick={() => {
+                    sessionIconViewMode = sessionIconViewMode === 'grid' ? 'list' : 'grid';
+                  }}
+                >
+                  {#if sessionIconViewMode === 'grid'}
+                    <List class="h-4 w-4" />
+                  {:else}
+                    <Grid3X3 class="h-4 w-4" />
+                  {/if}
+                </Button>
+              </div>
               <Command.Empty>No Icon found.</Command.Empty>
               <Command.List class="max-h-[320px]">
-                <Command.Group>
-                  {#each sessionIcons as icon}
-                    <Command.Item
-                      value={icon}
-                      keywords={[icon.replace('jobs/', '').replace('misc/', '').replace(/_/g, ' ').toLowerCase()]}
-                      onSelect={() => {
-                        session.icon.slug = icon;
-                        iconPopoverStates[session.id] = false;
-                      }}
-                      class="py-2"
-                    >
-                      <img class="size-6 mr-2" src="icons/{icon}.png" alt=""/>
-                      <span class="text-xs truncate">{icon.replace('jobs/', '').replace('misc/', '')}</span>
-                    </Command.Item>
-                  {/each}
-                </Command.Group>
+                {#each sessionIconGroups as group (group.heading)}
+                  <Command.Group heading={group.heading}>
+                    {#if sessionIconViewMode === 'grid'}
+                      <div class="grid grid-cols-[repeat(4,2.25rem)] justify-start gap-2 px-2 pb-2">
+                        {#each group.icons as icon (icon.slug)}
+                          <Command.Item
+                            value={icon.slug}
+                            keywords={[icon.label.toLowerCase(), icon.slug.replace('jobs/', '').replace('misc/', '').replace(/_/g, ' ').toLowerCase()]}
+                            onSelect={() => {
+                              session.icon.slug = icon.slug;
+                              iconPopoverStates[session.id] = false;
+                            }}
+                            class={`h-9 w-9 justify-center p-0 border ${session.icon.slug === icon.slug ? 'border-primary bg-primary/10 ring-1 ring-primary' : 'border-transparent'}`}
+                            title={icon.label}
+                          >
+                            <img class="size-6" src="icons/{icon.slug}.png" alt={icon.label}/>
+                          </Command.Item>
+                        {/each}
+                      </div>
+                    {:else}
+                      {#each group.icons as icon (icon.slug)}
+                        <Command.Item
+                          value={icon.slug}
+                          keywords={[icon.label.toLowerCase(), icon.slug.replace('jobs/', '').replace('misc/', '').replace(/_/g, ' ').toLowerCase()]}
+                            onSelect={() => {
+                              session.icon.slug = icon.slug;
+                              iconPopoverStates[session.id] = false;
+                            }}
+                            class={`py-2 border ${session.icon.slug === icon.slug ? 'border-primary bg-primary/10 ring-1 ring-primary' : 'border-transparent'}`}
+                          >
+                          <img class="size-6 mr-2" src="icons/{icon.slug}.png" alt={icon.label}/>
+                          <span class="text-xs truncate">{icon.label}</span>
+                        </Command.Item>
+                      {/each}
+                    {/if}
+                  </Command.Group>
+                {/each}
               </Command.List>
             </Command.Root>
           </Popover.Content>
