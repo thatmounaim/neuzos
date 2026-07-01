@@ -6,7 +6,7 @@
   import * as Collapsible from "$lib/components/ui/collapsible";
   import * as Tooltip from "$lib/components/ui/tooltip";
 
-  import {getContext} from "svelte";
+  import {getContext, onMount} from "svelte";
   import {Button} from "$lib/components/ui/button";
   import {Input} from "$lib/components/ui/input";
   import {Switch} from "$lib/components/ui/switch";
@@ -14,7 +14,17 @@
   import KeyBinder from "../../Shared/KeyBinder.svelte";
   import type {NeuzConfig, SessionActions} from "$lib/types";
   import IconPicker from "../../Shared/IconPicker.svelte";
-  import {Plus, Trash2, ChevronsUpDown, Check, ChevronDown, ChevronUp, AlertCircleIcon} from "@lucide/svelte";
+  import {
+    Plus,
+    Trash2,
+    ChevronsUpDown,
+    Check,
+    ChevronDown,
+    ChevronUp,
+    AlertCircleIcon,
+    GripVertical,
+    ArrowDownUp
+  } from "@lucide/svelte";
 
   const modifierOptions = [
     {value: "", label: "None"},
@@ -91,6 +101,7 @@
   }
 
   const neuzosConfig = getContext<NeuzConfig>("neuzosConfig");
+  const actionSortModeStorageKey = 'neuzos.sessionActions.sortMode'
 
   // Initialize sessionActions if it doesn't exist
   if (!neuzosConfig.sessionActions) {
@@ -106,6 +117,14 @@
 
   // Track open state for add sessions popover
   let addSessionPopoverOpen = $state(false);
+  let useDragActionSorting = $state(false);
+  let draggedAction: { sessionId: string; actionId: string } | null = $state(null);
+  let actionDropTarget: { sessionId: string; index: number } | null = $state(null);
+  let sessionActionsScrollContainer: HTMLElement | null = $state(null);
+
+  onMount(() => {
+    useDragActionSorting = localStorage.getItem(actionSortModeStorageKey) === 'drag';
+  });
 
   function addSessionToManage(sessionId: string) {
     const existing = neuzosConfig.sessionActions.find(sa => sa.sessionId === sessionId);
@@ -140,6 +159,105 @@
 
   function removeAction(sessionActions: SessionActions, actionId: string) {
     sessionActions.actions = sessionActions.actions.filter(a => a.id !== actionId);
+  }
+
+  function toggleActionSortMode() {
+    useDragActionSorting = !useDragActionSorting;
+    localStorage.setItem(actionSortModeStorageKey, useDragActionSorting ? 'drag' : 'buttons');
+    draggedAction = null;
+    actionDropTarget = null;
+  }
+
+  function reorderAction(sessionActions: SessionActions, actionId: string, targetIndex: number) {
+    const currentIndex = sessionActions.actions.findIndex((action) => action.id === actionId);
+    if (currentIndex === -1) return;
+
+    const actions = [...sessionActions.actions];
+    const [movedAction] = actions.splice(currentIndex, 1);
+    const nextIndex = Math.max(0, Math.min(targetIndex > currentIndex ? targetIndex - 1 : targetIndex, actions.length));
+    actions.splice(nextIndex, 0, movedAction);
+    sessionActions.actions = actions;
+
+    if (comboboxStates[sessionActions.sessionId]) {
+      const states = [...comboboxStates[sessionActions.sessionId]];
+      const [movedState] = states.splice(currentIndex, 1);
+      states.splice(nextIndex, 0, movedState);
+      comboboxStates[sessionActions.sessionId] = states;
+    }
+  }
+
+  function handleActionDragStart(event: DragEvent, sessionId: string, actionId: string) {
+    if (!useDragActionSorting) {
+      event.preventDefault();
+      return;
+    }
+
+    draggedAction = {sessionId, actionId};
+    event.dataTransfer?.setData('text/plain', actionId);
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+    }
+  }
+
+  function getActionRowDropIndex(event: DragEvent, actionIndex: number) {
+    const row = event.currentTarget as HTMLElement;
+    const rect = row.getBoundingClientRect();
+    return event.clientY > rect.top + rect.height / 2 ? actionIndex + 1 : actionIndex;
+  }
+
+  function handleActionDragOver(event: DragEvent, sessionId: string, index: number) {
+    if (!useDragActionSorting || !draggedAction || draggedAction.sessionId !== sessionId) {
+      return;
+    }
+
+    event.preventDefault();
+    scrollSessionActionsNearEdge(event);
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'move';
+    }
+    actionDropTarget = {sessionId, index};
+  }
+
+  function handleActionRowDragOver(event: DragEvent, sessionId: string, actionIndex: number) {
+    handleActionDragOver(event, sessionId, getActionRowDropIndex(event, actionIndex));
+  }
+
+  function handleActionDrop(event: DragEvent, sessionActions: SessionActions, index: number) {
+    event.preventDefault();
+    if (draggedAction && draggedAction.sessionId === sessionActions.sessionId) {
+      reorderAction(sessionActions, draggedAction.actionId, index);
+    }
+    draggedAction = null;
+    actionDropTarget = null;
+  }
+
+  function handleActionRowDrop(event: DragEvent, sessionActions: SessionActions, actionIndex: number) {
+    handleActionDrop(event, sessionActions, getActionRowDropIndex(event, actionIndex));
+  }
+
+  function handleActionDragEnd() {
+    draggedAction = null;
+    actionDropTarget = null;
+  }
+
+  function isActionDropTarget(sessionId: string, index: number) {
+    return actionDropTarget?.sessionId === sessionId && actionDropTarget.index === index;
+  }
+
+  function scrollSessionActionsNearEdge(event: DragEvent) {
+    if (!sessionActionsScrollContainer) {
+      return;
+    }
+
+    const rect = sessionActionsScrollContainer.getBoundingClientRect();
+    const edgeSize = 36;
+    const scrollStep = 5;
+
+    if (event.clientY < rect.top + edgeSize) {
+      sessionActionsScrollContainer.scrollTop -= scrollStep;
+    } else if (event.clientY > rect.bottom - edgeSize) {
+      sessionActionsScrollContainer.scrollTop += scrollStep;
+    }
   }
 
   function moveActionUp(sessionActions: SessionActions, index: number) {
@@ -228,10 +346,47 @@
 
 </script>
 
-<Card.Root class="h-full overflow-y-auto">
+{#snippet actionDropZone(sessionActions, index)}
+  {@const active = isActionDropTarget(sessionActions.sessionId, index)}
+  {#if useDragActionSorting}
+    <Table.Row class="border-b-0 hover:[&,&>svelte-css-wrapper]:[&>th,td]:bg-transparent">
+      <Table.Cell
+        colspan={9}
+        class={`p-0 transition-[height] duration-150 ${active ? 'h-10' : 'h-1'}`}
+        ondragover={(event) => handleActionDragOver(event, sessionActions.sessionId, index)}
+        ondrop={(event) => handleActionDrop(event, sessionActions, index)}
+      >
+        <div class={`mx-2 rounded-md transition-all duration-150 ${active ? 'h-8 border border-dashed border-primary/70 bg-primary/10 shadow-sm' : 'h-1 bg-transparent'}`}></div>
+      </Table.Cell>
+    </Table.Row>
+  {/if}
+{/snippet}
+
+<Card.Root bind:ref={sessionActionsScrollContainer} class="h-full overflow-y-auto">
   <Card.Header>
 
-    <Card.Title class="text-lg font-semibold">Session Actions</Card.Title>
+    <div class="flex items-center justify-between gap-3">
+      <Card.Title class="text-lg font-semibold">Session Actions</Card.Title>
+      <div class="flex items-center gap-2">
+        <span class="text-sm font-medium text-muted-foreground">Sorting:</span>
+        <Tooltip.Provider>
+          <Tooltip.Root>
+            <Tooltip.Trigger>
+              <Button variant="outline" size="sm" class="h-8 gap-2" onclick={toggleActionSortMode}>
+                {#if useDragActionSorting}
+                  <GripVertical class="h-4 w-4"></GripVertical>
+                  Drag & Drop
+                {:else}
+                  <ArrowDownUp class="h-4 w-4"></ArrowDownUp>
+                  Arrows
+                {/if}
+              </Button>
+            </Tooltip.Trigger>
+            <Tooltip.Content>{useDragActionSorting ? 'Drag & Drop Sorting' : 'Arrow Sorting'}</Tooltip.Content>
+          </Tooltip.Root>
+        </Tooltip.Provider>
+      </div>
+    </div>
     <Card.Description class="flex flex-col">
       <p class="text-sm">
         Manage Actions for your Sessions. These are required for various NeuzOS features, such as Keybinds and Widgets.
@@ -293,27 +448,9 @@
                           class="group border rounded-lg bg-card">
           <div class="p-4">
             <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2 mr-2">
-                <div class="flex flex-col gap-0.5">
-                  <Button
-                    variant="outline"
-                    size="icon-xs"
-                    onclick={() => moveSessionUp(sessionIndex)}
-                    disabled={sessionIndex === 0}
-                  >
-                    <ChevronUp class="h-3 w-3"/>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon-xs"
-                    onclick={() => moveSessionDown(sessionIndex)}
-                    disabled={sessionIndex >= neuzosConfig.sessionActions.length - 1}
-                  >
-                    <ChevronDown class="h-3 w-3"/>
-                  </Button>
-                </div>
-              </div>
               <Collapsible.Trigger class="flex items-center gap-3 hover:opacity-80 transition-opacity flex-1 text-left">
+                <ChevronDown
+                  class="h-4 w-4 shrink-0 transition-transform {openSessions[sessionActions.sessionId] ? 'rotate-180' : ''}"/>
                 <img class="w-6 h-6 rounded" src="icons/{sessionIcon}.png" alt=""/>
                 <div class="flex flex-col">
                   <span class="font-medium">{sessionLabel}</span>
@@ -321,9 +458,25 @@
                     {sessionActions.actions.length} {sessionActions.actions.length === 1 ? 'Action' : 'Actions'}
                   </span>
                 </div>
-                <ChevronDown
-                  class="h-4 w-4 ml-auto transition-transform {openSessions[sessionActions.sessionId] ? 'rotate-180' : ''}"/>
               </Collapsible.Trigger>
+              <div class="ml-2 flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="icon-xs"
+                  onclick={() => moveSessionUp(sessionIndex)}
+                  disabled={sessionIndex === 0}
+                >
+                  <ChevronUp class="h-3 w-3"/>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon-xs"
+                  onclick={() => moveSessionDown(sessionIndex)}
+                  disabled={sessionIndex >= neuzosConfig.sessionActions.length - 1}
+                >
+                  <ChevronDown class="h-3 w-3"/>
+                </Button>
+              </div>
               <Button
                 variant="ghost"
                 size="icon"
@@ -342,8 +495,8 @@
                     <Table.Root>
                       <Table.Header>
                         <Table.Row>
-                          <Table.Head class="w-[20px]"></Table.Head>
-                          <Table.Head class="w-[60px]">Icon</Table.Head>
+                          <Table.Head class="w-[40px] px-1"></Table.Head>
+                          <Table.Head class="w-[52px] px-1">Icon</Table.Head>
                           <Table.Head class="w-[200px]">Label</Table.Head>
                           <Table.Head class="w-[390px]">In-Game Modifier + Key</Table.Head>
                           <Table.Head class="w-[100px]">
@@ -399,6 +552,7 @@
                       </Table.Header>
                       <Table.Body>
                         {#each sessionActions.actions as action, index (action.id)}
+                          {@render actionDropZone(sessionActions, index)}
                           {@const parsed = parseKeybind(action.ingameKey)}
                           {@const state = comboboxStates[sessionActions.sessionId]?.[index] || {
                             keyOpen: false,
@@ -406,29 +560,46 @@
                             iconOpen: false,
                             categoryOpen: false
                           }}
-                          <Table.Row class="hover:bg-muted/50">
+                          <Table.Row
+                            class="hover:bg-muted/50 {useDragActionSorting && draggedAction?.sessionId === sessionActions.sessionId && draggedAction?.actionId === action.id ? 'opacity-50' : ''}"
+                            ondragover={(event) => handleActionRowDragOver(event, sessionActions.sessionId, index)}
+                            ondrop={(event) => handleActionRowDrop(event, sessionActions, index)}
+                          >
                             <!-- Order -->
-                            <Table.Cell class="py-3">
-                              <div class="flex flex-col items-center justify-center gap-1">
-                                <Button
-                                  variant="outline"
-                                  size="icon-xs"
-                                  onclick={() => moveActionUp(sessionActions, index)}
-                                  disabled={index === 0}
+                            <Table.Cell class="py-3 pl-2 pr-0">
+                              {#if useDragActionSorting}
+                                <button
+                                  type="button"
+                                  draggable="true"
+                                  class="flex h-8 w-8 cursor-grab items-center justify-center rounded-md border text-muted-foreground active:cursor-grabbing"
+                                  ondragstart={(event) => handleActionDragStart(event, sessionActions.sessionId, action.id)}
+                                  ondragend={handleActionDragEnd}
+                                  aria-label="Drag action to reorder"
                                 >
-                                  <ChevronUp class="h-4 w-4"/>
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="icon-xs"
-                                  onclick={() => moveActionDown(sessionActions, index)}
-                                  disabled={index === sessionActions.actions.length - 1}
-                                >
-                                  <ChevronDown class="h-4 w-4"/>
-                                </Button>
-                              </div>
+                                  <GripVertical class="h-4 w-4"></GripVertical>
+                                </button>
+                              {:else}
+                                <div class="flex flex-col items-center justify-center gap-1">
+                                  <Button
+                                    variant="outline"
+                                    size="icon-xs"
+                                    onclick={() => moveActionUp(sessionActions, index)}
+                                    disabled={index === 0}
+                                  >
+                                    <ChevronUp class="h-4 w-4"/>
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="icon-xs"
+                                    onclick={() => moveActionDown(sessionActions, index)}
+                                    disabled={index === sessionActions.actions.length - 1}
+                                  >
+                                    <ChevronDown class="h-4 w-4"/>
+                                  </Button>
+                                </div>
+                              {/if}
                             </Table.Cell>                            <!-- Icon -->
-                            <Table.Cell class="py-3">
+                            <Table.Cell class="py-3 px-1">
                               <IconPicker
                                 bind:selected={action.icon}
                                 onSelect={(_, _previousIconSlug, displayName, previousDisplayName) => {
@@ -628,6 +799,7 @@
                             </Table.Cell>
                           </Table.Row>
                         {/each}
+                        {@render actionDropZone(sessionActions, sessionActions.actions.length)}
                       </Table.Body>
                     </Table.Root>
                   </div>
