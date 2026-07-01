@@ -4,6 +4,7 @@
   import * as Popover from "$lib/components/ui/popover";
   import * as Command from "$lib/components/ui/command";
   import * as Collapsible from "$lib/components/ui/collapsible";
+  import * as Tooltip from "$lib/components/ui/tooltip";
 
   import {getContext} from "svelte";
   import {Button} from "$lib/components/ui/button";
@@ -233,18 +234,13 @@
     <Card.Title class="text-lg font-semibold">Session Actions</Card.Title>
     <Card.Description class="flex flex-col">
       <p class="text-sm">
-        Manage actions for your sessions. Each session can have multiple actions with customizable icons, labels, ingame
-        keys, cast times, and cooldowns.
+        Manage Actions for your Sessions. These are required for various NeuzOS features, such as Keybinds and Widgets.
       </p>
-      <Alert.Root variant="destructive" class="mt-4">
+      <Alert.Root class="mt-4">
         <AlertCircleIcon/>
-        <Alert.Title>Important Note.</Alert.Title>
+        <Alert.Title>Important Note!</Alert.Title>
         <Alert.Description class="pt-2">
-          <ul>
-            <li>- While it complies with TOS of 1 Human Action = 1 InGame Action, use this feature at your own risk.
-            </li>
-            <li>- It's still in a gray area, and if checked by a mod and failing to respond might cause you issues.</li>
-          </ul>
+          Please configure the Key here to match the one used by the corresponding Skill/ Item In-Game.
         </Alert.Description>
       </Alert.Root>
     </Card.Description>
@@ -321,8 +317,9 @@
                 <img class="w-6 h-6 rounded" src="icons/{sessionIcon}.png" alt=""/>
                 <div class="flex flex-col">
                   <span class="font-medium">{sessionLabel}</span>
-                  <span class="text-sm text-muted-foreground">{sessionActions.actions.length}
-                    action{sessionActions.actions.length !== 1 ? 's' : ''}</span>
+                  <span class="text-sm text-muted-foreground">
+                    {sessionActions.actions.length} {sessionActions.actions.length === 1 ? 'Action' : 'Actions'}
+                  </span>
                 </div>
                 <ChevronDown
                   class="h-4 w-4 ml-auto transition-transform {openSessions[sessionActions.sessionId] ? 'rotate-180' : ''}"/>
@@ -348,13 +345,55 @@
                           <Table.Head class="w-[20px]"></Table.Head>
                           <Table.Head class="w-[60px]">Icon</Table.Head>
                           <Table.Head class="w-[200px]">Label</Table.Head>
-                          <Table.Head class="w-[120px]">Modifier</Table.Head>
-                          <Table.Head class="w-[120px]">Key</Table.Head>
-                          <Table.Head class="w-[120px]">Record</Table.Head>
-                          <Table.Head class="w-[100px]">Cast Time(s)</Table.Head>
-                          <Table.Head class="w-[100px]">Cooldown(s)</Table.Head>
-                          <Table.Head class="w-[120px]">CD Category</Table.Head>
-                          <Table.Head class="w-[70px] text-center">Pinned</Table.Head>
+                          <Table.Head class="w-[390px]">In-Game Modifier + Key</Table.Head>
+                          <Table.Head class="w-[100px]">
+                            <Tooltip.Provider>
+                              <Tooltip.Root>
+                                <Tooltip.Trigger>
+                                  <span class="inline-flex cursor-help items-center">Cast Time(s)</span>
+                                </Tooltip.Trigger>
+                                <Tooltip.Content class="max-w-xs">
+                                  Enter the Casting Time for your specific Skill/ Item. This Value is necessary for some Widgets.
+                                </Tooltip.Content>
+                              </Tooltip.Root>
+                            </Tooltip.Provider>
+                          </Table.Head>
+                          <Table.Head class="w-[100px]">
+                            <Tooltip.Provider>
+                              <Tooltip.Root>
+                                <Tooltip.Trigger>
+                                  <span class="inline-flex cursor-help items-center">Cooldown(s)</span>
+                                </Tooltip.Trigger>
+                                <Tooltip.Content class="max-w-xs">
+                                  Enter the Cooldown Time for your specific Skill/ Item. This Value is necessary for some Widgets.
+                                </Tooltip.Content>
+                              </Tooltip.Root>
+                            </Tooltip.Provider>
+                          </Table.Head>
+                          <Table.Head class="w-[120px]">
+                            <Tooltip.Provider>
+                              <Tooltip.Root>
+                                <Tooltip.Trigger>
+                                  <span class="inline-flex cursor-help items-center">CD Category</span>
+                                </Tooltip.Trigger>
+                                <Tooltip.Content class="max-w-xs">
+                                  Choose which Category your specific Skill/ Item is. This Value is necessary for some Widgets.
+                                </Tooltip.Content>
+                              </Tooltip.Root>
+                            </Tooltip.Provider>
+                          </Table.Head>
+                          <Table.Head class="w-[70px] text-center">
+                            <Tooltip.Provider>
+                              <Tooltip.Root>
+                                <Tooltip.Trigger>
+                                  <span class="inline-flex cursor-help items-center justify-center">Pinned</span>
+                                </Tooltip.Trigger>
+                                <Tooltip.Content class="max-w-xs">
+                                  Pin this Skill/ Item to your Mainbar. Required for the Action Pins Widget.
+                                </Tooltip.Content>
+                              </Tooltip.Root>
+                            </Tooltip.Provider>
+                          </Table.Head>
                           <Table.Head class="w-[40px]"></Table.Head>
                         </Table.Row>
                       </Table.Header>
@@ -392,12 +431,7 @@
                             <Table.Cell class="py-3">
                               <IconPicker
                                 bind:selected={action.icon}
-                                onSelect={(iconSlug, previousIconSlug) => {
-                                  const displayName = iconSlug.includes('/') ? iconSlug.split('/').at(-1) ?? iconSlug : iconSlug;
-                                  const previousDisplayName = previousIconSlug
-                                    ? (previousIconSlug.includes('/') ? previousIconSlug.split('/').at(-1) ?? previousIconSlug : previousIconSlug)
-                                    : null;
-
+                                onSelect={(_, _previousIconSlug, displayName, previousDisplayName) => {
                                   if (action.label === 'New Action' || (previousDisplayName && action.label === previousDisplayName)) {
                                     action.label = displayName;
                                   }
@@ -418,100 +452,93 @@
                               />
                             </Table.Cell>
 
-                            <!-- Modifier -->
-                            <Table.Cell class="py-3">
-                              <Popover.Root open={state.modifierOpen}
-                                            onOpenChange={(open) => { if (comboboxStates[sessionActions.sessionId]?.[index]) comboboxStates[sessionActions.sessionId][index].modifierOpen = open; }}>
-                                <Popover.Trigger
-                                  class="w-full h-9 px-3 py-2 inline-flex items-center justify-between rounded-md border border-input bg-background text-sm shadow-sm hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50">
-                                  {@const
-                                    selectedMod = modifierOptions.find(m => m.value === parsed.modifier)?.label ?? 'None'}
-                                  <span
-                                    class="truncate {parsed.modifier ? 'text-foreground' : 'text-muted-foreground'}">
-                                      {selectedMod}
-                                    </span>
-                                  <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
-                                </Popover.Trigger>
-                                <Popover.Content class="w-[220px] p-0">
-                                  <Command.Root shouldFilter={true}>
-                                    <Command.Input placeholder="Search Modifier..." class="h-10"/>
-                                    <Command.Empty>No Modifier found.</Command.Empty>
-                                    <Command.List class="max-h-[320px]">
-                                      <Command.Group>
-                                        {#each modifierOptions as modifier}
-                                          <Command.Item
-                                            value={modifier.value}
-                                            keywords={[modifier.label.toLowerCase()]}
-                                            onSelect={() => {
-                                                action.ingameKey = buildKeybind(modifier.value, parsed.key);
-                                                state.modifierOpen = false;
-                                              }}
-                                            class="py-2.5"
-                                          >
-                                            <Check
-                                              class={parsed.modifier === modifier.value ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
-                                            <span
-                                              class={parsed.modifier === modifier.value ? "text-primary" : ""}>{modifier.label}</span>
-                                          </Command.Item>
-                                        {/each}
-                                      </Command.Group>
-                                    </Command.List>
-                                  </Command.Root>
-                                </Popover.Content>
-                              </Popover.Root>
-                            </Table.Cell>
-
-                            <!-- Key -->
+                            <!-- In-Game Modifier + Key -->
                             <Table.Cell class="py-3">
                               {@const keyOnly = parsed.key}
-                              <Popover.Root open={state.keyOpen}
-                                            onOpenChange={(open) => { if (comboboxStates[sessionActions.sessionId]?.[index]) comboboxStates[sessionActions.sessionId][index].keyOpen = open; }}>
-                                <Popover.Trigger
-                                  class="w-full h-9 px-3 py-2 inline-flex items-center justify-between rounded-md border border-input bg-background text-sm font-mono shadow-sm hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50">
+                              {@const selectedMod = modifierOptions.find(m => m.value === parsed.modifier)?.label ?? 'None'}
+                              <div class="flex items-center gap-2">
+                                <Popover.Root open={state.modifierOpen}
+                                              onOpenChange={(open) => { if (comboboxStates[sessionActions.sessionId]?.[index]) comboboxStates[sessionActions.sessionId][index].modifierOpen = open; }}>
+                                  <Popover.Trigger
+                                    class="h-9 w-36 px-3 py-2 inline-flex items-center justify-between rounded-md border border-input bg-background text-sm shadow-sm hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50">
                                     <span
-                                      class="truncate {keyOnly ? 'text-foreground font-semibold' : 'text-muted-foreground font-sans font-normal lowercase'}">
-                                      {keyOnly ? formatKeyLabel(keyOnly) : "Select Key..."}
-                                    </span>
-                                  <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
-                                </Popover.Trigger>
-                                <Popover.Content class="w-[220px] p-0">
-                                  <Command.Root shouldFilter={true}>
-                                    <Command.Input placeholder="Search Key..." class="h-10"/>
-                                    <Command.Empty>No Key found.</Command.Empty>
-                                    <Command.List class="max-h-[320px]">
-                                      <Command.Group>
-                                        {#each allowedKeys as key}
-                                          <Command.Item
-                                            value={key}
-                                            onSelect={() => {
-                                                action.ingameKey = buildKeybind(parsed.modifier, key);
-                                                state.keyOpen = false;
-                                              }}
-                                            class="font-mono font-semibold py-2.5"
-                                          >
-                                            <Check
-                                              class={keyOnly === key ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
-                                            <span class={keyOnly === key ? "text-primary" : ""}>{formatKeyLabel(key)}</span>
-                                          </Command.Item>
-                                        {/each}
-                                      </Command.Group>
-                                    </Command.List>
-                                  </Command.Root>
-                                </Popover.Content>
-                              </Popover.Root>
-                            </Table.Cell>
-
-                            <!-- Record -->
-                            <Table.Cell class="py-3">
-                              <KeyBinder
-                                actionId={action.id}
-                                currentKey={action.ingameKey}
-                                onBind={(key) => {
-                                  action.ingameKey = key;
-                                  return true;
-                                }}
-                                onCancel={() => {}}
-                              />
+                                      class="truncate {parsed.modifier ? 'text-foreground' : 'text-muted-foreground'}">
+                                        {selectedMod}
+                                      </span>
+                                    <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
+                                  </Popover.Trigger>
+                                  <Popover.Content class="w-[220px] p-0">
+                                    <Command.Root shouldFilter={true}>
+                                      <Command.Input placeholder="Search Modifier..." class="h-10"/>
+                                      <Command.Empty>No Modifier found.</Command.Empty>
+                                      <Command.List class="max-h-[320px]">
+                                        <Command.Group>
+                                          {#each modifierOptions as modifier}
+                                            <Command.Item
+                                              value={modifier.value}
+                                              keywords={[modifier.label.toLowerCase()]}
+                                              onSelect={() => {
+                                                  action.ingameKey = buildKeybind(modifier.value, parsed.key);
+                                                  state.modifierOpen = false;
+                                                }}
+                                              class="py-2.5"
+                                            >
+                                              <Check
+                                                class={parsed.modifier === modifier.value ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
+                                              <span
+                                                class={parsed.modifier === modifier.value ? "text-primary" : ""}>{modifier.label}</span>
+                                            </Command.Item>
+                                          {/each}
+                                        </Command.Group>
+                                      </Command.List>
+                                    </Command.Root>
+                                  </Popover.Content>
+                                </Popover.Root>
+                                <Popover.Root open={state.keyOpen}
+                                              onOpenChange={(open) => { if (comboboxStates[sessionActions.sessionId]?.[index]) comboboxStates[sessionActions.sessionId][index].keyOpen = open; }}>
+                                  <Popover.Trigger
+                                    class="h-9 w-32 px-3 py-2 inline-flex items-center justify-between rounded-md border border-input bg-background text-sm font-mono shadow-sm hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50">
+                                      <span
+                                        class="truncate {keyOnly ? 'text-foreground font-semibold' : 'text-muted-foreground font-sans font-normal'}">
+                                        {keyOnly ? formatKeyLabel(keyOnly) : "Select Key..."}
+                                      </span>
+                                    <ChevronsUpDown class="h-4 w-4 shrink-0 opacity-50"/>
+                                  </Popover.Trigger>
+                                  <Popover.Content class="w-[220px] p-0">
+                                    <Command.Root shouldFilter={true}>
+                                      <Command.Input placeholder="Search Key..." class="h-10"/>
+                                      <Command.Empty>No Key found.</Command.Empty>
+                                      <Command.List class="max-h-[320px]">
+                                        <Command.Group>
+                                          {#each allowedKeys as key}
+                                            <Command.Item
+                                              value={key}
+                                              onSelect={() => {
+                                                  action.ingameKey = buildKeybind(parsed.modifier, key);
+                                                  state.keyOpen = false;
+                                                }}
+                                              class="font-mono font-semibold py-2.5"
+                                            >
+                                              <Check
+                                                class={keyOnly === key ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
+                                              <span class={keyOnly === key ? "text-primary" : ""}>{formatKeyLabel(key)}</span>
+                                            </Command.Item>
+                                          {/each}
+                                        </Command.Group>
+                                      </Command.List>
+                                    </Command.Root>
+                                  </Popover.Content>
+                                </Popover.Root>
+                                <KeyBinder
+                                  actionId={action.id}
+                                  currentKey={action.ingameKey}
+                                  onBind={(key) => {
+                                    action.ingameKey = key;
+                                    return true;
+                                  }}
+                                  onCancel={() => {}}
+                                />
+                              </div>
                             </Table.Cell>
 
                             <!-- Cast Time -->
@@ -606,7 +633,7 @@
                   </div>
                 {:else}
                   <p class="text-sm text-muted-foreground text-center py-4">
-                    No actions yet. Click the button below to add your first action.
+                    No Actions configured. Click the Button below to Add your first Action.
                   </p>
                 {/if}
 
@@ -629,8 +656,8 @@
 
     {#if neuzosConfig.sessionActions.length === 0}
       <div class="text-center py-8 text-muted-foreground">
-        <p>No sessions configured yet.</p>
-        <p class="text-sm">Add a session above to start managing actions.</p>
+        <p>No Sessions configured yet.</p>
+        <p class="text-sm">Add a Session above to start managing Actions.</p>
       </div>
     {/if}
   </Card.Content>
