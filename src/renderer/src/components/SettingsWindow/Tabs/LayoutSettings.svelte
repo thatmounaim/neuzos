@@ -19,7 +19,9 @@
     ArrowLeftRight,
     Check,
     Grid2x2Check,
-    SquarePen
+    SquarePen,
+    List,
+    Grid3X3
   } from "@lucide/svelte";
 
   import {Input} from "$lib/components/ui/input";
@@ -34,108 +36,138 @@
   import {Button} from "$lib/components/ui/button";
   import {Switch} from "$lib/components/ui/switch";
 
-  const layoutIcons: string[] = [
-    "neuzos_pang",
-    "misc/bag",
-    "misc/browser",
-    "misc/battlepass",
-    "misc/fwc",
-    "misc/card1",
-    "misc/card2",
-    "misc/card3",
-    "misc/card4",
-    "misc/card5",
-    "misc/card6",
-    "misc/card7",
-    "misc/card8",
-    "misc/card9",
-    "misc/card10",
-    "misc/diamond_black",
-    "misc/diamond",
-    "misc/egg",
-    "misc/element_blue",
-    "misc/element_green",
-    "misc/element_purple",
-    "misc/element_red",
-    "misc/element_white",
-    "misc/element_yellow",
-    "misc/heart_blue",
-    "misc/heart_cyan",
-    "misc/heart_green",
-    "misc/heart_red",
-    "misc/heart_yellow",
-    "misc/item",
-    "misc/jewel_black",
-    "misc/jewel_green",
-    "misc/jewel_purple",
-    "misc/jewel_red",
-    "misc/jewel_yellow",
-    "misc/neuz_hat",
-    "misc/perin",
-    "misc/pet_food",
-    "misc/pickup_pet_buff_1",
-    "misc/pickup_pet_buff_2",
-    "misc/pickup_pet_buff_3",
-    "levels/master_1",
-    "levels/master_2",
-    "levels/master_3",
-    "levels/master_4",
-    "levels/master_5",
-    "levels/master_6",
-    "levels/hero_1",
-    "levels/hero_2",
-    "levels/hero_3",
-    "levels/hero_4",
-    'jobs/vagrant',
-    'jobs/assist',
-    'jobs/ringmaster',
-    'jobs/seraph',
-    'jobs/billposter',
-    'jobs/forcemaster',
-    'jobs/acrobat',
-    'jobs/ranger',
-    'jobs/crackshooter',
-    'jobs/jester',
-    'jobs/harlequin',
-    'jobs/magician',
-    'jobs/psykeeper',
-    'jobs/mentalist',
-    'jobs/elementor',
-    'jobs/arcanist',
-    'jobs/mercenary',
-    'jobs/knight',
-    'jobs/templar',
-    'jobs/blade',
-    'jobs/slayer',
-    "pets/level_1",
-    "pets/level_2",
-    "pets/level_3",
-    "pets/level_4",
-    "pets/level_5",
-    "pets/level_6",
-    "pets/level_7",
-    "pets/level_8",
-    "pets/level_9",
-    "pets/pet_angel",
-    "pets/pet_angel_s",
-    "pets/pet_crab",
-    "pets/pet_crab_s",
-    "pets/pet_dragon",
-    "pets/pet_dragon_s",
-    "pets/pet_fox",
-    "pets/pet_fox_s",
-    "pets/pet_griffin",
-    "pets/pet_griffin_s",
-    "pets/pet_lion",
-    "pets/pet_lion_s",
-    "pets/pet_rabbit",
-    "pets/pet_rabbit_s",
-    "pets/pet_tiger",
-    "pets/pet_tiger_s",
-    "pets/pet_unicorn",
-    "pets/pet_unicorn_s",
-    "pets/pet_whitelion",
+  type LayoutIconOption = {
+    slug: string
+    label: string
+  }
 
+  type LayoutIconGroup = {
+    heading: string
+    icons: LayoutIconOption[]
+  }
+
+  const numberedIconOptions = (folder: string, prefix: string, label: string, start: number, end: number) => {
+    return Array.from({length: end - start + 1}, (_, index) => {
+      const value = start + index
+      return {
+        slug: `${folder}/${prefix}${value}`,
+        label: `${label} ${value}`
+      }
+    })
+  }
+
+  const petIconOptions = (name: string, label: string, includeSClass = true): LayoutIconOption[] => {
+    const icons = [{slug: `pets/pet_${name}`, label}]
+    if (includeSClass) {
+      icons.push({slug: `pets/pet_${name}_s`, label: `${label} S Class`})
+    }
+    return icons
+  }
+
+  const colorIconOptions = (prefix: string, label: string, colors: string[]): LayoutIconOption[] => {
+    return colors.map((color) => ({
+      slug: `misc/${prefix}_${color}`,
+      label: `${label} ${color.charAt(0).toUpperCase()}${color.slice(1)}`
+    }))
+  }
+
+  const pieceIconOptions = (colors: string[]): LayoutIconOption[] => {
+    return colors.map((color) => ({
+      slug: `misc/piece_${color}`,
+      label: `Piece ${color.charAt(0).toUpperCase()}${color.slice(1)}`
+    }))
+  }
+
+  const layoutIconGroups: LayoutIconGroup[] = [
+    {
+      heading: 'Beginner Class',
+      icons: [
+        {slug: 'jobs/vagrant', label: 'Vagrant'}
+      ]
+    },
+    {
+      heading: 'Job Classes',
+      icons: [
+        {slug: 'jobs/acrobat', label: 'Acrobat'},
+        {slug: 'jobs/assist', label: 'Assist'},
+        {slug: 'jobs/mercenary', label: 'Mercenary'},
+        {slug: 'jobs/magician', label: 'Magician'},
+        {slug: 'jobs/ranger', label: 'Ranger'},
+        {slug: 'jobs/jester', label: 'Jester'},
+        {slug: 'jobs/ringmaster', label: 'Ringmaster'},
+        {slug: 'jobs/billposter', label: 'Billposter'},
+        {slug: 'jobs/blade', label: 'Blade'},
+        {slug: 'jobs/knight', label: 'Knight'},
+        {slug: 'jobs/elementor', label: 'Elementor'},
+        {slug: 'jobs/psykeeper', label: 'Psykeeper'},
+        {slug: 'jobs/crackshooter', label: 'Crackshooter'},
+        {slug: 'jobs/harlequin', label: 'Harlequin'},
+        {slug: 'jobs/seraph', label: 'Seraph'},
+        {slug: 'jobs/forcemaster', label: 'Forcemaster'},
+        {slug: 'jobs/slayer', label: 'Slayer'},
+        {slug: 'jobs/templar', label: 'Templar'},
+        {slug: 'jobs/arcanist', label: 'Arcanist'},
+        {slug: 'jobs/mentalist', label: 'Mentalist'}
+      ]
+    },
+    {
+      heading: 'Master / Hero Badges',
+      icons: [
+        {slug: 'levels/master_1', label: 'Master Lv. 70'},
+        {slug: 'levels/master_2', label: 'Master Lv. 80'},
+        {slug: 'levels/master_3', label: 'Master Lv. 90'},
+        {slug: 'levels/master_4', label: 'Master Lv. 100'},
+        {slug: 'levels/master_5', label: 'Master Lv. 110'},
+        {slug: 'levels/master_6', label: 'Master Lv. 120'},
+        {slug: 'levels/hero_1', label: 'Hero Lv. 125'},
+        {slug: 'levels/hero_2', label: 'Hero Lv. 140'},
+        {slug: 'levels/hero_3', label: 'Hero Lv. 160'},
+        {slug: 'levels/hero_4', label: 'Hero Lv. 180'}
+      ]
+    },
+    {
+      heading: 'Pet Levels',
+      icons: numberedIconOptions('pets', 'level_', 'Level', 1, 9)
+    },
+    {
+      heading: 'Pets',
+      icons: [
+        {slug: 'misc/egg', label: 'Egg'},
+        ...petIconOptions('angel', 'Angel'),
+        ...petIconOptions('crab', 'Crab'),
+        ...petIconOptions('dragon', 'Dragon'),
+        ...petIconOptions('fox', 'Fox'),
+        ...petIconOptions('griffin', 'Griffin'),
+        ...petIconOptions('lion', 'Lion'),
+        ...petIconOptions('rabbit', 'Rabbit'),
+        ...petIconOptions('tiger', 'Tiger'),
+        ...petIconOptions('unicorn', 'Unicorn'),
+        ...petIconOptions('whitelion', 'White Lion', false)
+      ]
+    },
+    {
+      heading: 'Other Icons',
+      icons: [
+        {slug: 'neuzos_pang', label: 'NeuzOS'},
+        {slug: 'misc/browser', label: 'Browser'},
+        {slug: 'misc/neuz_hat', label: 'Neuz'},
+        {slug: 'misc/fwc', label: 'FWC'},
+        {slug: 'misc/star', label: 'Star'},
+        {slug: 'misc/item', label: 'Item'},
+        {slug: 'misc/bag', label: 'Bag'},
+        {slug: 'misc/pet_food', label: 'Pet Food'},
+        {slug: 'misc/battlepass', label: 'Battle Pass'},
+        {slug: 'misc/perin', label: 'Perin'},
+        {slug: 'misc/diamond_black', label: 'Diamond Black'},
+        {slug: 'misc/diamond', label: 'Diamond'},
+        ...numberedIconOptions('misc', 'pickup_pet_buff_', 'Pickup Pet Buff', 1, 3),
+        ...colorIconOptions('jewel', 'Jewel', ['black', 'green', 'purple', 'red', 'yellow']),
+        ...numberedIconOptions('misc', 'card', 'Card', 1, 10),
+        ...colorIconOptions('heart', 'Heart', ['blue', 'cyan', 'green', 'red', 'yellow']),
+        ...colorIconOptions('element', 'Element', ['white', 'blue', 'green', 'purple', 'red', 'yellow']),
+        ...pieceIconOptions(['blue', 'cyan', 'gold', 'green', 'grey', 'red', 'yellow'])
+      ]
+    }
   ];
 
   const neuzosConfig = getContext<NeuzConfig>("neuzosConfig");
@@ -154,6 +186,7 @@
 
   // Track icon popover state for each layout
   let iconPopoverStates: { [layoutId: string]: boolean } = $state({});
+  let layoutIconViewMode: 'grid' | 'list' = $state('grid');
 
   // Track popover states for adding default layouts and columns
   let addDefaultLayoutPopoverOpen = $state(false);
@@ -171,10 +204,6 @@
   let layoutCustomizationEditIds: string[] = $state([])
   let pendingSingleSessionLayoutId: string | null = $state(null)
   let multiSessionSettingsPopoverStates: { [layoutId: string]: boolean } = $state({})
-
-  const getIconLabel = (icon: string) => {
-    return icon.replace('misc/', '').replace('levels/', '').replace('jobs/', '').replace('pets/', '')
-  }
 
   const getLayoutSessionIds = (layout: NeuzConfig['layouts'][number]) => {
     return (layout.rows ?? []).flatMap((row) => row.sessionIds ?? [])
@@ -717,26 +746,63 @@
                   </Popover.Trigger>
                   <Popover.Content class="w-[280px] p-0">
                     <Command.Root shouldFilter={true}>
-                      <Command.Input placeholder="Search Icon..." class="h-10"/>
+                      <div class="flex items-center gap-2 border-b px-2 py-2">
+                        <Command.Input placeholder="Search Icon..." class="h-9 border-0 px-1 focus-visible:ring-0 focus-visible:ring-offset-0"/>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon-sm"
+                          title={layoutIconViewMode === 'grid' ? 'List View' : 'Grid View'}
+                          onclick={() => {
+                            layoutIconViewMode = layoutIconViewMode === 'grid' ? 'list' : 'grid'
+                          }}
+                        >
+                          {#if layoutIconViewMode === 'grid'}
+                            <List class="h-4 w-4" />
+                          {:else}
+                            <Grid3X3 class="h-4 w-4" />
+                          {/if}
+                        </Button>
+                      </div>
                       <Command.Empty>No Icon found.</Command.Empty>
                       <Command.List class="max-h-[320px]">
-                        <Command.Group>
-                          {#each layoutIcons as icon}
-                            <Command.Item
-                              value={icon}
-                              keywords={[getIconLabel(icon).replace(/_/g, ' ').toLowerCase()]}
-                              onSelect={() => {
-                                layout.icon.slug = icon;
-                                iconPopoverStates[layout.id] = false;
-                              }}
-                              class="py-2"
-                            >
-                              <img class="size-6 mr-2" src="icons/{icon}.png" alt=""/>
-                              <span
-                                class="text-xs truncate">{getIconLabel(icon)}</span>
-                            </Command.Item>
-                          {/each}
-                        </Command.Group>
+                        {#each layoutIconGroups as group (group.heading)}
+                          <Command.Group heading={group.heading}>
+                            {#if layoutIconViewMode === 'grid'}
+                              <div class={`grid ${group.heading === 'Job Classes' ? 'grid-cols-[repeat(4,2.25rem)]' : 'grid-cols-[repeat(5,2.25rem)]'} justify-start gap-2 px-2 pb-2`}>
+                                {#each group.icons as icon (icon.slug)}
+                                  <Command.Item
+                                    value={icon.slug}
+                                    keywords={[icon.label.toLowerCase(), icon.slug.replace('jobs/', '').replace('misc/', '').replace('levels/', '').replace('pets/', '').replace(/_/g, ' ').toLowerCase()]}
+                                    onSelect={() => {
+                                      layout.icon.slug = icon.slug;
+                                      iconPopoverStates[layout.id] = false;
+                                    }}
+                                    class={`h-9 w-9 justify-center p-0 border ${layout.icon.slug === icon.slug ? 'border-primary bg-primary/10 ring-1 ring-primary' : 'border-transparent'}`}
+                                    title={icon.label}
+                                  >
+                                    <img class="size-6" src="icons/{icon.slug}.png" alt={icon.label}/>
+                                  </Command.Item>
+                                {/each}
+                              </div>
+                            {:else}
+                              {#each group.icons as icon (icon.slug)}
+                                <Command.Item
+                                  value={icon.slug}
+                                  keywords={[icon.label.toLowerCase(), icon.slug.replace('jobs/', '').replace('misc/', '').replace('levels/', '').replace('pets/', '').replace(/_/g, ' ').toLowerCase()]}
+                                  onSelect={() => {
+                                    layout.icon.slug = icon.slug;
+                                    iconPopoverStates[layout.id] = false;
+                                  }}
+                                  class={`py-2 border ${layout.icon.slug === icon.slug ? 'border-primary bg-primary/10 ring-1 ring-primary' : 'border-transparent'}`}
+                                >
+                                  <img class="size-6 mr-2" src="icons/{icon.slug}.png" alt={icon.label}/>
+                                  <span class="text-xs truncate">{icon.label}</span>
+                                </Command.Item>
+                              {/each}
+                            {/if}
+                          </Command.Group>
+                        {/each}
                       </Command.List>
                     </Command.Root>
                   </Popover.Content>
