@@ -17,7 +17,9 @@
     Grid2x2Plus,
     LayoutGrid,
     ArrowLeftRight,
-    Check
+    Check,
+    Grid2x2Check,
+    SquarePen
   } from "@lucide/svelte";
 
   import {Input} from "$lib/components/ui/input";
@@ -26,6 +28,7 @@
   import * as Popover from "$lib/components/ui/popover";
   import {Separator} from "$lib/components/ui/separator";
   import * as Table from "$lib/components/ui/table";
+  import * as AlertDialog from "$lib/components/ui/alert-dialog";
   import type {NeuzConfig} from "$lib/types";
   import {getContext, onMount} from "svelte";
   import {Button} from "$lib/components/ui/button";
@@ -165,6 +168,9 @@
   let layoutDropTarget: number | null = $state(null)
   let layoutSettingsScrollContainer: HTMLElement | null = $state(null)
   let temporaryMultiLayoutIds: string[] = $state([])
+  let layoutCustomizationEditIds: string[] = $state([])
+  let pendingSingleSessionLayoutId: string | null = $state(null)
+  let multiSessionSettingsPopoverStates: { [layoutId: string]: boolean } = $state({})
 
   const getIconLabel = (icon: string) => {
     return icon.replace('misc/', '').replace('levels/', '').replace('jobs/', '').replace('pets/', '')
@@ -185,16 +191,51 @@
     return temporaryMultiLayoutIds.includes(layout.id) || sessionCount > 1
   }
 
+  const isLayoutCustomizationEditing = (layoutId: string) => {
+    return layoutCustomizationEditIds.includes(layoutId)
+  }
+
+  const startLayoutCustomizationEdit = (layoutId: string) => {
+    if (!layoutCustomizationEditIds.includes(layoutId)) {
+      layoutCustomizationEditIds = [...layoutCustomizationEditIds, layoutId]
+    }
+  }
+
+  const stopLayoutCustomizationEdit = (layoutId: string) => {
+    layoutCustomizationEditIds = layoutCustomizationEditIds.filter((id) => id !== layoutId)
+  }
+
   const switchLayoutToMultiSession = (layout: NeuzConfig['layouts'][number]) => {
     ensureLayoutRows(layout)
     if (!temporaryMultiLayoutIds.includes(layout.id)) {
       temporaryMultiLayoutIds = [...temporaryMultiLayoutIds, layout.id]
     }
+    startLayoutCustomizationEdit(layout.id)
   }
 
   const switchLayoutToSingleSession = (layout: NeuzConfig['layouts'][number]) => {
     temporaryMultiLayoutIds = temporaryMultiLayoutIds.filter((layoutId) => layoutId !== layout.id)
+    stopLayoutCustomizationEdit(layout.id)
     normalizeLayoutToSingleSession(layout)
+  }
+
+  const requestSwitchLayoutToSingleSession = (layout: NeuzConfig['layouts'][number]) => {
+    multiSessionSettingsPopoverStates[layout.id] = false
+
+    if (getLayoutSessionIds(layout).length > 1) {
+      pendingSingleSessionLayoutId = layout.id
+      return
+    }
+
+    switchLayoutToSingleSession(layout)
+  }
+
+  const confirmSwitchLayoutToSingleSession = () => {
+    const layout = neuzosConfig.layouts.find((entry) => entry.id === pendingSingleSessionLayoutId)
+    if (layout) {
+      switchLayoutToSingleSession(layout)
+    }
+    pendingSingleSessionLayoutId = null
   }
 
   const normalizeLayoutToSingleSession = (layout: NeuzConfig['layouts'][number]) => {
@@ -377,6 +418,7 @@
 
     const handleSettingsSaved = () => {
       temporaryMultiLayoutIds = []
+      layoutCustomizationEditIds = []
     }
 
     window.addEventListener('neuzos:settings-saved', handleSettingsSaved)
@@ -557,6 +599,24 @@
 
   </Card.Content>
 </Card.Root>
+<AlertDialog.Root open={pendingSingleSessionLayoutId !== null} onOpenChange={(open) => {
+  if (!open) {
+    pendingSingleSessionLayoutId = null
+  }
+}}>
+  <AlertDialog.Content>
+    <AlertDialog.Header>
+      <AlertDialog.Title>Switch to Single-Session Mode</AlertDialog.Title>
+      <AlertDialog.Description>
+        This Action will Remove all Sessions except one from this Layout.
+      </AlertDialog.Description>
+    </AlertDialog.Header>
+    <AlertDialog.Footer>
+      <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+      <AlertDialog.Action onclick={confirmSwitchLayoutToSingleSession}>Accept</AlertDialog.Action>
+    </AlertDialog.Footer>
+  </AlertDialog.Content>
+</AlertDialog.Root>
 <Separator class="mb-4 mt-6"/>
 <Card.Root bind:ref={layoutSettingsScrollContainer} class="overflow-y-auto">
   <Card.Header>
@@ -564,15 +624,18 @@
       <Card.Title class="text-lg font-semibold">
         Manage Layouts
       </Card.Title>
-      <Button variant="outline" size="sm" class="h-8 gap-2" onclick={toggleLayoutSortMode} title={useDragLayoutSorting ? 'Drag & Drop Sorting' : 'Arrow Sorting'}>
-        {#if useDragLayoutSorting}
-          <GripVertical class="h-4 w-4"></GripVertical>
-          Drag & Drop Sorting
-        {:else}
-          <ArrowDownUp class="h-4 w-4"></ArrowDownUp>
-          Arrow Sorting
-        {/if}
-      </Button>
+      <div class="flex items-center gap-2">
+        <span class="text-sm font-medium text-muted-foreground">Sorting:</span>
+        <Button variant="outline" size="sm" class="h-8 gap-2" onclick={toggleLayoutSortMode} title={useDragLayoutSorting ? 'Drag & Drop Sorting' : 'Arrow Sorting'}>
+          {#if useDragLayoutSorting}
+            <GripVertical class="h-4 w-4"></GripVertical>
+            Drag & Drop
+          {:else}
+            <ArrowDownUp class="h-4 w-4"></ArrowDownUp>
+            Arrows
+          {/if}
+        </Button>
+      </div>
     </div>
     <Card.Description class="flex flex-col">
       Configure your Layouts below. You can Add, Edit, Reorder, and Delete Layouts.
@@ -594,6 +657,7 @@
       <Table.Body>
         {#each neuzosConfig.layouts as layout, lidx (layout.id)}
           {@const isMultiSession = isMultiSessionLayout(layout)}
+          {@const isCustomizationEditing = isLayoutCustomizationEditing(layout.id)}
           {@render layoutDropZone(lidx)}
           <Table.Row
             class="hover:bg-muted/50 {useDragLayoutSorting && draggedLayoutId === layout.id ? 'opacity-50' : ''}"
@@ -698,13 +762,13 @@
                   <span class="text-sm font-medium">{isMultiSession ? 'Multi-Session' : 'Single-Session'}</span>
                 </div>
                 {#if isMultiSession}
-                  <Popover.Root>
+                  <Popover.Root open={multiSessionSettingsPopoverStates[layout.id] ?? false} onOpenChange={(open) => { multiSessionSettingsPopoverStates[layout.id] = open; }}>
                     <Popover.Trigger>
                       <Button variant="outline" size="icon-sm" title="Settings">
                         <Settings class="h-4 w-4"></Settings>
                       </Button>
                     </Popover.Trigger>
-                    <Popover.Content class="w-[360px] p-4">
+                    <Popover.Content class="w-[380px] p-4">
                       <div class="flex flex-col gap-4">
                         <div class="text-sm font-semibold">Multi-Session Settings</div>
 
@@ -736,6 +800,10 @@
                           <p class="text-xs text-muted-foreground">Locks the Sizes of the Sessions in the Layout. They cannot be resized while the Lock is active.</p>
                         </div>
 
+                        <Separator></Separator>
+
+                        <div class="text-sm font-semibold">Layout Configuration</div>
+
                         <div class="flex flex-col gap-1.5">
                           <div class="flex items-center gap-2 text-sm font-medium">
                             <Grid2x2Plus class="h-4 w-4"></Grid2x2Plus>
@@ -764,26 +832,42 @@
                           </div>
                         </div>
 
-                        <Button variant="outline" size="sm" onclick={() => {
-                            layout.rows ??= []
-                            layout.rows.push({
-                              sessionIds: []
-                            })
-                          }} class="w-full gap-2">
-                          {#if layout.columnFirst}
-                            <BetweenVerticalStart class="h-4 w-4"></BetweenVerticalStart>
-                            Add Column
+                        {#if isCustomizationEditing}
+                          <Button variant="outline" size="sm" onclick={() => {
+                              layout.rows ??= []
+                              layout.rows.push({
+                                sessionIds: []
+                              })
+                            }} class="w-full gap-2">
+                            {#if layout.columnFirst}
+                              <BetweenVerticalStart class="h-4 w-4"></BetweenVerticalStart>
+                              Add Column
+                            {:else}
+                              <BetweenHorizontalStart class="h-4 w-4"></BetweenHorizontalStart>
+                              Add Row
+                            {/if}
+                          </Button>
+                        {/if}
+
+                        <div class="flex flex-col gap-2">
+                          <p class="text-xs text-muted-foreground">Enable/ Disable the Layout Customization.</p>
+                          {#if isCustomizationEditing}
+                            <Button variant="outline" size="sm" class="w-full gap-2" onclick={() => stopLayoutCustomizationEdit(layout.id)}>
+                              <Grid2x2Check class="h-4 w-4"></Grid2x2Check>
+                              Save Layout Customization
+                            </Button>
                           {:else}
-                            <BetweenHorizontalStart class="h-4 w-4"></BetweenHorizontalStart>
-                            Add Row
+                            <Button variant="outline" size="sm" class="w-full gap-2" onclick={() => startLayoutCustomizationEdit(layout.id)}>
+                              <SquarePen class="h-4 w-4"></SquarePen>
+                              Edit Layout
+                            </Button>
                           {/if}
-                        </Button>
+                        </div>
 
                         <Separator></Separator>
 
                         <div class="flex flex-col gap-2">
-                          <p class="text-xs text-muted-foreground">Switches to Single-Session Mode. All Sessions except one are Removed from the Layout.</p>
-                          <Button variant="outline" size="sm" onclick={() => switchLayoutToSingleSession(layout)}>
+                          <Button variant="outline" size="sm" onclick={() => requestSwitchLayoutToSingleSession(layout)}>
                             Switch to Single-Session
                           </Button>
                         </div>
@@ -851,7 +935,7 @@
                       </div>
                     {/each}
                     <div class="flex items-center gap-1">
-                      {#if canAddSessionToLayout(layout)}
+                      {#if (!isMultiSession || isCustomizationEditing) && canAddSessionToLayout(layout)}
                         <Popover.Root open={isPopoverOpen}
                                       onOpenChange={(open) => { addColumnPopoverStates[popoverKey] = open; }}>
                           <Popover.Trigger>
@@ -894,7 +978,7 @@
 
                     </div>
                     <div class="flex-1"></div>
-                    {#if isMultiSession && (layout.rows?.length ?? 0) > 1}
+                    {#if isMultiSession && isCustomizationEditing && (layout.rows?.length ?? 0) > 1}
                       <Button class="text-xs" variant="outline" size="xs" onclick={() => {
                         layout.rows.splice(ridx, 1)
                       }}>
