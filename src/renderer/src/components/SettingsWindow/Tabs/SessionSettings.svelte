@@ -89,8 +89,12 @@
       icons: [
         {slug: 'neuzos_pang', label: 'NeuzOS'},
         {slug: 'misc/browser', label: 'Browser'},
+        {slug: 'misc/star', label: 'Star'},
+        {slug: 'misc/fwc', label: 'FWC'},
+        {slug: 'misc/item', label: 'Item'},
         {slug: 'misc/bag', label: 'Bag'},
-        {slug: 'misc/item', label: 'Item'}
+        {slug: 'misc/battlepass', label: 'Battle Pass'},
+        {slug: 'misc/egg', label: 'Egg'}
       ]
     }
   ]
