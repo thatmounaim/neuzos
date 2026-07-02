@@ -470,8 +470,11 @@ window.open = function(...args) {
         class="w-full h-full flex items-center flex-col gap-2 justify-center select-none"
       >
         <img src="flyffu-logo.png" alt="Flyff Universe Logo" class="w-1/2 max-w-32 pointer-events-none select-none"/>
-        <Button variant="outline" onclick={() => neuzosBridge.sessions.start(session.id,layoutId)}>Start Session
-          - {session.label}</Button>
+        <Button variant="outline" onclick={() => neuzosBridge.sessions.start(session.id,layoutId)}>
+          Start Session -
+          <img class="size-4" src="icons/{session.icon.slug || 'neuzos_pang'}.png" alt=""/>
+          {session.label}
+        </Button>
 
 
       </div>

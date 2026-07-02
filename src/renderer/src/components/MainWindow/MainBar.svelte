@@ -1,7 +1,6 @@
 <script lang="ts">
   import {Button, buttonVariants} from "$lib/components/ui/button";
   import {
-    Settings2,
     Minus,
     Maximize,
     X,
@@ -437,7 +436,7 @@
     <Home class="size-3.5"/>
   </Button>
   <Button size="icon-xs" variant="outline" onclick={() => openSettings()} class="cursor-pointer">
-    <Settings2 class="size-3.5"/>
+    <Settings class="size-3.5"/>
   </Button>
   <!----------------------------------------!-->
   <Dialog.Root>
