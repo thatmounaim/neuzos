@@ -2220,7 +2220,7 @@ function registerSessionKeybinds(mode: LaunchMode) {
           : dialog.showSaveDialog(saveOptions));
 
         if (saveResult.canceled || !saveResult.filePath) {
-          return {success: false, error: 'canceled'};
+          return {success: false, error: 'Canceled.'};
         }
 
         await fs.promises.writeFile(saveResult.filePath, JSON.stringify(cleanConfigExportPayload(payload), null, 2), 'utf8');
@@ -2242,7 +2242,7 @@ function registerSessionKeybinds(mode: LaunchMode) {
           : dialog.showOpenDialog(openOptions));
 
         if (openResult.canceled || openResult.filePaths.length === 0) {
-          return {valid: false, error: 'canceled'};
+          return {valid: false, error: 'Canceled.'};
         }
 
         const filePath = openResult.filePaths[0];

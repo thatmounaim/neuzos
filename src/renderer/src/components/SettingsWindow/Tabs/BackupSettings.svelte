@@ -970,7 +970,7 @@
       const sanitized = sanitizeConfigForExport(payload);
       const result = await neuzosBridge.backup.export(sanitized.payload);
       if (result.success) {
-        toast.success(`Backup exported successfully to ${result.filePath}`);
+        toast.success(`Backup Exported Successfully to ${result.filePath}`);
         if (sanitized.sanitized) {
           toast.warning('Some unsafe values were removed from the Backup.');
         }
@@ -1000,7 +1000,7 @@
       previewResult = result;
       importedPayload = result.payload;
       selectedMode = 'replace';
-      toast.success('Import Preview loaded.');
+      toast.success('Import Preview Loaded.');
     } catch (error) {
       previewResult = null;
       importedPayload = null;
@@ -1026,9 +1026,9 @@
       importedPayload = null;
 
       if (mode === 'merge') {
-        toast.success('Backup merged successfully.');
+        toast.success('Backup Merged Successfully.');
       } else {
-        toast.success('Backup applied successfully.');
+        toast.success('Backup Applied Successfully.');
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to apply Backup.');

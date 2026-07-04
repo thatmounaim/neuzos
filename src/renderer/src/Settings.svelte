@@ -289,11 +289,11 @@
       lastConfigSnapshot = JSON.stringify(neuzosConfig);
 
       if (showToast) {
-        toast.success("Settings saved successfully!", {position: "top-right", duration: 1000});
+        toast.success("Settings Saved Successfully!", {position: "top-right", duration: 1000});
       }
     } catch (error) {
       console.error("Failed to save settings:", error);
-      toast.error("Failed to save settings. Please try again.", {position: "top-right"});
+      toast.error("Failed to Save Settings. Please Try Again.", {position: "top-right"});
     } finally {
       isSaving = false;
     }

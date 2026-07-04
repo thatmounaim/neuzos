@@ -578,7 +578,7 @@
 
     const sourceIndex = neuzosConfig.sessions.findIndex((entry) => entry.id === session.id)
     if (sourceIndex < 0) {
-      toast.error('Source Session was removed before cloning completed.')
+      toast.error('Source Session was Removed before Cloning Completed.')
       return
     }
 
@@ -599,7 +599,7 @@
     await neuzosBridge.config.save(neuzosConfig)
 
     if (result.stoppedBeforeClone) {
-      toast.info('Session was stopped to allow cloning.')
+    toast.info('Session was Stopped to allow Cloning.')
     }
   }
 
@@ -641,7 +641,7 @@
       deletingSessionId = null
       toast.success(`"${sessionLabel}" Deleted Successfully.`)
       if ((result as any).deferred) {
-        toast.info('Some partition files were still locked — NeuzOS will finish cleanup automatically on next start.')
+        toast.info('Some Partition Files were still Locked — NeuzOS will finish Cleanup automatically on next Start.')
       }
     } else {
       toast.dismiss(deletingToastId)
