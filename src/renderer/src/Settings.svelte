@@ -373,8 +373,8 @@
             <Tabs.Trigger value="layouts">Layouts</Tabs.Trigger>
             <Tabs.Trigger value="keybinds">Keybinds</Tabs.Trigger>
             <Tabs.Trigger value="session-actions">Session Actions</Tabs.Trigger>
-            <Tabs.Trigger value="backup">Backup</Tabs.Trigger>
             <Tabs.Trigger value="launch">Launch Settings</Tabs.Trigger>
+            <Tabs.Trigger value="backup">Backup</Tabs.Trigger>
 
           </div>
           <div class="flex-1"></div>

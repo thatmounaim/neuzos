@@ -92,9 +92,11 @@ export type ConfigExportPayload = {
 export type ExportCategory =
   | 'keybinds'
   | 'session-actions'
-  | 'ui-layout'
+  | 'sessions'
+  | 'layouts'
   | 'general-settings'
-  | 'quest-log'
+  | 'launch-settings'
+  | 'ui-layout'
 
 export type ConfigExportPayloadV2 = {
   schemaVersion: 2;
@@ -105,6 +107,9 @@ export type ConfigExportPayloadV2 = {
   keyBinds?: NeuzKeybind[];
   keyBindProfiles?: NeuzKeyBindProfile[];
   activeKeyBindProfileId?: string | null;
+  sessions?: NeuzSession[];
+  layouts?: NeuzLayout[];
+  defaultLayouts?: string[];
   sessionActions?: SessionActions[];
   sessionGroups?: NeuzSessionGroup[];
   window?: NeuzConfig['window'];
@@ -113,9 +118,9 @@ export type ConfigExportPayloadV2 = {
   autoSaveSettings?: boolean;
   autoDeleteAllCachesOnStartup?: boolean;
   defaultLaunchMode?: NeuzConfig['defaultLaunchMode'];
+  chromium?: NeuzConfig['chromium'];
   userAgent?: string;
   titleBarButtons?: NeuzConfig['titleBarButtons'];
-  questLogTemplates?: never[];
 }
 
 export type ConfigImportPayload = ConfigExportPayload | ConfigExportPayloadV2;

@@ -126,6 +126,9 @@ export const neuzosBridge = {
     },
     applyImport: (payload: ConfigImportPayload, mode: ConfigApplyImportArgsV2["mode"], categories: ExportCategory[]): Promise<{ success: boolean; error?: string; added?: { actions: number; binds: number; profiles: number } }> => {
       return electronApi?.invoke("config.apply_import", {payload, mode, categories} satisfies ConfigApplyImportArgsV2) ?? Promise.resolve({success: false, error: "Electron API unavailable"});
+    },
+    openConfigFolder: (): Promise<boolean> => {
+      return electronApi?.invoke("app.open_config_folder") ?? Promise.resolve(false);
     }
   },
   sessionWindow: {

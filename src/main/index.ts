@@ -238,9 +238,11 @@ type ConfigExportPayload = {
 type ExportCategory =
   | 'keybinds'
   | 'session-actions'
-  | 'ui-layout'
+  | 'sessions'
+  | 'layouts'
   | 'general-settings'
-  | 'quest-log';
+  | 'launch-settings'
+  | 'ui-layout';
 
 type ConfigExportPayloadV2 = {
   schemaVersion: 2;
@@ -250,16 +252,20 @@ type ConfigExportPayloadV2 = {
   keyBinds?: any[];
   keyBindProfiles?: any[];
   activeKeyBindProfileId?: string | null;
+  sessions?: any[];
+  layouts?: any[];
+  defaultLayouts?: string[];
   sessionActions?: any[];
   sessionGroups?: any[];
   window?: any;
   sessionZoomLevels?: Record<string, number>;
   fullscreen?: any;
   autoSaveSettings?: boolean;
+  autoDeleteAllCachesOnStartup?: boolean;
   defaultLaunchMode?: string;
+  chromium?: { commandLineSwitches?: string[] };
   userAgent?: string;
   titleBarButtons?: any;
-  questLogTemplates?: never[];
 };
 
 type ConfigImportPayload = ConfigExportPayload | ConfigExportPayloadV2;
@@ -274,8 +280,9 @@ type ConfigApplyImportArgsV2 = {
   categories: ExportCategory[];
 };
 
-const exportCategoryOrder: ExportCategory[] = ['keybinds', 'session-actions', 'ui-layout', 'general-settings', 'quest-log'];
-const exportCategorySet = new Set<ExportCategory>(exportCategoryOrder);
+const exportCategoryOrder: ExportCategory[] = ['general-settings', 'sessions', 'layouts', 'keybinds', 'session-actions', 'launch-settings'];
+const legacyCategoryOrder: ExportCategory[] = ['ui-layout'];
+const exportCategorySet = new Set<ExportCategory>([...exportCategoryOrder, ...legacyCategoryOrder]);
 
 function isExportCategory(value: unknown): value is ExportCategory {
   return typeof value === 'string' && exportCategorySet.has(value as ExportCategory);
@@ -289,6 +296,21 @@ function normalizeCategories(categories: unknown): ExportCategory[] {
   return categories.filter(isExportCategory);
 }
 
+function expandLegacyCategories(categories: ExportCategory[]): ExportCategory[] {
+  const expanded = new Set<ExportCategory>();
+  for (const category of categories) {
+    if (category === 'ui-layout') {
+      expanded.add('general-settings');
+      expanded.add('sessions');
+      expanded.add('layouts');
+      continue;
+    }
+    expanded.add(category);
+  }
+
+  return exportCategoryOrder.filter((category) => expanded.has(category));
+}
+
 function inferPayloadCategories(payload: any): ExportCategory[] {
   const categories: ExportCategory[] = [];
 
@@ -298,14 +320,17 @@ function inferPayloadCategories(payload: any): ExportCategory[] {
   if (Array.isArray(payload?.sessionActions)) {
     categories.push('session-actions');
   }
-  if (payload?.window !== undefined || payload?.sessionZoomLevels !== undefined || payload?.fullscreen !== undefined || Array.isArray(payload?.sessionGroups)) {
-    categories.push('ui-layout');
-  }
-  if (payload?.autoSaveSettings !== undefined || payload?.defaultLaunchMode !== undefined || payload?.userAgent !== undefined || payload?.titleBarButtons !== undefined) {
+  if (payload?.window !== undefined || payload?.autoSaveSettings !== undefined || payload?.autoDeleteAllCachesOnStartup !== undefined || payload?.titleBarButtons !== undefined || payload?.fullscreen !== undefined) {
     categories.push('general-settings');
   }
-  if (Array.isArray(payload?.questLogTemplates)) {
-    categories.push('quest-log');
+  if (Array.isArray(payload?.sessions) || Array.isArray(payload?.sessionGroups) || payload?.sessionZoomLevels !== undefined) {
+    categories.push('sessions');
+  }
+  if (Array.isArray(payload?.layouts) || Array.isArray(payload?.defaultLayouts)) {
+    categories.push('layouts');
+  }
+  if (payload?.defaultLaunchMode !== undefined || payload?.userAgent !== undefined || payload?.chromium !== undefined) {
+    categories.push('launch-settings');
   }
 
   return categories;
@@ -317,11 +342,25 @@ function getPayloadCategories(payload: ConfigImportPayload): ExportCategory[] {
   }
 
   const explicitCategories = normalizeCategories(payload.categories);
-  return explicitCategories.length > 0 ? explicitCategories : inferPayloadCategories(payload);
+  return explicitCategories.length > 0 ? expandLegacyCategories(explicitCategories) : inferPayloadCategories(payload);
 }
 
 function cloneData<T>(value: T): T {
   return value === undefined ? value : JSON.parse(JSON.stringify(value));
+}
+
+function getKeybindSignature(keybind: any): string {
+  const key = String(keybind?.key ?? '').trim().toLowerCase();
+  const event = String(keybind?.event ?? '').trim().toLowerCase();
+  return key && event ? `${key}::${event}` : '';
+}
+
+function getKeybindKey(keybind: any): string {
+  return String(keybind?.key ?? '').trim().toLowerCase();
+}
+
+function isUniqueGlobalKeybindEvent(event: string): boolean {
+  return event === 'ui.toggle_quest_log' || Boolean((allowedEventKeybinds as Record<string, any>)[event]?.unique);
 }
 
 function normalizeSessionGroups(groups: unknown, knownSessionIds: Set<string>): any[] {
@@ -2273,16 +2312,20 @@ function registerSessionKeybinds(mode: LaunchMode) {
             ...(Array.isArray(parsed.keyBinds) ? {keyBinds: parsed.keyBinds} : {}),
             ...(Array.isArray(parsed.keyBindProfiles) ? {keyBindProfiles: parsed.keyBindProfiles} : {}),
             ...(parsed.activeKeyBindProfileId !== undefined ? {activeKeyBindProfileId: parsed.activeKeyBindProfileId} : {}),
+            ...(Array.isArray(parsed.sessions) ? {sessions: parsed.sessions} : {}),
+            ...(Array.isArray(parsed.layouts) ? {layouts: parsed.layouts} : {}),
+            ...(Array.isArray(parsed.defaultLayouts) ? {defaultLayouts: parsed.defaultLayouts} : {}),
             ...(Array.isArray(parsed.sessionActions) ? {sessionActions: parsed.sessionActions} : {}),
             ...(Array.isArray(parsed.sessionGroups) ? {sessionGroups: parsed.sessionGroups} : {}),
             ...(parsed.window !== undefined ? {window: parsed.window} : {}),
             ...(parsed.sessionZoomLevels !== undefined ? {sessionZoomLevels: parsed.sessionZoomLevels} : {}),
             ...(parsed.fullscreen !== undefined ? {fullscreen: parsed.fullscreen} : {}),
             ...(parsed.autoSaveSettings !== undefined ? {autoSaveSettings: parsed.autoSaveSettings} : {}),
+            ...(parsed.autoDeleteAllCachesOnStartup !== undefined ? {autoDeleteAllCachesOnStartup: parsed.autoDeleteAllCachesOnStartup} : {}),
             ...(parsed.defaultLaunchMode !== undefined ? {defaultLaunchMode: parsed.defaultLaunchMode} : {}),
             ...(parsed.userAgent !== undefined ? {userAgent: parsed.userAgent} : {}),
+            ...(parsed.chromium !== undefined ? {chromium: parsed.chromium} : {}),
             ...(parsed.titleBarButtons !== undefined ? {titleBarButtons: parsed.titleBarButtons} : {}),
-            ...(Array.isArray(parsed.questLogTemplates) ? {questLogTemplates: parsed.questLogTemplates} : {}),
           };
         }
 
@@ -2291,7 +2334,10 @@ function registerSessionKeybinds(mode: LaunchMode) {
           warnings.push(`Imported schema version ${importedSchemaVersion} is newer than this app.`);
         }
 
-        const knownSessionIds = new Set((neuzosConfig.sessions ?? []).map((session: any) => session.id));
+        const knownSessionIds = new Set([
+          ...(neuzosConfig.sessions ?? []).map((session: any) => session.id),
+          ...((payload as ConfigExportPayloadV2).sessions ?? []).map((session: any) => session?.id).filter(Boolean),
+        ]);
         const orphanedSessionIds = [...new Set((payload.sessionActions ?? [])
           .map((action: any) => action?.sessionId)
           .filter((sessionId: any) => typeof sessionId === 'string' && sessionId !== '' && !knownSessionIds.has(sessionId)))];
@@ -2339,15 +2385,29 @@ function registerSessionKeybinds(mode: LaunchMode) {
           const incomingProfiles = incomingPayload.keyBindProfiles ?? [];
 
           const existingKeyBinds = [...(neuzosConfig.keyBinds ?? [])];
-          const existingKeyBindKeys = new Set(existingKeyBinds.map((bind: any) => String(bind?.key ?? '').trim().toLowerCase()));
+          const existingKeyBindSignatures = new Set(existingKeyBinds.map((bind: any) => getKeybindSignature(bind)).filter(Boolean));
+          const existingGlobalKeys = new Set(existingKeyBinds.map((bind: any) => getKeybindKey(bind)).filter(Boolean));
+          const existingUniqueGlobalEvents = new Set(existingKeyBinds
+            .map((bind: any) => String(bind?.event ?? '').trim())
+            .filter((event: string) => isUniqueGlobalKeybindEvent(event)));
           for (const bind of incomingKeyBinds) {
-            const normalizedKey = String(bind?.key ?? '').trim().toLowerCase();
-            if (normalizedKey && !existingKeyBindKeys.has(normalizedKey)) {
-              existingKeyBinds.push(cloneData(bind));
-              existingKeyBindKeys.add(normalizedKey);
-              addedBinds++;
-              didModify = true;
+            const signature = getKeybindSignature(bind);
+            const key = getKeybindKey(bind);
+            const event = String(bind?.event ?? '').trim();
+            if (!signature || existingKeyBindSignatures.has(signature) || existingGlobalKeys.has(key) || (isUniqueGlobalKeybindEvent(event) && existingUniqueGlobalEvents.has(event))) {
+              continue;
             }
+
+            existingKeyBinds.push(cloneData(bind));
+            existingKeyBindSignatures.add(signature);
+            if (key) {
+              existingGlobalKeys.add(key);
+            }
+            if (isUniqueGlobalKeybindEvent(event)) {
+              existingUniqueGlobalEvents.add(event);
+            }
+            addedBinds++;
+            didModify = true;
           }
           neuzosConfig.keyBinds = existingKeyBinds;
 
@@ -2356,21 +2416,46 @@ function registerSessionKeybinds(mode: LaunchMode) {
           for (const importProfile of incomingProfiles) {
             const existingProfile = existingProfileMap.get(importProfile?.id);
             if (!existingProfile) {
-              existingProfiles.push(cloneData(importProfile));
-              existingProfileMap.set(importProfile?.id, importProfile);
+              const clonedProfile = cloneData(importProfile);
+              const profileKeybinds: any[] = [];
+              const profileBindSignatures = new Set<string>();
+              const profileKeys = new Set<string>();
+              for (const bind of (clonedProfile?.keybinds ?? [])) {
+                const signature = getKeybindSignature(bind);
+                const key = getKeybindKey(bind);
+                if (!signature || profileBindSignatures.has(signature) || profileKeys.has(key)) {
+                  continue;
+                }
+
+                profileKeybinds.push(bind);
+                profileBindSignatures.add(signature);
+                if (key) {
+                  profileKeys.add(key);
+                }
+              }
+              clonedProfile.keybinds = profileKeybinds;
+              existingProfiles.push(clonedProfile);
+              existingProfileMap.set(clonedProfile?.id, clonedProfile);
               addedProfiles++;
               didModify = true;
             } else {
               const existingProfileKeybinds: any[] = existingProfile.keybinds ?? [];
-              const existingBindKeys = new Set(existingProfileKeybinds.map((b: any) => String(b?.key ?? '').trim().toLowerCase()));
+              const existingBindSignatures = new Set(existingProfileKeybinds.map((b: any) => getKeybindSignature(b)).filter(Boolean));
+              const existingProfileKeys = new Set(existingProfileKeybinds.map((b: any) => getKeybindKey(b)).filter(Boolean));
               let innerAdded = 0;
               for (const bind of (importProfile?.keybinds ?? [])) {
-                const normalizedKey = String(bind?.key ?? '').trim().toLowerCase();
-                if (normalizedKey && !existingBindKeys.has(normalizedKey)) {
-                  existingProfileKeybinds.push(cloneData(bind));
-                  existingBindKeys.add(normalizedKey);
-                  innerAdded++;
+                const signature = getKeybindSignature(bind);
+                const key = getKeybindKey(bind);
+                if (!signature || existingBindSignatures.has(signature) || existingProfileKeys.has(key)) {
+                  continue;
                 }
+
+                existingProfileKeybinds.push(cloneData(bind));
+                existingBindSignatures.add(signature);
+                if (key) {
+                  existingProfileKeys.add(key);
+                }
+                innerAdded++;
               }
               if (innerAdded > 0) {
                 didModify = true;
@@ -2421,13 +2506,50 @@ function registerSessionKeybinds(mode: LaunchMode) {
           neuzosConfig.sessionActions = existingSessionActions;
         };
 
-        const applyUiLayout = () => {
+        const applyGeneralSettings = () => {
           const incomingPayload = payload as ConfigExportPayloadV2;
-          const knownSessionIds = new Set((neuzosConfig.sessions ?? []).map((session: any) => session.id));
           if (incomingPayload.window !== undefined) {
             neuzosConfig.window = cloneData(incomingPayload.window);
             didModify = true;
           }
+          if (incomingPayload.autoSaveSettings !== undefined) {
+            neuzosConfig.autoSaveSettings = incomingPayload.autoSaveSettings;
+            didModify = true;
+          }
+          if (incomingPayload.autoDeleteAllCachesOnStartup !== undefined) {
+            neuzosConfig.autoDeleteAllCachesOnStartup = incomingPayload.autoDeleteAllCachesOnStartup;
+            didModify = true;
+          }
+          if (incomingPayload.titleBarButtons !== undefined) {
+            neuzosConfig.titleBarButtons = cloneData(incomingPayload.titleBarButtons);
+            didModify = true;
+          }
+          if (incomingPayload.fullscreen !== undefined) {
+            neuzosConfig.fullscreen = cloneData(incomingPayload.fullscreen);
+            didModify = true;
+          }
+        };
+
+        const applySessions = () => {
+          const incomingPayload = payload as ConfigExportPayloadV2;
+          if (Array.isArray(incomingPayload.sessions)) {
+            if (mode === 'replace') {
+              neuzosConfig.sessions = cloneData(incomingPayload.sessions);
+            } else {
+              const existingSessions = [...(neuzosConfig.sessions ?? [])];
+              const existingSessionIds = new Set(existingSessions.map((session: any) => session?.id));
+              for (const importSession of incomingPayload.sessions) {
+                if (importSession?.id && !existingSessionIds.has(importSession.id)) {
+                  existingSessions.push(cloneData(importSession));
+                  existingSessionIds.add(importSession.id);
+                }
+              }
+              neuzosConfig.sessions = existingSessions;
+            }
+            didModify = true;
+          }
+
+          const knownSessionIds = new Set((neuzosConfig.sessions ?? []).map((session: any) => session.id));
 
           if (incomingPayload.sessionZoomLevels !== undefined) {
             const filteredZoomLevels: Record<string, number> = {};
@@ -2436,12 +2558,14 @@ function registerSessionKeybinds(mode: LaunchMode) {
                 filteredZoomLevels[sessionId] = zoomLevel as number;
               }
             }
-            neuzosConfig.sessionZoomLevels = filteredZoomLevels;
-            didModify = true;
-          }
-
-          if (incomingPayload.fullscreen !== undefined) {
-            neuzosConfig.fullscreen = cloneData(incomingPayload.fullscreen);
+            if (mode === 'replace') {
+              neuzosConfig.sessionZoomLevels = filteredZoomLevels;
+            } else {
+              neuzosConfig.sessionZoomLevels = {
+                ...(neuzosConfig.sessionZoomLevels ?? {}),
+                ...filteredZoomLevels,
+              };
+            }
             didModify = true;
           }
 
@@ -2474,12 +2598,74 @@ function registerSessionKeybinds(mode: LaunchMode) {
           }
         };
 
-        const applyGeneralSettings = () => {
+        const applyLayouts = () => {
           const incomingPayload = payload as ConfigExportPayloadV2;
-          if (incomingPayload.autoSaveSettings !== undefined) {
-            neuzosConfig.autoSaveSettings = incomingPayload.autoSaveSettings;
+          const knownSessionIds = new Set((neuzosConfig.sessions ?? []).map((session: any) => session.id));
+          const normalizeLayouts = (layouts: any[]) => {
+            return cloneData(layouts ?? []).map((layout: any) => {
+              const rows = Array.isArray(layout?.rows)
+                ? layout.rows
+                    .map((row: any) => ({
+                      ...row,
+                      sessionIds: Array.isArray(row?.sessionIds)
+                        ? row.sessionIds.filter((id: string) => knownSessionIds.has(id))
+                        : [],
+                    }))
+                    .filter((row: any) => row.sessionIds.length > 0)
+                : [];
+              const nextLayout = {...layout, rows};
+              if (Array.isArray(nextLayout.mutedSessionIds)) {
+                const mutedSessionIds = [...new Set(nextLayout.mutedSessionIds.filter((id: string) => knownSessionIds.has(id)))];
+                if (mutedSessionIds.length > 0) {
+                  nextLayout.mutedSessionIds = mutedSessionIds;
+                } else {
+                  delete nextLayout.mutedSessionIds;
+                }
+              }
+              return nextLayout;
+            });
+          };
+
+          if (Array.isArray(incomingPayload.layouts)) {
+            const incomingLayouts = normalizeLayouts(incomingPayload.layouts);
+            if (mode === 'replace') {
+              neuzosConfig.layouts = incomingLayouts;
+            } else {
+              const existingLayouts = [...(neuzosConfig.layouts ?? [])];
+              const existingLayoutIds = new Set(existingLayouts.map((layout: any) => layout?.id));
+              for (const importLayout of incomingLayouts) {
+                if (importLayout?.id && !existingLayoutIds.has(importLayout.id)) {
+                  existingLayouts.push(importLayout);
+                  existingLayoutIds.add(importLayout.id);
+                }
+              }
+              neuzosConfig.layouts = existingLayouts;
+            }
             didModify = true;
           }
+
+          if (Array.isArray(incomingPayload.defaultLayouts)) {
+            const knownLayoutIds = new Set((neuzosConfig.layouts ?? []).map((layout: any) => layout.id));
+            const incomingDefaultLayouts = incomingPayload.defaultLayouts.filter((layoutId) => knownLayoutIds.has(layoutId));
+            if (mode === 'replace') {
+              neuzosConfig.defaultLayouts = incomingDefaultLayouts;
+            } else {
+              const defaultLayouts = [...(neuzosConfig.defaultLayouts ?? [])];
+              const existingDefaultLayoutIds = new Set(defaultLayouts);
+              for (const layoutId of incomingDefaultLayouts) {
+                if (!existingDefaultLayoutIds.has(layoutId)) {
+                  defaultLayouts.push(layoutId);
+                  existingDefaultLayoutIds.add(layoutId);
+                }
+              }
+              neuzosConfig.defaultLayouts = defaultLayouts;
+            }
+            didModify = true;
+          }
+        };
+
+        const applyLaunchSettings = () => {
+          const incomingPayload = payload as ConfigExportPayloadV2;
           if (incomingPayload.defaultLaunchMode !== undefined) {
             const allowedLaunchModes = ['normal', 'session_launcher'];
             if (allowedLaunchModes.includes(incomingPayload.defaultLaunchMode as string)) {
@@ -2491,8 +2677,12 @@ function registerSessionKeybinds(mode: LaunchMode) {
             neuzosConfig.userAgent = incomingPayload.userAgent;
             didModify = true;
           }
-          if (incomingPayload.titleBarButtons !== undefined) {
-            neuzosConfig.titleBarButtons = cloneData(incomingPayload.titleBarButtons);
+          if (incomingPayload.chromium !== undefined) {
+            neuzosConfig.chromium = {
+              commandLineSwitches: Array.isArray(incomingPayload.chromium?.commandLineSwitches)
+                ? cloneData(incomingPayload.chromium.commandLineSwitches)
+                : [],
+            };
             didModify = true;
           }
         };
@@ -2505,15 +2695,25 @@ function registerSessionKeybinds(mode: LaunchMode) {
             case 'session-actions':
               applySessionActions();
               break;
-            case 'ui-layout':
-              applyUiLayout();
-              break;
             case 'general-settings':
               applyGeneralSettings();
               break;
-            case 'quest-log':
+            case 'sessions':
+              applySessions();
+              break;
+            case 'layouts':
+              applyLayouts();
+              break;
+            case 'launch-settings':
+              applyLaunchSettings();
+              break;
+            case 'ui-layout':
               break;
           }
+        }
+
+        if (didModify) {
+          pruneSessionReferences(neuzosConfig);
         }
 
         if (didModify) {
@@ -2648,6 +2848,16 @@ function registerSessionKeybinds(mode: LaunchMode) {
         return true;
       } catch (e) {
         console.error('Failed to open app data folder:', e);
+        return false;
+      }
+    })
+
+    ipcMain.handle('app.open_config_folder', async () => {
+      try {
+        await shell.openPath(configDirectoryPath);
+        return true;
+      } catch (e) {
+        console.error('Failed to open config folder:', e);
         return false;
       }
     })
