@@ -7,6 +7,7 @@
     Copy,
     FilePen,
     FileX,
+    PictureInPicture2,
     ArrowDownUp,
     GripVertical,
     Plus,
@@ -663,7 +664,7 @@
   {#if useDragSessionSorting}
     <Table.Row class="border-b-0 hover:[&,&>svelte-css-wrapper]:[&>th,td]:bg-transparent">
       <Table.Cell
-        colspan={10}
+        colspan={8}
         class={`p-0 transition-[height] duration-150 ${active ? 'h-10' : 'h-1'}`}
         ondragover={(event) => handleSessionDragOver(event, groupId, index)}
         ondrop={(event) => handleSessionDrop(event, groupId, index)}
@@ -840,70 +841,58 @@
     <Table.Cell class="w-[130px] text-center">
       {@const zoomOpen = zoomPopoverStates[session.id] ?? false}
       {@const zoomValue = getSessionZoom(session.id)}
-      <Popover.Root open={zoomOpen} onOpenChange={(open) => { zoomPopoverStates[session.id] = open; }}>
-        <Popover.Trigger class="h-9 w-9 inline-flex items-center justify-center rounded-md border border-input bg-muted/50 px-2 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring {Math.round(zoomValue * 100) !== 100 ? 'border-primary text-primary ring-1 ring-primary/50' : ''}">
-          <ZoomIn class="h-4 w-4"/>
-        </Popover.Trigger>
-        <Popover.Content class="w-[260px] p-3" align="start">
-          <div class="flex flex-col gap-3">
-            <input
-              class="w-full h-2 accent-primary cursor-pointer rounded-full"
-              type="range"
-              min="0.5"
-              max="1.5"
-              step="0.05"
-              value={zoomValue}
-              oninput={(event) => {
-                const value = Number((event.currentTarget as HTMLInputElement).value)
-                setSessionZoom(session.id, value)
-              }}
-            />
-            <div class="flex items-center gap-2">
-              <Input
-                class="h-8 w-20 shrink-0 text-sm text-center tabular-nums"
-                type="number"
-                min="50"
-                max="150"
-                step="5"
-                value={Math.round(getSessionZoom(session.id) * 100)}
-                oninput={(event) => {
-                  const value = Number((event.currentTarget as HTMLInputElement).value)
-                  setSessionZoom(session.id, value / 100)
-                }}
-              />
-              {#if Math.round(getSessionZoom(session.id) * 100) !== 100}
-                <Button variant="outline" size="icon" class="h-8 w-8 shrink-0" onclick={() => setSessionZoom(session.id, 1)}>
-                  <RotateCw class="h-4 w-4"/>
-                </Button>
-              {/if}
-              <Button variant="outline" size="icon" class="h-8 w-8 shrink-0 ml-auto" onclick={() => { zoomPopoverStates[session.id] = false; }}>
-                <Check class="h-4 w-4"/>
-              </Button>
-            </div>
-          </div>
-        </Popover.Content>
-      </Popover.Root>
-    </Table.Cell>
-    <Table.Cell>
-      <div class="flex items-center justify-center">
-        <Switch
-          checked={session.floatable ?? false}
-          onCheckedChange={(checked) => { session.floatable = checked; }}
-        />
-      </div>
+      <Tooltip.Provider>
+        <Tooltip.Root>
+          <Popover.Root open={zoomOpen} onOpenChange={(open) => { zoomPopoverStates[session.id] = open; }}>
+            <Tooltip.Trigger>
+              <Popover.Trigger class="h-9 w-9 inline-flex items-center justify-center rounded-md border border-input bg-muted/50 px-2 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring {Math.round(zoomValue * 100) !== 100 ? 'border-primary text-primary ring-1 ring-primary/50' : ''}">
+                <ZoomIn class="h-4 w-4"/>
+              </Popover.Trigger>
+            </Tooltip.Trigger>
+            <Popover.Content class="w-[260px] p-3" align="start">
+              <div class="flex flex-col gap-3">
+                <input
+                  class="w-full h-2 accent-primary cursor-pointer rounded-full"
+                  type="range"
+                  min="0.5"
+                  max="1.5"
+                  step="0.05"
+                  value={zoomValue}
+                  oninput={(event) => {
+                    const value = Number((event.currentTarget as HTMLInputElement).value)
+                    setSessionZoom(session.id, value)
+                  }}
+                />
+                <div class="flex items-center gap-2">
+                  <Input
+                    class="h-8 w-20 shrink-0 text-sm text-center tabular-nums"
+                    type="number"
+                    min="50"
+                    max="150"
+                    step="5"
+                    value={Math.round(getSessionZoom(session.id) * 100)}
+                    oninput={(event) => {
+                      const value = Number((event.currentTarget as HTMLInputElement).value)
+                      setSessionZoom(session.id, value / 100)
+                    }}
+                  />
+                  {#if Math.round(getSessionZoom(session.id) * 100) !== 100}
+                    <Button variant="outline" size="icon" class="h-8 w-8 shrink-0" onclick={() => setSessionZoom(session.id, 1)}>
+                      <RotateCw class="h-4 w-4"/>
+                    </Button>
+                  {/if}
+                  <Button variant="outline" size="icon" class="h-8 w-8 shrink-0 ml-auto" onclick={() => { zoomPopoverStates[session.id] = false; }}>
+                    <Check class="h-4 w-4"/>
+                  </Button>
+                </div>
+              </div>
+            </Popover.Content>
+          </Popover.Root>
+          <Tooltip.Content>{Math.round(zoomValue * 100)}%</Tooltip.Content>
+        </Tooltip.Root>
+      </Tooltip.Provider>
     </Table.Cell>
     <Table.Cell class="w-full"></Table.Cell>
-    <Table.Cell class="w-[170px]">
-      <div class="flex items-center justify-center">
-        <Switch
-          checked={session.autoDeleteCache ?? false}
-          onCheckedChange={(checked) => {
-            session.autoDeleteCache = checked
-            void neuzosBridge.config.save(neuzosConfig)
-          }}
-        />
-      </div>
-    </Table.Cell>
     <Table.Cell class="w-[170px]">
       <div class="flex items-center justify-start gap-1.5">
         <span class="text-xs">{session.id}</span>
@@ -924,9 +913,98 @@
         </Tooltip.Provider>
       </div>
     </Table.Cell>
-    <Table.Cell class="w-[170px]">
+    <Table.Cell class="w-[240px]">
       <Tooltip.Provider>
         <div class="flex gap-2 items-center">
+          <div class="inline-flex h-8 items-center overflow-hidden rounded-md border border-input bg-muted/50 shadow-sm">
+            <AlertDialog.Root open={clearCacheOpenModal === session.id} onOpenChange={(open) => {
+              clearCacheOpenModal = open ? session.id : null;
+            }}>
+              <Tooltip.Root>
+                <Tooltip.Trigger>
+                  <AlertDialog.Trigger>
+                    <Button variant="ghost" size="icon" class="h-8 w-8 rounded-none border-0">
+                      <FileX class="h-4 w-4"/>
+                    </Button>
+                  </AlertDialog.Trigger>
+                </Tooltip.Trigger>
+                <Tooltip.Content>Clear Cache</Tooltip.Content>
+              </Tooltip.Root>
+              <AlertDialog.Content>
+                <AlertDialog.Header>
+                  <AlertDialog.Title>Clear "{session.label}" Session's Cache.</AlertDialog.Title>
+                  <AlertDialog.Description>
+                    This Action will clear the Cache for <b>"{session.label}"</b>.<br/>
+
+                    Your Session Data will still be saved.
+                  </AlertDialog.Description>
+                </AlertDialog.Header>
+                <AlertDialog.Footer>
+                  <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+                  <AlertDialog.Action
+                    onclick={() => {
+                      clearCache(session.id)
+                      clearCacheOpenModal = null
+                    }}>Clear Cache
+                  </AlertDialog.Action>
+                </AlertDialog.Footer>
+              </AlertDialog.Content>
+            </AlertDialog.Root>
+            <div class="h-5 w-px bg-border"></div>
+            <Popover.Root>
+              <Tooltip.Root>
+                <Tooltip.Trigger>
+                  <Popover.Trigger class="inline-flex h-8 min-w-10 items-center justify-center px-2 text-xs font-semibold transition-colors hover:bg-accent hover:text-accent-foreground {session.autoDeleteCache ? 'bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''}">
+                    {session.autoDeleteCache ? 'ON' : 'OFF'}
+                  </Popover.Trigger>
+                </Tooltip.Trigger>
+                <Tooltip.Content>Auto-Clear Cache</Tooltip.Content>
+              </Tooltip.Root>
+              <Popover.Content class="w-[360px] p-3" align="start">
+                <div class="flex items-start justify-between gap-4">
+                  <div class="space-y-1">
+                    <div class="text-sm font-semibold">Auto-Clear Cache</div>
+                    <p class="text-xs text-muted-foreground">
+                      Automatically clears the Session Cache on Session Stop and NeuzOS Startup.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={session.autoDeleteCache ?? false}
+                    onCheckedChange={(checked) => {
+                      session.autoDeleteCache = checked
+                      void neuzosBridge.config.save(neuzosConfig)
+                    }}
+                  />
+                </div>
+              </Popover.Content>
+            </Popover.Root>
+          </div>
+          <Popover.Root>
+            <Tooltip.Root>
+              <Tooltip.Trigger>
+                <Popover.Trigger>
+                  <Button variant={session.floatable ? 'default' : 'outline'} size="icon" class="h-8 w-8">
+                    <PictureInPicture2 class="h-4 w-4"/>
+                  </Button>
+                </Popover.Trigger>
+              </Tooltip.Trigger>
+              <Tooltip.Content>Floating Session</Tooltip.Content>
+            </Tooltip.Root>
+            <Popover.Content class="w-[360px] p-3" align="start">
+              <div class="flex items-start justify-between gap-4">
+                <div class="space-y-1">
+                  <div class="text-sm font-semibold">Floating Session</div>
+                  <p class="text-xs text-muted-foreground">
+                    Allows this Session to be opened in a Floating Window via the Floating Sessions Widget.
+                  </p>
+                </div>
+                <Switch
+                  checked={session.floatable ?? false}
+                  onCheckedChange={(checked) => { session.floatable = checked; }}
+                />
+              </div>
+            </Popover.Content>
+          </Popover.Root>
           <AlertDialog.Root open={launchUrlOverwriteModal === session.id} onOpenChange={(open) => {
             if (open) {
               openLaunchUrlOverwriteModal(session)
@@ -966,39 +1044,6 @@
                 <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
                 <AlertDialog.Action onclick={() => void setLaunchUrlOverwrite(session)}>
                   Set URL
-                </AlertDialog.Action>
-              </AlertDialog.Footer>
-            </AlertDialog.Content>
-          </AlertDialog.Root>
-          <AlertDialog.Root open={clearCacheOpenModal === session.id} onOpenChange={(open) => {
-            clearCacheOpenModal = open ? session.id : null;
-          }}>
-            <Tooltip.Root>
-              <Tooltip.Trigger>
-                <AlertDialog.Trigger>
-                  <Button variant="outline" size="icon" class="h-8 w-8">
-                    <FileX class="h-4 w-4"/>
-                  </Button>
-                </AlertDialog.Trigger>
-              </Tooltip.Trigger>
-              <Tooltip.Content>Clear Cache</Tooltip.Content>
-            </Tooltip.Root>
-            <AlertDialog.Content>
-              <AlertDialog.Header>
-                <AlertDialog.Title>Clear "{session.label}" Session's Cache.</AlertDialog.Title>
-                <AlertDialog.Description>
-                  This Action will clear the Cache for <b>"{session.label}"</b>.<br/>
-
-                  Your Session Data will still be saved.
-                </AlertDialog.Description>
-              </AlertDialog.Header>
-              <AlertDialog.Footer>
-                <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
-                <AlertDialog.Action
-                  onclick={() => {
-                    clearCache(session.id)
-                    clearCacheOpenModal = null
-                  }}>Clear Cache
                 </AlertDialog.Action>
               </AlertDialog.Footer>
             </AlertDialog.Content>
@@ -1195,7 +1240,7 @@
                               <span class="inline-flex cursor-help items-center justify-center">Group</span>
                             </Tooltip.Trigger>
                             <Tooltip.Content class="max-w-xs">
-                              Assign this Session to a Group. Sessions are displayed under their assigned Group in the Session Launcher. Groups can be collapsed to keep the Session List organized.
+                              Assign Sessions to a Group. Sessions within the same Group are displayed together in the Session Launcher.
                             </Tooltip.Content>
                           </Tooltip.Root>
                         </Tooltip.Provider>
@@ -1207,34 +1252,12 @@
                               <span class="inline-flex cursor-help items-center justify-center">Zoom</span>
                             </Tooltip.Trigger>
                             <Tooltip.Content class="max-w-xs">
-                              Set the Zoom level for this Session. This changes the Zoom of the Session's Webview content.
-                            </Tooltip.Content>
-                          </Tooltip.Root>
-                        </Tooltip.Provider>
-                      </Table.Head>
-                      <Table.Head class="w-[90px] text-center">
-                        <Tooltip.Provider>
-                          <Tooltip.Root>
-                            <Tooltip.Trigger>
-                              <span class="inline-flex cursor-help items-center justify-center">Floatable</span>
-                            </Tooltip.Trigger>
-                            <Tooltip.Content class="max-w-xs">
-                              Choose whether this Session can be selected in the Floating Sessions Widget. Only enabled Sessions will appear in the Widget's Session dropdown.
+                              Set the Zoom Level for the Webview Content of this Session.
                             </Tooltip.Content>
                           </Tooltip.Root>
                         </Tooltip.Provider>
                       </Table.Head>
                       <Table.Head class="w-full"></Table.Head>
-                      <Table.Head class="w-[170px] text-center">
-                        <Tooltip.Provider>
-                          <Tooltip.Root>
-                            <Tooltip.Trigger>
-                              <span class="inline-flex cursor-help items-center justify-center">Auto-Delete Cache</span>
-                            </Tooltip.Trigger>
-                            <Tooltip.Content>Automatically Clear this Session's Cache, when the Session Stops and on every Startup of NeuzOS.</Tooltip.Content>
-                          </Tooltip.Root>
-                        </Tooltip.Provider>
-                      </Table.Head>
                       <Table.Head class="w-[170px] text-center">
                         <div class="flex justify-start">Session ID</div>
                       </Table.Head>
