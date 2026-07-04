@@ -231,6 +231,10 @@
   }
 
   const stopLayoutCustomizationEdit = (layoutId: string) => {
+    const layout = neuzosConfig.layouts.find((entry) => entry.id === layoutId)
+    if (layout) {
+      cleanupEmptyLayoutRows(layout)
+    }
     layoutCustomizationEditIds = layoutCustomizationEditIds.filter((id) => id !== layoutId)
   }
 
@@ -273,6 +277,22 @@
     delete layout.autoFocus
     delete layout.locked
     delete layout.columnFirst
+  }
+
+  const cleanupEmptyLayoutRows = (layout: NeuzConfig['layouts'][number]) => {
+    const rows = layout.rows ?? []
+    const filledRows = rows.filter((row) => (row.sessionIds ?? []).length > 0)
+
+    layout.rows = filledRows.length > 0 ? filledRows : [{ sessionIds: [] }]
+  }
+
+  const cleanupEmptyCustomizationRows = () => {
+    for (const layoutId of layoutCustomizationEditIds) {
+      const layout = neuzosConfig.layouts.find((entry) => entry.id === layoutId)
+      if (layout) {
+        cleanupEmptyLayoutRows(layout)
+      }
+    }
   }
 
   const setLayoutAutoFocus = (layout: NeuzConfig['layouts'][number], checked: boolean) => {
@@ -446,6 +466,7 @@
     useDragLayoutSorting = localStorage.getItem(layoutSortModeStorageKey) === 'drag'
 
     const handleSettingsSaved = () => {
+      cleanupEmptyCustomizationRows()
       temporaryMultiLayoutIds = []
       layoutCustomizationEditIds = []
     }
@@ -687,6 +708,11 @@
         {#each neuzosConfig.layouts as layout, lidx (layout.id)}
           {@const isMultiSession = isMultiSessionLayout(layout)}
           {@const isCustomizationEditing = isLayoutCustomizationEditing(layout.id)}
+          {@const layoutSessionCount = getLayoutSessionIds(layout).length}
+          {@const layoutRows = layout.rows?.length ? layout.rows : [{ sessionIds: [] }]}
+          {@const layoutCanAddSession = canAddSessionToLayout(layout)}
+          {@const maxLayoutSessionCellCount = Math.max(1, ...layoutRows.map(row => row.sessionIds?.length ?? 0))}
+          {@const maxLayoutCellCount = Math.max(1, ...layoutRows.map(row => (row.sessionIds?.length ?? 0) + (layoutCanAddSession && (!isMultiSession || isCustomizationEditing || layoutSessionCount === 0) ? 1 : 0)))}
           {@render layoutDropZone(lidx)}
           <Table.Row
             class="hover:bg-muted/50 {useDragLayoutSorting && draggedLayoutId === layout.id ? 'opacity-50' : ''}"
@@ -822,8 +848,8 @@
               />
             </Table.Cell>
             <Table.Cell class="py-3">
-              <div class="flex items-center gap-3">
-                <div class="flex w-[115px] flex-col">
+              <div class="flex items-center gap-2">
+                <div class="flex w-[95px] flex-col">
                   <span class="text-xs text-muted-foreground">Layout Mode</span>
                   <span class="text-sm font-medium">{isMultiSession ? 'Multi-Session' : 'Single-Session'}</span>
                 </div>
@@ -941,120 +967,192 @@
                     </Popover.Content>
                   </Popover.Root>
                 {:else}
-                  <Button variant="outline" size="icon-sm" title="Switch to Multi-Session" onclick={() => switchLayoutToMultiSession(layout)}>
-                    <LayoutGrid class="h-4 w-4"></LayoutGrid>
-                  </Button>
+                  <Popover.Root open={multiSessionSettingsPopoverStates[layout.id] ?? false} onOpenChange={(open) => { multiSessionSettingsPopoverStates[layout.id] = open; }}>
+                    <Popover.Trigger>
+                      <Button variant="outline" size="icon-sm" title="Settings">
+                        <Settings class="h-4 w-4"></Settings>
+                      </Button>
+                    </Popover.Trigger>
+                    <Popover.Content class="w-[300px] p-4">
+                      <div class="flex flex-col gap-3">
+                        <div class="flex items-center gap-2 text-sm font-semibold">
+                          <LayoutGrid class="h-4 w-4"></LayoutGrid>
+                          Switch to Multi-Session
+                        </div>
+                        <p class="text-xs text-muted-foreground">
+                          Switch this Layout to Multi-Session Mode to add multiple Sessions and Unlock Layout Customization.
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          class="w-full gap-2"
+                          onclick={() => {
+                            switchLayoutToMultiSession(layout)
+                            multiSessionSettingsPopoverStates[layout.id] = false
+                          }}
+                        >
+                          Switch to Multi-Session
+                        </Button>
+                      </div>
+                    </Popover.Content>
+                  </Popover.Root>
                 {/if}
               </div>
             </Table.Cell>
             <Table.Cell class="w-1/2 py-3">
-              <div class="flex {layout.columnFirst ? 'flex-row' : 'flex-col'} gap-2">
-                {#each (layout.rows?.length ? layout.rows : [{ sessionIds: [] }]) as row, ridx (ridx)}
-                  {@const popoverKey = `${layout.id}-${ridx}`}
-                  {@const isPopoverOpen = addColumnPopoverStates[popoverKey] ?? false}
-                  <div class="flex {layout.columnFirst ? 'flex-col items-start' : 'flex-row items-center'} gap-2">
-                    {#each row.sessionIds ?? [] as sessionId,sidx (sidx)}
-                      {@const session = neuzosConfig.sessions.find(s => s.id === sessionId)}
-                      {@const replaceSessionPopoverKey = `${layout.id}-${ridx}-${sidx}`}
-                      {@const isReplaceSessionPopoverOpen = replaceSessionPopoverStates[replaceSessionPopoverKey] ?? false}
-                      <div class="inline-flex items-center rounded-md border border-input text-xs shadow-sm">
-                        <Popover.Root open={isReplaceSessionPopoverOpen} onOpenChange={(open) => { replaceSessionPopoverStates[replaceSessionPopoverKey] = open; }}>
-                          <Popover.Trigger>
-                            <Button variant="outline" size="xs" class="h-7 rounded-r-none border-0 pl-2 pr-3 text-xs gap-2">
-                              <img class="h-3.5 w-3.5" src="icons/{session?.icon.slug}.png" alt=""/>
-                              {session?.label}
-                            </Button>
-                          </Popover.Trigger>
-                          <Popover.Content class="w-[280px] p-0">
-                            <Command.Root shouldFilter={true}>
-                              <Command.Input placeholder="Search Sessions..." class="h-10"/>
-                              <Command.Empty>No Session found.</Command.Empty>
-                              <Command.List class="max-h-[320px]">
-                                <Command.Group>
-                                  {#each neuzosConfig.sessions as replacementSession}
-                                    {@const selectedInLayout = neuzosConfig.layouts.find(l => l.id === layout.id)?.rows.find(r => r.sessionIds.includes(replacementSession.id)) !== undefined}
-                                    {#if replacementSession.id === sessionId || !selectedInLayout}
-                                      <Command.Item
-                                        value={replacementSession.id}
-                                        keywords={[replacementSession.label.toLowerCase()]}
-                                        onSelect={() => {
-                                          row.sessionIds[sidx] = replacementSession.id;
-                                          replaceSessionPopoverStates[replaceSessionPopoverKey] = false;
-                                        }}
-                                        class="py-2"
-                                      >
-                                        <img class="size-5 mr-2" src="icons/{replacementSession.icon.slug}.png" alt=""/>
-                                        <span>{replacementSession.label}</span>
-                                      </Command.Item>
-                                    {/if}
-                                  {/each}
-                                </Command.Group>
-                              </Command.List>
-                            </Command.Root>
-                          </Popover.Content>
-                        </Popover.Root>
-                        <Button variant="outline" size="icon" class="h-7 w-7 rounded-l-none border-0 border-l bg-background text-muted-foreground hover:text-destructive" onclick={() => {
-                          row.sessionIds.splice(sidx, 1)
-                        }}>
-                          <Trash class="size-3"/>
-                        </Button>
+              <div class="flex {layout.columnFirst ? 'flex-col items-start' : 'flex-row items-start'} gap-2">
+                <div class="inline-flex {layout.columnFirst ? 'flex-row' : 'flex-col'} overflow-hidden {isMultiSession && isCustomizationEditing ? 'rounded-md border border-border bg-muted/20 shadow-sm' : 'gap-2'}">
+                  {#each layoutRows as row, ridx (ridx)}
+                    {@const popoverKey = `${layout.id}-${ridx}`}
+                    {@const isPopoverOpen = addColumnPopoverStates[popoverKey] ?? false}
+                    {@const rowHasSessions = (row.sessionIds?.length ?? 0) > 0}
+                    {@const showAddSession = layoutCanAddSession && (!isMultiSession || isCustomizationEditing || layoutSessionCount === 0)}
+                    {@const showInitialAddSession = !isMultiSession || ridx === 0}
+                    {@const rowSessionCount = row.sessionIds?.length ?? 0}
+                    {@const rowCellCount = rowSessionCount + (showAddSession && (layoutSessionCount > 0 || showInitialAddSession) ? 1 : 0)}
+                    {@const rowLeadingCellSpan = Math.max(1, maxLayoutCellCount - rowCellCount + 1)}
+                    {@const addCellSpan = Math.max(1, maxLayoutSessionCellCount - rowSessionCount + 1)}
+                    <div
+                      class="flex {layout.columnFirst ? 'flex-col items-stretch' : 'flex-row items-stretch'} {isMultiSession && isCustomizationEditing ? '' : 'gap-2'} {layout.columnFirst && isMultiSession && isCustomizationEditing ? 'min-w-[160px]' : ''} {isMultiSession && isCustomizationEditing && !rowHasSessions && !layout.columnFirst ? 'w-full' : ''} {isMultiSession && isCustomizationEditing && ridx > 0 ? (layout.columnFirst ? 'border-l-2 border-border' : 'border-t-2 border-border') : ''}"
+                      style={isMultiSession && isCustomizationEditing && layout.columnFirst && !rowHasSessions ? `min-height: ${maxLayoutCellCount * 36}px;` : (isMultiSession && !isCustomizationEditing && !layout.columnFirst ? `width: ${maxLayoutCellCount * 160}px;` : undefined)}
+                    >
+                      {#each row.sessionIds ?? [] as sessionId,sidx (sidx)}
+                        {@const session = neuzosConfig.sessions.find(s => s.id === sessionId)}
+                        {@const replaceSessionPopoverKey = `${layout.id}-${ridx}-${sidx}`}
+                        {@const isReplaceSessionPopoverOpen = replaceSessionPopoverStates[replaceSessionPopoverKey] ?? false}
+                        <div
+                          class="flex items-stretch {isMultiSession && isCustomizationEditing ? 'min-h-9 min-w-[160px]' : 'items-center'} {isMultiSession && !isCustomizationEditing ? 'w-full' : ''} {isMultiSession && isCustomizationEditing && sidx > 0 ? (layout.columnFirst ? 'border-t-2 border-border' : 'border-l-2 border-border') : ''}"
+                          style={isMultiSession && isCustomizationEditing && !layout.columnFirst ? `flex: ${sidx === 0 ? rowLeadingCellSpan : 1} 1 0;` : (isMultiSession && !isCustomizationEditing && !layout.columnFirst ? 'flex: 1 1 0;' : undefined)}
+                        >
+                          <div class="{isMultiSession && isCustomizationEditing ? 'flex w-full items-stretch text-xs' : 'inline-flex items-center rounded-md border border-input text-xs shadow-sm'} {isMultiSession && !isCustomizationEditing ? 'w-full' : ''}">
+                            <Popover.Root open={isReplaceSessionPopoverOpen} onOpenChange={(open) => { replaceSessionPopoverStates[replaceSessionPopoverKey] = open; }}>
+                              {#if isMultiSession && isCustomizationEditing}
+                                <Popover.Trigger class="flex min-h-9 flex-1 items-center gap-2 px-3 text-xs transition-colors hover:bg-muted/60">
+                                  <img class="h-3.5 w-3.5" src="icons/{session?.icon.slug}.png" alt=""/>
+                                  <span class="truncate">{session?.label}</span>
+                                </Popover.Trigger>
+                              {:else}
+                                <Popover.Trigger class={isMultiSession && !isCustomizationEditing ? 'flex flex-1' : ''}>
+                                  <Button variant="outline" size="xs" class="h-7 rounded-r-none border-0 pl-2 pr-3 text-xs gap-2 {isMultiSession && !isCustomizationEditing ? 'w-full flex-1 justify-start' : ''}">
+                                    <img class="h-3.5 w-3.5" src="icons/{session?.icon.slug}.png" alt=""/>
+                                    {session?.label}
+                                  </Button>
+                                </Popover.Trigger>
+                              {/if}
+                              <Popover.Content class="w-[280px] p-0">
+                                <Command.Root shouldFilter={true}>
+                                  <Command.Input placeholder="Search Sessions..." class="h-10"/>
+                                  <Command.Empty>No Session found.</Command.Empty>
+                                  <Command.List class="max-h-[320px]">
+                                    <Command.Group>
+                                      {#each neuzosConfig.sessions as replacementSession}
+                                        {@const selectedInLayout = neuzosConfig.layouts.find(l => l.id === layout.id)?.rows.find(r => r.sessionIds.includes(replacementSession.id)) !== undefined}
+                                        {#if replacementSession.id === sessionId || !selectedInLayout}
+                                          <Command.Item
+                                            value={replacementSession.id}
+                                            keywords={[replacementSession.label.toLowerCase()]}
+                                            onSelect={() => {
+                                              row.sessionIds[sidx] = replacementSession.id;
+                                              replaceSessionPopoverStates[replaceSessionPopoverKey] = false;
+                                            }}
+                                            class="py-2"
+                                          >
+                                            <img class="size-5 mr-2" src="icons/{replacementSession.icon.slug}.png" alt=""/>
+                                            <span>{replacementSession.label}</span>
+                                          </Command.Item>
+                                        {/if}
+                                      {/each}
+                                    </Command.Group>
+                                  </Command.List>
+                                </Command.Root>
+                              </Popover.Content>
+                            </Popover.Root>
+                            {#if isMultiSession && isCustomizationEditing}
+                              <Button variant="ghost" size="icon" class="min-h-9 w-9 rounded-none border-0 bg-transparent text-muted-foreground hover:bg-transparent hover:text-destructive" onclick={() => {
+                                row.sessionIds.splice(sidx, 1)
+                              }}>
+                                <Trash class="size-3"/>
+                              </Button>
+                            {:else}
+                              <Button variant="outline" size="icon" class="h-7 w-7 rounded-l-none border-0 border-l bg-background text-muted-foreground hover:text-destructive" onclick={() => {
+                                row.sessionIds.splice(sidx, 1)
+                              }}>
+                                <Trash class="size-3"/>
+                              </Button>
+                            {/if}
+                          </div>
+                        </div>
+                      {/each}
+                      <div
+                        class="flex items-stretch justify-center {isMultiSession && isCustomizationEditing ? 'min-h-9 min-w-[160px]' : 'items-center'} {isMultiSession && isCustomizationEditing && !rowHasSessions && !layout.columnFirst ? 'w-full' : ''} {isMultiSession && isCustomizationEditing && rowHasSessions && showAddSession ? (layout.columnFirst ? 'border-t-2 border-border' : 'border-l-2 border-border') : ''}"
+                        style={isMultiSession && isCustomizationEditing ? (layout.columnFirst ? `min-height: ${addCellSpan * 36}px;` : `flex: ${rowHasSessions ? 1 : maxLayoutCellCount} 1 0;`) : undefined}
+                      >
+                        {#if showAddSession && (layoutSessionCount > 0 || showInitialAddSession)}
+                          <Popover.Root open={isPopoverOpen}
+                                        onOpenChange={(open) => { addColumnPopoverStates[popoverKey] = open; }}>
+                            {#if isMultiSession && isCustomizationEditing}
+                              <Popover.Trigger class="flex h-full min-h-9 w-full min-w-[160px] items-center justify-center gap-2 rounded-sm text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground">
+                                <Plus class="size-3.5"/>
+                                {#if layoutSessionCount === 0 && ridx === 0}
+                                  <span class="text-xs font-medium">Add Session</span>
+                                {/if}
+                              </Popover.Trigger>
+                            {:else if showInitialAddSession}
+                              <Popover.Trigger class="flex h-9 min-w-[160px] items-center justify-center gap-2 rounded-md border border-input bg-muted/20 px-3 text-xs text-muted-foreground shadow-sm transition-colors hover:bg-muted/60 hover:text-foreground">
+                                <Plus class="size-3.5"/>
+                                <span class="font-medium">Add Session</span>
+                              </Popover.Trigger>
+                            {/if}
+                            <Popover.Content class="w-[280px] p-0">
+                              <Command.Root shouldFilter={true}>
+                                <Command.Input placeholder="Search Sessions..." class="h-10"/>
+                                <Command.Empty>No Session found.</Command.Empty>
+                                <Command.List class="max-h-[320px]">
+                                  <Command.Group>
+                                    {#each neuzosConfig.sessions as session}
+                                      {@const
+                                        selectedInLayout = neuzosConfig.layouts.find(l => l.id === layout.id)?.rows.find(r => r.sessionIds.includes(session.id)) !== undefined}
+                                      {#if !selectedInLayout}
+                                        <Command.Item
+                                          value={session.id}
+                                          keywords={[session.label.toLowerCase()]}
+                                          onSelect={() => {
+                                            addSessionToLayoutRow(layout, row, session.id);
+                                            addColumnPopoverStates[popoverKey] = false;
+                                          }}
+                                          class="py-2"
+                                        >
+                                          <img class="size-5 mr-2" src="icons/{session.icon.slug}.png" alt=""/>
+                                          <span>{session.label}</span>
+                                        </Command.Item>
+                                      {/if}
+                                    {/each}
+                                  </Command.Group>
+                                </Command.List>
+                              </Command.Root>
+                            </Popover.Content>
+                          </Popover.Root>
+                        {/if}
+                      </div>
+                    </div>
+                  {/each}
+                </div>
+                {#if isMultiSession && isCustomizationEditing && (layout.rows?.length ?? 0) > 1}
+                  <div class="flex {layout.columnFirst ? 'flex-row' : 'flex-col'} gap-0">
+                    {#each (layout.rows?.length ? layout.rows : [{ sessionIds: [] }]) as row, ridx (ridx)}
+                      <div class="flex items-center justify-center p-1.5 {layout.columnFirst ? 'min-w-[160px]' : 'min-h-10'}">
+                        {#if ridx > 0}
+                          <Button class="text-xs" variant="outline" size="xs" onclick={() => {
+                            layout.rows.splice(ridx, 1)
+                          }}>
+                            <Trash class="size-3"/>
+                            Delete {layout.columnFirst ? "Column" : "Row"}
+                          </Button>
+                        {/if}
                       </div>
                     {/each}
-                    <div class="flex items-center gap-1">
-                      {#if (!isMultiSession || isCustomizationEditing) && canAddSessionToLayout(layout)}
-                        <Popover.Root open={isPopoverOpen}
-                                      onOpenChange={(open) => { addColumnPopoverStates[popoverKey] = open; }}>
-                          <Popover.Trigger>
-                            <Button variant="outline" size="xs" class="text-xs">
-                              <Plus class="size-3 mr-1"/>
-                              Add Session
-                            </Button>
-                          </Popover.Trigger>
-                          <Popover.Content class="w-[280px] p-0">
-                            <Command.Root shouldFilter={true}>
-                              <Command.Input placeholder="Search Sessions..." class="h-10"/>
-                              <Command.Empty>No Session found.</Command.Empty>
-                              <Command.List class="max-h-[320px]">
-                                <Command.Group>
-                                  {#each neuzosConfig.sessions as session}
-                                    {@const
-                                      selectedInLayout = neuzosConfig.layouts.find(l => l.id === layout.id)?.rows.find(r => r.sessionIds.includes(session.id)) !== undefined}
-                                    {#if !selectedInLayout}
-                                      <Command.Item
-                                        value={session.id}
-                                        keywords={[session.label.toLowerCase()]}
-                                        onSelect={() => {
-                                          addSessionToLayoutRow(layout, row, session.id);
-                                          addColumnPopoverStates[popoverKey] = false;
-                                        }}
-                                        class="py-2"
-                                      >
-                                        <img class="size-5 mr-2" src="icons/{session.icon.slug}.png" alt=""/>
-                                        <span>{session.label}</span>
-                                      </Command.Item>
-                                    {/if}
-                                  {/each}
-                                </Command.Group>
-                              </Command.List>
-                            </Command.Root>
-                          </Popover.Content>
-                        </Popover.Root>
-                      {/if}
-
-
-                    </div>
-                    <div class="flex-1"></div>
-                    {#if isMultiSession && isCustomizationEditing && (layout.rows?.length ?? 0) > 1}
-                      <Button class="text-xs" variant="outline" size="xs" onclick={() => {
-                        layout.rows.splice(ridx, 1)
-                      }}>
-                        <Trash class="size-3"/>
-                        Delete {layout.columnFirst ? "Column" : "Row"}
-                      </Button>
-                    {/if}
                   </div>
-
-                {/each}
+                {/if}
               </div>
             </Table.Cell>
             <Table.Cell class="py-3">
