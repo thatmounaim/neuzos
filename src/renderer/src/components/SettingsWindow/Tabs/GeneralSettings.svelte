@@ -289,7 +289,7 @@
 
 <Card.Root class="h-full overflow-y-auto">
   <Card.Header>
-    <Card.Title class="text-lg font-semibold">General Window and Webview Settings</Card.Title>
+    <Card.Title class="text-lg font-semibold">General Settings</Card.Title>
     <Card.Description>
       Configure General Settings for Application, Windows and Webviews.
     </Card.Description>
@@ -658,7 +658,7 @@
           <div class="space-y-0.5">
             <Label for="hide-titlebar-main" class="text-sm font-medium">Hide Main Bar in the Main Window Fullscreen</Label>
             <p class="text-xs text-muted-foreground">
-              Hides the Main Bar in Fullscreen Mode with a floating Exit Button
+              Hides the Main Bar in Fullscreen Mode.
             </p>
           </div>
           <Switch
@@ -672,7 +672,7 @@
           <div class="space-y-0.5">
             <Label for="hide-titlebar-session" class="text-sm font-medium">Hide Main Bar in the Session Window Fullscreen</Label>
             <p class="text-xs text-muted-foreground">
-              Hides the Main Bar in Fullscreen Mode with a floating Exit Button
+              Hides the Main Bar in Fullscreen Mode.
             </p>
           </div>
           <Switch
