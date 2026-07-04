@@ -12,7 +12,7 @@
   import KeyBinder from "../../Shared/KeyBinder.svelte";
 
   import type {NeuzConfig, NeuzKeyBindProfile, NeuzKeybind, UIActionDescriptor} from "$lib/types";
-  import {Plus, Trash2, ChevronsUpDown, Check, AlertCircleIcon, ChevronUp, ChevronDown, Pencil} from "@lucide/svelte";
+  import {Plus, Trash2, ChevronsUpDown, Check, AlertCircleIcon, ChevronUp, ChevronDown} from "@lucide/svelte";
 
   const modifierOptions = [
     {value: "", label: "None"},
@@ -67,6 +67,7 @@
   ];
 
   const isSystemActionEvent = (event: string) => systemActionEventIds.includes(event);
+  const isHiddenAddEvent = (event: string) => event === 'custom_event';
 
   function getSystemActionInfo(event: string): { label: string; category: string } {
     const uiAction = uiActions.find(action => action.id === event);
@@ -123,7 +124,7 @@
       case 'close_focus_session':
         return 'Closes the active Focus Session Window.';
       case 'toggle_keybinds':
-        return 'Enable or Disable NeuzOS Keybinds.';
+        return 'Enable or Disable NeuzOS Keybinds.\nThis Keybind is executable even if Keybinds are Disabled!';
       case 'layout_swap':
         return 'Switches between the two last used Layouts.';
       case 'layout_cycle_forward':
@@ -155,12 +156,47 @@
   }
 
   function getAddableGlobalEventIds(): string[] {
-    const knownSystemEvents = systemActionEventIds.filter(event => {
+    return Object.keys(allowedEventKeybinds).filter(event => !isSystemActionEvent(event) && !isHiddenAddEvent(event));
+  }
+
+  function getAddableProfileEventIds(): string[] {
+    return Object.keys(allowedEventKeybinds).filter(event => {
+      return !allowedEventKeybinds[event]?.unique && !isSystemActionEvent(event) && !isHiddenAddEvent(event);
+    });
+  }
+
+  function getAddableGlobalSystemEventIds(): string[] {
+    return systemActionEventIds.filter(event => {
       return event.startsWith('ui.') || allowedEventKeybinds[event];
     });
-    const regularEvents = Object.keys(allowedEventKeybinds).filter(event => !isSystemActionEvent(event));
+  }
 
-    return [...knownSystemEvents, ...regularEvents];
+  function getAddableGlobalActionEventIds(): string[] {
+    return getAddableGlobalEventIds().filter(event => !isSystemActionEvent(event));
+  }
+
+  function getSystemKeybindDropdownGroups(): Array<{ heading: string; events: string[] }> {
+    const events = getAddableGlobalSystemEventIds().filter(canAddGlobalKeybind);
+    const groups = [
+      {
+        heading: 'System Keybinds',
+        events: events.filter(event => getSystemActionInfo(event).category === 'System')
+      },
+      {
+        heading: 'Window Keybinds',
+        events: events.filter(event => getSystemActionInfo(event).category === 'Window')
+      },
+      {
+        heading: 'Interface',
+        events: events.filter(event => getSystemActionInfo(event).category === 'Interface')
+      },
+      {
+        heading: 'Layout Keybinds',
+        events: events.filter(event => getSystemActionInfo(event).category === 'Layout')
+      }
+    ];
+
+    return groups.filter(group => group.events.length > 0);
   }
 
   function canAddGlobalKeybind(event: string): boolean {
@@ -184,6 +220,16 @@
       args: new Array(argCount).fill('')
     });
     addKeybindPopoverOpen = false;
+  }
+
+  function addSystemKeybind(event: string) {
+    const argCount = allowedEventKeybinds[event]?.args?.length || 0;
+    neuzosConfig.keyBinds.push({
+      key: '',
+      event,
+      args: new Array(argCount).fill('')
+    });
+    addSystemKeybindPopoverOpen = false;
   }
 
   function parseKeybind(keybind: string): { modifier: string; key: string } {
@@ -222,6 +268,7 @@
   // ── Global keybind combobox states ──────────────────────────────────────────
   let comboboxStates: Array<{ open: boolean; modifierOpen: boolean }> = $state([]);
   let addKeybindPopoverOpen = $state(false);
+  let addSystemKeybindPopoverOpen = $state(false);
   let layoutSelectorStates: { [index: number]: boolean } = $state({});
   let sessionSelectorStates: { [index: number]: boolean } = $state({});
   let actionSelectorStates: { [index: number]: boolean } = $state({});
@@ -501,34 +548,26 @@
   <Card.Header>
     <Card.Title class="text-lg font-semibold">Keybind Settings</Card.Title>
     <Card.Description class="flex flex-col">
-      <p>Manage your keyboard shortcuts for various NeuzOS actions. Click on a key or modifier to change it.</p>
+      <p>Manage Keybinds for various NeuzOS Actions.</p>
       <Alert.Root class="mt-4">
         <AlertCircleIcon/>
-        <Alert.Title>Important Note.</Alert.Title>
+        <Alert.Title>Important Note!</Alert.Title>
         <Alert.Description class="pt-2">
-          <ul>
-            <li>- Keybinds used here will be bound globaly while using neuzos, that specific key won't be available inside webviews.</li>
-            <li>- Keybinds can be toggled in the client's title bar keyboard icon.</li>
-          </ul>
+          <div class="space-y-0">
+            <p class="leading-snug">Keybind Keys are registered globally while NeuzOS is running. A registered Key cannot be used inside Webviews and is reserved exclusively for its assigned Keybind Action.</p>
+            <p class="leading-snug">In-Game Action Keybinds can only execute one Action at a time to comply with the Flyff Universe Terms of Service (ToS).</p>
+          </div>
         </Alert.Description>
       </Alert.Root>
     </Card.Description>
   </Card.Header>
   <Card.Content class="flex flex-col gap-6 items-start">
-
     <!-- ── Keybind Profiles ───────────────────────────────────────────────── -->
-    <div class="w-full flex flex-col gap-3">
+    <div class="w-full flex flex-col gap-3 rounded-lg border-2 border-border/80 bg-card p-4 shadow-sm">
       <div>
         <h3 class="text-sm font-semibold">Profile Keybinds</h3>
-        <p class="text-xs text-muted-foreground mt-1">These Keybinds are only active while their assigned profile is active.</p>
+        <p class="text-xs text-muted-foreground mt-1">These Keybinds are only active while their assigned Profile is active.</p>
       </div>
-      <div class="flex items-center gap-2">
-        <Button variant="outline" size="sm" onclick={addProfile}>
-          <Plus class="size-4 mr-2"/>
-          Add Profile
-        </Button>
-      </div>
-
       <div class="flex flex-col gap-3">
         {#each neuzosConfig.keyBindProfiles ?? [] as profile, profileIndex (profile.id)}
           {@const isActive = neuzosConfig.activeKeyBindProfileId === profile.id}
@@ -541,61 +580,122 @@
             class="group border rounded-lg bg-card {isActive ? 'border-primary' : ''}"
           >
             <div class="p-4">
-              <div class="flex items-center justify-between">
-                <!-- Order buttons -->
-                <div class="flex items-center gap-2 mr-2">
-                  <div class="flex flex-col gap-0.5">
-                    <Button variant="outline" size="icon-xs" onclick={() => moveProfileUp(profileIndex)} disabled={profileIndex === 0}>
-                      <ChevronUp class="h-3 w-3"/>
-                    </Button>
-                    <Button variant="outline" size="icon-xs" onclick={() => moveProfileDown(profileIndex)} disabled={profileIndex >= (neuzosConfig.keyBindProfiles?.length ?? 0) - 1}>
-                      <ChevronDown class="h-3 w-3"/>
-                    </Button>
-                  </div>
-                </div>
+              <div class="flex items-center justify-between gap-3">
+                <div
+                  role="button"
+                  tabindex="0"
+                  class="flex flex-1 items-center gap-3 text-left transition-opacity hover:opacity-80"
+                  onclick={() => { openProfiles[profile.id] = !isProfileOpen; }}
+                  onkeydown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      openProfiles[profile.id] = !isProfileOpen;
+                    }
+                  }}
+                >
+                  <span class="inline-flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground">
+                  {#if isProfileOpen}
+                    <ChevronUp class="h-4 w-4"/>
+                  {:else}
+                    <ChevronDown class="h-4 w-4"/>
+                  {/if}
+                  </span>
 
-                <!-- Collapsible trigger / name -->
-                <Collapsible.Trigger class="flex items-center gap-3 hover:opacity-80 transition-opacity flex-1 text-left">
-                  <div class="flex flex-col flex-1">
+                <div class="flex min-w-0 flex-1 items-center gap-3 text-left">
+                  <div class="flex min-w-0 flex-col">
                     {#if editingProfileId === profile.id}
-                      <!-- stop click bubbling so the collapsible doesn't toggle while editing -->
-                      <!-- svelte-ignore a11y_click_events_have_key_events -->
-                      <!-- svelte-ignore a11y_no_static_element_interactions -->
-                      <div onclick={(e) => e.stopPropagation()}>
+                      <div class="relative w-56 max-w-full">
                         <Input
-                          class="h-7 text-sm w-48"
+                          class="h-8 w-full pr-8 text-sm"
                           bind:value={editingProfileName}
+                          onclick={(event) => event.stopPropagation()}
                           onblur={commitRenameProfile}
-                          onkeydown={(e) => { if (e.key === 'Enter') commitRenameProfile(); }}
+                          onkeydown={(event) => {
+                            if (event.key === 'Enter') {
+                              event.preventDefault();
+                              commitRenameProfile();
+                            }
+                          }}
                           autofocus
                         />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          class="absolute right-1 top-1/2 h-6 w-6 -translate-y-1/2"
+                          onmousedown={(event) => event.preventDefault()}
+                          onclick={(event) => {
+                            event.stopPropagation();
+                            commitRenameProfile();
+                          }}
+                        >
+                          <Check class="h-4 w-4"/>
+                        </Button>
                       </div>
                     {:else}
-                      <span class="font-medium">{profile.name}</span>
+                      <button
+                        type="button"
+                        class="min-w-0 truncate text-left text-sm font-medium hover:underline"
+                        onclick={(event) => {
+                          event.stopPropagation();
+                          startRenameProfile(profile);
+                        }}
+                      >
+                        {profile.name}
+                      </button>
                     {/if}
                     <span class="text-sm text-muted-foreground">
                       {profile.keybinds.length} Keybind{profile.keybinds.length !== 1 ? 's' : ''}
                       {#if isActive}<span class="ml-1 text-primary font-semibold">· Active</span>{/if}
                     </span>
                   </div>
-                  <ChevronDown class="h-4 w-4 ml-auto shrink-0 transition-transform {isProfileOpen ? 'rotate-180' : ''}"/>
-                </Collapsible.Trigger>
+                </div>
+                </div>
 
                 <!-- Header actions -->
                 <div class="flex items-center gap-1 ml-2 shrink-0">
                   {#if !isActive}
-                    <Button variant="outline" size="sm" class="h-8 text-xs" onclick={() => { neuzosConfig.activeKeyBindProfileId = profile.id; }}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      class="mr-1.5 h-6 px-2 py-0 text-[11px]"
+                      onclick={(event) => {
+                        event.stopPropagation();
+                        neuzosConfig.activeKeyBindProfileId = profile.id;
+                      }}
+                    >
                       Set Active
                     </Button>
                   {/if}
-                  <Button variant="ghost" size="icon" class="h-8 w-8" onclick={() => startRenameProfile(profile)}>
-                    <Pencil class="h-4 w-4"/>
+                  <Button
+                    variant="outline"
+                    size="icon-xs"
+                    onclick={(event) => {
+                      event.stopPropagation();
+                      moveProfileUp(profileIndex);
+                    }}
+                    disabled={profileIndex === 0}
+                  >
+                    <ChevronUp class="h-4 w-4"/>
                   </Button>
                   <Button
-                    variant="ghost"
-                    size="icon"
-                    class="h-8 w-8 hover:bg-destructive hover:text-destructive-foreground"
-                    onclick={() => deleteProfile(profile.id)}
+                    variant="outline"
+                    size="icon-xs"
+                    onclick={(event) => {
+                      event.stopPropagation();
+                      moveProfileDown(profileIndex);
+                    }}
+                    disabled={profileIndex >= (neuzosConfig.keyBindProfiles?.length ?? 0) - 1}
+                  >
+                    <ChevronDown class="h-4 w-4"/>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon-xs"
+                    class="hover:bg-destructive hover:text-destructive-foreground"
+                    onclick={(event) => {
+                      event.stopPropagation();
+                      deleteProfile(profile.id);
+                    }}
                     disabled={(neuzosConfig.keyBindProfiles?.length ?? 0) <= 1}
                   >
                     <Trash2 class="h-4 w-4"/>
@@ -610,7 +710,7 @@
                       <Table.Root class="table-fixed min-w-[1040px]">
                         <Table.Header>
                           <Table.Row>
-                            <Table.Head class="font-bold w-[60px]">Order</Table.Head>
+                            <Table.Head class="font-bold w-[60px]"></Table.Head>
                             <Table.Head class="font-bold w-[220px]">Action</Table.Head>
                             <Table.Head class="font-bold w-[460px]">Modifier + Key</Table.Head>
                             <Table.Head class="font-bold">Event</Table.Head>
@@ -884,7 +984,7 @@
                                     </div>
                                   </div>
                                 {:else}
-                                  <span class="text-xs text-muted-foreground">{getKeybindEventDescription(keyBind.event)}</span>
+                                  <span class="whitespace-pre-line text-xs text-muted-foreground">{getKeybindEventDescription(keyBind.event)}</span>
                                 {/if}
                               </Table.Cell>
                               <Table.Cell>
@@ -913,14 +1013,12 @@
                         <Command.Input placeholder="Search Events..." class="h-10"/>
                         <Command.Empty>No Event found.</Command.Empty>
                         <Command.List class="max-h-[320px]">
-                          <Command.Group>
-                            {#each Object.keys(allowedEventKeybinds) as event (event)}
-                              {#if !allowedEventKeybinds[event]?.unique && !isSystemActionEvent(event)}
-                                {@const eventInfo = allowedEventKeybinds[event]}
-                                <Command.Item value={event} keywords={[eventInfo?.label.toLowerCase()]} onSelect={() => addProfileKeybind(profile, event)} class="py-2">
-                                  <span>{eventInfo?.label}</span>
-                                </Command.Item>
-                              {/if}
+                          <Command.Group heading="Action Keybinds">
+                            {#each getAddableProfileEventIds() as event (event)}
+                              {@const eventInfo = allowedEventKeybinds[event]}
+                              <Command.Item value={event} keywords={[eventInfo?.label.toLowerCase()]} onSelect={() => addProfileKeybind(profile, event)} class="py-2">
+                                <span>{eventInfo?.label}</span>
+                              </Command.Item>
                             {/each}
                           </Command.Group>
                         </Command.List>
@@ -933,20 +1031,23 @@
           </Collapsible.Root>
         {/each}
       </div>
+      <div class="flex items-center gap-2">
+        <Button variant="outline" size="sm" onclick={addProfile}>
+          <Plus class="size-4 mr-2"/>
+          Add Profile
+        </Button>
+      </div>
     </div>
-
-    <div class="w-full border-t border-border"></div>
-
-    <div class="w-full flex flex-col gap-3">
+    <div class="w-full flex flex-col gap-3 rounded-lg border-2 border-border/80 bg-card p-4 shadow-sm">
       <div>
-        <h3 class="text-sm font-semibold">System Actions</h3>
-        <p class="text-xs text-muted-foreground mt-1">These system Keybinds interact with interface and window behavior. They are independent of profiles.</p>
+        <h3 class="text-sm font-semibold">System Keybinds</h3>
+        <p class="text-xs text-muted-foreground mt-1">These Keybinds control System Features, User Interface and Window Behavior. They are independent of Profiles.</p>
       </div>
 
       <Table.Root class="table-fixed min-w-[1040px]">
         <Table.Header>
           <Table.Row>
-            <Table.Head class="font-bold w-[60px]">Order</Table.Head>
+            <Table.Head class="font-bold w-[60px]"></Table.Head>
             <Table.Head class="font-bold w-[220px]">Action</Table.Head>
             <Table.Head class="font-bold w-[460px]">Modifier + Key</Table.Head>
             <Table.Head class="font-bold">Event</Table.Head>
@@ -1093,7 +1194,7 @@
                       </div>
                     </div>
                   {:else}
-                    <span class="text-xs text-muted-foreground">{getKeybindEventDescription(keyBind.event)}</span>
+                    <span class="whitespace-pre-line text-xs text-muted-foreground">{getKeybindEventDescription(keyBind.event)}</span>
                   {/if}
                 </Table.Cell>
                 <Table.Cell class="text-right">
@@ -1112,21 +1213,53 @@
             {/each}
         </Table.Body>
       </Table.Root>
+      <Popover.Root open={addSystemKeybindPopoverOpen} onOpenChange={(open) => { addSystemKeybindPopoverOpen = open; }}>
+        <Popover.Trigger class="self-start">
+          <Button variant="outline" size="sm">
+            <Plus class="size-4 mr-2"/>
+            Add System Keybind
+          </Button>
+        </Popover.Trigger>
+        <Popover.Content class="w-[320px] p-0">
+          <Command.Root shouldFilter={true}>
+            <Command.Input placeholder="Search Events..." class="h-10"/>
+            <Command.Empty>No Event found.</Command.Empty>
+            <Command.List class="max-h-[320px]">
+              {#each getSystemKeybindDropdownGroups() as group, groupIndex (group.heading)}
+                {#if groupIndex > 0}
+                  <Command.Separator/>
+                {/if}
+                <Command.Group heading={group.heading}>
+                  {#each group.events as event (event)}
+                    {@const eventInfo = getSystemActionInfo(event)}
+                    <Command.Item
+                      value={event}
+                      keywords={[eventInfo?.label.toLowerCase()]}
+                      onSelect={() => addSystemKeybind(event)}
+                      class="py-2"
+                    >
+                      <span>{eventInfo?.label}</span>
+                    </Command.Item>
+                  {/each}
+                </Command.Group>
+              {/each}
+            </Command.List>
+          </Command.Root>
+        </Popover.Content>
+      </Popover.Root>
     </div>
 
-    <div class="w-full border-t border-border"></div>
-
     <!-- ── Global Keybinds ────────────────────────────────────────────────── -->
-    <div class="w-full flex flex-col gap-3">
+    <div class="w-full flex flex-col gap-3 rounded-lg border-2 border-border/80 bg-card p-4 shadow-sm">
       <div>
         <h3 class="text-sm font-semibold">Global Keybinds</h3>
-        <p class="text-xs text-muted-foreground mt-1">These Keybinds are always active regardless of the selected profile.</p>
+        <p class="text-xs text-muted-foreground mt-1">These Keybinds are always active regardless of the selected Profile.</p>
       </div>
       {#if regularGlobalKeybinds.length > 0}
       <Table.Root class="table-fixed min-w-[1040px]">
         <Table.Header>
           <Table.Row>
-            <Table.Head class="font-bold w-[60px]">Order</Table.Head>
+            <Table.Head class="font-bold w-[60px]"></Table.Head>
             <Table.Head class="font-bold w-[220px]">Action</Table.Head>
             <Table.Head class="font-bold w-[460px]">Modifier + Key</Table.Head>
             <Table.Head class="font-bold">Event</Table.Head>
@@ -1404,7 +1537,7 @@
                       </div>
                     </div>
                   {:else}
-                    <span class="text-xs text-muted-foreground">{getKeybindEventDescription(keyBind.event)}</span>
+                    <span class="whitespace-pre-line text-xs text-muted-foreground">{getKeybindEventDescription(keyBind.event)}</span>
                   {/if}
                 </Table.Cell>
                 <Table.Cell class="text-right">
@@ -1437,8 +1570,8 @@
             <Command.Input placeholder="Search Events..." class="h-10"/>
             <Command.Empty>No Event found.</Command.Empty>
             <Command.List class="max-h-[320px]">
-              <Command.Group>
-                {#each getAddableGlobalEventIds() as event (event)}
+              <Command.Group heading="Action Keybinds">
+                {#each getAddableGlobalActionEventIds() as event (event)}
                   {#if canAddGlobalKeybind(event)}
                     {@const eventInfo = getSystemActionInfo(event)}
                     <Command.Item
