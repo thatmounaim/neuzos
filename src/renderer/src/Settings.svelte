@@ -225,6 +225,17 @@
       return { ...profile, keybinds };
     });
 
+    if (typeof neuzosConfig.userAgent === 'string') {
+      try {
+        const defaultUserAgent = await electronApi.invoke("app.get_default_user_agent");
+        if (neuzosConfig.userAgent.trim() === defaultUserAgent.trim()) {
+          delete neuzosConfig.userAgent;
+        }
+      } catch (error) {
+        console.error("Failed to normalize user agent:", error);
+      }
+    }
+
   }
 
   let autoSaveTimeout: ReturnType<typeof setTimeout> | null = null;
