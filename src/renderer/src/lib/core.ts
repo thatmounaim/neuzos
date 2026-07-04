@@ -1,5 +1,6 @@
 import type {IpcRenderer} from "@electron-toolkit/preload";
 import type {ConfigApplyImportArgsV2, ConfigExportPayloadV2, ConfigImportResult, ConfigImportPayload, ExportCategory, NeuzKeybind, UIActionDescriptor} from "$lib/types";
+import type {LocalStorageBackupPayload, LocalStorageImportResult} from "$lib/localStorageBackup";
 import type {ViewerWindowConfig, ViewerWindowType} from "./types";
 
 let electronApi: IpcRenderer | undefined = undefined;
@@ -129,6 +130,12 @@ export const neuzosBridge = {
     },
     openConfigFolder: (): Promise<boolean> => {
       return electronApi?.invoke("app.open_config_folder") ?? Promise.resolve(false);
+    },
+    exportLocalStorage: (payload: LocalStorageBackupPayload): Promise<{ success: boolean; filePath?: string; error?: string }> => {
+      return electronApi?.invoke("local_storage.export", payload) ?? Promise.resolve({success: false, error: "Electron API unavailable"});
+    },
+    importLocalStorage: (): Promise<LocalStorageImportResult> => {
+      return electronApi?.invoke("local_storage.import") ?? Promise.resolve({valid: false, error: "Electron API unavailable"});
     }
   },
   sessionWindow: {

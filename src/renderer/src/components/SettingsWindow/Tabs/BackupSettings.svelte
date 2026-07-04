@@ -1,12 +1,23 @@
 <script lang="ts">
-  import {getContext} from 'svelte';
+  import {getContext, onMount} from 'svelte';
+  import * as AlertDialog from '$lib/components/ui/alert-dialog';
   import * as Card from '$lib/components/ui/card';
   import * as Dialog from '$lib/components/ui/dialog';
+  import * as Popover from '$lib/components/ui/popover';
   import * as Tooltip from '$lib/components/ui/tooltip';
   import Button from '$lib/components/ui/button/button.svelte';
   import {toast} from 'svelte-sonner';
   import {neuzosBridge} from '$lib/core';
-  import {Eye, SquareArrowOutUpRight, TriangleAlert} from '@lucide/svelte';
+  import {Check, Eye, FileCog, HardDrive, RotateCw, ScanEye, ScanSearch, SquareArrowOutUpRight, SquarePen, Trash, TriangleAlert} from '@lucide/svelte';
+  import {
+    applyLocalStorageBackup,
+    buildLocalStorageBackupPayload,
+    buildLocalStorageImportPreview,
+    formatLocalStorageValue,
+    getLocalStorageItems,
+    validateLocalStorageBackupPayload,
+  } from '$lib/localStorageBackup';
+  import type {LocalStorageBackupItem, LocalStorageImportPreviewItem, LocalStorageImportResult} from '$lib/localStorageBackup';
   import {
     buildExportPayload,
     categoryConfigFields,
@@ -51,6 +62,22 @@
     existingTotal: number;
     criticalTotal: number;
     changeTotal: number;
+  };
+  type BackupMode = 'config' | 'local-storage';
+  type LocalStorageApplyMode = 'replace' | 'merge';
+  type LocalStorageIdDisplayMode = 'id-name-tag' | 'id-tag' | 'id-only';
+  type LocalStorageReference = {
+    id: string;
+    type: 'Session' | 'Layout' | 'Group' | 'Action';
+    name?: string;
+    found: boolean;
+  };
+  type LocalStorageKeyPart = {
+    text: string;
+    reference?: LocalStorageReference;
+  };
+  type LocalStorageDeleteRequest = {
+    keys: string[];
   };
 
   const categoryById = new Map(exportCategories.map((category) => [category.id, category]));
@@ -698,9 +725,114 @@
   let isImporting = $state(false);
   let isApplying = $state(false);
   let categorySelection = $state(getDefaultCategorySelection());
+  let backupMode: BackupMode = $state('config');
+  let localStorageItems: LocalStorageBackupItem[] = $state([]);
+  let localStorageSelection: Record<string, boolean> = $state({});
+  let localStorageSearch = $state('');
+  let localStorageKeywordFilters: string[] = $state([]);
+  let showUnknownLocalStorageOnly = $state(false);
+  let localStorageImportResult: Extract<LocalStorageImportResult, { valid: true }> | null = $state(null);
+  let localStorageImportSelection: Record<string, boolean> = $state({});
+  let localStorageImportMode: LocalStorageApplyMode = $state('merge');
+  let localStorageIdDisplayMode: LocalStorageIdDisplayMode = $state('id-name-tag');
+  let localStorageIdDisplayPopoverOpen = $state(false);
+  let selectedLocalStorageKey: string | null = $state(null);
+  let selectedImportLocalStorageKey: string | null = $state(null);
+  let isEditingLocalStorageEntry = $state(false);
+  let localStorageEditOriginalKey: string | null = $state(null);
+  let localStorageEditKey = $state('');
+  let localStorageEditValue = $state('');
+  let isExportingLocalStorage = $state(false);
+  let isImportingLocalStorage = $state(false);
+  let isApplyingLocalStorage = $state(false);
+  let localStorageDeleteRequest: LocalStorageDeleteRequest | null = $state(null);
 
   const selectedCategories = $derived(getSelectedCategories(categorySelection));
   const selectedCategoryCount = $derived(selectedCategories.length);
+  const filteredLocalStorageItems = $derived.by(() => {
+    const search = localStorageSearch.trim().toLowerCase();
+    let items = localStorageItems;
+
+    if (showUnknownLocalStorageOnly) {
+      items = items.filter((item) => hasUnknownLocalStorageReference(item.key, item.value));
+    }
+
+    if (search) {
+      items = items.filter((item) => localStorageTextMatchesSearch(item, search));
+    }
+
+    if (localStorageKeywordFilters.length > 0) {
+      items = items.filter((item) => localStorageKeywordFilters.every((keyword) =>
+        localStorageTextMatchesSearch(item, keyword.toLowerCase())
+      ));
+    }
+
+    return items;
+  });
+  const selectedLocalStorageItems = $derived(localStorageItems.filter((item) => localStorageSelection[item.key]));
+  const selectedLocalStorageCount = $derived(selectedLocalStorageItems.length);
+  const selectedLocalStorageDetail = $derived(
+    selectedLocalStorageKey ? localStorageItems.find((item) => item.key === selectedLocalStorageKey) ?? null : null
+  );
+  const localStorageImportItems = $derived(localStorageImportResult?.items ?? []);
+  const filteredLocalStorageImportItems = $derived.by(() => {
+    const search = localStorageSearch.trim().toLowerCase();
+    let items = localStorageImportItems;
+
+    if (showUnknownLocalStorageOnly) {
+      items = items.filter((item) => hasUnknownLocalStorageReference(item.key, item.value));
+    }
+
+    if (search) {
+      items = items.filter((item) => localStorageTextMatchesSearch(item, search));
+    }
+
+    if (localStorageKeywordFilters.length > 0) {
+      items = items.filter((item) => localStorageKeywordFilters.every((keyword) =>
+        localStorageTextMatchesSearch(item, keyword.toLowerCase())
+      ));
+    }
+
+    return items;
+  });
+  const selectedLocalStorageImportItems = $derived(localStorageImportItems.filter((item) => localStorageImportSelection[item.key]));
+  const selectedLocalStorageImportCount = $derived(selectedLocalStorageImportItems.length);
+  const localStorageImportNewCount = $derived(localStorageImportItems.filter((item) => item.status === 'new').length);
+  const localStorageImportExistingCount = $derived(localStorageImportItems.filter((item) => item.status === 'existing').length);
+  const selectedImportLocalStorageDetail = $derived(
+    selectedImportLocalStorageKey ? localStorageImportItems.find((item) => item.key === selectedImportLocalStorageKey) ?? null : null
+  );
+  const localStorageReferences = $derived.by(() => {
+    const references: LocalStorageReference[] = [];
+    const seenIds = new Set<string>();
+    const addReference = (reference: LocalStorageReference) => {
+      if (!reference.id || seenIds.has(reference.id)) return;
+      seenIds.add(reference.id);
+      references.push(reference);
+    };
+
+    for (const session of neuzosConfig.sessions ?? []) {
+      addReference({id: session.id, type: 'Session', name: session.label, found: true});
+    }
+
+    for (const layout of neuzosConfig.layouts ?? []) {
+      addReference({id: layout.id, type: 'Layout', name: layout.label, found: true});
+    }
+
+    for (const group of neuzosConfig.sessionGroups ?? []) {
+      if (group.id === 'ungrouped' || group.id === '__ungrouped__' || group.type === 'ungrouped') continue;
+      addReference({id: group.id, type: 'Group', name: group.label ?? group.id, found: true});
+    }
+
+    for (const actionGroup of neuzosConfig.sessionActions ?? []) {
+      for (const action of actionGroup.actions ?? []) {
+        addReference({id: `${actionGroup.sessionId}.${action.id}`, type: 'Action', name: action.label, found: true});
+        addReference({id: action.id, type: 'Action', name: action.label, found: true});
+      }
+    }
+
+    return references.sort((a, b) => b.id.length - a.id.length);
+  });
   const categoryPreview = $derived(importedPayload ? computeCategoryPreview(importedPayload, selectedCategories, neuzosConfig) : []);
   const listCategoryPreview = $derived(categoryPreview.filter((preview) => preview.category !== 'general-settings' && preview.category !== 'launch-settings'));
   const settingsCategoryPreview = $derived([
@@ -961,6 +1093,430 @@
     categorySelection[category] = checked;
   };
 
+  const refreshLocalStorageItems = () => {
+    localStorageItems = getLocalStorageItems();
+
+    const nextSelection: Record<string, boolean> = {};
+    for (const item of localStorageItems) {
+      nextSelection[item.key] = localStorageSelection[item.key] ?? false;
+    }
+    localStorageSelection = nextSelection;
+
+    if (selectedLocalStorageKey && !localStorageItems.some((item) => item.key === selectedLocalStorageKey)) {
+      selectedLocalStorageKey = null;
+    }
+
+  };
+
+  const setBackupMode = (mode: BackupMode) => {
+    backupMode = mode;
+    if (mode === 'local-storage') {
+      refreshLocalStorageItems();
+    }
+  };
+
+  const selectLocalStorageEntry = (key: string) => {
+    selectedLocalStorageKey = selectedLocalStorageKey === key ? null : key;
+    isEditingLocalStorageEntry = false;
+    localStorageEditOriginalKey = null;
+  };
+
+  const setLocalStorageSelection = (key: string, checked: boolean) => {
+    localStorageSelection[key] = checked;
+  };
+
+  const setAllLocalStorageSelection = (checked: boolean) => {
+    localStorageSelection = Object.fromEntries(localStorageItems.map((item) => [item.key, checked]));
+  };
+
+  const setFilteredLocalStorageSelection = (checked: boolean) => {
+    const nextSelection = {...localStorageSelection};
+    for (const item of filteredLocalStorageItems) {
+      nextSelection[item.key] = checked;
+    }
+    localStorageSelection = nextSelection;
+  };
+
+  const setLocalStorageImportSelection = (key: string, checked: boolean) => {
+    localStorageImportSelection[key] = checked;
+  };
+
+  const setAllLocalStorageImportSelection = (checked: boolean) => {
+    localStorageImportSelection = Object.fromEntries(localStorageImportItems.map((item) => [item.key, checked]));
+  };
+
+  const setFilteredLocalStorageImportSelection = (checked: boolean) => {
+    const nextSelection = {...localStorageImportSelection};
+    for (const item of filteredLocalStorageImportItems) {
+      nextSelection[item.key] = checked;
+    }
+    localStorageImportSelection = nextSelection;
+  };
+
+  const getLocalStorageItemStatusClass = (status: LocalStorageImportPreviewItem['status']) => {
+    return status === 'new'
+      ? 'border-green-400/50 bg-green-500/10 text-green-100'
+      : 'border-red-400/50 bg-red-500/10 text-red-100';
+  };
+
+  const canUseLocalStorageReference = (text: string, index: number, reference: LocalStorageReference) => {
+    const before = text.slice(Math.max(0, index - 24), index).toLowerCase();
+    const after = text[index + reference.id.length] ?? '';
+
+    if (before.endsWith('row-') || before.includes('"addedat"') || before.includes("'addedat'")) {
+      return false;
+    }
+
+    if (/[A-Za-z0-9]/.test(after)) {
+      return false;
+    }
+
+    return true;
+  };
+
+  const isLocalStorageIdBoundary = (value: string) => {
+    return !value || /[\s"'[\]{},_.:-]/.test(value);
+  };
+
+  const getUnknownLocalStorageReference = (text: string, index: number, sourceKey = ''): LocalStorageReference | null => {
+    const rest = text.slice(index);
+    const numericMatch = rest.match(/^\d{10,}/);
+    const uuidMatch = rest.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+    const id = numericMatch?.[0] ?? uuidMatch?.[0];
+    if (!id) {
+      return null;
+    }
+
+    const before = text.slice(Math.max(0, index - 64), index).toLowerCase();
+    const after = text[index + id.length] ?? '';
+    const previous = text[index - 1] ?? '';
+    const isDelimitedId = isLocalStorageIdBoundary(previous) && isLocalStorageIdBoundary(after);
+    const sourceKeyLower = sourceKey.toLowerCase();
+
+    if (before.endsWith('row-') || before.includes('"addedat"') || before.includes("'addedat'")) {
+      return null;
+    }
+
+    if (sourceKeyLower.includes('collapsedgroups') && isDelimitedId) {
+      return {id, type: 'Group', found: false};
+    }
+
+    if (before.endsWith('paneforge:rows_') || before.endsWith('paneforge:cols_')) {
+      return {id, type: 'Layout', found: false};
+    }
+
+    if (
+      before.endsWith('paneforge:cells_')
+      || before.endsWith('session-')
+      || before.endsWith('session:')
+      || before.endsWith('session_')
+      || before.endsWith('sessionid":"')
+      || before.endsWith('sessionid": "')
+      || before.endsWith('sessionid: "')
+      || before.endsWith('sessionid:')
+      || before.endsWith('rows-')
+      || (text.toLowerCase().startsWith('widget.') && isDelimitedId)
+    ) {
+      return {id, type: 'Session', found: false};
+    }
+
+    return null;
+  };
+
+  const getLocalStorageKeyParts = (key: string, sourceKey = ''): LocalStorageKeyPart[] => {
+    const parts: LocalStorageKeyPart[] = [];
+    let index = 0;
+
+    const pushText = (text: string) => {
+      if (!text) return;
+      const lastPart = parts[parts.length - 1];
+      if (lastPart && !lastPart.reference) {
+        lastPart.text += text;
+        return;
+      }
+      parts.push({text});
+    };
+
+    while (index < key.length) {
+      const knownReference = localStorageReferences.find((reference) =>
+        key.startsWith(reference.id, index) && canUseLocalStorageReference(key, index, reference)
+      );
+      if (knownReference) {
+        parts.push({text: knownReference.id, reference: knownReference});
+        index += knownReference.id.length;
+        continue;
+      }
+
+      const unknownReference = getUnknownLocalStorageReference(key, index, sourceKey);
+      if (unknownReference) {
+        parts.push({text: unknownReference.id, reference: unknownReference});
+        index += unknownReference.id.length;
+        continue;
+      }
+
+      pushText(key[index]);
+      index += 1;
+    }
+
+    return parts;
+  };
+
+  const getLocalStorageReferenceTooltip = (reference: LocalStorageReference) => {
+    if (!reference.found && reference.type === 'Session') {
+      return [`Session ID: ${reference.id}`, 'No Session found for this ID.'];
+    }
+
+    if (!reference.found && reference.type === 'Layout') {
+      return [`Layout ID: ${reference.id}`, 'No Layout found for this ID.'];
+    }
+
+    if (reference.type === 'Action') {
+      return [
+        `Action ID: ${reference.id}`,
+        `Action Name: ${reference.name ?? reference.id}`,
+      ];
+    }
+
+    return [
+      `${reference.type} ID: ${reference.id}`,
+      `${reference.type} Name: ${reference.name ?? reference.id}`,
+    ];
+  };
+
+  const getLocalStorageReferenceDisplayText = (reference: LocalStorageReference) => {
+    if (localStorageIdDisplayMode === 'id-name-tag' && reference.found && reference.name) {
+      return reference.name;
+    }
+
+    return reference.id;
+  };
+
+  const getLocalStorageReferenceClass = (reference: LocalStorageReference) => {
+    if (localStorageIdDisplayMode === 'id-only') {
+      return 'underline decoration-dotted underline-offset-2';
+    }
+
+    return `rounded border px-1 py-0.5 ${reference.found ? 'border-primary/60 bg-primary/10 text-primary' : 'border-amber-400/70 bg-amber-500/10 text-amber-200'}`;
+  };
+
+  function hasUnknownLocalStorageReference(key: string, value: string) {
+    return [
+      ...getLocalStorageKeyParts(key),
+      ...getLocalStorageKeyParts(value || '-', key),
+    ].some((part) => part.reference && !part.reference.found);
+  }
+
+  function localStorageTextMatchesSearch(item: {key: string; value: string}, search: string) {
+    return item.key.toLowerCase().includes(search) || item.value.toLowerCase().includes(search);
+  }
+
+  const getLocalStorageIdDisplayLabel = () => {
+    if (localStorageIdDisplayMode === 'id-name-tag') return 'Show ID-Name-Tag';
+    if (localStorageIdDisplayMode === 'id-tag') return 'Show ID-Tag';
+    return 'Show ID-Only';
+  };
+
+  const handleLocalStorageSearchKeydown = (event: KeyboardEvent) => {
+    if (event.key === ';') {
+      const keyword = localStorageSearch.trim();
+      if (!keyword) {
+        return;
+      }
+
+      event.preventDefault();
+      if (!localStorageKeywordFilters.some((filter) => filter.toLowerCase() === keyword.toLowerCase())) {
+        localStorageKeywordFilters = [...localStorageKeywordFilters, keyword];
+      }
+      localStorageSearch = '';
+      return;
+    }
+
+    if (event.key !== 'Backspace' || localStorageSearch.length > 0) {
+      return;
+    }
+
+    if (localStorageKeywordFilters.length > 0) {
+      event.preventDefault();
+      localStorageKeywordFilters = localStorageKeywordFilters.slice(0, -1);
+      return;
+    }
+
+    if (showUnknownLocalStorageOnly) {
+      event.preventDefault();
+      showUnknownLocalStorageOnly = false;
+    }
+  };
+
+  const clearUnknownLocalStorageFilter = () => {
+    showUnknownLocalStorageOnly = false;
+  };
+
+  const clearLocalStorageKeywordFilter = (keywordIndex: number) => {
+    localStorageKeywordFilters = localStorageKeywordFilters.filter((_, index) => index !== keywordIndex);
+  };
+
+  const startLocalStorageEdit = (key: string) => {
+    const currentValue = window.localStorage.getItem(key);
+    if (currentValue === null) {
+      toast.error('Local Storage Key not found.');
+      refreshLocalStorageItems();
+      return;
+    }
+
+    selectedLocalStorageKey = key;
+    localStorageEditOriginalKey = key;
+    localStorageEditKey = key;
+    localStorageEditValue = currentValue;
+    isEditingLocalStorageEntry = true;
+  };
+
+  const saveLocalStorageEdit = () => {
+    if (!isEditingLocalStorageEntry || !localStorageEditOriginalKey) return;
+
+    const nextKey = localStorageEditKey.trim();
+    if (!nextKey) {
+      toast.error('Local Storage Key cannot be empty.');
+      return;
+    }
+
+    const currentValue = window.localStorage.getItem(localStorageEditOriginalKey);
+    if (currentValue === null) {
+      toast.error('Local Storage Key not found.');
+      refreshLocalStorageItems();
+      return;
+    }
+
+    if (nextKey !== localStorageEditOriginalKey && window.localStorage.getItem(nextKey) !== null && !window.confirm(`Replace existing Local Storage Key "${nextKey}"?`)) {
+      return;
+    }
+
+    const wasSelected = localStorageSelection[localStorageEditOriginalKey] ?? false;
+    if (nextKey !== localStorageEditOriginalKey) {
+      window.localStorage.removeItem(localStorageEditOriginalKey);
+      delete localStorageSelection[localStorageEditOriginalKey];
+    }
+
+    window.localStorage.setItem(nextKey, localStorageEditValue);
+    localStorageSelection[nextKey] = wasSelected || (localStorageSelection[nextKey] ?? false);
+    selectedLocalStorageKey = nextKey;
+    isEditingLocalStorageEntry = false;
+    localStorageEditOriginalKey = null;
+    refreshLocalStorageItems();
+    toast.success('Local Storage Entry Updated.');
+  };
+
+  const requestDeleteLocalStorageKeys = (keys: string[]) => {
+    const uniqueKeys = Array.from(new Set(keys)).filter((key) => window.localStorage.getItem(key) !== null);
+    if (uniqueKeys.length === 0) {
+      toast.error('No Local Storage Entries selected.');
+      return;
+    }
+
+    localStorageDeleteRequest = {keys: uniqueKeys};
+  };
+
+  const confirmDeleteLocalStorageKeys = () => {
+    if (!localStorageDeleteRequest) return;
+
+    const keysToDelete = localStorageDeleteRequest.keys;
+    for (const key of keysToDelete) {
+      window.localStorage.removeItem(key);
+      delete localStorageSelection[key];
+    }
+
+    if (selectedLocalStorageKey && keysToDelete.includes(selectedLocalStorageKey)) {
+      selectedLocalStorageKey = null;
+    }
+    if (localStorageEditOriginalKey && keysToDelete.includes(localStorageEditOriginalKey)) {
+      isEditingLocalStorageEntry = false;
+      localStorageEditOriginalKey = null;
+    }
+
+    localStorageDeleteRequest = null;
+    refreshLocalStorageItems();
+    toast.success(keysToDelete.length === 1 ? 'Local Storage Entry Deleted.' : 'Local Storage Entries Deleted.');
+  };
+
+  const exportLocalStorageBackup = async () => {
+    if (isExportingLocalStorage || selectedLocalStorageCount === 0) return;
+
+    isExportingLocalStorage = true;
+    try {
+      const payload = buildLocalStorageBackupPayload(selectedLocalStorageItems);
+      const result = await neuzosBridge.backup.exportLocalStorage(payload);
+      if (result.success) {
+        toast.success(`Local Storage Backup Exported Successfully to ${result.filePath}`);
+      } else {
+        toast.error(result.error ?? 'Local Storage Backup Export failed.');
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Local Storage Backup Export failed.');
+    } finally {
+      isExportingLocalStorage = false;
+    }
+  };
+
+  const importLocalStorageBackup = async () => {
+    if (isImportingLocalStorage) return;
+
+    isImportingLocalStorage = true;
+    try {
+      const result = await neuzosBridge.backup.importLocalStorage();
+      if (result.valid === false) {
+        localStorageImportResult = null;
+        toast.error(result.error);
+        return;
+      }
+
+      const validated = validateLocalStorageBackupPayload(result.payload);
+      if (validated.valid === false) {
+        localStorageImportResult = null;
+        toast.error(validated.error);
+        return;
+      }
+
+      localStorageImportResult = {
+        ...validated,
+        warnings: [...result.warnings, ...validated.warnings],
+        items: buildLocalStorageImportPreview(validated.payload.items),
+      };
+      localStorageImportSelection = Object.fromEntries(localStorageImportResult.items.map((item) => [item.key, true]));
+      selectedImportLocalStorageKey = null;
+      localStorageImportMode = 'merge';
+      toast.success('Local Storage Import Preview Loaded.');
+    } catch (error) {
+      localStorageImportResult = null;
+      toast.error(error instanceof Error ? error.message : 'Local Storage Backup Import failed.');
+    } finally {
+      isImportingLocalStorage = false;
+    }
+  };
+
+  const applyLocalStorageImport = () => {
+    if (!localStorageImportResult || isApplyingLocalStorage || selectedLocalStorageImportCount === 0) return;
+
+    isApplyingLocalStorage = true;
+    try {
+      const result = applyLocalStorageBackup(selectedLocalStorageImportItems, localStorageImportMode);
+      refreshLocalStorageItems();
+      localStorageImportResult = null;
+      selectedImportLocalStorageKey = null;
+      toast.success(
+        localStorageImportMode === 'merge'
+          ? `Local Storage Backup Merged Successfully. Imported ${result.imported}, Skipped ${result.skipped}.`
+          : `Local Storage Backup Applied Successfully. Imported ${result.imported}.`
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to apply Local Storage Backup.');
+    } finally {
+      isApplyingLocalStorage = false;
+    }
+  };
+
+  onMount(() => {
+    refreshLocalStorageItems();
+  });
+
   const exportConfig = async () => {
     if (isExporting || selectedCategoryCount === 0) return;
 
@@ -1076,13 +1632,47 @@
           Select the Categories you want to Export or Import.
         </Card.Description>
       </div>
-      <Button variant="outline" size="sm" onclick={openConfigFolder} class="shrink-0 gap-2">
-        <SquareArrowOutUpRight class="h-4 w-4"/>
-        Open Config Folder
-      </Button>
+      <div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
+        <div class="inline-flex overflow-hidden rounded-md border border-border bg-background p-0.5">
+          <div class={`inline-flex h-8 overflow-hidden rounded-sm ${backupMode === 'config' ? 'bg-primary text-primary-foreground shadow-xs' : 'text-foreground hover:bg-accent hover:text-accent-foreground'}`}>
+            <button
+              type="button"
+              class="inline-flex h-full items-center gap-1.5 px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              onclick={() => setBackupMode('config')}
+            >
+              <FileCog class="h-4 w-4"/>
+              Config
+            </button>
+            <span class={`my-1 border-l ${backupMode === 'config' ? 'border-primary-foreground/30' : 'border-border'}`}></span>
+            <Tooltip.Provider>
+              <Tooltip.Root>
+                <Tooltip.Trigger
+                  type="button"
+                  class={`m-1 inline-flex h-6 w-6 items-center justify-center rounded-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${backupMode === 'config' ? 'hover:bg-primary-foreground/15' : 'hover:bg-accent'}`}
+                  onclick={(event) => { event.stopPropagation(); void openConfigFolder(); }}
+                >
+                  <SquareArrowOutUpRight class="h-3.5 w-3.5"/>
+                </Tooltip.Trigger>
+                <Tooltip.Content>Open Config Folder</Tooltip.Content>
+              </Tooltip.Root>
+            </Tooltip.Provider>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant={backupMode === 'local-storage' ? 'default' : 'ghost'}
+            class="h-8 rounded-sm px-3 gap-1.5"
+            onclick={() => setBackupMode('local-storage')}
+          >
+            <HardDrive class="h-4 w-4"/>
+            Local Storage
+          </Button>
+        </div>
+      </div>
     </div>
   </Card.Header>
   <Card.Content class="flex flex-col gap-4">
+    {#if backupMode === 'config'}
     <div class="rounded-lg border border-border bg-muted/30 p-4 space-y-4">
       <div class="flex items-start justify-between gap-3">
         <div>
@@ -1359,8 +1949,576 @@
         </div>
       </div>
     {/if}
+    {:else}
+      <div class="rounded-lg border border-border bg-muted/30 p-4 space-y-4">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 class="font-medium">Local Storage Entries</h3>
+            <p class="text-sm text-muted-foreground">
+              Select Local Storage Keys to Export or Import. You can also Edit Key/ Value or Delete an Entry.
+            </p>
+          </div>
+          <div class="text-right text-xs text-muted-foreground">
+            <div>{pluralize(localStorageItems.length, 'Entry', 'Entries')} Total</div>
+            <div>{pluralize(selectedLocalStorageCount, 'Entry', 'Entries')} Selected</div>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <Button type="button" variant="outline" size="sm" onclick={() => setFilteredLocalStorageSelection(true)} disabled={filteredLocalStorageItems.length === 0}>
+            Select All
+          </Button>
+          <Button type="button" variant="outline" size="sm" onclick={() => setAllLocalStorageSelection(false)} disabled={selectedLocalStorageCount === 0}>
+            Deselect All
+          </Button>
+          <div class="relative flex min-h-8 min-w-56 flex-1 items-center gap-1 self-center rounded-md border border-input bg-background py-1 pl-2 pr-9 shadow-xs focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
+            {#if showUnknownLocalStorageOnly}
+              <span class="inline-flex h-5 shrink-0 items-center gap-1 rounded border border-amber-400/60 bg-amber-500/10 pl-1.5 pr-1 text-[11px] font-medium text-amber-200">
+                Filter:UnknownIDs
+                <button
+                  type="button"
+                  class="inline-flex h-3.5 w-3.5 items-center justify-center rounded text-amber-100 hover:bg-amber-400/20 hover:text-white"
+                  onclick={clearUnknownLocalStorageFilter}
+                  aria-label="Clear Unknown ID Filter"
+                >
+                  x
+                </button>
+              </span>
+            {/if}
+            {#each localStorageKeywordFilters as keyword, keywordIndex}
+              <span class="inline-flex h-5 shrink-0 items-center gap-1 rounded border border-primary/60 bg-primary/10 pl-1.5 pr-1 text-[11px] font-medium text-primary">
+                Filter:Keyword:"{keyword}"
+                <button
+                  type="button"
+                  class="inline-flex h-3.5 w-3.5 items-center justify-center rounded text-primary hover:bg-primary/20 hover:text-white"
+                  onclick={() => clearLocalStorageKeywordFilter(keywordIndex)}
+                  aria-label={`Clear Keyword Filter ${keyword}`}
+                >
+                  x
+                </button>
+              </span>
+            {/each}
+            <input
+              class="min-h-5 min-w-24 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              placeholder="Search Local Storage..."
+              bind:value={localStorageSearch}
+              onkeydown={handleLocalStorageSearchKeydown}
+            />
+            <Tooltip.Provider>
+              <Tooltip.Root>
+                <Tooltip.Trigger
+                  type="button"
+                  class={`absolute right-1 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-accent-foreground ${showUnknownLocalStorageOnly ? 'bg-primary/15 text-primary ring-1 ring-primary/50' : 'text-muted-foreground'}`}
+                  onclick={() => { showUnknownLocalStorageOnly = !showUnknownLocalStorageOnly; }}
+                  aria-pressed={showUnknownLocalStorageOnly}
+                >
+                  <ScanSearch class="h-4 w-4"/>
+                </Tooltip.Trigger>
+                <Tooltip.Content side="top" align="center">Show Unknown ID Entries</Tooltip.Content>
+              </Tooltip.Root>
+            </Tooltip.Provider>
+          </div>
+          <Button type="button" variant="outline" size="sm" class="gap-1.5" onclick={() => refreshLocalStorageItems()}>
+            <RotateCw class="h-4 w-4"/>
+            Refresh
+          </Button>
+          <Popover.Root open={localStorageIdDisplayPopoverOpen} onOpenChange={(open) => { localStorageIdDisplayPopoverOpen = open; }}>
+            <Popover.Trigger
+              class="h-9 inline-flex items-center overflow-hidden rounded-md border border-input bg-muted/50 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              title="Detect existing IDs and Replace them with their corresponding Names."
+            >
+              <span class="inline-flex h-full items-center px-2">
+                <ScanEye class="h-4 w-4"/>
+              </span>
+              <span class="h-full border-l border-border"></span>
+              <span class="px-3">
+                {getLocalStorageIdDisplayLabel()}
+              </span>
+            </Popover.Trigger>
+            <Popover.Content class="w-48 p-1" align="start">
+              <button
+                type="button"
+                class="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                onclick={() => { localStorageIdDisplayMode = 'id-name-tag'; localStorageIdDisplayPopoverOpen = false; }}
+              >
+                <Check class={`h-4 w-4 ${localStorageIdDisplayMode === 'id-name-tag' ? 'opacity-100' : 'opacity-0'}`}/>
+                Show ID-Name-Tag
+              </button>
+              <button
+                type="button"
+                class="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                onclick={() => { localStorageIdDisplayMode = 'id-tag'; localStorageIdDisplayPopoverOpen = false; }}
+              >
+                <Check class={`h-4 w-4 ${localStorageIdDisplayMode === 'id-tag' ? 'opacity-100' : 'opacity-0'}`}/>
+                Show ID-Tag
+              </button>
+              <button
+                type="button"
+                class="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                onclick={() => { localStorageIdDisplayMode = 'id-only'; localStorageIdDisplayPopoverOpen = false; }}
+              >
+                <Check class={`h-4 w-4 ${localStorageIdDisplayMode === 'id-only' ? 'opacity-100' : 'opacity-0'}`}/>
+                Show ID-Only
+              </button>
+            </Popover.Content>
+          </Popover.Root>
+        </div>
+
+        {#if filteredLocalStorageItems.length === 0}
+          <div class="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
+            No Local Storage Entries found.
+          </div>
+        {:else}
+          <div class="max-h-[28rem] overflow-y-auto rounded-md border border-border bg-background">
+            <div class="grid grid-cols-[2rem_minmax(0,0.9fr)_minmax(0,1.1fr)] border-b border-border bg-muted/30 text-xs font-medium text-muted-foreground">
+              <div class="px-3 py-2"></div>
+              <div class="px-3 py-2">Key</div>
+              <div class="border-l border-border px-3 py-2">Value</div>
+            </div>
+            {#each filteredLocalStorageItems as item}
+              <div
+                class="grid grid-cols-[2rem_minmax(0,0.9fr)_minmax(0,1.1fr)] items-stretch border-b border-border/60 last:border-b-0 hover:bg-muted/40"
+              >
+                <div class="p-3">
+                  <input
+                    type="checkbox"
+                    class="mt-1 h-4 w-4 rounded border-border text-primary"
+                    checked={localStorageSelection[item.key]}
+                    onclick={(event) => event.stopPropagation()}
+                    onchange={(event) => setLocalStorageSelection(item.key, (event.currentTarget as HTMLInputElement).checked)}
+                  />
+                </div>
+                <button
+                  type="button"
+                  class="min-w-0 p-3 text-left"
+                  onclick={() => selectLocalStorageEntry(item.key)}
+                >
+                  <div class="flex min-w-0 flex-wrap items-center gap-1 font-mono text-xs font-semibold">
+                    {#each getLocalStorageKeyParts(item.key) as part}
+                      {#if part.reference}
+                        <Tooltip.Provider>
+                          <Tooltip.Root>
+                            <Tooltip.Trigger class={getLocalStorageReferenceClass(part.reference)}>
+                              {getLocalStorageReferenceDisplayText(part.reference)}
+                            </Tooltip.Trigger>
+                            <Tooltip.Content>
+                              <div class="space-y-1 text-xs">
+                                {#each getLocalStorageReferenceTooltip(part.reference) as line}
+                                  <div>{line}</div>
+                                {/each}
+                              </div>
+                            </Tooltip.Content>
+                          </Tooltip.Root>
+                        </Tooltip.Provider>
+                      {:else}
+                        <span>{part.text}</span>
+                      {/if}
+                    {/each}
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  class="min-w-0 border-l border-border p-3 text-left"
+                  onclick={() => selectLocalStorageEntry(item.key)}
+                >
+                  <div class="flex min-w-0 max-h-10 flex-wrap items-center gap-1 overflow-hidden text-xs text-muted-foreground">
+                    {#each getLocalStorageKeyParts(item.value || '-', item.key) as part}
+                      {#if part.reference}
+                        <Tooltip.Provider>
+                          <Tooltip.Root>
+                            <Tooltip.Trigger class={getLocalStorageReferenceClass(part.reference)}>
+                              {getLocalStorageReferenceDisplayText(part.reference)}
+                            </Tooltip.Trigger>
+                            <Tooltip.Content>
+                              <div class="space-y-1 text-xs">
+                                {#each getLocalStorageReferenceTooltip(part.reference) as line}
+                                  <div>{line}</div>
+                                {/each}
+                              </div>
+                            </Tooltip.Content>
+                          </Tooltip.Root>
+                        </Tooltip.Provider>
+                      {:else}
+                        <span class="truncate">{part.text}</span>
+                      {/if}
+                    {/each}
+                  </div>
+                </button>
+              </div>
+            {/each}
+          </div>
+        {/if}
+
+        {#if selectedLocalStorageDetail}
+          <div class="rounded-md border border-border bg-background p-3">
+            <div class="mb-2 flex items-center justify-between gap-2">
+              <div class="min-w-0">
+                <div class="text-sm font-medium">Selected Key</div>
+                <div class="truncate font-mono text-xs text-muted-foreground">{selectedLocalStorageDetail.key}</div>
+              </div>
+              <div class="flex shrink-0 items-center gap-2">
+                {#if isEditingLocalStorageEntry && localStorageEditOriginalKey === selectedLocalStorageDetail.key}
+                  <Button type="button" variant="outline" size="sm" class="gap-1.5" onclick={saveLocalStorageEdit}>
+                    <Check class="h-4 w-4"/>
+                    Done
+                  </Button>
+                {:else}
+                  <Button type="button" variant="outline" size="sm" class="gap-1.5" onclick={() => startLocalStorageEdit(selectedLocalStorageDetail.key)}>
+                    <SquarePen class="h-4 w-4"/>
+                    Edit
+                  </Button>
+                {/if}
+                <Button type="button" variant="outline" size="sm" class="gap-1.5 text-red-300 hover:text-red-200" onclick={() => requestDeleteLocalStorageKeys([selectedLocalStorageDetail.key])}>
+                  <Trash class="h-4 w-4"/>
+                  Delete
+                </Button>
+                <Button type="button" variant="outline" size="sm" onclick={() => { selectedLocalStorageKey = null; isEditingLocalStorageEntry = false; localStorageEditOriginalKey = null; }}>
+                  Close
+                </Button>
+              </div>
+            </div>
+            <div class="grid items-stretch overflow-hidden rounded border border-border md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+              <div class="flex h-full flex-col">
+                <div class="border-b border-border bg-muted/30 px-3 py-2 text-xs font-medium text-muted-foreground">Key</div>
+                {#if isEditingLocalStorageEntry && localStorageEditOriginalKey === selectedLocalStorageDetail.key}
+                  <textarea
+                    class="min-h-40 flex-1 w-full border-0 bg-background px-3 py-2 font-mono text-xs outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    bind:value={localStorageEditKey}
+                  ></textarea>
+                {:else}
+                  <div class="flex min-h-40 flex-1 flex-wrap content-start items-start gap-1 bg-muted/30 px-3 py-2 font-mono text-xs font-semibold break-all">
+                    {#each getLocalStorageKeyParts(selectedLocalStorageDetail.key) as part}
+                      {#if part.reference}
+                        <Tooltip.Provider>
+                          <Tooltip.Root>
+                            <Tooltip.Trigger class={getLocalStorageReferenceClass(part.reference)}>
+                              {getLocalStorageReferenceDisplayText(part.reference)}
+                            </Tooltip.Trigger>
+                            <Tooltip.Content>
+                              <div class="space-y-1 text-xs">
+                                {#each getLocalStorageReferenceTooltip(part.reference) as line}
+                                  <div>{line}</div>
+                                {/each}
+                              </div>
+                            </Tooltip.Content>
+                          </Tooltip.Root>
+                        </Tooltip.Provider>
+                      {:else}
+                        <span>{part.text}</span>
+                      {/if}
+                    {/each}
+                  </div>
+                {/if}
+              </div>
+              <div class="flex h-full flex-col border-l border-border">
+                <div class="border-b border-border bg-muted/30 px-3 py-2 text-xs font-medium text-muted-foreground">Value</div>
+                {#if isEditingLocalStorageEntry && localStorageEditOriginalKey === selectedLocalStorageDetail.key}
+                  <textarea
+                    class="min-h-40 flex-1 w-full border-0 bg-background px-3 py-2 text-xs outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    bind:value={localStorageEditValue}
+                  ></textarea>
+                {:else}
+                  <div class="min-h-40 max-h-80 flex-1 overflow-auto bg-muted/30 p-3 text-xs whitespace-pre-wrap">
+                    {#each getLocalStorageKeyParts(formatLocalStorageValue(selectedLocalStorageDetail.value), selectedLocalStorageDetail.key) as part}
+                      {#if part.reference}
+                        <Tooltip.Provider>
+                          <Tooltip.Root>
+                            <Tooltip.Trigger class={`mx-0.5 ${getLocalStorageReferenceClass(part.reference)}`}>
+                              {getLocalStorageReferenceDisplayText(part.reference)}
+                            </Tooltip.Trigger>
+                            <Tooltip.Content>
+                              <div class="space-y-1 text-xs">
+                                {#each getLocalStorageReferenceTooltip(part.reference) as line}
+                                  <div>{line}</div>
+                                {/each}
+                              </div>
+                            </Tooltip.Content>
+                          </Tooltip.Root>
+                        </Tooltip.Provider>
+                      {:else}
+                        <span>{part.text}</span>
+                      {/if}
+                    {/each}
+                  </div>
+                {/if}
+              </div>
+            </div>
+          </div>
+        {/if}
+
+        <div class="flex flex-wrap items-center gap-3">
+          <Button onclick={exportLocalStorageBackup} disabled={isExportingLocalStorage || selectedLocalStorageCount === 0}>
+            {isExportingLocalStorage ? 'Exporting...' : 'Export Selected'}
+          </Button>
+          <Button variant="outline" onclick={importLocalStorageBackup} disabled={isImportingLocalStorage}>
+            {isImportingLocalStorage ? 'Importing...' : 'Import Local Storage'}
+          </Button>
+          <div class="flex-1"></div>
+          <Button
+            type="button"
+            variant="outline"
+            class="gap-1.5 text-red-300 hover:text-red-200"
+            onclick={() => requestDeleteLocalStorageKeys(selectedLocalStorageItems.map((item) => item.key))}
+            disabled={selectedLocalStorageCount === 0}
+          >
+            <Trash class="h-4 w-4"/>
+            Delete Selected
+          </Button>
+        </div>
+      </div>
+
+      {#if localStorageImportResult}
+        <div class="rounded-lg border border-border bg-muted/30 p-4 space-y-4">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 class="font-medium">Local Storage Import Preview</h3>
+              <p class="text-sm text-muted-foreground">
+                Exported {formatBackupDate(localStorageImportResult.payload.exportedAt)}
+              </p>
+            </div>
+            <div class="text-right text-xs text-muted-foreground">
+              <div>{pluralize(localStorageImportNewCount, 'New Entry', 'New Entries')}</div>
+              <div>{pluralize(localStorageImportExistingCount, 'Existing Entry', 'Existing Entries')}</div>
+              <div>{pluralize(selectedLocalStorageImportCount, 'Entry', 'Entries')} Selected</div>
+            </div>
+          </div>
+
+          {#if localStorageImportResult.warnings.length > 0}
+            <div class="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
+              <div class="font-medium text-amber-100">Warnings</div>
+              <ul class="mt-2 list-disc space-y-1 pl-5 text-amber-50/90">
+                {#each localStorageImportResult.warnings as warning}
+                  <li>{warning}</li>
+                {/each}
+              </ul>
+            </div>
+          {/if}
+
+          <div class="flex flex-wrap items-center gap-2">
+            <Button type="button" variant="outline" size="sm" onclick={() => setFilteredLocalStorageImportSelection(true)} disabled={filteredLocalStorageImportItems.length === 0}>
+              Select All
+            </Button>
+            <Button type="button" variant="outline" size="sm" onclick={() => setAllLocalStorageImportSelection(false)} disabled={selectedLocalStorageImportCount === 0}>
+              Deselect All
+            </Button>
+          </div>
+
+          <div class="max-h-[28rem] overflow-y-auto rounded-md border border-border bg-background">
+            <div class="grid grid-cols-[2rem_minmax(0,0.9fr)_minmax(0,1.1fr)_5.5rem] border-b border-border bg-muted/30 text-xs font-medium text-muted-foreground">
+              <div class="px-3 py-2"></div>
+              <div class="px-3 py-2">Key</div>
+              <div class="border-l border-border px-3 py-2">Value</div>
+              <div class="px-3 py-2">Status</div>
+            </div>
+            {#each filteredLocalStorageImportItems as item}
+              <div class="grid grid-cols-[2rem_minmax(0,0.9fr)_minmax(0,1.1fr)_5.5rem] items-stretch border-b border-border/60 last:border-b-0 hover:bg-muted/40">
+                <div class="p-3">
+                  <input
+                    type="checkbox"
+                    class="mt-1 h-4 w-4 rounded border-border text-primary"
+                    checked={localStorageImportSelection[item.key]}
+                    onchange={(event) => setLocalStorageImportSelection(item.key, (event.currentTarget as HTMLInputElement).checked)}
+                  />
+                </div>
+                <button
+                  type="button"
+                  class="min-w-0 p-3 text-left"
+                  onclick={(event) => { event.preventDefault(); selectedImportLocalStorageKey = selectedImportLocalStorageKey === item.key ? null : item.key; }}
+                >
+                  <div class="flex min-w-0 flex-wrap items-center gap-1 font-mono text-xs font-semibold">
+                    {#each getLocalStorageKeyParts(item.key) as part}
+                      {#if part.reference}
+                        <Tooltip.Provider>
+                          <Tooltip.Root>
+                            <Tooltip.Trigger class={getLocalStorageReferenceClass(part.reference)}>
+                              {getLocalStorageReferenceDisplayText(part.reference)}
+                            </Tooltip.Trigger>
+                            <Tooltip.Content>
+                              <div class="space-y-1 text-xs">
+                                {#each getLocalStorageReferenceTooltip(part.reference) as line}
+                                  <div>{line}</div>
+                                {/each}
+                              </div>
+                            </Tooltip.Content>
+                          </Tooltip.Root>
+                        </Tooltip.Provider>
+                      {:else}
+                        <span>{part.text}</span>
+                      {/if}
+                    {/each}
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  class="min-w-0 border-l border-border p-3 text-left"
+                  onclick={(event) => { event.preventDefault(); selectedImportLocalStorageKey = selectedImportLocalStorageKey === item.key ? null : item.key; }}
+                >
+                  <div class="flex min-w-0 max-h-10 flex-wrap items-center gap-1 overflow-hidden text-xs text-muted-foreground">
+                    {#each getLocalStorageKeyParts(item.value || '-', item.key) as part}
+                      {#if part.reference}
+                        <Tooltip.Provider>
+                          <Tooltip.Root>
+                            <Tooltip.Trigger class={getLocalStorageReferenceClass(part.reference)}>
+                              {getLocalStorageReferenceDisplayText(part.reference)}
+                            </Tooltip.Trigger>
+                            <Tooltip.Content>
+                              <div class="space-y-1 text-xs">
+                                {#each getLocalStorageReferenceTooltip(part.reference) as line}
+                                  <div>{line}</div>
+                                {/each}
+                              </div>
+                            </Tooltip.Content>
+                          </Tooltip.Root>
+                        </Tooltip.Provider>
+                      {:else}
+                        <span class="truncate">{part.text}</span>
+                      {/if}
+                    {/each}
+                  </div>
+                </button>
+                <div class="p-3">
+                  <span class={`rounded border px-2 py-0.5 text-[10px] uppercase tracking-wide ${getLocalStorageItemStatusClass(item.status)}`}>
+                    {item.status === 'new' ? 'New' : 'Existing'}
+                  </span>
+                </div>
+              </div>
+            {/each}
+          </div>
+
+          {#if selectedImportLocalStorageDetail}
+            <div class="rounded-md border border-border bg-background p-3">
+              <div class="mb-2 flex items-center justify-between gap-2">
+                <div class="min-w-0">
+                  <div class="text-sm font-medium">Import Key</div>
+                  <div class="truncate font-mono text-xs text-muted-foreground">{selectedImportLocalStorageDetail.key}</div>
+                </div>
+                <Button type="button" variant="outline" size="sm" onclick={() => selectedImportLocalStorageKey = null}>
+                  Close
+                </Button>
+              </div>
+              <div class="grid items-stretch overflow-hidden rounded border border-border md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+                <div class="flex h-full flex-col">
+                  <div class="border-b border-border bg-muted/30 px-3 py-2 text-xs font-medium text-muted-foreground">Key</div>
+                  <div class="flex min-h-40 flex-1 flex-wrap content-start items-start gap-1 bg-muted/30 px-3 py-2 font-mono text-xs font-semibold break-all">
+                    {#each getLocalStorageKeyParts(selectedImportLocalStorageDetail.key) as part}
+                      {#if part.reference}
+                        <Tooltip.Provider>
+                          <Tooltip.Root>
+                            <Tooltip.Trigger class={getLocalStorageReferenceClass(part.reference)}>
+                              {getLocalStorageReferenceDisplayText(part.reference)}
+                            </Tooltip.Trigger>
+                            <Tooltip.Content>
+                              <div class="space-y-1 text-xs">
+                                {#each getLocalStorageReferenceTooltip(part.reference) as line}
+                                  <div>{line}</div>
+                                {/each}
+                              </div>
+                            </Tooltip.Content>
+                          </Tooltip.Root>
+                        </Tooltip.Provider>
+                      {:else}
+                        <span>{part.text}</span>
+                      {/if}
+                    {/each}
+                  </div>
+                </div>
+                <div class="flex h-full flex-col border-l border-border">
+                  <div class="border-b border-border bg-muted/30 px-3 py-2 text-xs font-medium text-muted-foreground">Value</div>
+                  <div class="min-h-40 max-h-80 flex-1 overflow-auto bg-muted/30 p-3 text-xs whitespace-pre-wrap">
+                    {#each getLocalStorageKeyParts(formatLocalStorageValue(selectedImportLocalStorageDetail.value), selectedImportLocalStorageDetail.key) as part}
+                      {#if part.reference}
+                        <Tooltip.Provider>
+                          <Tooltip.Root>
+                            <Tooltip.Trigger class={`mx-0.5 ${getLocalStorageReferenceClass(part.reference)}`}>
+                              {getLocalStorageReferenceDisplayText(part.reference)}
+                            </Tooltip.Trigger>
+                            <Tooltip.Content>
+                              <div class="space-y-1 text-xs">
+                                {#each getLocalStorageReferenceTooltip(part.reference) as line}
+                                  <div>{line}</div>
+                                {/each}
+                              </div>
+                            </Tooltip.Content>
+                          </Tooltip.Root>
+                        </Tooltip.Provider>
+                      {:else}
+                        <span>{part.text}</span>
+                      {/if}
+                    {/each}
+                  </div>
+                </div>
+              </div>
+            </div>
+          {/if}
+
+          <div class="space-y-1 text-xs text-muted-foreground rounded-md border border-border/50 bg-muted/20 p-3">
+            <p><strong class="text-foreground">Replace</strong> - Overwrites selected Local Storage Keys with the Contents of the Backup.</p>
+            <p><strong class="text-foreground">Merge</strong> - Only imports missing Local Storage Keys and keeps existing Keys unchanged.</p>
+          </div>
+
+          <div class="flex flex-wrap gap-2">
+            <Button
+              variant={localStorageImportMode === 'replace' ? 'default' : 'outline'}
+              onclick={() => localStorageImportMode = 'replace'}
+              disabled={isApplyingLocalStorage}
+            >
+              Replace
+            </Button>
+            <Button
+              variant={localStorageImportMode === 'merge' ? 'default' : 'outline'}
+              onclick={() => localStorageImportMode = 'merge'}
+              disabled={isApplyingLocalStorage}
+            >
+              Merge
+            </Button>
+            <div class="flex-1"></div>
+            <Button onclick={applyLocalStorageImport} disabled={isApplyingLocalStorage || selectedLocalStorageImportCount === 0} class="min-w-28">
+              {isApplyingLocalStorage ? 'Applying...' : 'Apply'}
+            </Button>
+          </div>
+        </div>
+      {/if}
+    {/if}
   </Card.Content>
 </Card.Root>
+
+<AlertDialog.Root open={localStorageDeleteRequest !== null} onOpenChange={(open) => { if (!open) localStorageDeleteRequest = null; }}>
+  <AlertDialog.Content>
+    <AlertDialog.Header>
+      <AlertDialog.Title>
+        {#if (localStorageDeleteRequest?.keys.length ?? 0) === 1}
+          Delete Local Storage Entry?
+        {:else}
+          Delete Local Storage Entries?
+        {/if}
+      </AlertDialog.Title>
+      <AlertDialog.Description>
+        {#if (localStorageDeleteRequest?.keys.length ?? 0) === 1}
+          This Action will permanently Delete the selected Local Storage Entry.
+        {:else}
+          This Action will permanently Delete {localStorageDeleteRequest?.keys.length ?? 0} selected Local Storage Entries.
+        {/if}
+        <br/><br/>
+        This Action cannot be undone.
+      </AlertDialog.Description>
+    </AlertDialog.Header>
+    {#if localStorageDeleteRequest}
+      <div class="max-h-36 overflow-y-auto rounded-md border border-border bg-muted/30 p-2">
+        <div class="space-y-1 font-mono text-xs text-muted-foreground">
+          {#each localStorageDeleteRequest.keys as key}
+            <div class="truncate">{key}</div>
+          {/each}
+        </div>
+      </div>
+    {/if}
+    <AlertDialog.Footer>
+      <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+      <AlertDialog.Action class="bg-destructive text-destructive-foreground hover:bg-destructive/90" onclick={confirmDeleteLocalStorageKeys}>
+        Delete
+      </AlertDialog.Action>
+    </AlertDialog.Footer>
+  </AlertDialog.Content>
+</AlertDialog.Root>
 
 <Dialog.Root open={detailCategory !== null} onOpenChange={(open) => { if (!open) { detailCategory = null; selectedSessionActionId = null; openTooltipCategory = null; detailMode = 'import'; } }}>
   <Dialog.Content class="max-h-[85vh] overflow-hidden sm:max-w-2xl">

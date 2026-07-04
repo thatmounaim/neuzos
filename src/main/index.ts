@@ -2351,6 +2351,114 @@ function registerSessionKeybinds(mode: LaunchMode) {
       }
     });
 
+    ipcMain.handle("local_storage.export", async (event, payload) => {
+      try {
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+          return {success: false, error: 'Invalid Local Storage export payload.'};
+        }
+
+        const exportPayload = payload as Record<string, any>;
+        if (
+          exportPayload.type !== 'neuzos-local-storage-backup'
+          || exportPayload.version !== 1
+          || typeof exportPayload.exportedAt !== 'string'
+          || !Array.isArray(exportPayload.items)
+        ) {
+          return {success: false, error: 'Invalid Local Storage export payload.'};
+        }
+
+        const parentWindow = BrowserWindow.fromWebContents(event.sender) ?? mainWindow;
+        const saveOptions = {
+          defaultPath: `neuzos-local-storage-export-${new Date().toISOString().slice(0, 10)}.json`,
+          filters: [{name: 'JSON', extensions: ['json']}],
+        };
+        const saveResult = await (parentWindow
+          ? dialog.showSaveDialog(parentWindow, saveOptions)
+          : dialog.showSaveDialog(saveOptions));
+
+        if (saveResult.canceled || !saveResult.filePath) {
+          return {success: false, error: 'Canceled.'};
+        }
+
+        await fs.promises.writeFile(saveResult.filePath, JSON.stringify(exportPayload, null, 2), 'utf8');
+        return {success: true, filePath: saveResult.filePath};
+      } catch (error: any) {
+        return {success: false, error: error?.message ?? String(error)};
+      }
+    });
+
+    ipcMain.handle("local_storage.import", async (event) => {
+      try {
+        const openWindow = BrowserWindow.fromWebContents(event.sender) ?? mainWindow;
+        const openOptions = {
+          properties: ['openFile' as const],
+          filters: [{name: 'JSON', extensions: ['json']}],
+        };
+        const openResult = await (openWindow
+          ? dialog.showOpenDialog(openWindow, openOptions)
+          : dialog.showOpenDialog(openOptions));
+
+        if (openResult.canceled || openResult.filePaths.length === 0) {
+          return {valid: false, error: 'Canceled.'};
+        }
+
+        const filePath = openResult.filePaths[0];
+        const stats = await fs.promises.stat(filePath);
+        if (stats.size > 5 * 1024 * 1024) {
+          return {valid: false, error: 'Import file exceeds 5 MB limit.'};
+        }
+
+        const rawText = await fs.promises.readFile(filePath, 'utf8');
+        let parsed: any;
+        try {
+          parsed = JSON.parse(rawText);
+        } catch (error: any) {
+          return {valid: false, error: `Invalid JSON: ${error?.message ?? String(error)}`};
+        }
+
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          return {valid: false, error: 'Invalid Local Storage Backup: expected a JSON object.'};
+        }
+
+        if (parsed.type !== 'neuzos-local-storage-backup' || parsed.version !== 1 || typeof parsed.exportedAt !== 'string' || !Array.isArray(parsed.items)) {
+          return {valid: false, error: 'Invalid Local Storage Backup format.'};
+        }
+
+        const warnings: string[] = [];
+        const seenKeys = new Set<string>();
+        const items: Array<{ key: string; value: string }> = [];
+
+        for (const item of parsed.items) {
+          if (!item || typeof item !== 'object' || Array.isArray(item) || typeof item.key !== 'string' || item.key.trim() === '' || typeof item.value !== 'string') {
+            warnings.push('Skipped invalid Local Storage item.');
+            continue;
+          }
+
+          if (seenKeys.has(item.key)) {
+            warnings.push(`Skipped duplicate Local Storage key: ${item.key}`);
+            continue;
+          }
+
+          seenKeys.add(item.key);
+          items.push({key: item.key, value: item.value});
+        }
+
+        return {
+          valid: true,
+          payload: {
+            type: 'neuzos-local-storage-backup',
+            version: 1,
+            exportedAt: parsed.exportedAt,
+            items,
+          },
+          items: [],
+          warnings,
+        };
+      } catch (error: any) {
+        return {valid: false, error: error?.message ?? String(error)};
+      }
+    });
+
     ipcMain.handle("config.apply_import", async (_, args: ConfigApplyImportArgsV2) => {
       try {
         const payload = args?.payload;
