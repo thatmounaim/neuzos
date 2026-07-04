@@ -362,6 +362,43 @@
   {/if}
 {/snippet}
 
+{#snippet addSessionToManageSelector()}
+  <div class="flex items-center gap-2">
+    <Popover.Root open={addSessionPopoverOpen} onOpenChange={(open) => { addSessionPopoverOpen = open; }}>
+      <Popover.Trigger>
+        <Button variant="outline" size="sm">
+          <Plus class="size-4 mr-2"/>
+          Add Session to Manage
+        </Button>
+      </Popover.Trigger>
+      <Popover.Content class="w-[280px] p-0">
+        <Command.Root shouldFilter={true}>
+          <Command.Input placeholder="Search Sessions..." class="h-10"/>
+          <Command.Empty>No Session found.</Command.Empty>
+          <Command.List class="max-h-[320px]">
+            <Command.Group>
+              {#each neuzosConfig.sessions as session}
+                {@const alreadyAdded = neuzosConfig.sessionActions.find(sa => sa.sessionId === session.id)}
+                {#if !alreadyAdded}
+                  <Command.Item
+                    value={session.id}
+                    keywords={[session.label.toLowerCase()]}
+                    onSelect={() => addSessionToManage(session.id)}
+                    class="py-2.5"
+                  >
+                    <img class="size-4 mr-2" src="icons/{session.icon.slug}.png" alt=""/>
+                    <span>{session.label}</span>
+                  </Command.Item>
+                {/if}
+              {/each}
+            </Command.Group>
+          </Command.List>
+        </Command.Root>
+      </Popover.Content>
+    </Popover.Root>
+  </div>
+{/snippet}
+
 <Card.Root bind:ref={sessionActionsScrollContainer} class="h-full overflow-y-auto">
   <Card.Header>
 
@@ -401,42 +438,6 @@
     </Card.Description>
   </Card.Header>
   <Card.Content class="flex flex-col gap-4">
-    <!-- Add Session Selector -->
-    <div class="flex items-center gap-2">
-      <Popover.Root open={addSessionPopoverOpen} onOpenChange={(open) => { addSessionPopoverOpen = open; }}>
-        <Popover.Trigger>
-          <Button variant="outline" size="sm">
-            <Plus class="size-4 mr-2"/>
-            Add Session to Manage
-          </Button>
-        </Popover.Trigger>
-        <Popover.Content class="w-[280px] p-0">
-          <Command.Root shouldFilter={true}>
-            <Command.Input placeholder="Search Sessions..." class="h-10"/>
-            <Command.Empty>No Session found.</Command.Empty>
-            <Command.List class="max-h-[320px]">
-              <Command.Group>
-                {#each neuzosConfig.sessions as session}
-                  {@const alreadyAdded = neuzosConfig.sessionActions.find(sa => sa.sessionId === session.id)}
-                  {#if !alreadyAdded}
-                    <Command.Item
-                      value={session.id}
-                      keywords={[session.label.toLowerCase()]}
-                      onSelect={() => addSessionToManage(session.id)}
-                      class="py-2.5"
-                    >
-                      <img class="size-4 mr-2" src="icons/{session.icon.slug}.png" alt=""/>
-                      <span>{session.label}</span>
-                    </Command.Item>
-                  {/if}
-                {/each}
-              </Command.Group>
-            </Command.List>
-          </Command.Root>
-        </Popover.Content>
-      </Popover.Root>
-    </div>
-
     <!-- Session Actions Cards -->
     <div class="flex flex-col gap-3">
       {#each neuzosConfig.sessionActions as sessionActions, sessionIndex (sessionActions.sessionId)}
@@ -829,9 +830,11 @@
     {#if neuzosConfig.sessionActions.length === 0}
       <div class="text-center py-8 text-muted-foreground">
         <p>No Sessions configured yet.</p>
-        <p class="text-sm">Add a Session above to start managing Actions.</p>
+        <p class="text-sm">Add a Session below to start managing Actions.</p>
       </div>
     {/if}
+
+    {@render addSessionToManageSelector()}
   </Card.Content>
 </Card.Root>
 
