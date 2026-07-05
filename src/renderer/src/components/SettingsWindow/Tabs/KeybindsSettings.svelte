@@ -707,12 +707,12 @@
                 <div class="space-y-3">
                   {#if profile.keybinds.length > 0}
                     <div class="rounded-md border">
-                      <Table.Root class="table-fixed min-w-[1040px]">
+                      <Table.Root class="table-fixed min-w-[1160px]">
                         <Table.Header>
                           <Table.Row>
                             <Table.Head class="font-bold w-[60px]"></Table.Head>
-                            <Table.Head class="font-bold w-[220px]">Action</Table.Head>
-                            <Table.Head class="font-bold w-[460px]">Modifier + Key</Table.Head>
+                            <Table.Head class="font-bold w-[340px]">Action</Table.Head>
+                            <Table.Head class="font-bold w-[400px]">Modifier + Key</Table.Head>
                             <Table.Head class="font-bold">Event</Table.Head>
                             <Table.Head class="w-[56px]"></Table.Head>
                           </Table.Row>
@@ -735,10 +735,10 @@
                                   </Button>
                                 </div>
                               </Table.Cell>
-                              <Table.Cell class="font-medium">
-                                <div class="flex flex-col gap-0.5">
-                                  <span>{eventInfo?.label}</span>
-                                  <span class="text-xs text-muted-foreground">{getKeybindActionCategory(keyBind.event, 'Profile')}</span>
+                              <Table.Cell class="min-w-0 overflow-hidden pr-4 font-medium">
+                                <div class="flex min-w-0 flex-col gap-0.5">
+                                  <span class="whitespace-normal break-words leading-snug" title={eventInfo?.label ?? keyBind.event}>{eventInfo?.label ?? keyBind.event}</span>
+                                  <span class="truncate text-xs text-muted-foreground">{getKeybindActionCategory(keyBind.event, 'Profile')}</span>
                                 </div>
                               </Table.Cell>
                               <Table.Cell>
@@ -1044,12 +1044,12 @@
         <p class="text-xs text-muted-foreground mt-1">These Keybinds control System Features, User Interface and Window Behavior. They are independent of Profiles.</p>
       </div>
 
-      <Table.Root class="table-fixed min-w-[1040px]">
+      <Table.Root class="table-fixed min-w-[1160px]">
         <Table.Header>
           <Table.Row>
             <Table.Head class="font-bold w-[60px]"></Table.Head>
-            <Table.Head class="font-bold w-[220px]">Action</Table.Head>
-            <Table.Head class="font-bold w-[460px]">Modifier + Key</Table.Head>
+            <Table.Head class="font-bold w-[340px]">Action</Table.Head>
+            <Table.Head class="font-bold w-[400px]">Modifier + Key</Table.Head>
             <Table.Head class="font-bold">Event</Table.Head>
             <Table.Head class="w-[56px]"></Table.Head>
           </Table.Row>
@@ -1074,10 +1074,10 @@
                     </Button>
                   </div>
                 </Table.Cell>
-                <Table.Cell class="font-medium">
-                  <div class="flex flex-col gap-0.5">
-                    <span>{action.label}</span>
-                    <span class="text-xs text-muted-foreground">{action.category}</span>
+                <Table.Cell class="min-w-0 overflow-hidden pr-4 font-medium">
+                  <div class="flex min-w-0 flex-col gap-0.5">
+                    <span class="whitespace-normal break-words leading-snug" title={action.label}>{action.label}</span>
+                    <span class="truncate text-xs text-muted-foreground">{action.category}</span>
                   </div>
                 </Table.Cell>
                 <Table.Cell>
@@ -1256,12 +1256,12 @@
         <p class="text-xs text-muted-foreground mt-1">These Keybinds are always active regardless of the selected Profile.</p>
       </div>
       {#if regularGlobalKeybinds.length > 0}
-      <Table.Root class="table-fixed min-w-[1040px]">
+      <Table.Root class="table-fixed min-w-[1160px]">
         <Table.Header>
           <Table.Row>
             <Table.Head class="font-bold w-[60px]"></Table.Head>
-            <Table.Head class="font-bold w-[220px]">Action</Table.Head>
-            <Table.Head class="font-bold w-[460px]">Modifier + Key</Table.Head>
+            <Table.Head class="font-bold w-[340px]">Action</Table.Head>
+            <Table.Head class="font-bold w-[400px]">Modifier + Key</Table.Head>
             <Table.Head class="font-bold">Event</Table.Head>
             <Table.Head class="font-bold w-[56px]"></Table.Head>
           </Table.Row>
@@ -1285,10 +1285,10 @@
                     </Button>
                   </div>
                 </Table.Cell>
-                <Table.Cell class="font-medium">
-                  <div class="flex flex-col gap-0.5">
-                    <span>{eventInfo?.label}</span>
-                    <span class="text-xs text-muted-foreground">{getKeybindActionCategory(keyBind.event, 'Global')}</span>
+                <Table.Cell class="min-w-0 overflow-hidden pr-4 font-medium">
+                  <div class="flex min-w-0 flex-col gap-0.5">
+                    <span class="whitespace-normal break-words leading-snug" title={eventInfo?.label ?? keyBind.event}>{eventInfo?.label ?? keyBind.event}</span>
+                    <span class="truncate text-xs text-muted-foreground">{getKeybindActionCategory(keyBind.event, 'Global')}</span>
                   </div>
                 </Table.Cell>
                 <Table.Cell>
