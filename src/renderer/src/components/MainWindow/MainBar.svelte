@@ -772,7 +772,7 @@
     {/each}
   </div>
   <div
-    class="flex-1 cursor-grab active:cursor-grabbing h-full w-full"
+    class="flex-1 h-full w-full"
     style="-webkit-app-region: drag;"
   ></div>
 
