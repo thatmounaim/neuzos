@@ -4,6 +4,8 @@ import type {LocalStorageBackupPayload, LocalStorageImportResult} from "$lib/loc
 import type {ViewerWindowConfig, ViewerWindowType} from "./types";
 
 let electronApi: IpcRenderer | undefined = undefined;
+const viewerWindowStateCallbacks = new Set<() => void>();
+let removeViewerWindowStateListener: (() => void) | null = null;
 
 type SessionCloneResult =
   | { success: true; stoppedBeforeClone: boolean; newId: string }
@@ -11,6 +13,31 @@ type SessionCloneResult =
 
 export function initElectronApi(ipcRenderer: IpcRenderer) {
   electronApi = ipcRenderer;
+}
+
+function subscribeViewerWindowStateChanged(callback: () => void): () => void {
+  viewerWindowStateCallbacks.add(callback);
+
+  if (!removeViewerWindowStateListener) {
+    const listener = () => {
+      for (const stateCallback of viewerWindowStateCallbacks) {
+        stateCallback();
+      }
+    };
+
+    electronApi?.on('viewer_window.state_changed', listener);
+    removeViewerWindowStateListener = () => {
+      electronApi?.removeListener?.('viewer_window.state_changed', listener);
+      removeViewerWindowStateListener = null;
+    };
+  }
+
+  return () => {
+    viewerWindowStateCallbacks.delete(callback);
+    if (viewerWindowStateCallbacks.size === 0) {
+      removeViewerWindowStateListener?.();
+    }
+  };
 }
 
 export const neuzosBridge = {
@@ -177,9 +204,7 @@ export const neuzosBridge = {
       return electronApi?.invoke('viewer_window.get_open_types') ?? Promise.resolve([]);
     },
     onStateChanged: (callback: () => void): (() => void) => {
-      const listener = () => callback();
-      electronApi?.on('viewer_window.state_changed', listener);
-      return () => electronApi?.removeListener?.('viewer_window.state_changed', listener);
+      return subscribeViewerWindowStateChanged(callback);
     }
   },
   config: {
