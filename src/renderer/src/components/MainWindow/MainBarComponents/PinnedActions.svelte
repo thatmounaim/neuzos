@@ -43,6 +43,11 @@
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   }
 
+  function formatActionTooltip(action: any): string {
+    const key = action.ingameKey ? String(action.ingameKey).toUpperCase() : 'Not set';
+    return `${action.label} | Key: ${key} | Casttime: ${action.castTime}s | Cooldown: ${action.cooldown}s`;
+  }
+
   function getSessionsWithActions(): string[] {
     return (
       mainWindowState.config.sessionActions
@@ -306,7 +311,7 @@
           size="icon-xs"
           class="relative size-7 p-0 overflow-hidden {isOnCooldown ? 'opacity-60' : ''}"
           onclick={() => !isOnCooldown && triggerPinnedAction(sessionPinned.sessionId, action.id)}
-          title="{action.label} ({sessionPinned.sessionLabel}) - Key: {action.ingameKey || 'Not set'} - Cast: {action.castTime}s | CD: {action.cooldown}s"
+          title={formatActionTooltip(action)}
           disabled={isOnCooldown}
         >
           {#if action.icon?.slug}

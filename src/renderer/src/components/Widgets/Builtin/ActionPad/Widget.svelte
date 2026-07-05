@@ -1,6 +1,6 @@
 <script lang="ts">
   import FloatingWindow from '../../../Shared/FloatingWindow.svelte';
-  import {Check, EyeOff, GripVertical, Plus, Settings, Swords} from '@lucide/svelte';
+  import {Check, EyeOff, GripVertical, Plus, Settings, Swords, Trash2} from '@lucide/svelte';
   import {getContext} from 'svelte';
   import type {MainWindowState, SessionAction} from '$lib/types';
   import {getCooldownsContext} from '$lib/contexts/cooldownsContext';
@@ -61,10 +61,16 @@
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   }
 
+  function formatActionTooltip(action: SessionAction): string {
+    const key = action.ingameKey ? action.ingameKey.toUpperCase() : 'Not set';
+    return `${action.label} | Key: ${key} | Casttime: ${action.castTime}s | Cooldown: ${action.cooldown}s`;
+  }
+
   // Get session info
   const session = $derived(mainWindowState.config.sessions.find(s => s.id === sessionId));
   const sessionLabel = $derived(session?.label || 'Unknown Session');
   const sessionIcon = $derived(session?.icon?.slug || 'misc/browser');
+  const sessionRunning = $derived(Boolean(sessionId && mainWindowState.sessionsLayoutsRef[sessionId]?.layouts && Object.keys(mainWindowState.sessionsLayoutsRef[sessionId].layouts).length > 0));
 
   // Get session actions
   const sessionActionsData = $derived(
@@ -328,6 +334,15 @@
     activeDropTarget = {rowId, index};
   }
 
+  function handleActionDragOver(event: DragEvent, rowId: string, index: number) {
+    handleDragOver(event);
+    if (!isEditMode || !draggedActionId) return;
+
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    const isAfter = event.clientX > rect.left + rect.width / 2;
+    activeDropTarget = {rowId, index: isAfter ? index + 1 : index};
+  }
+
   function handleDropZoneDragLeave(rowId: string, index: number) {
     if (activeDropTarget?.rowId === rowId && activeDropTarget.index === index) {
       activeDropTarget = null;
@@ -351,6 +366,19 @@
     draggedActionId = null;
     draggedSourceRowId = null;
     activeDropTarget = null;
+  }
+
+  function handleActionContextMenu(event: MouseEvent, rowId: string, actionId: string) {
+    if (!isEditMode) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    if (isHiddenRow(rowId)) {
+      restoreAction(actionId);
+      return;
+    }
+
+    hideAction(actionId);
   }
 
   // Function to trigger an action
@@ -443,7 +471,7 @@
     </div>
     <div class="ml-auto mr-1 flex items-center gap-2">
       <button
-        class="p-1 rounded border border-border hover:bg-accent transition-colors"
+        class="inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded border border-border transition-colors hover:border-input hover:bg-background dark:hover:bg-input/30"
         onclick={() => { isEditMode = !isEditMode; }}
         onmousedown={(e) => e.stopPropagation()}
         title={isEditMode ? 'Done' : 'Edit'}
@@ -465,7 +493,7 @@
     defaultWidth={280}
     defaultHeight={360}
     minWidth={250}
-    minHeight={115}
+    minHeight={110}
     {onClose}
     resizable={true}
     titleSnippet={customTitleSnippet}
@@ -482,11 +510,14 @@
         </div>
       {:else}
         {#if isEditMode}
-          <div class="flex flex-col gap-2 mb-2">
-          <span class="text-xs text-muted-foreground">
-            Opacity
-          </span>
-            <div class="flex items-center justify-between mb-2">
+          <div class="mb-3 rounded-md border border-border bg-background/40 p-3">
+            <div class="mb-2 flex items-center justify-between text-xs">
+              <span class="font-medium">Opacity</span>
+              <span class="text-muted-foreground" role="presentation" onmousedown={(e) => e.stopPropagation()}>
+                {backgroundTransparency}%
+              </span>
+            </div>
+            <div class="flex items-center">
               <input
                 id="action-pad-transparency"
                 type="range"
@@ -498,13 +529,10 @@
                 onmousedown={(e) => e.stopPropagation()}
                 oninput={(e) => updateBackgroundTransparency(e.currentTarget.value)}
               />
-              <span class="w-9 text-right text-[10px] text-muted-foreground" role="presentation" onmousedown={(e) => e.stopPropagation()}>
-          {backgroundTransparency}%
-        </span>
             </div>
           </div>
           <p class="mb-3 text-[11px] text-muted-foreground">
-            Drag and Drop Actions to reorder them or move them between Rows.
+            Drag and Drop Actions to reorder them. Right-Click to Hide Actions.
           </p>
 
         {/if}
@@ -519,7 +547,7 @@
                 {:else}
                   <div class="flex items-center gap-2 mb-2">
                     <input
-                      class="min-w-0 flex-1 rounded border border-border bg-background px-2 py-1 text-xs"
+                      class="h-6 min-w-0 flex-1 rounded border border-border bg-background/40 px-2 text-xs font-medium text-muted-foreground outline-none transition-colors hover:bg-background/60 focus:border-primary dark:border-input"
                       value={row.name ?? ''}
                       placeholder={getRowDisplayName(row, rowIndex)}
                       onmousedown={(e) => e.stopPropagation()}
@@ -527,10 +555,12 @@
                     />
                     {#if row.id !== 'default'}
                       <button
-                        class="shrink-0 text-xs px-1 py-0.5 rounded border border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors"
+                        class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-destructive/60 bg-destructive/10 text-destructive transition-colors hover:border-destructive hover:bg-destructive/20"
                         onclick={() => deleteRow(row.id)}
+                        title="Delete Row"
+                        aria-label="Delete Row"
                       >
-                        Delete Row
+                        <Trash2 class="h-3.5 w-3.5" />
                       </button>
                     {/if}
                   </div>
@@ -577,14 +607,14 @@
                     <div
                       class="action-container {draggedActionId === action.id ? 'opacity-40' : ''}"
                       role="presentation"
-                      draggable={isEditMode}
-                      ondragstart={(event) => handleActionDragStart(event, row.id, action.id)}
-                      ondragend={handleActionDragEnd}
+                      ondragover={(event) => handleActionDragOver(event, row.id, actionIndex)}
+                      ondrop={(event) => handleDropOnZone(event, row.id, activeDropTarget?.rowId === row.id ? activeDropTarget.index : actionIndex)}
                     >
                       <button
-                        class="action-button relative w-12 h-12 p-0 rounded-md border-2 border-border hover:border-primary transition-all overflow-hidden"
-                        onclick={() => !isEditMode && triggerAction(action)}
-                        title="{action.label}\nKey: {action.ingameKey || 'Not set'}\nCast: {action.castTime}s | CD: {action.cooldown}s"
+                        class="action-button relative w-12 h-12 p-0 rounded-md border-2 border-border hover:border-primary transition-all overflow-hidden {!sessionRunning && !isEditMode ? 'session-not-running' : ''}"
+                        onclick={() => !isEditMode && sessionRunning && !isOnCooldown && triggerAction(action)}
+                        oncontextmenu={(event) => handleActionContextMenu(event, row.id, action.id)}
+                        title={formatActionTooltip(action)}
                         disabled={isEditMode ? false : isOnCooldown}
                         class:edit-mode={isEditMode}
                       >
@@ -599,7 +629,15 @@
                         {/if}
 
                         {#if isEditMode}
-                          <div class="absolute left-0.5 top-0.5 rounded bg-black/60 p-0.5 text-white">
+                          <div
+                            class="absolute left-0.5 top-0.5 cursor-grab rounded bg-black/60 p-0.5 text-white active:cursor-grabbing"
+                            draggable="true"
+                            ondragstart={(event) => handleActionDragStart(event, row.id, action.id)}
+                            ondragend={handleActionDragEnd}
+                            role="button"
+                            tabindex="0"
+                            aria-label="Drag Action"
+                          >
                             <GripVertical class="h-3 w-3" />
                           </div>
                           <span
@@ -693,10 +731,11 @@
 
           {#if isEditMode}
             <button
-              class="text-xs px-3 py-1.5 rounded border border-border hover:bg-accent transition-colors"
+              class="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded border border-border px-3 text-xs transition-colors hover:border-input hover:bg-background dark:hover:bg-input/30"
               onclick={addRow}
             >
-              + Add Row
+              <Plus class="h-3.5 w-3.5" />
+              Add Row
             </button>
           {/if}
         </div>
@@ -751,11 +790,13 @@
     width: 0;
     min-width: 0.75rem;
     opacity: 0;
+    pointer-events: none;
   }
 
   .action-drop-zone.first-drop-zone.active {
     position: static;
     min-width: 0;
+    pointer-events: auto;
   }
 
   .action-drop-zone.active {

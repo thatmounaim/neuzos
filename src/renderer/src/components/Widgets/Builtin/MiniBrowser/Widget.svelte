@@ -202,7 +202,7 @@
 
     {#snippet controlSnippet()}
       <button
-        class="bg-transparent border-none p-1 cursor-pointer rounded flex items-center justify-center text-foreground transition-colors hover:bg-accent"
+        class="inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded border border-transparent bg-transparent p-1 text-foreground transition-colors hover:border-input hover:bg-background dark:hover:bg-input/30"
         onclick={(e) => {
           e.stopPropagation();
           isBrowserExpanded = !isBrowserExpanded;
