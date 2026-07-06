@@ -97,6 +97,12 @@
     };
   });
 
+  function handleKeybindToggleButtonContextMenu(event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    openSettings('keybinds');
+  }
+
   async function swapProfile(profileId: string) {
     await electronApi.invoke("keybinds.swap_profile", profileId);
     mainWindowState.config.activeKeyBindProfileId = profileId;
@@ -799,6 +805,7 @@
           variant="outline"
           class="cursor-pointer"
           title="Keybind Profiles"
+          oncontextmenu={handleKeybindToggleButtonContextMenu}
         >
           {#if shortcutsEnabled}
             <Keyboard class="size-3.5"/>
