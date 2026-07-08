@@ -1024,12 +1024,12 @@
                           class="flex items-stretch {isMultiSession && isCustomizationEditing ? 'min-h-9 min-w-[160px]' : 'items-center'} {isMultiSession && !isCustomizationEditing ? 'w-full' : ''} {isMultiSession && isCustomizationEditing && sidx > 0 ? (layout.columnFirst ? 'border-t-2 border-border' : 'border-l-2 border-border') : ''}"
                           style={isMultiSession && isCustomizationEditing && !layout.columnFirst ? `flex: ${sidx === 0 ? rowLeadingCellSpan : 1} 1 0;` : (isMultiSession && !isCustomizationEditing && !layout.columnFirst ? 'flex: 1 1 0;' : undefined)}
                         >
-                          <div class="{isMultiSession && isCustomizationEditing ? 'flex w-full items-stretch text-xs' : 'inline-flex items-center rounded-md border border-input text-xs shadow-sm'} {isMultiSession && !isCustomizationEditing ? 'w-full' : ''}">
+                          <div class="{isMultiSession && isCustomizationEditing ? 'flex min-w-0 w-full items-stretch text-xs' : 'inline-flex items-center rounded-md border border-input text-xs shadow-sm'} {isMultiSession && !isCustomizationEditing ? 'w-full' : ''}">
                             <Popover.Root open={isReplaceSessionPopoverOpen} onOpenChange={(open) => { replaceSessionPopoverStates[replaceSessionPopoverKey] = open; }}>
                               {#if isMultiSession && isCustomizationEditing}
-                                <Popover.Trigger class="flex min-h-9 flex-1 items-center gap-2 px-3 text-xs transition-colors hover:bg-muted/60">
-                                  <img class="h-3.5 w-3.5" src="icons/{session?.icon.slug}.png" alt=""/>
-                                  <span class="truncate">{session?.label}</span>
+                                <Popover.Trigger class="flex min-h-9 min-w-0 flex-1 items-center gap-2 overflow-hidden px-3 text-xs transition-colors hover:bg-muted/60">
+                                  <img class="h-3.5 w-3.5 shrink-0" src="icons/{session?.icon.slug}.png" alt=""/>
+                                  <span class="min-w-0 truncate">{session?.label}</span>
                                 </Popover.Trigger>
                               {:else}
                                 <Popover.Trigger class={isMultiSession && !isCustomizationEditing ? 'flex flex-1' : ''}>
