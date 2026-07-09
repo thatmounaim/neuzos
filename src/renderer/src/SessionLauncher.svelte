@@ -42,7 +42,16 @@
   }
 
   function saveCollapsedGroups() {
+    collapsedGroupIds = sanitizeCollapsedGroups(collapsedGroupIds);
     localStorage.setItem(collapsedGroupsStorageKey, JSON.stringify(collapsedGroupIds));
+  }
+
+  function sanitizeCollapsedGroups(collapsedGroups: Record<string, boolean>): Record<string, boolean> {
+    const validGroupIds = new Set(groups.filter((group) => !isUngroupedGroup(group)).map((group) => group.id));
+    validGroupIds.add(ungroupedGroupId);
+    return Object.fromEntries(
+      Object.entries(collapsedGroups).filter(([groupId]) => validGroupIds.has(groupId))
+    );
   }
 
   onMount(() => {
@@ -54,6 +63,8 @@
         return;
       }
       await loadData();
+      collapsedGroupIds = sanitizeCollapsedGroups(collapsedGroupIds);
+      saveCollapsedGroups();
     };
 
     const initialize = async () => {
@@ -61,6 +72,8 @@
       if (disposed) {
         return;
       }
+      collapsedGroupIds = sanitizeCollapsedGroups(collapsedGroupIds);
+      saveCollapsedGroups();
       setTimeout(() => {
         if (!disposed) {
           isLoading = false;

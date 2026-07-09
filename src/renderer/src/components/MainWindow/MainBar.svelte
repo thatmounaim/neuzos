@@ -60,16 +60,34 @@
       if (!stored) return;
       const parsed = JSON.parse(stored);
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        collapsedSessionGroupIds = parsed;
+        collapsedSessionGroupIds = sanitizeCollapsedSessionGroups(parsed);
       }
     } catch {
       collapsedSessionGroupIds = {};
     }
+    saveCollapsedSessionGroups();
   }
 
   function saveCollapsedSessionGroups() {
+    collapsedSessionGroupIds = sanitizeCollapsedSessionGroups(collapsedSessionGroupIds);
     localStorage.setItem(collapsedSessionGroupsStorageKey, JSON.stringify(collapsedSessionGroupIds));
   }
+
+  function sanitizeCollapsedSessionGroups(collapsedGroups: Record<string, boolean>): Record<string, boolean> {
+    const validGroupIds = new Set(getSessionGroups().filter((group) => !isUngroupedGroup(group)).map((group) => group.id));
+    validGroupIds.add(ungroupedGroupId);
+    return Object.fromEntries(
+      Object.entries(collapsedGroups).filter(([groupId]) => validGroupIds.has(groupId))
+    );
+  }
+
+  $effect(() => {
+    const sanitized = sanitizeCollapsedSessionGroups(collapsedSessionGroupIds);
+    if (JSON.stringify(sanitized) !== JSON.stringify(collapsedSessionGroupIds)) {
+      collapsedSessionGroupIds = sanitized;
+      saveCollapsedSessionGroups();
+    }
+  });
 
   onMount(() => {
     loadCollapsedSessionGroups();

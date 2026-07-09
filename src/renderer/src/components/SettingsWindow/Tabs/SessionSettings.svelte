@@ -289,6 +289,8 @@
 
   const deleteGroup = (groupId: string) => {
     neuzosConfig.sessionGroups = ensureSessionGroups().filter((group) => group.id !== groupId || isUngroupedGroup(group))
+    delete collapsedGroupIds[groupId]
+    saveCollapsedGroups()
   }
 
   const moveGroup = (groupId: string, direction: -1 | 1) => {
@@ -486,16 +488,34 @@
       if (!stored) return
       const parsed = JSON.parse(stored)
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        collapsedGroupIds = parsed
+        collapsedGroupIds = sanitizeCollapsedGroups(parsed)
       }
     } catch {
       collapsedGroupIds = {}
     }
+    saveCollapsedGroups()
   }
 
   const saveCollapsedGroups = () => {
+    collapsedGroupIds = sanitizeCollapsedGroups(collapsedGroupIds)
     localStorage.setItem(collapsedGroupsStorageKey, JSON.stringify(collapsedGroupIds))
   }
+
+  const sanitizeCollapsedGroups = (collapsedGroups: Record<string, boolean>) => {
+    const validGroupIds = new Set(currentGroups.map((group) => group.id))
+    validGroupIds.add(ungroupedGroupId)
+    return Object.fromEntries(
+      Object.entries(collapsedGroups).filter(([groupId]) => validGroupIds.has(groupId))
+    )
+  }
+
+  $effect(() => {
+    const sanitized = sanitizeCollapsedGroups(collapsedGroupIds)
+    if (JSON.stringify(sanitized) !== JSON.stringify(collapsedGroupIds)) {
+      collapsedGroupIds = sanitized
+      saveCollapsedGroups()
+    }
+  })
 
   const loadSessionSortMode = () => {
     useDragSessionSorting = localStorage.getItem(sessionSortModeStorageKey) === 'drag'
