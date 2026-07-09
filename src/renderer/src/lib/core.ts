@@ -145,6 +145,11 @@ export const neuzosBridge = {
       electronApi?.invoke("config.set_sync_receiver", sessionId);
     }
   },
+  browser: {
+    clearCache: (): Promise<boolean> => {
+      return electronApi?.invoke("browser.clear_cache") ?? Promise.resolve(false);
+    }
+  },
   backup: {
     export: (payload: ConfigExportPayloadV2): Promise<{ success: boolean; filePath?: string; error?: string }> => {
       return electronApi?.invoke("config.export", payload) ?? Promise.resolve({success: false, error: "Electron API unavailable"});

@@ -2,14 +2,15 @@
   import FloatingWindow from '../../../Shared/FloatingWindow.svelte';
   import { Button } from '$lib/components/ui/button';
   import { Input } from '$lib/components/ui/input';
-  import { Expand, Globe, Minimize, RefreshCw, ChevronLeft, ChevronRight, Star, Trash2 } from '@lucide/svelte';
+  import { BrushCleaning, Check, ChevronLeft, ChevronRight, Globe, Minus, PanelTopClose, PanelTopOpen, Plus, RefreshCw, Settings, Star, Trash2, X, ZoomIn } from '@lucide/svelte';
   import { onMount } from 'svelte';
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+  import * as Popover from '$lib/components/ui/popover';
+  import {neuzosBridge} from '$lib/core';
 
   interface Favorite {
     url: string;
     title: string;
-    addedAt: number;
   }
 
   interface Props {
@@ -35,32 +36,28 @@
   let favorites = $state<Favorite[]>(loadFavorites());
   let isEditingFavorites = $state(false);
   let isBrowserExpanded = $state(false);
+  let isClearingCache = $state(false);
+  let cacheFeedback = $state('');
+  let cacheFeedbackType = $state<'success' | 'error' | null>(null);
+  let browserZoom = $state(100);
+
+  const zoomSteps = [50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200, 300, 400, 500];
 
   const isFavorited = $derived(favorites.some(f => f.url === inputUrl));
-
-  // Check if the base domain is in favorites (but not the exact URL)
-  const isDomainFavorited = $derived.by(() => {
-    if (isFavorited) return false; // Exact match takes precedence
-    try {
-      const currentDomain = new URL(inputUrl).hostname;
-      return favorites.some(f => {
-        try {
-          return new URL(f.url).hostname === currentDomain;
-        } catch {
-          return false;
-        }
-      });
-    } catch {
-      return false;
-    }
-  });
 
   // Load favorites from localStorage
   function loadFavorites(): Favorite[] {
     try {
       const stored = localStorage.getItem(FAVORITES_STORAGE_KEY);
       if (stored) {
-        return JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        if (!Array.isArray(parsed)) return [];
+        return parsed
+          .filter(favorite => favorite && typeof favorite.url === 'string')
+          .map(favorite => ({
+            url: favorite.url,
+            title: typeof favorite.title === 'string' ? favorite.title : favorite.url
+          }));
       }
     } catch (e) {
       console.error('Failed to load favorites:', e);
@@ -85,8 +82,7 @@
       // Add to favorites
       favorites = [...favorites, {
         url: inputUrl,
-        title: pageTitle,
-        addedAt: Date.now()
+        title: pageTitle
       }];
     }
     saveFavorites();
@@ -123,6 +119,51 @@
     if (webviewRef) {
       (webviewRef as any).reload();
     }
+  }
+
+  async function clearBrowserCache() {
+    if (isClearingCache) return;
+    isClearingCache = true;
+    cacheFeedback = '';
+    cacheFeedbackType = null;
+    try {
+      await neuzosBridge.browser.clearCache();
+      cacheFeedback = 'Browser Cache Cleared!';
+      cacheFeedbackType = 'success';
+      refresh();
+    } catch (error) {
+      cacheFeedback = 'Failed to Clear Browser Cache!';
+      cacheFeedbackType = 'error';
+    } finally {
+      isClearingCache = false;
+      setTimeout(() => {
+        cacheFeedback = '';
+        cacheFeedbackType = null;
+      }, 2400);
+    }
+  }
+
+  function applyBrowserZoom() {
+    if (!webviewRef) return;
+    const webview = webviewRef as any;
+    if (typeof webview.setZoomFactor === 'function') {
+      webview.setZoomFactor(browserZoom / 100);
+    }
+  }
+
+  function setBrowserZoom(value: number) {
+    browserZoom = value;
+    applyBrowserZoom();
+  }
+
+  function stepBrowserZoom(direction: -1 | 1) {
+    const currentIndex = zoomSteps.findIndex(step => step === browserZoom);
+    const fallbackIndex = zoomSteps.reduce((nearestIndex, step, index) => {
+      return Math.abs(step - browserZoom) < Math.abs(zoomSteps[nearestIndex] - browserZoom) ? index : nearestIndex;
+    }, 0);
+    const baseIndex = currentIndex >= 0 ? currentIndex : fallbackIndex;
+    const nextIndex = Math.max(0, Math.min(zoomSteps.length - 1, baseIndex + direction));
+    setBrowserZoom(zoomSteps[nextIndex]);
   }
 
   function goBack() {
@@ -163,6 +204,10 @@
 
       webview.addEventListener('did-stop-loading', () => {
         isLoading = false;
+      });
+
+      webview.addEventListener('dom-ready', () => {
+        applyBrowserZoom();
       });
 
       // Update page title
@@ -207,12 +252,12 @@
           e.stopPropagation();
           isBrowserExpanded = !isBrowserExpanded;
         }}
-        title={isBrowserExpanded ? 'Minimize Browser Content' : 'Expand Browser Content'}
+        title={isBrowserExpanded ? 'Show Navigation Bar' : 'Hide Navigation Bar'}
       >
         {#if isBrowserExpanded}
-          <Minimize size={14} />
+          <PanelTopOpen size={14} />
         {:else}
-          <Expand size={14} />
+          <PanelTopClose size={14} />
         {/if}
       </button>
     {/snippet}
@@ -255,83 +300,7 @@
         </Button>
 
 
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger>
-            {#snippet child({props})}
-              <Button
-                {...props}
-                size="icon"
-                variant="ghost"
-                class="h-8 w-8 {isFavorited ? 'text-yellow-500' : isDomainFavorited ? 'text-yellow-300' : ''}"
-                title="Favorites"
-              >
-                <Star class="h-4 w-4 {isFavorited ? 'fill-current' : ''}" />
-              </Button>
-            {/snippet}
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Content align="end" class="w-80">
-            <div class="flex items-center justify-between px-2 py-1.5">
-              <DropdownMenu.Label>Favorites</DropdownMenu.Label>
-              <Button
-                size="sm"
-                variant="ghost"
-                class="h-6 px-2 text-xs"
-                onclick={() => isEditingFavorites = !isEditingFavorites}
-              >
-                {isEditingFavorites ? 'Done' : 'Edit'}
-              </Button>
-            </div>
-            <DropdownMenu.Separator />
-
-            <!-- Add to favorites button -->
-            <div class="px-2 py-2">
-              <Button
-                size="sm"
-                variant={isFavorited ? "secondary" : "default"}
-                class="w-full gap-2 h-8 {isFavorited ? 'text-yellow-500' : ''}"
-                onclick={toggleFavorite}
-                disabled={isFavorited}
-              >
-                <Star class="h-3.5 w-3.5 {isFavorited ? 'fill-current' : ''}" />
-                {isFavorited ? 'Already in favorites' : 'Add to favorites'}
-              </Button>
-            </div>
-            <DropdownMenu.Separator />
-            {#if favorites.length === 0}
-              <div class="px-2 py-6 text-center text-sm text-muted-foreground">
-                No favorites yet
-              </div>
-            {:else}
-              {#each favorites as favorite}
-                <DropdownMenu.Item
-                  class="flex items-center justify-between gap-2"
-                  onclick={() => !isEditingFavorites && openFavorite(favorite.url)}
-                >
-                  <div class="flex-1 min-w-0">
-                    <div class="font-medium text-sm truncate">{favorite.title}</div>
-                    <div class="text-xs text-muted-foreground truncate">{favorite.url}</div>
-                  </div>
-                  {#if isEditingFavorites}
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      class="h-6 w-6 shrink-0 hover:bg-destructive hover:text-destructive-foreground"
-                      onclick={(e) => {
-                        e.stopPropagation();
-                        removeFavorite(favorite.url);
-                      }}
-                      title="Remove"
-                    >
-                      <Trash2 class="h-3 w-3" />
-                    </Button>
-                  {/if}
-                </DropdownMenu.Item>
-              {/each}
-            {/if}
-          </DropdownMenu.Content>
-        </DropdownMenu.Root>
-
-        <form onsubmit={(e) => { e.preventDefault(); navigateToUrl(); }} class="flex-1">
+        <form onsubmit={(e) => { e.preventDefault(); navigateToUrl(); }} class="relative flex-1">
           <Input
             type="text"
             value={inputUrl}
@@ -343,9 +312,162 @@
               }
             }}
             placeholder="Enter URL..."
-            class="h-8 text-sm"
+            class="h-8 pr-10 text-sm"
           />
+          <div class="absolute right-1 top-1/2 -translate-y-1/2">
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger>
+                {#snippet child({props})}
+                  <Button
+                    {...props}
+                    size="icon"
+                    variant="ghost"
+                    class="h-6 w-6 {isFavorited ? 'text-yellow-500' : 'text-muted-foreground'}"
+                    title="Favorites"
+                  >
+                    <Star class="h-3.5 w-3.5 {isFavorited ? 'fill-current' : ''}" />
+                  </Button>
+                {/snippet}
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Content align="end" class="w-80">
+                <div class="flex items-center justify-between px-2 py-1.5">
+                  <DropdownMenu.Label>Favorites</DropdownMenu.Label>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    class="h-6 px-2 text-xs"
+                    onclick={() => isEditingFavorites = !isEditingFavorites}
+                  >
+                    {isEditingFavorites ? 'Done' : 'Edit'}
+                  </Button>
+                </div>
+                <DropdownMenu.Separator />
+
+                <!-- Add to favorites button -->
+                <div class="px-2 py-2">
+                  <Button
+                    size="sm"
+                    variant={isFavorited ? "secondary" : "default"}
+                    class="w-full gap-2 h-8 {isFavorited ? 'text-yellow-500' : ''}"
+                    onclick={toggleFavorite}
+                    disabled={isFavorited}
+                  >
+                    <Star class="h-3.5 w-3.5 {isFavorited ? 'fill-current' : ''}" />
+                    {isFavorited ? 'Already in Favorites' : 'Add to Favorites'}
+                  </Button>
+                </div>
+                <DropdownMenu.Separator />
+                {#if favorites.length === 0}
+                  <div class="px-2 py-6 text-center text-sm text-muted-foreground">
+                    No Favorites
+                  </div>
+                {:else}
+                  {#each favorites as favorite}
+                    <DropdownMenu.Item
+                      class="flex items-center justify-between gap-2"
+                      onclick={() => !isEditingFavorites && openFavorite(favorite.url)}
+                    >
+                      <div class="flex-1 min-w-0">
+                        <div class="font-medium text-sm truncate">{favorite.title}</div>
+                        <div class="text-xs text-muted-foreground truncate">{favorite.url}</div>
+                      </div>
+                      {#if isEditingFavorites}
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          class="h-6 w-6 shrink-0 hover:bg-destructive hover:text-destructive-foreground"
+                          onclick={(e) => {
+                            e.stopPropagation();
+                            removeFavorite(favorite.url);
+                          }}
+                          title="Remove"
+                        >
+                          <Trash2 class="h-3 w-3" />
+                        </Button>
+                      {/if}
+                    </DropdownMenu.Item>
+                  {/each}
+                {/if}
+              </DropdownMenu.Content>
+            </DropdownMenu.Root>
+          </div>
         </form>
+
+        <Popover.Root>
+          <Popover.Trigger>
+            {#snippet child({props})}
+              <Button
+                {...props}
+                size="icon"
+                variant="ghost"
+                class="h-8 w-8"
+                title="Browser Settings"
+              >
+                <Settings class="h-4 w-4" />
+              </Button>
+            {/snippet}
+          </Popover.Trigger>
+          <Popover.Content align="start" class="w-64 p-3">
+            <div class="space-y-3">
+              <div>
+                <div class="text-sm font-medium">Browser Settings</div>
+              </div>
+              <div class="rounded-md border border-border bg-muted/30 p-2">
+                <div class="mb-2 flex items-center gap-2 text-sm font-medium">
+                  <ZoomIn class="h-4 w-4" />
+                  <span>Zoom</span>
+                </div>
+                <div class="grid grid-cols-[2rem_1fr_2rem] items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    class="h-8 w-8"
+                    onclick={() => stepBrowserZoom(-1)}
+                    disabled={browserZoom <= zoomSteps[0]}
+                    title="Zoom Out"
+                  >
+                    <Minus class="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    class="h-8"
+                    onclick={() => setBrowserZoom(100)}
+                    title="Reset Zoom"
+                  >
+                    {browserZoom}%
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    class="h-8 w-8"
+                    onclick={() => stepBrowserZoom(1)}
+                    disabled={browserZoom >= zoomSteps[zoomSteps.length - 1]}
+                    title="Zoom In"
+                  >
+                    <Plus class="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                class="w-full justify-start gap-2"
+                onclick={clearBrowserCache}
+                disabled={isClearingCache}
+              >
+                {#if cacheFeedbackType === 'success'}
+                  <Check class="h-4 w-4 text-emerald-500" />
+                {:else if cacheFeedbackType === 'error'}
+                  <X class="h-4 w-4 text-destructive" />
+                {:else}
+                  <BrushCleaning class="h-4 w-4 text-destructive" />
+                {/if}
+                {isClearingCache ? 'Clearing Browser Cache...' : cacheFeedback || 'Clear Browser Cache'}
+              </Button>
+            </div>
+          </Popover.Content>
+        </Popover.Root>
       </div>
       {/if}
 
