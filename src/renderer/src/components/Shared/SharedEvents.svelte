@@ -3,6 +3,13 @@
   import { getElectronContext } from '$lib/contexts/electronContext';
 
   const electronApi = getElectronContext()
+  const hasStoredThemeMode =
+    localStorage.getItem('mode-watcher-mode') !== null ||
+    localStorage.getItem('mode-watcher-theme') !== null
+
+  if (!hasStoredThemeMode) {
+    setMode('dark')
+  }
 
   electronApi.on('event.theme_mode_changed', (_, themeMode: string) => {
     switch (themeMode) {
