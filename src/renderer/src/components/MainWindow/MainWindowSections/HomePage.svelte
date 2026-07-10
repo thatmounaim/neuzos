@@ -134,7 +134,7 @@
   <div class="h-full w-full overflow-auto p-4">
     <div class="mb-4 flex flex-wrap items-start justify-between gap-4">
       <div class="flex min-w-0 items-center gap-4">
-        <img src="/neuzos_pang.png" alt="NeuzOS Pang" class="h-20 w-20 shrink-0 object-contain" />
+        <img src="neuzos_pang.png" alt="NeuzOS Pang" class="h-20 w-20 shrink-0 object-contain" />
         <div class="min-w-0">
           <h1 class="text-2xl font-bold">Welcome to NeuzOS!</h1>
           <p class="mt-1 text-lg text-muted-foreground">
