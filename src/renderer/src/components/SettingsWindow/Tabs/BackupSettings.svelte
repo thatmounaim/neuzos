@@ -8,7 +8,9 @@
   import Button from '$lib/components/ui/button/button.svelte';
   import {toast} from 'svelte-sonner';
   import {neuzosBridge} from '$lib/core';
-  import {Check, Eye, FileCog, HardDrive, RotateCw, ScanEye, ScanSearch, SquareArrowOutUpRight, SquarePen, Trash, TriangleAlert} from '@lucide/svelte';
+  import {Check, Eye, FileCog, FoldVertical, HardDrive, RotateCw, ScanEye, ScanSearch, SquareArrowOutUpRight, SquarePen, Trash, TriangleAlert, UnfoldVertical} from '@lucide/svelte';
+  import LocalStorageJsonTree from './LocalStorageJsonTree.svelte';
+  import type {LocalStorageJsonViewMode} from './LocalStorageJsonTree.svelte';
   import {
     applyLocalStorageBackup,
     buildLocalStorageBackupPayload,
@@ -742,6 +744,21 @@
   let localStorageEditOriginalKey: string | null = $state(null);
   let localStorageEditKey = $state('');
   let localStorageEditValue = $state('');
+  let localStorageValueViewMode: LocalStorageJsonViewMode = $state('tree');
+  let localStorageImportValueViewMode: LocalStorageJsonViewMode = $state('tree');
+  let localStorageEditValueViewMode: LocalStorageJsonViewMode = $state('tree');
+  let localStorageValueAllExpanded = $state(false);
+  let localStorageImportValueAllExpanded = $state(false);
+  let localStorageEditValueAllExpanded = $state(false);
+  let localStorageValueHasExpandableNodes = $state(false);
+  let localStorageImportValueHasExpandableNodes = $state(false);
+  let localStorageEditValueHasExpandableNodes = $state(false);
+  let localStorageValueExpandRequest = $state(0);
+  let localStorageValueCollapseRequest = $state(0);
+  let localStorageImportValueExpandRequest = $state(0);
+  let localStorageImportValueCollapseRequest = $state(0);
+  let localStorageEditValueExpandRequest = $state(0);
+  let localStorageEditValueCollapseRequest = $state(0);
   let isExportingLocalStorage = $state(false);
   let isImportingLocalStorage = $state(false);
   let isApplyingLocalStorage = $state(false);
@@ -1106,6 +1123,9 @@
       selectedLocalStorageKey = null;
     }
 
+    localStorageValueExpandRequest += 1;
+    localStorageImportValueExpandRequest += 1;
+    localStorageEditValueExpandRequest += 1;
   };
 
   const setBackupMode = (mode: BackupMode) => {
@@ -1355,6 +1375,75 @@
     localStorageKeywordFilters = localStorageKeywordFilters.filter((_, index) => index !== keywordIndex);
   };
 
+  const isValidJsonString = (value: string) => {
+    try {
+      JSON.parse(value);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const isEditingSelectedLocalStorageEntry = (key: string) =>
+    isEditingLocalStorageEntry && localStorageEditOriginalKey === key;
+
+  const getSelectedLocalStorageValue = (item: LocalStorageBackupItem) =>
+    isEditingSelectedLocalStorageEntry(item.key) ? localStorageEditValue : item.value;
+
+  const getSelectedLocalStorageViewMode = (key: string) =>
+    isEditingSelectedLocalStorageEntry(key) ? localStorageEditValueViewMode : localStorageValueViewMode;
+
+  const getSelectedLocalStorageAllExpanded = (key: string) =>
+    isEditingSelectedLocalStorageEntry(key) ? localStorageEditValueAllExpanded : localStorageValueAllExpanded;
+
+  const getSelectedLocalStorageHasExpandableNodes = (key: string) =>
+    isEditingSelectedLocalStorageEntry(key) ? localStorageEditValueHasExpandableNodes : localStorageValueHasExpandableNodes;
+
+  const setSelectedLocalStorageViewMode = (key: string, mode: LocalStorageJsonViewMode) => {
+    if (isEditingSelectedLocalStorageEntry(key)) {
+      localStorageEditValueViewMode = mode;
+      return;
+    }
+
+    localStorageValueViewMode = mode;
+  };
+
+  const requestSelectedLocalStorageExpandAll = (key: string) => {
+    if (isEditingSelectedLocalStorageEntry(key)) {
+      localStorageEditValueExpandRequest += 1;
+      return;
+    }
+
+    localStorageValueExpandRequest += 1;
+  };
+
+  const requestSelectedLocalStorageCollapseAll = (key: string) => {
+    if (isEditingSelectedLocalStorageEntry(key)) {
+      localStorageEditValueCollapseRequest += 1;
+      return;
+    }
+
+    localStorageValueCollapseRequest += 1;
+  };
+
+  const setSelectedLocalStorageExpansionState = (key: string, allExpanded: boolean) => {
+    if (isEditingSelectedLocalStorageEntry(key)) {
+      localStorageEditValueAllExpanded = allExpanded;
+      return;
+    }
+
+    localStorageValueAllExpanded = allExpanded;
+  };
+
+  const setSelectedLocalStorageExpandableState = (key: string, hasExpandableNodes: boolean) => {
+    if (isEditingSelectedLocalStorageEntry(key)) {
+      localStorageEditValueHasExpandableNodes = hasExpandableNodes;
+      return;
+    }
+
+    localStorageValueHasExpandableNodes = hasExpandableNodes;
+  };
+
   const startLocalStorageEdit = (key: string) => {
     const currentValue = window.localStorage.getItem(key);
     if (currentValue === null) {
@@ -1367,6 +1456,7 @@
     localStorageEditOriginalKey = key;
     localStorageEditKey = key;
     localStorageEditValue = currentValue;
+    localStorageEditValueViewMode = isValidJsonString(currentValue) ? localStorageValueViewMode : 'raw';
     isEditingLocalStorageEntry = true;
   };
 
@@ -1398,6 +1488,7 @@
 
     window.localStorage.setItem(nextKey, localStorageEditValue);
     localStorageSelection[nextKey] = wasSelected || (localStorageSelection[nextKey] ?? false);
+    localStorageValueViewMode = localStorageEditValueViewMode;
     selectedLocalStorageKey = nextKey;
     isEditingLocalStorageEntry = false;
     localStorageEditOriginalKey = null;
@@ -2179,7 +2270,7 @@
             </div>
             <div class="grid items-stretch overflow-hidden rounded border border-border md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
               <div class="flex h-full flex-col">
-                <div class="border-b border-border bg-muted/30 px-3 py-2 text-xs font-medium text-muted-foreground">Key</div>
+                <div class="flex min-h-11 items-center border-b border-border bg-muted/30 px-3 py-2 text-xs font-medium text-muted-foreground">Key</div>
                 {#if isEditingLocalStorageEntry && localStorageEditOriginalKey === selectedLocalStorageDetail.key}
                   <textarea
                     class="min-h-40 flex-1 w-full border-0 bg-background px-3 py-2 font-mono text-xs outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
@@ -2211,35 +2302,85 @@
                 {/if}
               </div>
               <div class="flex h-full flex-col border-l border-border">
-                <div class="border-b border-border bg-muted/30 px-3 py-2 text-xs font-medium text-muted-foreground">Value</div>
+                <div class="flex min-h-11 items-center justify-between gap-2 border-b border-border bg-muted/30 px-3 py-2 text-xs font-medium text-muted-foreground">
+                  <span class="inline-flex items-center gap-1.5">
+                    Value
+                    {#if isValidJsonString(getSelectedLocalStorageValue(selectedLocalStorageDetail)) && getSelectedLocalStorageViewMode(selectedLocalStorageDetail.key) === 'tree' && getSelectedLocalStorageHasExpandableNodes(selectedLocalStorageDetail.key)}
+                      <Tooltip.Provider>
+                        <Tooltip.Root>
+                          <Tooltip.Trigger>
+                            <button
+                              type="button"
+                              class="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                              aria-label={getSelectedLocalStorageAllExpanded(selectedLocalStorageDetail.key) ? 'Collapse All' : 'Expand All'}
+                              onclick={() => {
+                                if (getSelectedLocalStorageAllExpanded(selectedLocalStorageDetail.key)) {
+                                  requestSelectedLocalStorageCollapseAll(selectedLocalStorageDetail.key);
+                                } else {
+                                  requestSelectedLocalStorageExpandAll(selectedLocalStorageDetail.key);
+                                }
+                              }}
+                            >
+                              {#if getSelectedLocalStorageAllExpanded(selectedLocalStorageDetail.key)}
+                                <FoldVertical class="h-3.5 w-3.5"/>
+                              {:else}
+                                <UnfoldVertical class="h-3.5 w-3.5"/>
+                              {/if}
+                            </button>
+                          </Tooltip.Trigger>
+                          <Tooltip.Content>{getSelectedLocalStorageAllExpanded(selectedLocalStorageDetail.key) ? 'Collapse All' : 'Expand All'}</Tooltip.Content>
+                        </Tooltip.Root>
+                      </Tooltip.Provider>
+                    {/if}
+                  </span>
+                  {#if isValidJsonString(getSelectedLocalStorageValue(selectedLocalStorageDetail))}
+                    <div class="flex items-center gap-1">
+                      <button
+                        type="button"
+                        class={`rounded px-2 py-0.5 text-xs transition-colors ${getSelectedLocalStorageViewMode(selectedLocalStorageDetail.key) === 'tree' ? 'bg-primary/15 text-primary ring-1 ring-primary/50' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
+                        onclick={() => setSelectedLocalStorageViewMode(selectedLocalStorageDetail.key, 'tree')}
+                      >
+                        Tree View
+                      </button>
+                      <button
+                        type="button"
+                        class={`rounded px-2 py-0.5 text-xs transition-colors ${getSelectedLocalStorageViewMode(selectedLocalStorageDetail.key) === 'raw' ? 'bg-primary/15 text-primary ring-1 ring-primary/50' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
+                        onclick={() => setSelectedLocalStorageViewMode(selectedLocalStorageDetail.key, 'raw')}
+                      >
+                        Raw View
+                      </button>
+                    </div>
+                  {/if}
+                </div>
                 {#if isEditingLocalStorageEntry && localStorageEditOriginalKey === selectedLocalStorageDetail.key}
-                  <textarea
-                    class="min-h-40 flex-1 w-full border-0 bg-background px-3 py-2 text-xs outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                    bind:value={localStorageEditValue}
-                  ></textarea>
+                  <LocalStorageJsonTree
+                    value={localStorageEditValue}
+                    editable={true}
+                    viewMode={localStorageEditValueViewMode}
+                    idDisplayMode="id-only"
+                    getTextParts={(text) => getLocalStorageKeyParts(text, selectedLocalStorageDetail.key)}
+                    getReferenceClass={(reference) => getLocalStorageReferenceClass(reference as LocalStorageReference)}
+                    getReferenceDisplayText={(reference) => getLocalStorageReferenceDisplayText(reference as LocalStorageReference)}
+                    getReferenceTooltip={(reference) => getLocalStorageReferenceTooltip(reference as LocalStorageReference)}
+                    onValueChange={(nextValue) => localStorageEditValue = nextValue}
+                    expandAllRequest={localStorageEditValueExpandRequest}
+                    collapseAllRequest={localStorageEditValueCollapseRequest}
+                    onExpansionStateChange={(allExpanded) => setSelectedLocalStorageExpansionState(selectedLocalStorageDetail.key, allExpanded)}
+                    onExpandableStateChange={(hasExpandableNodes) => setSelectedLocalStorageExpandableState(selectedLocalStorageDetail.key, hasExpandableNodes)}
+                  />
                 {:else}
-                  <div class="min-h-40 max-h-80 flex-1 overflow-auto bg-muted/30 p-3 text-xs whitespace-pre-wrap">
-                    {#each getLocalStorageKeyParts(formatLocalStorageValue(selectedLocalStorageDetail.value), selectedLocalStorageDetail.key) as part}
-                      {#if part.reference}
-                        <Tooltip.Provider>
-                          <Tooltip.Root>
-                            <Tooltip.Trigger class={`mx-0.5 ${getLocalStorageReferenceClass(part.reference)}`}>
-                              {getLocalStorageReferenceDisplayText(part.reference)}
-                            </Tooltip.Trigger>
-                            <Tooltip.Content>
-                              <div class="space-y-1 text-xs">
-                                {#each getLocalStorageReferenceTooltip(part.reference) as line}
-                                  <div>{line}</div>
-                                {/each}
-                              </div>
-                            </Tooltip.Content>
-                          </Tooltip.Root>
-                        </Tooltip.Provider>
-                      {:else}
-                        <span>{part.text}</span>
-                      {/if}
-                    {/each}
-                  </div>
+                  <LocalStorageJsonTree
+                    value={formatLocalStorageValue(selectedLocalStorageDetail.value)}
+                    viewMode={localStorageValueViewMode}
+                    getTextParts={(text) => getLocalStorageKeyParts(text, selectedLocalStorageDetail.key)}
+                    getReferenceClass={(reference) => getLocalStorageReferenceClass(reference as LocalStorageReference)}
+                    getReferenceDisplayText={(reference) => getLocalStorageReferenceDisplayText(reference as LocalStorageReference)}
+                    getReferenceTooltip={(reference) => getLocalStorageReferenceTooltip(reference as LocalStorageReference)}
+                    expandAllRequest={localStorageValueExpandRequest}
+                    collapseAllRequest={localStorageValueCollapseRequest}
+                    onExpansionStateChange={(allExpanded) => setSelectedLocalStorageExpansionState(selectedLocalStorageDetail.key, allExpanded)}
+                    onExpandableStateChange={(hasExpandableNodes) => setSelectedLocalStorageExpandableState(selectedLocalStorageDetail.key, hasExpandableNodes)}
+                  />
                 {/if}
               </div>
             </div>
@@ -2398,7 +2539,7 @@
               </div>
               <div class="grid items-stretch overflow-hidden rounded border border-border md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
                 <div class="flex h-full flex-col">
-                  <div class="border-b border-border bg-muted/30 px-3 py-2 text-xs font-medium text-muted-foreground">Key</div>
+                  <div class="flex min-h-11 items-center border-b border-border bg-muted/30 px-3 py-2 text-xs font-medium text-muted-foreground">Key</div>
                   <div class="flex min-h-40 flex-1 flex-wrap content-start items-start gap-1 bg-muted/30 px-3 py-2 font-mono text-xs font-semibold break-all">
                     {#each getLocalStorageKeyParts(selectedImportLocalStorageDetail.key) as part}
                       {#if part.reference}
@@ -2423,29 +2564,68 @@
                   </div>
                 </div>
                 <div class="flex h-full flex-col border-l border-border">
-                  <div class="border-b border-border bg-muted/30 px-3 py-2 text-xs font-medium text-muted-foreground">Value</div>
-                  <div class="min-h-40 max-h-80 flex-1 overflow-auto bg-muted/30 p-3 text-xs whitespace-pre-wrap">
-                    {#each getLocalStorageKeyParts(formatLocalStorageValue(selectedImportLocalStorageDetail.value), selectedImportLocalStorageDetail.key) as part}
-                      {#if part.reference}
+                  <div class="flex min-h-11 items-center justify-between gap-2 border-b border-border bg-muted/30 px-3 py-2 text-xs font-medium text-muted-foreground">
+                    <span class="inline-flex items-center gap-1.5">
+                      Value
+                      {#if isValidJsonString(selectedImportLocalStorageDetail.value) && localStorageImportValueViewMode === 'tree' && localStorageImportValueHasExpandableNodes}
                         <Tooltip.Provider>
                           <Tooltip.Root>
-                            <Tooltip.Trigger class={`mx-0.5 ${getLocalStorageReferenceClass(part.reference)}`}>
-                              {getLocalStorageReferenceDisplayText(part.reference)}
+                            <Tooltip.Trigger>
+                              <button
+                                type="button"
+                                class="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                                aria-label={localStorageImportValueAllExpanded ? 'Collapse All' : 'Expand All'}
+                                onclick={() => {
+                                  if (localStorageImportValueAllExpanded) {
+                                    localStorageImportValueCollapseRequest += 1;
+                                  } else {
+                                    localStorageImportValueExpandRequest += 1;
+                                  }
+                                }}
+                              >
+                                {#if localStorageImportValueAllExpanded}
+                                  <FoldVertical class="h-3.5 w-3.5"/>
+                                {:else}
+                                  <UnfoldVertical class="h-3.5 w-3.5"/>
+                                {/if}
+                              </button>
                             </Tooltip.Trigger>
-                            <Tooltip.Content>
-                              <div class="space-y-1 text-xs">
-                                {#each getLocalStorageReferenceTooltip(part.reference) as line}
-                                  <div>{line}</div>
-                                {/each}
-                              </div>
-                            </Tooltip.Content>
+                            <Tooltip.Content>{localStorageImportValueAllExpanded ? 'Collapse All' : 'Expand All'}</Tooltip.Content>
                           </Tooltip.Root>
                         </Tooltip.Provider>
-                      {:else}
-                        <span>{part.text}</span>
                       {/if}
-                    {/each}
+                    </span>
+                    {#if isValidJsonString(selectedImportLocalStorageDetail.value)}
+                      <div class="flex items-center gap-1">
+                        <button
+                          type="button"
+                          class={`rounded px-2 py-0.5 text-xs transition-colors ${localStorageImportValueViewMode === 'tree' ? 'bg-primary/15 text-primary ring-1 ring-primary/50' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
+                          onclick={() => localStorageImportValueViewMode = 'tree'}
+                        >
+                          Tree View
+                        </button>
+                        <button
+                          type="button"
+                          class={`rounded px-2 py-0.5 text-xs transition-colors ${localStorageImportValueViewMode === 'raw' ? 'bg-primary/15 text-primary ring-1 ring-primary/50' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
+                          onclick={() => localStorageImportValueViewMode = 'raw'}
+                        >
+                          Raw View
+                        </button>
+                      </div>
+                    {/if}
                   </div>
+                  <LocalStorageJsonTree
+                    value={formatLocalStorageValue(selectedImportLocalStorageDetail.value)}
+                    viewMode={localStorageImportValueViewMode}
+                    getTextParts={(text) => getLocalStorageKeyParts(text, selectedImportLocalStorageDetail.key)}
+                    getReferenceClass={(reference) => getLocalStorageReferenceClass(reference as LocalStorageReference)}
+                    getReferenceDisplayText={(reference) => getLocalStorageReferenceDisplayText(reference as LocalStorageReference)}
+                    getReferenceTooltip={(reference) => getLocalStorageReferenceTooltip(reference as LocalStorageReference)}
+                    expandAllRequest={localStorageImportValueExpandRequest}
+                    collapseAllRequest={localStorageImportValueCollapseRequest}
+                    onExpansionStateChange={(allExpanded) => localStorageImportValueAllExpanded = allExpanded}
+                    onExpandableStateChange={(hasExpandableNodes) => localStorageImportValueHasExpandableNodes = hasExpandableNodes}
+                  />
                 </div>
               </div>
             </div>
