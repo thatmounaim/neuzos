@@ -72,6 +72,8 @@ const allowedCommandLineSwitches = [
 let mainWindow: BrowserWindow | null = null;
 let settingsWindow: BrowserWindow | null = null;
 let sessionWindow: BrowserWindow | null = null;
+const sessionWindows = new Map<string, BrowserWindow>();
+let sessionLauncherWindow: BrowserWindow | null = null;
 let lastKeybindToggleAt = 0;
 
 type ViewerWindowType = 'navi_guide' | 'flyffipedia';
@@ -413,6 +415,10 @@ const defaultNeuzosConfig: any = {
     {
       "key": "CommandOrControl+Tab",
       "event": "layout_swap",
+    },
+    {
+      "key": "CommandOrControl+Delete",
+      "event": "close_focus_session"
     },
     {
       "key": "F11",
@@ -904,13 +910,13 @@ function createSettingsWindow(initialTab?: string): void {
 }
 
 function createSessionLauncherWindow(): void {
-  if (sessionWindow && !sessionWindow.isDestroyed()) {
-    sessionWindow.focus();
+  if (sessionLauncherWindow && !sessionLauncherWindow.isDestroyed()) {
+    sessionLauncherWindow.focus();
     return;
   }
 
   // Small window for session launcher
-  sessionWindow = new BrowserWindow({
+  sessionLauncherWindow = new BrowserWindow({
     width: 600,
     height: 400,
     minWidth: 600,
@@ -929,7 +935,7 @@ function createSessionLauncherWindow(): void {
   });
 
   // Single-click exit for session launcher
-  sessionWindow.on("close", () => {
+  sessionLauncherWindow.on("close", () => {
     globalShortcut.unregisterAll();
   });
 
@@ -938,28 +944,28 @@ function createSessionLauncherWindow(): void {
     Menu.setApplicationMenu(null);
   } else {
     Menu.setApplicationMenu(Menu.buildFromTemplate([{role: "appMenu"}, {role: "editMenu"}]));
-    sessionWindow.setMenuBarVisibility(false);
+    sessionLauncherWindow.setMenuBarVisibility(false);
   }
 
-  sessionWindow.on("ready-to-show", () => {
-    sessionWindow?.show();
-    sessionWindow?.webContents.setZoomFactor(neuzosConfig.window.main.zoom)
+  sessionLauncherWindow.on("ready-to-show", () => {
+    sessionLauncherWindow?.show();
+    sessionLauncherWindow?.webContents.setZoomFactor(neuzosConfig.window.main.zoom)
   });
 
-  sessionWindow.on("closed", () => {
-    sessionWindow = null;
+  sessionLauncherWindow.on("closed", () => {
+    sessionLauncherWindow = null;
   });
 
-  sessionWindow.webContents.setWindowOpenHandler((details) => {
+  sessionLauncherWindow.webContents.setWindowOpenHandler((details) => {
     openExternalSafe(details.url);
     return {action: "deny"};
   });
 
   // Load the session launcher HTML
   if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
-    sessionWindow.webContents.loadURL(process.env["ELECTRON_RENDERER_URL"] + "/session_launcher.html");
+    sessionLauncherWindow.webContents.loadURL(process.env["ELECTRON_RENDERER_URL"] + "/session_launcher.html");
   } else {
-    sessionWindow.webContents.loadFile(path.join(__dirname, "../renderer/session_launcher.html"));
+    sessionLauncherWindow.webContents.loadFile(path.join(__dirname, "../renderer/session_launcher.html"));
   }
 }
 
@@ -986,8 +992,10 @@ function createSessionWindow(mode: LaunchMode, sessionId: string): void {
     return;
   }
 
-  if (sessionWindow && !sessionWindow.isDestroyed()) {
-    sessionWindow.focus();
+  const existingSessionWindow = sessionWindows.get(sessionId);
+  if (existingSessionWindow && !existingSessionWindow.isDestroyed()) {
+    sessionWindow = existingSessionWindow;
+    existingSessionWindow.focus();
     return;
   }
 
@@ -995,7 +1003,7 @@ function createSessionWindow(mode: LaunchMode, sessionId: string): void {
   const startFullscreen = mode === 'focus_fullscreen';
 
   // Create the session window
-  sessionWindow = new BrowserWindow({
+  const window = new BrowserWindow({
     width: neuzosConfig.window.session.width,
     height: neuzosConfig.window.session.height,
     show: false,
@@ -1012,11 +1020,14 @@ function createSessionWindow(mode: LaunchMode, sessionId: string): void {
       zoomFactor: neuzosConfig.window.session.zoom ?? 1.0,
     }
   });
+  sessionWindow = window;
+  sessionWindows.set(sessionId, window);
 
   // Exit behavior similar to main window
-  sessionWindow.on("close", (event) => {
+  window.on("close", (event) => {
     // Always unregister shortcuts when session window is closing
     globalShortcut.unregisterAll();
+
     if (exitCount < 2) {
       event.preventDefault();
       console.log("Prevented manual close");
@@ -1036,47 +1047,53 @@ function createSessionWindow(mode: LaunchMode, sessionId: string): void {
     Menu.setApplicationMenu(null);
   } else {
     Menu.setApplicationMenu(Menu.buildFromTemplate([{role: "appMenu"}, {role: "editMenu"}]));
-    sessionWindow.setMenuBarVisibility(false);
+    window.setMenuBarVisibility(false);
   }
 
-  sessionWindow.on("ready-to-show", () => {
-    sessionWindow?.show();
-    sessionWindow?.webContents.setZoomFactor(neuzosConfig.window.session.zoom);
+  window.on("ready-to-show", () => {
+    window.show();
+    window.webContents.setZoomFactor(neuzosConfig.window.session.zoom);
 
     // Maximize if configured and not starting in fullscreen - must happen after show() with slight delay
     if (!startFullscreen && neuzosConfig.window.session.maximized) {
       setImmediate(() => {
-        sessionWindow?.maximize();
+        if (!window.isDestroyed()) {
+          window.maximize();
+        }
       });
     }
   });
 
-  sessionWindow.on("closed", () => {
+  window.on("closed", () => {
     // Ensure shortcuts are unregistered when session window is destroyed
     globalShortcut.unregisterAll();
-    sessionWindow = null;
+    sessionWindows.delete(sessionId);
+    if (sessionWindow === window) {
+      sessionWindow = null;
+    }
   });
 
-  sessionWindow.on("focus", () => {
+  window.on("focus", () => {
+    sessionWindow = window;
     registerSessionKeybinds(mode);
   });
 
   // Track fullscreen state changes
-  sessionWindow.on("enter-full-screen", () => {
-    sessionWindow?.webContents.send("event.fullscreen_changed", true);
+  window.on("enter-full-screen", () => {
+    window.webContents.send("event.fullscreen_changed", true);
   });
 
-  sessionWindow.on("leave-full-screen", () => {
-    sessionWindow?.webContents.send("event.fullscreen_changed", false);
+  window.on("leave-full-screen", () => {
+    window.webContents.send("event.fullscreen_changed", false);
   });
 
-  sessionWindow.webContents.setWindowOpenHandler((details) => {
+  window.webContents.setWindowOpenHandler((details) => {
     openExternalSafe(details.url);
     return {action: "deny"};
   });
 
   // Store session data for IPC handlers
-  (sessionWindow as any).sessionData = {
+  (window as any).sessionData = {
     mode,
     sessionId,
     sessionConfig: sessionData
@@ -1084,9 +1101,9 @@ function createSessionWindow(mode: LaunchMode, sessionId: string): void {
 
   // Load the session HTML
   if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
-    sessionWindow.webContents.loadURL(process.env["ELECTRON_RENDERER_URL"] + "/session.html");
+    window.webContents.loadURL(process.env["ELECTRON_RENDERER_URL"] + "/session.html");
   } else {
-    sessionWindow.webContents.loadFile(path.join(__dirname, "../renderer/session.html"));
+    window.webContents.loadFile(path.join(__dirname, "../renderer/session.html"));
   }
 }
 
@@ -1472,7 +1489,7 @@ function registerSessionKeybinds(mode: LaunchMode) {
   const fullscreenBind = neuzosConfig.keyBinds.find((bind: any) => bind.event === "fullscreen_toggle");
   const closeFocusSessionBind = neuzosConfig.keyBinds.find((bind: any) => bind.event === "close_focus_session");
 
-  if (!fullscreenBind && !closeFocusSessionBind) {
+  if (!fullscreenBind && !closeFocusSessionBind && mode !== 'focus' && mode !== 'focus_fullscreen') {
     return;
   }
 
@@ -1662,63 +1679,57 @@ function registerSessionKeybinds(mode: LaunchMode) {
         console.warn('[session_launcher.launch_session] Blocked invalid mode:', mode);
         return;
       }
-      const execPath = process.execPath;
-      const args = [`--mode=${mode}`, `--session_id=${sessionId}`];
-
-      // Spawn new process
-      const {spawn} = require('child_process');
-      spawn(execPath, args, {
-        detached: true,
-        stdio: 'ignore'
-      }).unref();
+      createSessionWindow(mode, sessionId);
     });
 
     ipcMain.on("session_launcher.close", () => {
       globalShortcut.unregisterAll();
-      sessionWindow?.destroy();
-      sessionWindow = null;
+      sessionLauncherWindow?.destroy();
+      sessionLauncherWindow = null;
     });
 
     ipcMain.on("session_launcher.minimize", () => {
-      sessionWindow?.minimize();
+      sessionLauncherWindow?.minimize();
     });
 
     // Setup IPC handlers for session window
-    ipcMain.handle("session_window.get_data", async () => {
-      return (sessionWindow as any)?.sessionData || null;
+    ipcMain.handle("session_window.get_data", async (event) => {
+      const win = BrowserWindow.fromWebContents(event.sender);
+      return (win as any)?.sessionData || null;
     });
 
-    ipcMain.on("session_window.fullscreen_toggle", () => {
-      const mode = (sessionWindow as any)?.sessionData?.mode;
+    ipcMain.on("session_window.fullscreen_toggle", (event) => {
+      const win = BrowserWindow.fromWebContents(event.sender);
+      const mode = (win as any)?.sessionData?.mode;
       if (mode === 'session') {
-        const newFullscreenState = !sessionWindow?.isFullScreen();
-        sessionWindow?.setFullScreen(newFullscreenState);
+        const newFullscreenState = !win?.isFullScreen();
+        win?.setFullScreen(newFullscreenState);
         // Event will be sent by enter-full-screen/leave-full-screen handlers
       } else if (mode === 'focus_fullscreen') {
         // Keep fullscreen
-        if (!sessionWindow?.isFullScreen()) {
-          sessionWindow?.setFullScreen(true);
+        if (!win?.isFullScreen()) {
+          win?.setFullScreen(true);
         }
       }
       // For 'focus' mode, do nothing (prevent fullscreen)
     });
 
-    ipcMain.on("session_window.minimize", () => {
-      sessionWindow?.minimize();
+    ipcMain.on("session_window.minimize", (event) => {
+      BrowserWindow.fromWebContents(event.sender)?.minimize();
     });
 
-    ipcMain.on("session_window.maximize", () => {
-      if (sessionWindow?.isMaximized()) {
-        sessionWindow?.unmaximize();
+    ipcMain.on("session_window.maximize", (event) => {
+      const win = BrowserWindow.fromWebContents(event.sender);
+      if (win?.isMaximized()) {
+        win.unmaximize();
       } else {
-        sessionWindow?.maximize();
+        win?.maximize();
       }
     });
 
-    ipcMain.on("session_window.close", () => {
+    ipcMain.on("session_window.close", (event) => {
       globalShortcut.unregisterAll();
-      sessionWindow?.destroy();
-      sessionWindow = null;
+      BrowserWindow.fromWebContents(event.sender)?.destroy();
     });
 
     ipcMain.on("main_window.fullscreen_toggle", () => {
@@ -1767,7 +1778,7 @@ function registerSessionKeybinds(mode: LaunchMode) {
     ipcMain.on("session_window.toggle_shortcuts", (event, enabled: boolean) => {
       sessionWindowShortcutsEnabled = enabled;
       const win = BrowserWindow.fromWebContents(event.sender);
-      const mode = (sessionWindow as any)?.sessionData?.mode;
+      const mode = (win as any)?.sessionData?.mode;
       if (enabled && mode) {
         registerSessionKeybinds(mode);
       } else {
@@ -1990,12 +2001,10 @@ function registerSessionKeybinds(mode: LaunchMode) {
         if (mainWindow && !mainWindow.isDestroyed()) {
           stopAckSenderIds.add(mainWindow.webContents.id);
         }
-        // Only expect an ACK from sessionWindow if it is actually showing THIS session.
-        // If sessionWindow shows a different session it will never ACK for this sessionId,
-        // causing a guaranteed 5-second timeout for every non-running session delete.
-        const sessionWindowSessionId = (sessionWindow as any)?.sessionData?.sessionId;
-        if (sessionWindow && !sessionWindow.isDestroyed() && sessionWindowSessionId === sessionId) {
-          stopAckSenderIds.add(sessionWindow.webContents.id);
+        // Only expect ACKs from standalone session windows actually showing THIS session.
+        const standaloneSessionWindow = sessionWindows.get(sessionId);
+        if (standaloneSessionWindow && !standaloneSessionWindow.isDestroyed()) {
+          stopAckSenderIds.add(standaloneSessionWindow.webContents.id);
         }
         const stopAckPromise = stopAckSenderIds.size === 0
           ? Promise.resolve(false)
@@ -2027,15 +2036,15 @@ function registerSessionKeybinds(mode: LaunchMode) {
             });
 
         mainWindow?.webContents.send("event.stop_session", sessionId);
-        sessionWindow?.webContents.send("event.stop_session", sessionId);
+        standaloneSessionWindow?.webContents.send("event.stop_session", sessionId);
         const stopAckReceived = await stopAckPromise;
         if (!stopAckReceived) {
           console.warn("Timed out waiting for stop_session_ack during delete for session", sessionId);
         }
 
-        if (sessionWindow && !sessionWindow.isDestroyed() && sessionWindowSessionId === sessionId) {
+        if (standaloneSessionWindow && !standaloneSessionWindow.isDestroyed()) {
           try {
-            sessionWindow.destroy();
+            standaloneSessionWindow.destroy();
           } catch (error) {
             console.warn("Failed to destroy session window during delete for session", sessionId, error);
           }
