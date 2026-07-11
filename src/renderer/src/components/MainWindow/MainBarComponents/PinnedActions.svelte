@@ -6,6 +6,7 @@
   import type {MainWindowState} from '$lib/types';
   import {getCooldownsContext} from '$lib/contexts/cooldownsContext';
   import {getWidgetsContext} from '$lib/contexts/widgetsContext.svelte.js';
+  import {readActionPinsAutoLoadLatest, readActionPinsLatestPins, writeActionPinsLatestPins} from '$lib/localStorageStores';
 
   type Props = {
     onHasPinnedActionsChange?: (hasPinnedActions: boolean) => void;
@@ -18,8 +19,6 @@
   const widgetsContext = getWidgetsContext();
 
   const ACTION_PIN_WIDGET_TYPE = 'widget.builtin.action_pin';
-  const ACTION_PIN_STORAGE_KEY = 'widgets.actionPin.latestPins';
-  const ACTION_PIN_AUTOLOAD_KEY = 'widgets.actionPin.autoLoadLatest';
 
   let didInitPinPersistence = false;
   let initialSavedLatestPinSessionIds: string[] = [];
@@ -57,49 +56,15 @@
   }
 
   function readAutoLoadLatestPins(): boolean {
-    if (typeof window === 'undefined') return false;
-
-    const raw = window.localStorage.getItem(ACTION_PIN_AUTOLOAD_KEY);
-    if (raw === null) return false;
-
-    try {
-      return Boolean(JSON.parse(raw));
-    } catch {
-      return raw === 'true';
-    }
+    return readActionPinsAutoLoadLatest();
   }
 
   function readSavedLatestPinSessionIds(): string[] {
-    if (typeof window === 'undefined') return [];
-
-    const raw = window.localStorage.getItem(ACTION_PIN_STORAGE_KEY);
-    if (!raw) return [];
-
-    try {
-      const parsed = JSON.parse(raw);
-
-      // Backward compatibility with previous object shape.
-      if (Array.isArray(parsed)) {
-        return [...new Set(parsed.filter((id): id is string => typeof id === 'string'))];
-      }
-
-      if (parsed && typeof parsed === 'object' && Array.isArray((parsed as { sessionIds?: unknown }).sessionIds)) {
-        return [
-          ...new Set(
-            (parsed as { sessionIds: unknown[] }).sessionIds.filter((id): id is string => typeof id === 'string')
-          )
-        ];
-      }
-
-      return [];
-    } catch {
-      return [];
-    }
+    return readActionPinsLatestPins();
   }
 
   function writeSavedLatestPinSessionIds(sessionIds: string[]) {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(ACTION_PIN_STORAGE_KEY, JSON.stringify([...new Set(sessionIds)]));
+    writeActionPinsLatestPins(sessionIds);
   }
 
   const actionPinWidgets = $derived(

@@ -6,6 +6,14 @@
 
   const windowContext = getContext<FloatingWindowContext>(FLOATING_WINDOW_CONTEXT_KEY);
 
+  type FloatingWindowPersistedState = {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    isMinimized: boolean;
+  };
+
   interface Props {
     persistId?: string;
     title?: string;
@@ -30,6 +38,8 @@
     controlSnippet?: Snippet;
     backgroundTransparency?: number;
     flushBottom?: boolean;
+    loadPersistedState?: () => Partial<FloatingWindowPersistedState> | null;
+    savePersistedState?: (state: FloatingWindowPersistedState) => void;
   }
 
   let {
@@ -56,6 +66,8 @@
     controlSnippet,
     backgroundTransparency = 100,
     flushBottom = false,
+    loadPersistedState,
+    savePersistedState,
   }: Props = $props();
 
   const initialX = (() => defaultX)();
@@ -92,8 +104,17 @@
 
   // Load persisted state
   onMount(() => {
-    if (!STORAGE_KEY) return;
+    const persistedState = loadPersistedState?.();
+    if (persistedState) {
+      x = persistedState.x ?? initialX;
+      y = persistedState.y ?? initialY;
+      width = resizable ? (persistedState.width ?? initialWidth) : initialWidth;
+      height = resizable ? (persistedState.height ?? initialHeight) : initialHeight;
+      isMinimized = persistedState.isMinimized ?? false;
+      return;
+    }
 
+    if (!STORAGE_KEY) return;
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       try {
@@ -113,16 +134,23 @@
   });
 
   // Persist state
-  function persistState() {
-    if (!STORAGE_KEY) return;
-
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+  function persistState(): void {
+    const state = {
       x,
       y,
       width,
       height,
       isMinimized
-    }));
+    };
+
+    if (savePersistedState) {
+      savePersistedState(state);
+      return;
+    }
+
+    if (!STORAGE_KEY) return;
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }
 
   // Dragging logic

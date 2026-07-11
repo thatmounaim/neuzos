@@ -9,12 +9,12 @@
   import {Separator} from "$lib/components/ui/separator";
   import {setElectronContext, getElectronContext} from "$lib/contexts/electronContext";
   import {setNeuzosBridgeContext} from "$lib/contexts/neuzosBridgeContext";
+  import {readSettingsCollapsedGroups, writeSettingsCollapsedGroups} from "$lib/localStorageStores";
 
   let isLoading = $state(true);
   let sessions: NeuzSession[] = $state([]);
   let groups: NeuzSessionGroup[] = $state([]);
   let collapsedGroupIds: Record<string, boolean> = $state({});
-  const collapsedGroupsStorageKey = 'neuzos.sessionLauncher.collapsedGroups';
   const ungroupedGroupId = 'ungrouped';
 
   setElectronContext(window.electron.ipcRenderer);
@@ -29,21 +29,12 @@
   }
 
   function loadCollapsedGroups() {
-    try {
-      const stored = localStorage.getItem(collapsedGroupsStorageKey);
-      if (!stored) return;
-      const parsed = JSON.parse(stored);
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        collapsedGroupIds = parsed;
-      }
-    } catch {
-      collapsedGroupIds = {};
-    }
+    collapsedGroupIds = readSettingsCollapsedGroups('sessionLauncher');
   }
 
   function saveCollapsedGroups() {
     collapsedGroupIds = sanitizeCollapsedGroups(collapsedGroupIds);
-    localStorage.setItem(collapsedGroupsStorageKey, JSON.stringify(collapsedGroupIds));
+    writeSettingsCollapsedGroups('sessionLauncher', collapsedGroupIds);
   }
 
   function sanitizeCollapsedGroups(collapsedGroups: Record<string, boolean>): Record<string, boolean> {

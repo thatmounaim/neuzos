@@ -3,6 +3,7 @@
   import TodoChecklist from './TodoChecklist.svelte';
   import {getTodoContext} from '$lib/contexts/todoContext.svelte';
   import {ListTodo} from '@lucide/svelte';
+  import {readTodoWindowState, writeTodoWindowState} from '$lib/localStorageStores';
 
   interface Props {
     visible?: boolean;
@@ -24,6 +25,8 @@
 <div style="display: {visible ? 'block' : 'none'};">
   <FloatingWindow
     persistId={WIDGET_IDENTIFIER}
+    loadPersistedState={readTodoWindowState}
+    savePersistedState={writeTodoWindowState}
     defaultX={240}
     defaultY={180}
     defaultWidth={320}

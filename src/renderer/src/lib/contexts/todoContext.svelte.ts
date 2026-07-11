@@ -1,7 +1,7 @@
 import { getContext, setContext } from 'svelte';
+import {readTodoState, writeTodoState} from '$lib/localStorageStores';
 
 const TODO_CONTEXT_KEY = Symbol('todoChecklist');
-const STORAGE_KEY_PREFIX = 'todoChecklist';
 
 export interface Subtask {
   id: string;
@@ -37,10 +37,6 @@ interface PersistedState {
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-}
-
-function storageKeyFor(characterId: string | null): string {
-  return characterId ? `${STORAGE_KEY_PREFIX}:${characterId}` : STORAGE_KEY_PREFIX;
 }
 
 function parseTodos(parsed: any): TodoItem[] {
@@ -115,10 +111,8 @@ function isTodoDone(todo: TodoItem): boolean {
 
 function loadPersistedState(characterId: string | null): PersistedState {
   try {
-    const key = storageKeyFor(characterId);
-    const stored = localStorage.getItem(key);
-    if (stored) {
-      const parsed = JSON.parse(stored);
+    const parsed = readTodoState(characterId);
+    if (parsed) {
       if (Array.isArray(parsed.lists)) {
         const lists = parsed.lists.map((list: any) => ({
           id: list.id ?? generateId(),
@@ -272,8 +266,7 @@ export function createTodoContext(): TodoContext {
 
   function save() {
     try {
-      const key = storageKeyFor(currentCharacterId);
-      localStorage.setItem(key, JSON.stringify(serializeTodos()));
+      writeTodoState(currentCharacterId, serializeTodos() as Record<string, unknown>);
     } catch (e) {
       console.error('[TodoWidget] Failed to persist state:', e);
     }

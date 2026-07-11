@@ -25,6 +25,12 @@
     PanelTopOpen
   } from '@lucide/svelte';
   import * as Tabs from '$lib/components/ui/tabs';
+  import {
+    readNotepadState,
+    readNotepadWindowState,
+    writeNotepadState,
+    writeNotepadWindowState
+  } from '$lib/localStorageStores';
 
   interface NotepadFile {
     id: string;
@@ -103,15 +109,12 @@
   let windowRef: FloatingWindow;
 
   const WIDGET_IDENTIFIER = 'widget.builtin.notepad';
-  const STORAGE_KEY = WIDGET_IDENTIFIER;
   const TODO_START_MARKER = '$startTodo';
   const TODO_END_MARKER = '$endTodo';
 
   function loadPersistedState(): PersistedNotepadState | null {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (!stored) return null;
-      return JSON.parse(stored) as PersistedNotepadState;
+      return readNotepadState<PersistedNotepadState>();
     } catch (e) {
       console.error('Failed to load notepad state:', e);
       return null;
@@ -135,10 +138,7 @@
   // Save files to localStorage
   function saveFiles() {
     try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ files, tabLayoutMode } satisfies PersistedNotepadState)
-      );
+      writeNotepadState({ files, tabLayoutMode } satisfies PersistedNotepadState);
     } catch (e) {
       console.error('Failed to save notepad files:', e);
     }
@@ -1541,6 +1541,8 @@
   <FloatingWindow
     bind:this={windowRef}
     persistId={WIDGET_IDENTIFIER}
+    loadPersistedState={readNotepadWindowState}
+    savePersistedState={writeNotepadWindowState}
     defaultX={300}
     defaultY={200}
     defaultWidth={600}

@@ -4,6 +4,14 @@
   import {getContext} from 'svelte';
   import type {MainWindowState, SessionAction} from '$lib/types';
   import {getCooldownsContext} from '$lib/contexts/cooldownsContext';
+  import {
+    readActionPadBackgroundTransparency,
+    readActionPadRows,
+    readActionPadWindowState,
+    writeActionPadBackgroundTransparency,
+    writeActionPadRows,
+    writeActionPadWindowState
+  } from '$lib/localStorageStores';
 
   type ActionPadRow = {
     id: string;
@@ -83,9 +91,7 @@
 
   // Row structure: { rowId: string, actionIds: string[], name?: string }
   const WIDGET_IDENTIFIER = 'widget.builtin.action_pad';
-  const STORAGE_KEY = WIDGET_IDENTIFIER + `rows-${sessionId}`;
   const PERSIST_ID = WIDGET_IDENTIFIER + 'session-' + sessionId;
-  const TRANSPARENCY_STORAGE_KEY = `${PERSIST_ID}-background-transparency`;
   const DEFAULT_BACKGROUND_TRANSPARENCY = 100;
   const HIDDEN_ROW_ID = '__hidden';
   const HIDDEN_ROW_NAME = 'Hidden Actions';
@@ -103,23 +109,11 @@
   }
 
   function loadBackgroundTransparency(): number {
-    try {
-      const stored = localStorage.getItem(TRANSPARENCY_STORAGE_KEY);
-      if (stored !== null) {
-        return sanitizeTransparency(stored);
-      }
-    } catch (e) {
-      console.error('Failed to load Action Pad transparency:', e);
-    }
-    return DEFAULT_BACKGROUND_TRANSPARENCY;
+    return sessionId ? sanitizeTransparency(readActionPadBackgroundTransparency(sessionId)) : DEFAULT_BACKGROUND_TRANSPARENCY;
   }
 
   function saveBackgroundTransparency(value: number) {
-    try {
-      localStorage.setItem(TRANSPARENCY_STORAGE_KEY, String(sanitizeTransparency(value)));
-    } catch (e) {
-      console.error('Failed to save Action Pad transparency:', e);
-    }
+    if (sessionId) writeActionPadBackgroundTransparency(sessionId, sanitizeTransparency(value));
   }
 
   function updateBackgroundTransparency(value: string) {
@@ -141,20 +135,14 @@
 
   function loadRowsFromStorage(): ActionPadRow[] {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          const normalized = parsed
-            .map(normalizeRow)
-            .filter((row): row is ActionPadRow => row !== null);
+      const normalized = sessionId
+        ? readActionPadRows(sessionId).map(normalizeRow).filter((row): row is ActionPadRow => row !== null)
+        : [];
 
-          if (normalized.length > 0) {
-            return normalized.map(row =>
-              row.id === HIDDEN_ROW_ID ? {...row, name: HIDDEN_ROW_NAME} : row
-            );
-          }
-        }
+      if (normalized.length > 0) {
+        return normalized.map(row =>
+          row.id === HIDDEN_ROW_ID ? {...row, name: HIDDEN_ROW_NAME} : row
+        );
       }
     } catch (e) {
       console.error('Failed to load rows:', e);
@@ -165,7 +153,7 @@
 
   function saveRowsToStorage() {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
+      if (sessionId) writeActionPadRows(sessionId, rows);
     } catch (e) {
       console.error('Failed to save rows:', e);
     }
@@ -489,6 +477,8 @@
 <div style="display: {visible ? 'block' : 'none'};">
   <FloatingWindow
     persistId={PERSIST_ID}
+    loadPersistedState={() => sessionId ? readActionPadWindowState(sessionId) : null}
+    savePersistedState={(state) => { if (sessionId) writeActionPadWindowState(sessionId, state); }}
     title="Action Pad - {sessionLabel}"
     defaultWidth={280}
     defaultHeight={360}

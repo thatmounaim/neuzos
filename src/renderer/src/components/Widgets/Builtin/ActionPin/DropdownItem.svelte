@@ -5,9 +5,9 @@
   import { Check, Pin, Swords, X } from "@lucide/svelte";
   import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
   import type { MainWindowState } from "$lib/types";
+  import {readActionPinsAutoLoadLatest, writeActionPinsAutoLoadLatest} from "$lib/localStorageStores";
 
   const ACTION_PIN_WIDGET_TYPE = "widget.builtin.action_pin";
-  const ACTION_PIN_AUTOLOAD_KEY = "widgets.actionPin.autoLoadLatest";
 
   const widgetsContext = getWidgetsContext();
   const mainWindowState = getContext<MainWindowState>("mainWindowState");
@@ -28,28 +28,11 @@
   }
 
   function readAutoLoadPreference(): boolean {
-    if (typeof window === "undefined") {
-      return false;
-    }
-
-    const raw = window.localStorage.getItem(ACTION_PIN_AUTOLOAD_KEY);
-    if (raw === null) {
-      return false;
-    }
-
-    try {
-      return Boolean(JSON.parse(raw));
-    } catch {
-      return raw === "true";
-    }
+    return readActionPinsAutoLoadLatest();
   }
 
   function writeAutoLoadPreference(enabled: boolean) {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    window.localStorage.setItem(ACTION_PIN_AUTOLOAD_KEY, JSON.stringify(enabled));
+    writeActionPinsAutoLoadLatest(enabled);
   }
 
   // Get all sessions that have actions configured

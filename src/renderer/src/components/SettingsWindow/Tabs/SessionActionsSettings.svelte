@@ -14,6 +14,7 @@
   import KeyBinder from "../../Shared/KeyBinder.svelte";
   import type {NeuzConfig, SessionActions} from "$lib/types";
   import IconPicker from "../../Shared/IconPicker.svelte";
+  import {readSettingsSortMode, writeSettingsSortMode} from "$lib/localStorageStores";
   import {
     Plus,
     Trash2,
@@ -101,7 +102,6 @@
   }
 
   const neuzosConfig = getContext<NeuzConfig>("neuzosConfig");
-  const actionSortModeStorageKey = 'neuzos.sessionActions.sortMode'
 
   // Initialize sessionActions if it doesn't exist
   if (!neuzosConfig.sessionActions) {
@@ -123,7 +123,7 @@
   let sessionActionsScrollContainer: HTMLElement | null = $state(null);
 
   onMount(() => {
-    useDragActionSorting = localStorage.getItem(actionSortModeStorageKey) === 'drag';
+    useDragActionSorting = readSettingsSortMode('sessionActions') === 'dragDrop';
   });
 
   function addSessionToManage(sessionId: string) {
@@ -163,7 +163,7 @@
 
   function toggleActionSortMode() {
     useDragActionSorting = !useDragActionSorting;
-    localStorage.setItem(actionSortModeStorageKey, useDragActionSorting ? 'drag' : 'buttons');
+    writeSettingsSortMode('sessionActions', useDragActionSorting ? 'dragDrop' : 'arrows');
     draggedAction = null;
     actionDropTarget = null;
   }

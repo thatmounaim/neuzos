@@ -1,5 +1,7 @@
 import {getContext, setContext} from 'svelte';
 
+import {removeFloatingSessionStorage} from '$lib/localStorageStores';
+
 const WIDGETS_CONTEXT_KEY = Symbol('widgets');
 
 // Fully qualified widget type names with namespaces
@@ -95,9 +97,7 @@ export function createWidgetsContext(): WidgetsContext {
 
     // ...existing code...
     resetFloatingSessionPosition(sessionId: string) {
-      // Clear the stored position from localStorage
-      const storageKey = `floating-window-widget.builtin.floating_session.session-${sessionId}`;
-      localStorage.removeItem(storageKey);
+      removeFloatingSessionStorage(sessionId);
     },
 
     triggerWidgetReset(widgetId: string) {

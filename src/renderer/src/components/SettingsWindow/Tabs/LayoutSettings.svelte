@@ -29,6 +29,7 @@
   import * as Command from "$lib/components/ui/command";
   import * as Popover from "$lib/components/ui/popover";
   import {Separator} from "$lib/components/ui/separator";
+  import {readSettingsSortMode, writeSettingsSortMode} from "$lib/localStorageStores";
   import * as Table from "$lib/components/ui/table";
   import * as AlertDialog from "$lib/components/ui/alert-dialog";
   import type {NeuzConfig} from "$lib/types";
@@ -171,7 +172,6 @@
   ];
 
   const neuzosConfig = getContext<NeuzConfig>("neuzosConfig");
-  const layoutSortModeStorageKey = 'neuzos.layoutSettings.sortMode'
 
   const addLayout = () => {
     neuzosConfig.layouts.push({
@@ -443,7 +443,7 @@
     useDragLayoutSorting = !useDragLayoutSorting
     draggedLayoutId = null
     layoutDropTarget = null
-    localStorage.setItem(layoutSortModeStorageKey, useDragLayoutSorting ? 'drag' : 'buttons')
+    writeSettingsSortMode('layoutSettings', useDragLayoutSorting ? 'dragDrop' : 'arrows')
   }
 
   const scrollLayoutSettingsNearEdge = (event: DragEvent) => {
@@ -463,7 +463,7 @@
   }
 
   onMount(() => {
-    useDragLayoutSorting = localStorage.getItem(layoutSortModeStorageKey) === 'drag'
+    useDragLayoutSorting = readSettingsSortMode('layoutSettings') === 'dragDrop'
 
     const handleSettingsSaved = () => {
       cleanupEmptyCustomizationRows()

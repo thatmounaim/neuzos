@@ -1,8 +1,8 @@
 import { getContext, setContext } from 'svelte';
 import type { NeuzIcon } from '$lib/types';
+import {readQuestlogState, writeQuestlogState} from '$lib/localStorageStores';
 
 const QUEST_PANEL_CONTEXT_KEY = Symbol('questPanel');
-const STORAGE_KEY = 'questPanel';
 
 export const RECOMMENDATION_CATEGORIES = [
   'Mandatory',
@@ -73,9 +73,8 @@ function normalizeQuestlineName(name: string): string {
 
 function loadPersistedState(): PersistedState {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
+    const parsed = readQuestlogState();
+    if (parsed) {
       const characters: CharacterState[] = Array.isArray(parsed.characters)
         ? parsed.characters.map((c: any) => ({
             id: c.id ?? Date.now().toString(36),
@@ -203,7 +202,7 @@ export function createQuestPanelContext(): QuestPanelContext {
         levelAppropriateOnly,
         fwcFilterEnabled,
       };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(plain));
+      writeQuestlogState(plain);
     } catch (e) {
       console.error('[QuestPanel] Failed to persist state:', e);
     }

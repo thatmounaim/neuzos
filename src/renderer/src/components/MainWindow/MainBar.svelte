@@ -47,30 +47,20 @@
   import ThemeToggle from "./MainBarComponents/ThemeToggle.svelte";
   import {getQuestPanelContext} from "$lib/contexts/questPanelContext.svelte";
   import {getUIActionContext} from "$lib/contexts/uiActionContext.svelte";
+  import {readSettingsCollapsedGroups, writeSettingsCollapsedGroups} from "$lib/localStorageStores";
 
   let shortcutsEnabled = $state(true);
   let collapsedSessionGroupIds: Record<string, boolean> = $state({});
   let hasVisibleActionPins = $state(false);
-  const collapsedSessionGroupsStorageKey = 'neuzos.mainbar.sessionPopup.collapsedGroups';
   const ungroupedGroupId = 'ungrouped';
 
   function loadCollapsedSessionGroups() {
-    try {
-      const stored = localStorage.getItem(collapsedSessionGroupsStorageKey);
-      if (!stored) return;
-      const parsed = JSON.parse(stored);
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        collapsedSessionGroupIds = sanitizeCollapsedSessionGroups(parsed);
-      }
-    } catch {
-      collapsedSessionGroupIds = {};
-    }
-    saveCollapsedSessionGroups();
+    collapsedSessionGroupIds = readSettingsCollapsedGroups('sessionLauncherMainbar', sanitizeCollapsedSessionGroups);
   }
 
   function saveCollapsedSessionGroups() {
     collapsedSessionGroupIds = sanitizeCollapsedSessionGroups(collapsedSessionGroupIds);
-    localStorage.setItem(collapsedSessionGroupsStorageKey, JSON.stringify(collapsedSessionGroupIds));
+    writeSettingsCollapsedGroups('sessionLauncherMainbar', collapsedSessionGroupIds);
   }
 
   function sanitizeCollapsedSessionGroups(collapsedGroups: Record<string, boolean>): Record<string, boolean> {

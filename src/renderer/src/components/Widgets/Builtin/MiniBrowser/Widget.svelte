@@ -7,11 +7,17 @@
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
   import * as Popover from '$lib/components/ui/popover';
   import {neuzosBridge} from '$lib/core';
+  import {
+    readMiniBrowserFavorites,
+    readMiniBrowserWindowState,
+    readMiniBrowserZoom,
+    writeMiniBrowserFavorites,
+    writeMiniBrowserWindowState,
+    writeMiniBrowserZoom,
+    type MiniBrowserFavorite
+  } from '$lib/localStorageStores';
 
-  interface Favorite {
-    url: string;
-    title: string;
-  }
+  type Favorite = MiniBrowserFavorite;
 
   interface Props {
     visible?: boolean;
@@ -24,8 +30,6 @@
   let windowRef: FloatingWindow;
   let webviewRef: HTMLElement;
 
-  const FAVORITES_STORAGE_KEY = 'widget.builtin.mini_browser.favorites';
-
   const instanceNumber = (() => data?.instanceNumber || 1)();
   const initialUrl = (() => data?.url || 'https://www.google.com')();
   let inputUrl = $state(initialUrl);
@@ -33,45 +37,20 @@
   let canGoBack = $state(false);
   let canGoForward = $state(false);
   let pageTitle = $state('New Tab');
-  let favorites = $state<Favorite[]>(loadFavorites());
+  let favorites = $state<Favorite[]>(readMiniBrowserFavorites());
   let isEditingFavorites = $state(false);
   let isBrowserExpanded = $state(false);
   let isClearingCache = $state(false);
   let cacheFeedback = $state('');
   let cacheFeedbackType = $state<'success' | 'error' | null>(null);
-  let browserZoom = $state(100);
+  let browserZoom = $state(readMiniBrowserZoom());
 
   const zoomSteps = [50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200, 300, 400, 500];
 
   const isFavorited = $derived(favorites.some(f => f.url === inputUrl));
 
-  // Load favorites from localStorage
-  function loadFavorites(): Favorite[] {
-    try {
-      const stored = localStorage.getItem(FAVORITES_STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (!Array.isArray(parsed)) return [];
-        return parsed
-          .filter(favorite => favorite && typeof favorite.url === 'string')
-          .map(favorite => ({
-            url: favorite.url,
-            title: typeof favorite.title === 'string' ? favorite.title : favorite.url
-          }));
-      }
-    } catch (e) {
-      console.error('Failed to load favorites:', e);
-    }
-    return [];
-  }
-
-  // Save favorites to localStorage
   function saveFavorites() {
-    try {
-      localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favorites));
-    } catch (e) {
-      console.error('Failed to save favorites:', e);
-    }
+    writeMiniBrowserFavorites(favorites);
   }
 
   function toggleFavorite() {
@@ -153,6 +132,7 @@
 
   function setBrowserZoom(value: number) {
     browserZoom = value;
+    writeMiniBrowserZoom(browserZoom);
     applyBrowserZoom();
   }
 
@@ -232,6 +212,9 @@
     defaultY={100}
     defaultWidth={900}
     defaultHeight={600}
+    persistId="widget.builtin.mini_browser"
+    loadPersistedState={readMiniBrowserWindowState}
+    savePersistedState={writeMiniBrowserWindowState}
     minWidth={400}
     minHeight={300}
     onClose={onClose}

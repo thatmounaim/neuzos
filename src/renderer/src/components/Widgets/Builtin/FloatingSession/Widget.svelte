@@ -5,6 +5,7 @@
   import { getContext } from 'svelte';
   import { getWidgetsContext } from '$lib/contexts/widgetsContext.svelte';
   import type { MainWindowState } from '$lib/types';
+  import {readFloatingSessionWindowState, writeFloatingSessionWindowState} from '$lib/localStorageStores';
 
   interface Props {
     widgetId?: string;
@@ -47,6 +48,8 @@
   <FloatingWindow
     bind:this={windowRef}
     persistId={sessionId ? `widget.builtin.floating_session.session-${sessionId}` : undefined}
+    loadPersistedState={() => sessionId ? readFloatingSessionWindowState(sessionId) : null}
+    savePersistedState={(state) => { if (sessionId) writeFloatingSessionWindowState(sessionId, state); }}
     defaultX={150}
     defaultY={100}
     defaultWidth={500}

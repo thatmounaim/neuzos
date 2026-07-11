@@ -31,6 +31,7 @@
   import {Button} from "$lib/components/ui/button";
   import {Switch} from "$lib/components/ui/switch";
   import {neuzosBridge} from "$lib/core";
+  import {readSettingsCollapsedGroups, readSettingsSortMode, writeSettingsCollapsedGroups, writeSettingsSortMode} from "$lib/localStorageStores";
   import {toast} from 'svelte-sonner'
 
   type SessionIconOption = {
@@ -102,8 +103,6 @@
 
   const neuzosConfig = getContext<NeuzConfig>('neuzosConfig')
   const defaultLaunchUrl = 'https://universe.flyff.com/play'
-  const collapsedGroupsStorageKey = 'neuzos.sessionSettings.collapsedGroups'
-  const sessionSortModeStorageKey = 'neuzos.sessionSettings.sortMode'
   const ungroupedGroupId = 'ungrouped'
 
   const clearCache = (sessionId: string) => {
@@ -483,22 +482,12 @@
   let groupLabelBackup = $state('')
 
   const loadCollapsedGroups = () => {
-    try {
-      const stored = localStorage.getItem(collapsedGroupsStorageKey)
-      if (!stored) return
-      const parsed = JSON.parse(stored)
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        collapsedGroupIds = sanitizeCollapsedGroups(parsed)
-      }
-    } catch {
-      collapsedGroupIds = {}
-    }
-    saveCollapsedGroups()
+    collapsedGroupIds = readSettingsCollapsedGroups('sessionSettings', sanitizeCollapsedGroups)
   }
 
   const saveCollapsedGroups = () => {
     collapsedGroupIds = sanitizeCollapsedGroups(collapsedGroupIds)
-    localStorage.setItem(collapsedGroupsStorageKey, JSON.stringify(collapsedGroupIds))
+    writeSettingsCollapsedGroups('sessionSettings', collapsedGroupIds)
   }
 
   const sanitizeCollapsedGroups = (collapsedGroups: Record<string, boolean>) => {
@@ -518,14 +507,14 @@
   })
 
   const loadSessionSortMode = () => {
-    useDragSessionSorting = localStorage.getItem(sessionSortModeStorageKey) === 'drag'
+    useDragSessionSorting = readSettingsSortMode('sessionSettings') === 'dragDrop'
   }
 
   const toggleSessionSortMode = () => {
     useDragSessionSorting = !useDragSessionSorting
     draggedSession = null
     sessionDropTarget = null
-    localStorage.setItem(sessionSortModeStorageKey, useDragSessionSorting ? 'drag' : 'buttons')
+    writeSettingsSortMode('sessionSettings', useDragSessionSorting ? 'dragDrop' : 'arrows')
   }
 
   const scrollSessionSettingsNearEdge = (event: DragEvent) => {
