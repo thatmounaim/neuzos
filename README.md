@@ -1,6 +1,6 @@
-# <img src="https://github.com/thatmounaim/neuzos/raw/main/resources/icon.png" width="50"/> NeuzOS
+# <img src="https://github.com/flyffu-community/neuzos/raw/main/resources/icon.png" width="50"/> NeuzOS
 
-[![Latest Releases](https://img.shields.io/static/v1?label=&message=Latest+Releases&color=2ea44f&style=for-the-badge&logo=electron&logoColor=fff)](https://github.com/thatmounaim/neuzos/releases) [![Community & Help - Join Discord](https://img.shields.io/static/v1?label=&message=Join+Discord+Community&color=2ea44f&style=for-the-badge&logo=discord&logoColor=fff)](https://discord.gg/k3EY7Z6MMP)
+[![Latest Releases](https://img.shields.io/static/v1?label=&message=Latest+Releases&color=2ea44f&style=for-the-badge&logo=electron&logoColor=fff)](https://github.com/flyffu-community/neuzos/releases) [![Community & Help - Join Discord](https://img.shields.io/static/v1?label=&message=Join+Discord+Community&color=2ea44f&style=for-the-badge&logo=discord&logoColor=fff)](https://discord.gg/k3EY7Z6MMP)
 
 An Electron WebView-based Multi-Client for Flyff Universe, built with Svelte and TypeScript.
 
@@ -170,3 +170,14 @@ Some TypeScript Warnings may appear during Development. These are currently non-
 # Run Dev Mode
 bun dev
 ```
+
+## Credits
+NeuzOS was Originally created by [Abdelmounaim Bouakouk](https://github.com/thatmounaim)
+
+
+This Project is built by the Flyff Community, for the Flyff Community. 
+
+Special Thanks to everyone who Contributes their Time and Effort to the Project. 
+
+### Contributors
+[Cezay](https://github.com/cezaay) • [Celteron](https://github.com/Celteron) • [Pepsi](https://github.com/egenvall)
