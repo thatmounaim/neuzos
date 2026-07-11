@@ -682,6 +682,18 @@
                                       <Command.Empty>No Key found.</Command.Empty>
                                       <Command.List class="max-h-[320px]">
                                         <Command.Group>
+                                          <Command.Item
+                                            value="none"
+                                            onSelect={() => {
+                                                action.ingameKey = buildKeybind(parsed.modifier, "");
+                                                state.keyOpen = false;
+                                              }}
+                                            class="font-medium py-2.5"
+                                          >
+                                            <Check
+                                              class={!keyOnly ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
+                                            <span class={!keyOnly ? "text-primary" : ""}>None</span>
+                                          </Command.Item>
                                           {#each allowedKeys as key}
                                             <Command.Item
                                               value={key}

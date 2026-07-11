@@ -130,6 +130,20 @@
     return null;
   }
 
+  function formatKeyLabel(key: string): string {
+    if (key === '\u00df' || key === '\u00c3\u0178') return '\u00df';
+    return key
+      .split("+")
+      .map(part => {
+        const normalized = part.toLowerCase();
+        if (normalized === "cmdorctrl" || normalized === "commandorcontrol") return "CMD / CTRL";
+        if (normalized === "control") return "CTRL";
+        if (normalized === "\u00df" || normalized === "\u00c3\u0178") return "\u00df";
+        return part.toUpperCase();
+      })
+      .join(" + ");
+  }
+
   function buildKeyCombination(event: KeyboardEvent): string | null {
     const key = normalizeKeyboardKey(event);
     if (!key) return null;
@@ -194,6 +208,14 @@
     isRecording = true;
   }
 
+  function blurActiveElementSoon() {
+    setTimeout(() => {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    }, 0);
+  }
+
   function stopGamepadLoop() {
     if (gamepadRafId !== null) {
       cancelAnimationFrame(gamepadRafId);
@@ -229,6 +251,7 @@
       capturedKey = normalized;
       validationMessage = "";
       isRecording = false;
+      blurActiveElementSoon();
     };
 
     const handleMouseDown = (event: MouseEvent) => {
@@ -247,6 +270,7 @@
       capturedKey = normalized;
       validationMessage = "";
       isRecording = false;
+      blurActiveElementSoon();
     };
 
     const pollGamepads = () => {
@@ -270,6 +294,7 @@
           capturedKey = key;
           validationMessage = "";
           isRecording = false;
+          blurActiveElementSoon();
           pressedGamepadButtons.add(key);
           break;
         }
@@ -322,10 +347,10 @@
         <p class="text-xs text-muted-foreground">Action</p>
         <p class="text-sm font-medium">{actionId}</p>
         <p class="mt-2 text-xs text-muted-foreground">Current Binding</p>
-        <p class="text-sm font-mono">{currentKey || 'none'}</p>
+        <p class="text-sm font-mono">{currentKey ? formatKeyLabel(currentKey) : 'none'}</p>
         {#if capturedKey}
           <p class="mt-2 text-xs text-muted-foreground">Captured</p>
-          <p class="text-sm font-mono font-semibold">{capturedKey}</p>
+          <p class="text-sm font-mono font-semibold">{formatKeyLabel(capturedKey)}</p>
         {/if}
       </div>
       {#if validationMessage}
@@ -333,10 +358,12 @@
       {/if}
     </div>
 
-    <div class="flex flex-wrap gap-2">
-      <Button variant="outline" size="sm" type="button" onclick={retryRecording} disabled={!open}>Listen Again</Button>
-      <Button variant="secondary" size="sm" type="button" onclick={confirmBinding} disabled={!capturedKey}>Confirm</Button>
-      <Button variant="ghost" size="sm" type="button" onclick={cancelRecording}>Cancel</Button>
+    <div class="flex flex-wrap justify-end gap-2">
+      {#if !isRecording}
+        <Button variant="outline" size="sm" type="button" onclick={retryRecording} disabled={!open}>Listen Again</Button>
+      {/if}
+      <Button variant="outline" size="sm" type="button" onclick={confirmBinding} disabled={!capturedKey}>Confirm</Button>
+      <Button variant="outline" size="sm" type="button" onclick={cancelRecording}>Cancel</Button>
     </div>
   </Popover.Content>
 </Popover.Root>
