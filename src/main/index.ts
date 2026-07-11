@@ -1448,8 +1448,18 @@ function isSettingsWindowInputWebContents(wc: Electron.WebContents): boolean {
   return settingsWindow?.webContents.id === wc.id;
 }
 
+function isSettingsWindowFocused(): boolean {
+  return Boolean(settingsWindow && !settingsWindow.isDestroyed() && settingsWindow.isFocused());
+}
+
 function registerKeybinds() {
   globalShortcut.unregisterAll()
+
+  // Config changes can request a re-registration while the separate settings
+  // window has focus. Keep every key available for typing/searching there.
+  if (isSettingsWindowFocused()) {
+    return;
+  }
 
   // Only register shortcuts if they are enabled for main window
   if (!mainWindowShortcutsEnabled) {
