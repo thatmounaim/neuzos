@@ -85,6 +85,7 @@
     mainWindowState.config.sessionActions?.find(sa => sa.sessionId === sessionId)
   );
   const actions = $derived(sessionActionsData?.actions || []);
+  const validActionIds = $derived(new Set(actions.map(action => action.id)));
 
   // Edit mode state
   let isEditMode = $state(false);
@@ -93,7 +94,7 @@
   const WIDGET_IDENTIFIER = 'widget.builtin.action_pad';
   const PERSIST_ID = WIDGET_IDENTIFIER + 'session-' + sessionId;
   const DEFAULT_BACKGROUND_TRANSPARENCY = 100;
-  const HIDDEN_ROW_ID = '__hidden';
+  const HIDDEN_ROW_ID = 'hidden';
   const HIDDEN_ROW_NAME = 'Hidden Actions';
 
   let rows = $state<ActionPadRow[]>(loadRowsFromStorage());
@@ -101,6 +102,18 @@
   let draggedActionId = $state<string | null>(null);
   let draggedSourceRowId = $state<string | null>(null);
   let activeDropTarget = $state<{ rowId: string; index: number } | null>(null);
+
+  $effect(() => {
+    const cleanedRows = rows.map(row => ({
+      ...row,
+      actionIds: row.actionIds.filter(actionId => validActionIds.has(actionId))
+    }));
+
+    if (JSON.stringify(cleanedRows) !== JSON.stringify(rows)) {
+      rows = cleanedRows;
+      saveRowsToStorage();
+    }
+  });
 
   function sanitizeTransparency(value: unknown): number {
     const parsed = Number(value);
@@ -151,9 +164,33 @@
     return [{id: 'default', actionIds: []}];
   }
 
+  function getRowsForStorage(): ActionPadRow[] {
+    const configActionIds = actions.map(action => action.id);
+
+    return rows.map(row => {
+      if (row.id === 'default') {
+        const validOrderedIds = row.actionIds.filter(actionId => validActionIds.has(actionId));
+        const matchesConfigOrder = validOrderedIds.length === configActionIds.length &&
+          validOrderedIds.every((actionId, index) => actionId === configActionIds[index]);
+
+        return {
+          id: row.id,
+          actionIds: matchesConfigOrder ? [] : validOrderedIds,
+          name: row.name
+        };
+      }
+
+      return row.id === HIDDEN_ROW_ID
+        ? {id: row.id, actionIds: row.actionIds}
+        : row;
+    });
+  }
+
   function saveRowsToStorage() {
     try {
-      if (sessionId) writeActionPadRows(sessionId, rows);
+      if (sessionId) {
+        writeActionPadRows(sessionId, getRowsForStorage());
+      }
     } catch (e) {
       console.error('Failed to save rows:', e);
     }
@@ -236,11 +273,47 @@
     return rowId === HIDDEN_ROW_ID;
   }
 
+  function insertActionIntoDefaultOrder(defaultActionIds: string[], actionId: string): string[] {
+    if (defaultActionIds.includes(actionId)) return defaultActionIds;
+
+    const actionConfigIndex = actions.findIndex(action => action.id === actionId);
+    if (actionConfigIndex < 0) return [...defaultActionIds, actionId];
+
+    const insertIndex = defaultActionIds.findIndex(existingActionId => {
+      const existingConfigIndex = actions.findIndex(action => action.id === existingActionId);
+      return existingConfigIndex > actionConfigIndex;
+    });
+
+    if (insertIndex < 0) return [...defaultActionIds, actionId];
+
+    return [
+      ...defaultActionIds.slice(0, insertIndex),
+      actionId,
+      ...defaultActionIds.slice(insertIndex)
+    ];
+  }
+
   function moveActionToSpecialRow(actionId: string, targetRow: ActionPadRow) {
     const nextRows = rows.map(row => ({
       ...row,
       actionIds: row.actionIds.filter(id => id !== actionId)
     }));
+
+    if (targetRow.id === 'default') {
+      const displayedDefaultActionIds = organizedActions.find(row => row.id === 'default')?.actions.map(action => action.id) ?? [];
+      const defaultRow = nextRows.find(row => row.id === 'default');
+      const restoredDefaultActionIds = insertActionIntoDefaultOrder(displayedDefaultActionIds, actionId);
+
+      if (defaultRow) {
+        defaultRow.actionIds = restoredDefaultActionIds;
+      } else {
+        nextRows.unshift({id: 'default', actionIds: restoredDefaultActionIds});
+      }
+
+      rows = nextRows;
+      saveRowsToStorage();
+      return;
+    }
 
     const existingTargetRow = nextRows.find(row => row.id === targetRow.id);
     if (existingTargetRow) {
@@ -256,8 +329,7 @@
   function hideAction(actionId: string) {
     moveActionToSpecialRow(actionId, {
       id: HIDDEN_ROW_ID,
-      actionIds: [],
-      name: HIDDEN_ROW_NAME
+      actionIds: []
     });
   }
 
@@ -269,10 +341,17 @@
   function moveDraggedAction(targetRowId: string, targetIndex: number) {
     if (!draggedActionId) return;
 
-    const nextRows = rows.map(row => ({
-      ...row,
-      actionIds: row.actionIds.filter(actionId => actionId !== draggedActionId)
-    }));
+    const displayedRows = new Map(organizedActions.map(row => [row.id, row.actions.map(action => action.id)]));
+    const nextRows = rows.map(row => {
+      const actionIds = row.id === 'default'
+        ? (displayedRows.get(row.id) ?? row.actionIds)
+        : row.actionIds;
+
+      return {
+        ...row,
+        actionIds: actionIds.filter(actionId => actionId !== draggedActionId)
+      };
+    });
 
     const targetRow = nextRows.find(row => row.id === targetRowId);
     if (!targetRow) return;
@@ -493,9 +572,9 @@
       {#if actions.length === 0}
         <div class="flex flex-col items-center justify-center h-full text-center gap-2">
           <Swords class="h-12 w-12 text-muted-foreground opacity-50"/>
-          <p class="text-sm text-muted-foreground">No actions configured</p>
+          <p class="text-sm text-muted-foreground">No Actions configured</p>
           <p class="text-xs text-muted-foreground">
-            Configure actions in Settings → Session Actions
+            Configure Actions in Settings -> Session Actions
           </p>
         </div>
       {:else}
@@ -522,7 +601,7 @@
             </div>
           </div>
           <p class="mb-3 text-[11px] text-muted-foreground">
-            Drag and Drop Actions to reorder them. Right-Click to Hide Actions.
+            Drag & Drop Actions to Reorder them. Right-Click to Hide Actions.
           </p>
 
         {/if}

@@ -40,6 +40,11 @@ type ActionPadStorage = {
   rows?: ActionPadRow[];
 };
 
+export type ActionPadSessionActionsSnapshot = {
+  sessionId: string;
+  actions?: Array<{id?: string}>;
+};
+
 type FcoinCalculatorStorage = {
   window?: Partial<WidgetWindowState>;
   settings?: {
@@ -116,8 +121,12 @@ const LEGACY_QUESTLOG_KEY = 'questPanel';
 
 export const getActionPadStorageKey = (sessionId: string) => `widget.actionPad_${sessionId}`;
 export const getFloatingSessionStorageKey = (sessionId: string) => `widget.floatingSession_${sessionId}`;
+const ACTION_PAD_STORAGE_PREFIX = 'widget.actionPad_';
 const getLegacyActionPadRowsKey = (sessionId: string) => `widget.builtin.action_padrows-${sessionId}`;
+const LEGACY_ACTION_PAD_ROWS_PREFIX = 'widget.builtin.action_padrows-';
 const getLegacyActionPadPersistId = (sessionId: string) => `widget.builtin.action_padsession-${sessionId}`;
+const LEGACY_ACTION_PAD_PERSIST_PREFIX = 'widget.builtin.action_padsession-';
+const LEGACY_ACTION_PAD_WINDOW_PREFIX = `floating-window-${LEGACY_ACTION_PAD_PERSIST_PREFIX}`;
 const getLegacyFloatingSessionPersistId = (sessionId: string) => `widget.builtin.floating_session.session-${sessionId}`;
 const getLegacyFloatingWindowKey = (persistId: string) => `floating-window-${persistId}`;
 const getLegacyActionPadTransparencyKey = (sessionId: string) => `${getLegacyActionPadPersistId(sessionId)}-background-transparency`;
@@ -193,6 +202,13 @@ const normalizeMiniBrowserWindowState = (value: unknown): Partial<MiniBrowserWin
 };
 
 const normalizeWidgetWindowState = normalizeMiniBrowserWindowState;
+const ACTION_PAD_DEFAULT_WINDOW_STATE: WidgetWindowState = {
+  x: 100,
+  y: 100,
+  width: 280,
+  height: 360,
+  isMinimized: false
+};
 
 const normalizeStringArray = (value: unknown): string[] => {
   if (!Array.isArray(value)) return [];
@@ -204,12 +220,38 @@ const normalizeActionPadRows = (value: unknown): ActionPadRow[] => {
 
   return value.flatMap((row: any) => {
     if (!row || typeof row !== 'object' || !row.id || !Array.isArray(row.actionIds)) return [];
-    return [{
-      id: String(row.id),
-      actionIds: row.actionIds.filter((id: unknown): id is string => typeof id === 'string'),
-      name: typeof row.name === 'string' ? row.name : undefined
-    }];
+
+    const rowId = String(row.id) === '__hidden' ? 'hidden' : String(row.id);
+    const normalizedRow = {id: rowId} as ActionPadRow;
+
+    if (rowId !== 'hidden' && typeof row.name === 'string') {
+      normalizedRow.name = row.name;
+    }
+
+    normalizedRow.actionIds = row.actionIds.filter((id: unknown): id is string => typeof id === 'string');
+
+    return [normalizedRow];
   });
+};
+
+const normalizeActionPadWindowStateForStorage = (value: unknown): Partial<WidgetWindowState> | undefined => {
+  const windowState = normalizeWidgetWindowState(value);
+  if (!windowState) return undefined;
+
+  const hasCustomValue = (Object.keys(windowState) as Array<keyof WidgetWindowState>).some((key) => {
+    return windowState[key] !== ACTION_PAD_DEFAULT_WINDOW_STATE[key];
+  });
+
+  return hasCustomValue ? windowState : undefined;
+};
+
+const filterActionPadRowsByValidActions = (rows: ActionPadRow[], validActionIds: Set<string>): ActionPadRow[] => {
+  return rows
+    .map((row) => ({
+      ...row,
+      actionIds: row.actionIds.filter((actionId) => validActionIds.has(actionId))
+    }))
+    .filter((row) => row.actionIds.length > 0 || row.name);
 };
 
 const readJsonValue = (key: string): unknown => {
@@ -313,17 +355,27 @@ const writeActionPadStorage = (sessionId: string, storage: ActionPadStorage) => 
   if (!canUseLocalStorage()) return;
 
   const next: ActionPadStorage = {};
-  if (storage.window && Object.keys(storage.window).length > 0) next.window = storage.window;
+  const windowState = normalizeActionPadWindowStateForStorage(storage.window);
+  if (windowState && Object.keys(windowState).length > 0) next.window = windowState;
 
   const backgroundTransparency = Number(storage.settings?.backgroundTransparency);
   if (Number.isFinite(backgroundTransparency) && backgroundTransparency !== 100) {
     next.settings = {backgroundTransparency};
   }
 
-  const rows = normalizeActionPadRows(storage.rows);
+  const rows = normalizeActionPadRows(storage.rows).filter((row) => row.actionIds.length > 0 || row.name);
   if (rows.length > 0) next.rows = rows;
 
   writeObject(getActionPadStorageKey(sessionId), next as Record<string, unknown>);
+  window.localStorage.removeItem(getLegacyActionPadRowsKey(sessionId));
+  window.localStorage.removeItem(getLegacyActionPadTransparencyKey(sessionId));
+  window.localStorage.removeItem(getLegacyFloatingWindowKey(getLegacyActionPadPersistId(sessionId)));
+};
+
+const removeActionPadStorage = (sessionId: string) => {
+  if (!canUseLocalStorage() || !sessionId) return;
+
+  window.localStorage.removeItem(getActionPadStorageKey(sessionId));
   window.localStorage.removeItem(getLegacyActionPadRowsKey(sessionId));
   window.localStorage.removeItem(getLegacyActionPadTransparencyKey(sessionId));
   window.localStorage.removeItem(getLegacyFloatingWindowKey(getLegacyActionPadPersistId(sessionId)));
@@ -607,24 +659,91 @@ export const paneforgePaneGroupStorage = {
 export const migrateActionPadStorage = (sessionId: string) => {
   if (!canUseLocalStorage() || !sessionId) return;
 
+  const hasConsolidatedStorage = window.localStorage.getItem(getActionPadStorageKey(sessionId)) !== null;
+  const hasLegacyRows = window.localStorage.getItem(getLegacyActionPadRowsKey(sessionId)) !== null;
+  if (!hasConsolidatedStorage && !hasLegacyRows) {
+    window.localStorage.removeItem(getLegacyActionPadTransparencyKey(sessionId));
+    window.localStorage.removeItem(getLegacyFloatingWindowKey(getLegacyActionPadPersistId(sessionId)));
+    return;
+  }
+
   const storage = readActionPadStorage(sessionId);
 
   if (!storage.rows) {
     storage.rows = normalizeActionPadRows(readJsonValue(getLegacyActionPadRowsKey(sessionId)));
   }
 
-  if (!storage.settings?.backgroundTransparency) {
+  if (!hasConsolidatedStorage && !storage.settings?.backgroundTransparency) {
     const transparency = Number(window.localStorage.getItem(getLegacyActionPadTransparencyKey(sessionId)));
     if (Number.isFinite(transparency)) {
       storage.settings = {...storage.settings, backgroundTransparency: Math.max(0, Math.min(100, Math.round(transparency)))};
     }
   }
 
-  if (!storage.window) {
+  if (!hasConsolidatedStorage && !storage.window) {
     storage.window = readLegacyWindowState(getLegacyActionPadPersistId(sessionId));
   }
 
   writeActionPadStorage(sessionId, storage);
+};
+
+export const cleanupActionPadStorage = (sessionActions: ActionPadSessionActionsSnapshot[]) => {
+  if (!canUseLocalStorage()) return;
+
+  const actionIdsBySession = new Map(
+    sessionActions
+      .filter((sessionActionGroup) => sessionActionGroup.sessionId)
+      .map((sessionActionGroup) => [
+        sessionActionGroup.sessionId,
+        new Set(
+          (sessionActionGroup.actions ?? [])
+            .map((action) => action?.id)
+            .filter((actionId): actionId is string => typeof actionId === 'string')
+        )
+      ])
+  );
+  const sessionIds = new Set(actionIdsBySession.keys());
+
+  for (let index = 0; index < window.localStorage.length; index += 1) {
+    const key = window.localStorage.key(index);
+    if (key?.startsWith(ACTION_PAD_STORAGE_PREFIX)) {
+      sessionIds.add(key.slice(ACTION_PAD_STORAGE_PREFIX.length));
+    } else if (key?.startsWith(LEGACY_ACTION_PAD_ROWS_PREFIX)) {
+      sessionIds.add(key.slice(LEGACY_ACTION_PAD_ROWS_PREFIX.length));
+    } else if (key?.startsWith(LEGACY_ACTION_PAD_PERSIST_PREFIX) && key.endsWith('-background-transparency')) {
+      sessionIds.add(key.slice(LEGACY_ACTION_PAD_PERSIST_PREFIX.length, -'-background-transparency'.length));
+    } else if (key?.startsWith(LEGACY_ACTION_PAD_WINDOW_PREFIX)) {
+      sessionIds.add(key.slice(LEGACY_ACTION_PAD_WINDOW_PREFIX.length));
+    }
+  }
+
+  for (const sessionId of sessionIds) {
+    if (!sessionId) continue;
+
+    if (!actionIdsBySession.has(sessionId)) {
+      removeActionPadStorage(sessionId);
+      continue;
+    }
+
+    const hasConsolidatedStorage = window.localStorage.getItem(getActionPadStorageKey(sessionId)) !== null;
+    const hasLegacyRows = window.localStorage.getItem(getLegacyActionPadRowsKey(sessionId)) !== null;
+    if (!hasConsolidatedStorage && !hasLegacyRows) {
+      removeActionPadStorage(sessionId);
+      continue;
+    }
+
+    migrateActionPadStorage(sessionId);
+
+    const storage = readActionPadStorage(sessionId);
+    const rows = normalizeActionPadRows(storage.rows);
+    const validActionIds = actionIdsBySession.get(sessionId) ?? new Set<string>();
+    const cleanedRows = filterActionPadRowsByValidActions(rows, validActionIds);
+
+    if (JSON.stringify(cleanedRows) !== JSON.stringify(rows)) {
+      storage.rows = cleanedRows;
+      writeActionPadStorage(sessionId, storage);
+    }
+  }
 };
 
 export const readActionPadRows = (sessionId: string): ActionPadRow[] => {
@@ -865,6 +984,26 @@ export const writeActionPinsLatestPins = (sessionIds: string[]) => {
   const storage = readActionPinsStorage();
   storage.latestPins = normalizeStringArray(sessionIds);
   writeActionPinsStorage(storage);
+};
+
+export const cleanupActionPinsStorage = (sessionActions: ActionPadSessionActionsSnapshot[]) => {
+  if (!canUseLocalStorage()) return;
+
+  migrateActionPinsStorage();
+
+  const validSessionIds = new Set(
+    sessionActions
+      .map((sessionActionGroup) => sessionActionGroup.sessionId)
+      .filter((sessionId): sessionId is string => typeof sessionId === 'string' && sessionId.length > 0)
+  );
+  const storage = readActionPinsStorage();
+  const latestPins = normalizeStringArray(storage.latestPins);
+  const cleanedLatestPins = latestPins.filter((sessionId) => validSessionIds.has(sessionId));
+
+  if (cleanedLatestPins.length !== latestPins.length) {
+    storage.latestPins = cleanedLatestPins;
+    writeActionPinsStorage(storage);
+  }
 };
 
 export const migrateFloatingSessionStorage = (sessionId: string) => {

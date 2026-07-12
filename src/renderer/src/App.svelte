@@ -18,6 +18,7 @@
   import {flyffRegistry} from '$lib/core';
   import {Button} from "$lib/components/ui/button";
   import {Minimize} from '@lucide/svelte';
+  import {cleanupActionPadStorage, cleanupActionPinsStorage} from '$lib/localStorageStores';
 
   addEventListener('error', (event) => {
     console.error('[window.error]', event.error?.stack ?? event.message);
@@ -59,6 +60,11 @@
   setUIActionContext(uiActionContext);
 
   initElectronApi(window.electron.ipcRenderer)
+
+  function cleanupSessionActionLocalStorage(sessionActions: Array<{sessionId: string; actions?: Array<{id?: string}>}> = []) {
+    cleanupActionPadStorage(sessionActions);
+    cleanupActionPinsStorage(sessionActions);
+  }
 
   async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string, fallback: T): Promise<T> {
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
@@ -403,6 +409,7 @@
     mainWindowState.config.activeKeyBindProfileId = newConfig.activeKeyBindProfileId ?? null
     mainWindowState.config.syncReceiverSessionId = newConfig.syncReceiverSessionId ?? null
     mainWindowState.config.sessionActions = newConfig.sessionActions || []
+    cleanupSessionActionLocalStorage(mainWindowState.config.sessionActions)
     mainWindowState.config.sessionZoomLevels = newConfig.sessionZoomLevels ?? {}
     mainWindowState.config.defaultLaunchMode = newConfig.defaultLaunchMode
     mainWindowState.config.userAgent = newConfig.userAgent || undefined
@@ -537,6 +544,7 @@
         mainWindowState.config,
       )
       mainWindowState.config = loadedConfig
+      cleanupSessionActionLocalStorage(loadedConfig.sessionActions ?? [])
 
       // Populate runtime sessions/layouts synchronously so MainBar renders safely.
       // reloadNeuzos() uses setTimeout(50ms) which creates a race with isLoading=false.

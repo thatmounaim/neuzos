@@ -580,7 +580,7 @@
               {/each}
 
               {#if getLaunchableSessions().length === 0}
-                <p class="text-center text-sm text-muted-foreground">No sessions available</p>
+                <p class="text-center text-sm text-muted-foreground">No Sessions available</p>
               {/if}
             </div>
           </Tabs.Content>
