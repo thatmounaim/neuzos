@@ -2212,7 +2212,7 @@
                   class="min-w-0 border-l border-border p-3 text-left"
                   onclick={() => selectLocalStorageEntry(item.key)}
                 >
-                  <div class="flex min-w-0 max-h-10 flex-wrap items-center gap-1 overflow-hidden text-xs text-muted-foreground">
+                  <div class="flex min-w-0 max-h-12 flex-wrap items-center gap-1 overflow-hidden text-xs text-muted-foreground">
                     {#each getLocalStorageKeyParts(item.value || '-', item.key) as part}
                       {#if part.reference}
                         <Tooltip.Provider>
@@ -2494,7 +2494,7 @@
                   class="min-w-0 border-l border-border p-3 text-left"
                   onclick={(event) => { event.preventDefault(); selectedImportLocalStorageKey = selectedImportLocalStorageKey === item.key ? null : item.key; }}
                 >
-                  <div class="flex min-w-0 max-h-10 flex-wrap items-center gap-1 overflow-hidden text-xs text-muted-foreground">
+                  <div class="flex min-w-0 max-h-12 flex-wrap items-center gap-1 overflow-hidden text-xs text-muted-foreground">
                     {#each getLocalStorageKeyParts(item.value || '-', item.key) as part}
                       {#if part.reference}
                         <Tooltip.Provider>
