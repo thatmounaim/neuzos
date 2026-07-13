@@ -210,7 +210,6 @@ export type NeuzConfig = {
       zoom: number;
       maximized: boolean;
     },
-    viewers?: Record<ViewerWindowType, ViewerWindowConfig>;
     sidebarSide?: 'left' | 'right';
   },
   autoSaveSettings: boolean;

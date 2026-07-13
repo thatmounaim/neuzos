@@ -4,7 +4,7 @@
   import { getNeuzosBridgeContext } from '$lib/contexts/neuzosBridgeContext';
   import { Button } from '$lib/components/ui/button';
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-  import { BookMarked, BookOpen, ScrollText, X } from '@lucide/svelte';
+  import { BookMarked, GraduationCap, PawPrint, ScrollText, X } from '@lucide/svelte';
   import type { ViewerWindowType } from '$lib/types';
   import FCoinCalculatorDropdownItem from '../Builtin/FCoinCalculator/DropdownItem.svelte';
   import NotepadDropdownItem from '../Builtin/Notepad/DropdownItem.svelte';
@@ -97,67 +97,77 @@
     </DropdownMenu.Item>
   {/if}
   <TodoDropdownItem />
-  {#if isViewerOpen('navi_guide')}
-    <DropdownMenu.Item class="justify-between gap-2 data-highlighted:bg-transparent data-highlighted:text-foreground" onclick={ignoreActiveLauncherClick}>
-      <div class="flex min-w-0 items-center gap-2">
-        <BookOpen class="h-4 w-4" />
-        <span>Navi Guide</span>
-      </div>
-      <div class="flex items-center gap-1">
-        <WidgetLauncherPinButton launcherId="navi_guide" />
-        <Button
-          size="icon"
-          variant="ghost"
-          class="h-6 w-6 hover:bg-destructive hover:text-destructive-foreground"
-          onclick={(event) => closeViewer('navi_guide', event)}
-          title="Close"
-        >
-          <X class="h-3 w-3" />
-        </Button>
-      </div>
-    </DropdownMenu.Item>
-  {:else}
-    <DropdownMenu.Item class="justify-between gap-2" onclick={() => openViewer('navi_guide')}>
-      <div class="flex min-w-0 items-center gap-2">
-        <BookOpen class="h-4 w-4" />
-        <span>Navi Guide</span>
-      </div>
-      <WidgetLauncherPinButton launcherId="navi_guide" />
-    </DropdownMenu.Item>
-  {/if}
-  {#if isViewerOpen('flyffipedia')}
-    <DropdownMenu.Item class="justify-between gap-2 data-highlighted:bg-transparent data-highlighted:text-foreground" onclick={ignoreActiveLauncherClick}>
-      <div class="flex min-w-0 items-center gap-2">
-        <BookMarked class="h-4 w-4" />
-        <span>Flyffipedia</span>
-      </div>
-      <div class="flex items-center gap-1">
-        <WidgetLauncherPinButton launcherId="flyffipedia" />
-        <Button
-          size="icon"
-          variant="ghost"
-          class="h-6 w-6 hover:bg-destructive hover:text-destructive-foreground"
-          onclick={(event) => closeViewer('flyffipedia', event)}
-          title="Close"
-        >
-          <X class="h-3 w-3" />
-        </Button>
-      </div>
-    </DropdownMenu.Item>
-  {:else}
-    <DropdownMenu.Item class="justify-between gap-2" onclick={() => openViewer('flyffipedia')}>
-      <div class="flex min-w-0 items-center gap-2">
-        <BookMarked class="h-4 w-4" />
-        <span>Flyffipedia</span>
-      </div>
-      <WidgetLauncherPinButton launcherId="flyffipedia" />
-    </DropdownMenu.Item>
-  {/if}
   <DropdownMenu.Separator />
+  <DropdownMenu.Sub>
+    <DropdownMenu.SubTrigger>
+      <GraduationCap class="h-4 w-4 mr-2" />
+      <span>Community Resources</span>
+    </DropdownMenu.SubTrigger>
+    <DropdownMenu.SubContent side="right" class="w-44 min-w-44">
+      {#if isViewerOpen('flyffipedia')}
+        <DropdownMenu.Item class="justify-between gap-2 data-highlighted:bg-transparent data-highlighted:text-foreground" onclick={ignoreActiveLauncherClick}>
+          <div class="flex min-w-0 items-center gap-2">
+            <BookMarked class="h-4 w-4" />
+            <span>Flyffipedia</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <WidgetLauncherPinButton launcherId="flyffipedia" />
+            <Button
+              size="icon"
+              variant="ghost"
+              class="h-6 w-6 hover:bg-destructive hover:text-destructive-foreground"
+              onclick={(event) => closeViewer('flyffipedia', event)}
+              title="Close"
+            >
+              <X class="h-3 w-3" />
+            </Button>
+          </div>
+        </DropdownMenu.Item>
+      {:else}
+        <DropdownMenu.Item class="justify-between gap-2" onclick={() => openViewer('flyffipedia')}>
+          <div class="flex min-w-0 items-center gap-2">
+            <BookMarked class="h-4 w-4" />
+            <span>Flyffipedia</span>
+          </div>
+          <WidgetLauncherPinButton launcherId="flyffipedia" />
+        </DropdownMenu.Item>
+      {/if}
+      {#if isViewerOpen('navi_guide')}
+        <DropdownMenu.Item class="justify-between gap-2 data-highlighted:bg-transparent data-highlighted:text-foreground" onclick={ignoreActiveLauncherClick}>
+          <div class="flex min-w-0 items-center gap-2">
+            <PawPrint class="h-4 w-4" />
+            <span>Navi Guide</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <WidgetLauncherPinButton launcherId="navi_guide" />
+            <Button
+              size="icon"
+              variant="ghost"
+              class="h-6 w-6 hover:bg-destructive hover:text-destructive-foreground"
+              onclick={(event) => closeViewer('navi_guide', event)}
+              title="Close"
+            >
+              <X class="h-3 w-3" />
+            </Button>
+          </div>
+        </DropdownMenu.Item>
+      {:else}
+        <DropdownMenu.Item class="justify-between gap-2" onclick={() => openViewer('navi_guide')}>
+          <div class="flex min-w-0 items-center gap-2">
+            <PawPrint class="h-4 w-4" />
+            <span>Navi Guide</span>
+          </div>
+          <WidgetLauncherPinButton launcherId="navi_guide" />
+        </DropdownMenu.Item>
+      {/if}
+    </DropdownMenu.SubContent>
+  </DropdownMenu.Sub>
   <MiniBrowserDropdownItem />
   <DropdownMenu.Separator />
   <ActionPinDropdownItem />
   <ActionPadDropdownItem />
   <FloatingSessionDropdownItem />
 </DropdownMenu.Group>
+
+
 

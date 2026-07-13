@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { BookMarked, BookOpen, Coins, ListTodo, ScrollText, StickyNote } from '@lucide/svelte';
+  import { BookMarked, Coins, ListTodo, PawPrint, ScrollText, StickyNote } from '@lucide/svelte';
   import { Button } from '$lib/components/ui/button';
   import { getWidgetsContext } from '$lib/contexts/widgetsContext.svelte';
   import { getQuestPanelContext } from '$lib/contexts/questPanelContext.svelte';
@@ -138,7 +138,7 @@
     {:else if launcherId === 'todo'}
       <ListTodo class="size-3.5" />
     {:else if launcherId === 'navi_guide'}
-      <BookOpen class="size-3.5" />
+      <PawPrint class="size-3.5" />
     {:else if launcherId === 'flyffipedia'}
       <BookMarked class="size-3.5" />
     {:else if launcherId === 'quest_log'}

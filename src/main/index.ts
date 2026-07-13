@@ -103,6 +103,14 @@ const defaultViewerWindowConfig: ViewerWindowConfig = {
 
 const viewerWindows: Map<ViewerWindowType, BrowserWindow> = new Map();
 const viewerBoundsSaveTimers: Map<ViewerWindowType, ReturnType<typeof setTimeout>> = new Map();
+const viewerLocalStorageKeys: Record<ViewerWindowType, string> = {
+  navi_guide: 'widget.viewer.naviGuide',
+  flyffipedia: 'widget.viewer.flyffipedia',
+};
+const viewerWindowConfigCache: Record<ViewerWindowType, ViewerWindowConfig> = {
+  navi_guide: {...defaultViewerWindowConfig},
+  flyffipedia: {...defaultViewerWindowConfig},
+};
 
 let exitCount: number = 0;
 let mainWindowShortcutsEnabled: boolean = true;
@@ -525,6 +533,10 @@ function cleanConfigForSave(conf: any): any {
     delete cleaned.window.sidebarSide;
   }
 
+  if (cleaned.window?.viewers !== undefined) {
+    delete cleaned.window.viewers;
+  }
+
   if (Array.isArray(cleaned.sessions)) {
     cleaned.sessions = cleaned.sessions.map((sessionConfig: any) => {
       const cleanedSession = {...sessionConfig};
@@ -546,6 +558,10 @@ function cleanConfigExportPayload(payload: ConfigExportPayloadV2): ConfigExportP
 
   if (cleaned.window?.sidebarSide !== undefined) {
     delete cleaned.window.sidebarSide;
+  }
+
+  if (cleaned.window?.viewers !== undefined) {
+    delete cleaned.window.viewers;
   }
 
   return cleaned;
@@ -591,19 +607,8 @@ function loadConfig(reload: boolean = false): Promise<any> {
               main: {...(defaultNeuzosConfig.window?.main || {}), ...(loadedWindow.main || {})},
               settings: {...(defaultNeuzosConfig.window?.settings || {}), ...(loadedWindow.settings || {})},
               session: {...(defaultNeuzosConfig.window?.session || {}), ...(loadedWindow.session || {})},
-              viewers: {
-                ...(defaultNeuzosConfig.window?.viewers || {}),
-                ...(loadedWindow.viewers || {}),
-                navi_guide: {
-                  ...defaultViewerWindowConfig,
-                  ...(loadedWindow.viewers?.navi_guide || {}),
-                },
-                flyffipedia: {
-                  ...defaultViewerWindowConfig,
-                  ...(loadedWindow.viewers?.flyffipedia || {}),
-                },
-              },
             };
+            delete neuzosConfig.window.viewers;
           }
 
           pruneSessionReferences(neuzosConfig);
@@ -649,35 +654,88 @@ async function cleanupQueuedSessionPartitions(config: any): Promise<void> {
   saveConfig(config);
 }
 
-function createDefaultViewerWindowConfigs(): Record<ViewerWindowType, ViewerWindowConfig> {
+function sanitizeViewerWindowConfig(value: any): ViewerWindowConfig {
   return {
-    navi_guide: {...defaultViewerWindowConfig},
-    flyffipedia: {...defaultViewerWindowConfig},
+    x: typeof value?.x === 'number' ? value.x : null,
+    y: typeof value?.y === 'number' ? value.y : null,
+    width: typeof value?.width === 'number' && value.width > 0 ? value.width : defaultViewerWindowConfig.width,
+    height: typeof value?.height === 'number' && value.height > 0 ? value.height : defaultViewerWindowConfig.height,
+    alwaysOnTop: typeof value?.alwaysOnTop === 'boolean' ? value.alwaysOnTop : defaultViewerWindowConfig.alwaysOnTop,
   };
 }
 
-function ensureViewerWindowState(): Record<ViewerWindowType, ViewerWindowConfig> {
-  if (!neuzosConfig.window) {
-    neuzosConfig.window = {};
+function setViewerWindowConfigCache(type: ViewerWindowType, value: Partial<ViewerWindowConfig> | undefined): ViewerWindowConfig {
+  viewerWindowConfigCache[type] = sanitizeViewerWindowConfig({
+    ...viewerWindowConfigCache[type],
+    ...(value || {}),
+  });
+  return viewerWindowConfigCache[type];
+}
+
+function parseViewerWindowConfig(value: string | null | undefined): Partial<ViewerWindowConfig> | null {
+  if (!value) {
+    return null;
   }
 
-  if (!neuzosConfig.window.viewers) {
-    neuzosConfig.window.viewers = createDefaultViewerWindowConfigs();
-  }
+  try {
+    const parsed = JSON.parse(value);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return null;
+    }
 
-  for (const type of viewerWindowTypes) {
-    neuzosConfig.window.viewers[type] = {
-      ...defaultViewerWindowConfig,
-      ...(neuzosConfig.window.viewers[type] || {}),
-    };
+    return parsed;
+  } catch {
+    return null;
   }
-
-  return neuzosConfig.window.viewers;
 }
 
 function getViewerWindowConfig(type: ViewerWindowType): ViewerWindowConfig {
-  const viewers = ensureViewerWindowState();
-  return viewers[type] ?? {...defaultViewerWindowConfig};
+  return viewerWindowConfigCache[type] ?? {...defaultViewerWindowConfig};
+}
+
+function getLocalStorageWindow(): BrowserWindow | null {
+  const candidates = [mainWindow, settingsWindow, ...viewerWindows.values()];
+  return candidates.find((win) => win && !win.isDestroyed() && !win.webContents.isDestroyed()) ?? null;
+}
+
+function escapeJavaScriptString(value: string): string {
+  return JSON.stringify(value);
+}
+
+function syncViewerWindowConfigToLocalStorage(type: ViewerWindowType): void {
+  const win = getLocalStorageWindow();
+  if (!win) {
+    return;
+  }
+
+  const key = viewerLocalStorageKeys[type];
+  const value = JSON.stringify(getViewerWindowConfig(type));
+  void win.webContents.executeJavaScript(
+    `window.localStorage.setItem(${escapeJavaScriptString(key)}, ${escapeJavaScriptString(value)})`,
+    true,
+  ).catch((error: any) => {
+    console.warn('Failed to sync viewer window config to Local Storage:', error);
+  });
+}
+
+
+async function readViewerWindowConfigFromLocalStorage(type: ViewerWindowType): Promise<Partial<ViewerWindowConfig> | null> {
+  const win = getLocalStorageWindow();
+  if (!win) {
+    return null;
+  }
+
+  try {
+    const key = viewerLocalStorageKeys[type];
+    const value = await win.webContents.executeJavaScript(
+      `window.localStorage.getItem(${escapeJavaScriptString(key)})`,
+      true,
+    );
+    return parseViewerWindowConfig(typeof value === 'string' ? value : null);
+  } catch (error) {
+    console.warn('Failed to read viewer window config from Local Storage:', error);
+    return null;
+  }
 }
 
 function getViewerWindowTypeFromWindow(win: BrowserWindow | null): ViewerWindowType | null {
@@ -732,17 +790,14 @@ function getSanitizedViewerBounds(type: ViewerWindowType): Partial<ViewerWindowB
 
 function persistViewerWindowBounds(type: ViewerWindowType, win: BrowserWindow): void {
   const bounds = win.getBounds();
-  const viewers = ensureViewerWindowState();
-  viewers[type] = {
-    ...defaultViewerWindowConfig,
-    ...viewers[type],
+  setViewerWindowConfigCache(type, {
     x: bounds.x,
     y: bounds.y,
     width: bounds.width,
     height: bounds.height,
     alwaysOnTop: win.isAlwaysOnTop(),
-  };
-  saveConfig(neuzosConfig);
+  });
+  syncViewerWindowConfigToLocalStorage(type);
 }
 
 function scheduleViewerWindowBoundsSave(type: ViewerWindowType, win: BrowserWindow): void {
@@ -761,12 +816,15 @@ function scheduleViewerWindowBoundsSave(type: ViewerWindowType, win: BrowserWind
   viewerBoundsSaveTimers.set(type, timer);
 }
 
-function createViewerWindow(type: ViewerWindowType): BrowserWindow | null {
+async function createViewerWindow(type: ViewerWindowType): Promise<BrowserWindow | null> {
   const existingWindow = viewerWindows.get(type);
   if (existingWindow && !existingWindow.isDestroyed()) {
     existingWindow.focus();
     return existingWindow;
   }
+
+  const storedConfig = await readViewerWindowConfigFromLocalStorage(type);
+  setViewerWindowConfigCache(type, storedConfig ?? defaultViewerWindowConfig);
 
   const viewerConfig = getViewerWindowConfig(type);
   const viewerBounds = getSanitizedViewerBounds(type);
@@ -1797,10 +1855,10 @@ function registerSessionKeybinds(mode: LaunchMode) {
       win?.webContents.send("event.shortcuts_state_changed", enabled);
     });
 
-    ipcMain.on('viewer_window.open', (_event, type: ViewerWindowType) => {
+    ipcMain.on('viewer_window.open', async (_event, type: ViewerWindowType) => {
       try {
         if (!viewerWindowTypes.includes(type)) return;
-        createViewerWindow(type);
+        await createViewerWindow(type);
       } catch (error) {
         console.error('Failed to open viewer window:', error);
       }
@@ -1862,12 +1920,11 @@ function registerSessionKeybinds(mode: LaunchMode) {
         } else {
           win.setAlwaysOnTop(false);
         }
-        const viewers = ensureViewerWindowState();
-        viewers[type] = {
+        setViewerWindowConfigCache(type, {
           ...getViewerWindowConfig(type),
           alwaysOnTop,
-        };
-        saveConfig(neuzosConfig);
+        });
+        syncViewerWindowConfigToLocalStorage(type);
       } catch (error) {
         console.error('Failed to update always-on-top state:', error);
       }
@@ -2203,6 +2260,7 @@ function registerSessionKeybinds(mode: LaunchMode) {
       await session.fromPartition("persist:browser").clearCache();
       return true;
     });
+
 
     ipcMain.on("preferences.set_theme_mode", async function (_, themeMode: string) {
       mainWindow?.webContents.send("event.theme_mode_changed", themeMode);
@@ -3046,7 +3104,6 @@ function registerSessionKeybinds(mode: LaunchMode) {
         main: defaultMainWindowConfig,
         settings: defaultSettingsWindowConfig,
         session: defaultSessionWindowConfig,
-        viewers: createDefaultViewerWindowConfigs(),
       };
     }
 
@@ -3090,21 +3147,7 @@ function registerSessionKeybinds(mode: LaunchMode) {
       ...defaultNeuzosConfig.window.session,
       ...(neuzosConfig.window.session || {})
     };
-
-    neuzosConfig.window.viewers = {
-      ...defaultNeuzosConfig.window.viewers,
-      ...(neuzosConfig.window.viewers || {}),
-      navi_guide: {
-        ...defaultViewerWindowConfig,
-        ...(neuzosConfig.window.viewers?.navi_guide || {}),
-      },
-      flyffipedia: {
-        ...defaultViewerWindowConfig,
-        ...(neuzosConfig.window.viewers?.flyffipedia || {}),
-      },
-    };
-
-    ensureViewerWindowState();
+    delete neuzosConfig.window.viewers;
     saveConfig(neuzosConfig);
 
     // Handle different launch modes

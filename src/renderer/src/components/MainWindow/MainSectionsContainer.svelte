@@ -3,7 +3,7 @@
   import FloatingWindowsPortal from "./MainWindowSections/FloatingWindowsPortal.svelte";
   import WidgetsManager from "../Widgets/Core/WidgetsManager.svelte";
   import LayoutsContainer from "./MainWindowSections/LayoutsContainer.svelte";
-  import QuestPanel from "../QuestLog/QuestPanel.svelte";
+  import QuestPanel from "../Widgets/Builtin/QuestLog/QuestPanel.svelte";
   import {getQuestPanelContext} from "$lib/contexts/questPanelContext.svelte";
   const questPanel = getQuestPanelContext();
 </script>

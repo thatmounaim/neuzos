@@ -3,9 +3,9 @@
   import { ModeWatcher } from 'mode-watcher';
   import { initElectronApi, neuzosBridge } from '$lib/core';
   import type { ViewerWindowType } from '$lib/types';
-  import ViewerTitleBar from './components/ViewerWindow/ViewerTitleBar.svelte';
-  import NaviGuideViewer from './components/ViewerWindow/NaviGuideViewer.svelte';
-  import FlyffipediaViewer from './components/ViewerWindow/FlyffipediaViewer.svelte';
+  import ViewerTitleBar from './components/Widgets/Builtin/ViewerWindow/ViewerTitleBar.svelte';
+  import NaviGuideViewer from './components/Widgets/Builtin/ViewerWindow/NaviGuideViewer.svelte';
+  import FlyffipediaViewer from './components/Widgets/Builtin/ViewerWindow/FlyffipediaViewer.svelte';
 
   // Must be called before any IPC bridge usage – mirrors what App.svelte does
   initElectronApi(window.electron.ipcRenderer);
@@ -76,7 +76,7 @@
   {:else}
     <ViewerTitleBar
       title={viewerType === 'navi_guide' ? "Navi's Bestiary" : 'Flyffipedia'}
-      attribution={viewerType === 'navi_guide' ? 'created by Navi2765' : undefined}
+      attribution={viewerType === 'navi_guide' ? 'created by Navi2765' : 'created by Swaight'}
       alwaysOnTop={alwaysOnTop}
       isLoading={isLoading}
       onToggleAlwaysOnTop={toggleAlwaysOnTop}

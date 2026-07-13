@@ -143,6 +143,9 @@ function cloneWindowForExport(windowConfig: NeuzConfig['window']): NeuzConfig['w
   if (cleanedWindow?.sidebarSide !== undefined) {
     delete cleanedWindow.sidebarSide;
   }
+  if ((cleanedWindow as any)?.viewers !== undefined) {
+    delete (cleanedWindow as any).viewers;
+  }
   return cleanedWindow;
 }
 
