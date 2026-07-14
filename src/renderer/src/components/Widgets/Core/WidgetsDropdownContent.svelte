@@ -4,7 +4,7 @@
   import { getNeuzosBridgeContext } from '$lib/contexts/neuzosBridgeContext';
   import { Button } from '$lib/components/ui/button';
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-  import { BookMarked, GraduationCap, PawPrint, ScrollText, X } from '@lucide/svelte';
+  import { BookMarked, BrushCleaning, Check, GraduationCap, PawPrint, ScrollText, X } from '@lucide/svelte';
   import type { ViewerWindowType } from '$lib/types';
   import FCoinCalculatorDropdownItem from '../Builtin/FCoinCalculator/DropdownItem.svelte';
   import NotepadDropdownItem from '../Builtin/Notepad/DropdownItem.svelte';
@@ -18,6 +18,33 @@
   const questPanel = getQuestPanelContext();
   const neuzosBridge = getNeuzosBridgeContext();
   let openViewerTypes = $state<ViewerWindowType[]>([]);
+  let isClearingViewerCache = $state(false);
+  let viewerCacheFeedback = $state('');
+  let viewerCacheFeedbackType = $state<'success' | 'error' | null>(null);
+
+  async function clearViewerCache(): Promise<void> {
+    if (isClearingViewerCache) return;
+
+    isClearingViewerCache = true;
+    viewerCacheFeedback = '';
+    viewerCacheFeedbackType = null;
+
+    try {
+      const cleared = await neuzosBridge.viewerWindow.clearCache();
+      viewerCacheFeedback = cleared ? 'Cleared!' : 'Failed!';
+      viewerCacheFeedbackType = cleared ? 'success' : 'error';
+    } catch (error) {
+      console.error('Failed to clear viewer cache', error);
+      viewerCacheFeedback = 'Failed!';
+      viewerCacheFeedbackType = 'error';
+    } finally {
+      isClearingViewerCache = false;
+      window.setTimeout(() => {
+        viewerCacheFeedback = '';
+        viewerCacheFeedbackType = null;
+      }, 1600);
+    }
+  }
 
   async function refreshOpenViewerTypes() {
     openViewerTypes = await neuzosBridge.viewerWindow.getOpenTypes();
@@ -104,6 +131,19 @@
       <span>Community Resources</span>
     </DropdownMenu.SubTrigger>
     <DropdownMenu.SubContent side="right" class="w-44 min-w-44">
+      <DropdownMenu.Item class="justify-between gap-2" onSelect={(event) => event.preventDefault()} onclick={clearViewerCache}>
+        <div class="flex min-w-0 items-center gap-2">
+          {#if viewerCacheFeedbackType === 'success'}
+            <Check class="h-4 w-4" />
+          {:else if viewerCacheFeedbackType === 'error'}
+            <X class="h-4 w-4" />
+          {:else}
+            <BrushCleaning class="h-4 w-4" />
+          {/if}
+          <span>{isClearingViewerCache ? 'Clearing Viewer Cache...' : viewerCacheFeedback || 'Clear Viewer Cache'}</span>
+        </div>
+      </DropdownMenu.Item>
+      <DropdownMenu.Separator />
       {#if isViewerOpen('flyffipedia')}
         <DropdownMenu.Item class="justify-between gap-2 data-highlighted:bg-transparent data-highlighted:text-foreground" onclick={ignoreActiveLauncherClick}>
           <div class="flex min-w-0 items-center gap-2">
@@ -168,6 +208,3 @@
   <ActionPadDropdownItem />
   <FloatingSessionDropdownItem />
 </DropdownMenu.Group>
-
-
-

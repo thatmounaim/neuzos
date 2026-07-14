@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { BookMarked, Coins, ListTodo, PawPrint, ScrollText, StickyNote } from '@lucide/svelte';
+  import { BookMarked, Coins, ListTodo, NotebookText, PawPrint, ScrollText } from '@lucide/svelte';
   import { Button } from '$lib/components/ui/button';
   import { getWidgetsContext } from '$lib/contexts/widgetsContext.svelte';
   import { getQuestPanelContext } from '$lib/contexts/questPanelContext.svelte';
@@ -134,7 +134,7 @@
     {#if launcherId === 'fcoin_calculator'}
       <Coins class="size-3.5" />
     {:else if launcherId === 'notepad'}
-      <StickyNote class="size-3.5" />
+      <NotebookText class="size-3.5" />
     {:else if launcherId === 'todo'}
       <ListTodo class="size-3.5" />
     {:else if launcherId === 'navi_guide'}

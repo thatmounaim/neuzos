@@ -107,11 +107,11 @@
     cacheFeedbackType = null;
     try {
       await neuzosBridge.browser.clearCache();
-      cacheFeedback = 'Browser Cache Cleared!';
+      cacheFeedback = 'Cleared!';
       cacheFeedbackType = 'success';
       refresh();
     } catch (error) {
-      cacheFeedback = 'Failed to Clear Browser Cache!';
+      cacheFeedback = 'Failed!';
       cacheFeedbackType = 'error';
     } finally {
       isClearingCache = false;
@@ -440,11 +440,11 @@
                 disabled={isClearingCache}
               >
                 {#if cacheFeedbackType === 'success'}
-                  <Check class="h-4 w-4 text-emerald-500" />
+                  <Check class="h-4 w-4" />
                 {:else if cacheFeedbackType === 'error'}
-                  <X class="h-4 w-4 text-destructive" />
+                  <X class="h-4 w-4" />
                 {:else}
-                  <BrushCleaning class="h-4 w-4 text-destructive" />
+                  <BrushCleaning class="h-4 w-4" />
                 {/if}
                 {isClearingCache ? 'Clearing Browser Cache...' : cacheFeedback || 'Clear Browser Cache'}
               </Button>

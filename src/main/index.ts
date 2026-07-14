@@ -2261,6 +2261,10 @@ function registerSessionKeybinds(mode: LaunchMode) {
       return true;
     });
 
+    ipcMain.handle("viewer.clear_cache", async function () {
+      await session.fromPartition("persist:viewer").clearCache();
+      return true;
+    });
 
     ipcMain.on("preferences.set_theme_mode", async function (_, themeMode: string) {
       mainWindow?.webContents.send("event.theme_mode_changed", themeMode);

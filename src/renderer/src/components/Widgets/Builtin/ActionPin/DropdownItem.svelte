@@ -35,26 +35,27 @@
     writeActionPinsAutoLoadLatest(enabled);
   }
 
-  // Get all sessions that have actions configured
-  const allSessionsWithActions = $derived(
+  // Get all sessions that have pinned actions configured
+  const allSessionsWithPinnedActions = $derived(
     mainWindowState.config.sessionActions
-      ?.filter(sa => sa.actions && sa.actions.length > 0)
-      .map(sa => {
+      ?.map(sa => {
+        const pinnedActions = sa.actions?.filter(action => action.pinned) ?? [];
         const session = mainWindowState.config.sessions.find(s => s.id === sa.sessionId);
         return {
           id: sa.sessionId,
           label: session?.label || "Unknown Session",
           icon: session?.icon?.slug || "misc/browser",
-          actionsCount: sa.actions.length
+          actionsCount: pinnedActions.length
         };
-      }) || []
+      })
+      .filter(sessionInfo => sessionInfo.actionsCount > 0) || []
   );
 
   const widgets = $derived(widgetsContext.getWidgetsByType(ACTION_PIN_WIDGET_TYPE));
 
   // Get sessions that don't already have an action pin (for the creation dropdown)
   const availableSessionsForActionPin = $derived(
-    allSessionsWithActions.filter(sessionInfo => {
+    allSessionsWithPinnedActions.filter(sessionInfo => {
       const existingPin = widgets.find(w => w.data?.sessionId === sessionInfo.id);
       return !existingPin;
     })
@@ -98,7 +99,7 @@
       {/each}
     {:else}
       <div class="px-2 py-1.5 text-xs text-muted-foreground">
-        {allSessionsWithActions.length === 0 ? 'No Session Actions found.' : 'All Sessions have Action Pins.'}
+        {allSessionsWithPinnedActions.length === 0 ? 'No Pinned Actions found.' : 'All Sessions have Action Pins.'}
       </div>
     {/if}
     <!-- Show active action pin instances -->
@@ -106,7 +107,7 @@
       <DropdownMenu.Separator />
       <DropdownMenu.Label class="text-xs">Active Action Pins ({widgets.length})</DropdownMenu.Label>
       {#each widgets as widget}
-        {@const sessionInfo = allSessionsWithActions.find(s => s.id === widget.data?.sessionId)}
+        {@const sessionInfo = allSessionsWithPinnedActions.find(s => s.id === widget.data?.sessionId)}
         <div class="flex items-center justify-between px-2 py-1.5 text-sm gap-2">
           <div class="flex items-center gap-2">
             <img class="w-4 h-4 mr-2" src="icons/{sessionInfo?.icon || 'misc/browser'}.png" alt="" />

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { getWidgetsContext } from '$lib/contexts/widgetsContext.svelte';
   import { Button } from '$lib/components/ui/button';
-  import { StickyNote, X } from '@lucide/svelte';
+  import { NotebookText, X } from '@lucide/svelte';
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
   import WidgetLauncherPinButton from '../../Core/WidgetLauncherPinButton.svelte';
 
@@ -33,7 +33,7 @@
 {#if widgets.length === 0}
   <DropdownMenu.Item class="justify-between gap-2" onclick={createWidget}>
     <div class="flex min-w-0 items-center gap-2">
-      <StickyNote class="h-4 w-4" />
+      <NotebookText class="h-4 w-4" />
       <span>Notepad</span>
     </div>
     <WidgetLauncherPinButton launcherId="notepad" />
@@ -42,7 +42,7 @@
   {#each widgets as widget}
     <DropdownMenu.Item class="justify-between gap-2 data-highlighted:bg-transparent data-highlighted:text-foreground" onclick={ignoreActiveWidgetClick}>
       <div class="flex items-center gap-2">
-        <StickyNote class="h-4 w-4" />
+        <NotebookText class="h-4 w-4" />
         <span>Notepad</span>
       </div>
       <div class="flex items-center gap-1">

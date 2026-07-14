@@ -184,6 +184,9 @@ export const neuzosBridge = {
     }
   },
   viewerWindow: {
+    clearCache: (): Promise<boolean> => {
+      return electronApi?.invoke('viewer.clear_cache') ?? Promise.resolve(false);
+    },
     open: (type: ViewerWindowType) => {
       electronApi?.send('viewer_window.open', type);
     },

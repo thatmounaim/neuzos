@@ -1553,39 +1553,43 @@
     onHide={onHide}
   >
     {#snippet titleSnippet()}
-      <div class="flex w-full items-center justify-between gap-2">
-        <div class="flex min-w-0 items-center gap-2">
-          <StickyNote size={16} />
-          <span class="truncate">Notepad - {activeFile?.name || 'Untitled'}</span>
+      <div class="flex min-w-0 items-center gap-2">
+        <StickyNote size={16} />
+        <span class="truncate">Notepad - {activeFile?.name || 'Untitled'}</span>
+      </div>
+    {/snippet}
+
+    {#snippet controlSnippet()}
+      <div class="flex shrink-0 items-center gap-2" role="presentation" onmousedown={(e) => e.stopPropagation()}>
+        <div class="flex items-center gap-1 rounded-md border border-border bg-background/80 p-0.5">
+          <Button
+            size="sm"
+            variant={isEditMode ? 'default' : 'ghost'}
+            class="h-6 px-2 text-xs"
+            onclick={() => setTopLevelMode('edit')}
+          >
+            <NotebookPen class="h-3.5 w-3.5 mr-1" />
+            Edit
+          </Button>
+          <Button
+            size="sm"
+            variant={activeEditorMode === 'preview' ? 'default' : 'ghost'}
+            class="h-6 px-2 text-xs"
+            onclick={() => setTopLevelMode('preview')}
+          >
+            <Eye class="h-3.5 w-3.5 mr-1" />
+            Preview
+          </Button>
         </div>
 
-        <div class="flex shrink-0 items-center gap-2" role="presentation" onmousedown={(e) => e.stopPropagation()}>
-          <div class="flex items-center gap-1 rounded-md border border-border bg-background/80 p-0.5">
-            <Button
-              size="sm"
-              variant={isEditMode ? 'default' : 'ghost'}
-              class="h-6 px-2 text-xs"
-              onclick={() => setTopLevelMode('edit')}
-            >
-              <NotebookPen class="h-3.5 w-3.5 mr-1" />
-              Edit
-            </Button>
-            <Button
-              size="sm"
-              variant={activeEditorMode === 'preview' ? 'default' : 'ghost'}
-              class="h-6 px-2 text-xs"
-              onclick={() => setTopLevelMode('preview')}
-            >
-              <Eye class="h-3.5 w-3.5 mr-1" />
-              Preview
-            </Button>
-          </div>
-
         <div class="relative">
-          <Button
-            size="icon"
-            variant={settingsOpen ? 'secondary' : 'ghost'}
-            class="h-7 w-7"
+          <button
+            type="button"
+            class="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded border border-transparent p-1 text-foreground transition-colors hover:border-input hover:bg-background dark:hover:bg-input/30 {settingsOpen ? 'bg-secondary text-secondary-foreground' : 'bg-transparent'}"
+            onmousedown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
             onclick={(e) => {
               e.stopPropagation();
               settingsOpen = !settingsOpen;
@@ -1593,7 +1597,7 @@
             title="Settings"
           >
             <Settings class="h-4 w-4" />
-          </Button>
+          </button>
 
           {#if settingsOpen}
             <div
@@ -1622,7 +1626,6 @@
               </div>
             </div>
           {/if}
-        </div>
         </div>
       </div>
     {/snippet}
