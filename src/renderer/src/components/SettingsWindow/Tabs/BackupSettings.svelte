@@ -1898,7 +1898,7 @@
                     <div class="rounded border border-border/70 bg-muted/30 p-2">
                       <div class="text-muted-foreground">New</div>
                       <div class="flex flex-wrap items-center gap-1.5 font-semibold">
-                        {#if breakdown.newLabel !== '-' || (breakdown.criticalTotal === 0 && breakdown.changeTotal === 0)}
+                        {#if breakdown.newLabel !== '-' || breakdown.criticalTotal === 0}
                           <span class={breakdown.newLabel !== '-' ? 'text-green-400' : ''}>{breakdown.newLabel}</span>
                         {/if}
                       </div>
