@@ -4,6 +4,7 @@ export type WidgetLauncherId =
   | 'todo'
   | 'navi_guide'
   | 'flyffipedia'
+  | 'flyffulator'
   | 'quest_log';
 
 const STORAGE_KEY = 'mainbar.pinnedWidgetLaunchers';
@@ -15,6 +16,7 @@ const validLauncherIds: WidgetLauncherId[] = [
   'todo',
   'navi_guide',
   'flyffipedia',
+  'flyffulator',
   'quest_log'
 ];
 

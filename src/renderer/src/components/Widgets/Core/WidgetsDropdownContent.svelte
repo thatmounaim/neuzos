@@ -4,7 +4,8 @@
   import { getNeuzosBridgeContext } from '$lib/contexts/neuzosBridgeContext';
   import { Button } from '$lib/components/ui/button';
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-  import { BookMarked, BrushCleaning, Check, GraduationCap, PawPrint, ScrollText, X } from '@lucide/svelte';
+
+  import { BookMarked, BrushCleaning, Check, GraduationCap, PawPrint, Scroll, ScrollText, X } from '@lucide/svelte';
   import type { ViewerWindowType } from '$lib/types';
   import FCoinCalculatorDropdownItem from '../Builtin/FCoinCalculator/DropdownItem.svelte';
   import NotepadDropdownItem from '../Builtin/Notepad/DropdownItem.svelte';
@@ -170,6 +171,34 @@
             <span>Flyffipedia</span>
           </div>
           <WidgetLauncherPinButton launcherId="flyffipedia" />
+        </DropdownMenu.Item>
+      {/if}
+      {#if isViewerOpen('flyffulator')}
+        <DropdownMenu.Item class="justify-between gap-2 data-highlighted:bg-transparent data-highlighted:text-foreground" onclick={ignoreActiveLauncherClick}>
+          <div class="flex min-w-0 items-center gap-2">
+            <Scroll class="h-4 w-4" />
+            <span>Flyffulator</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <WidgetLauncherPinButton launcherId="flyffulator" />
+            <Button
+              size="icon"
+              variant="ghost"
+              class="h-6 w-6 hover:bg-destructive hover:text-destructive-foreground"
+              onclick={(event) => closeViewer('flyffulator', event)}
+              title="Close"
+            >
+              <X class="h-3 w-3" />
+            </Button>
+          </div>
+        </DropdownMenu.Item>
+      {:else}
+        <DropdownMenu.Item class="justify-between gap-2" onclick={() => openViewer('flyffulator')}>
+          <div class="flex min-w-0 items-center gap-2">
+            <Scroll class="h-4 w-4" />
+            <span>Flyffulator</span>
+          </div>
+          <WidgetLauncherPinButton launcherId="flyffulator" />
         </DropdownMenu.Item>
       {/if}
       {#if isViewerOpen('navi_guide')}

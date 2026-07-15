@@ -6,14 +6,15 @@
   import ViewerTitleBar from './components/Widgets/Builtin/ViewerWindow/ViewerTitleBar.svelte';
   import NaviGuideViewer from './components/Widgets/Builtin/ViewerWindow/NaviGuideViewer.svelte';
   import FlyffipediaViewer from './components/Widgets/Builtin/ViewerWindow/FlyffipediaViewer.svelte';
+  import FlyffulatorViewer from './components/Widgets/Builtin/ViewerWindow/FlyffulatorViewer.svelte';
 
-  // Must be called before any IPC bridge usage – mirrors what App.svelte does
+  // Must be called before any IPC bridge usage - mirrors what App.svelte does
   initElectronApi(window.electron.ipcRenderer);
 
   const requestedType = new URLSearchParams(window.location.search).get('type');
-  let viewerType = $state<ViewerWindowType | null>(
-    requestedType === 'navi_guide' || requestedType === 'flyffipedia' ? requestedType : null
-  );
+  const viewerTypes: ViewerWindowType[] = ['navi_guide', 'flyffipedia', 'flyffulator'];
+  const requestedViewerType = viewerTypes.includes(requestedType as ViewerWindowType) ? requestedType as ViewerWindowType : null;
+  let viewerType = $state<ViewerWindowType | null>(requestedViewerType);
   let alwaysOnTop = $state(true);
   let isLoading = $state(true);
   let loadError = $state('');
@@ -27,7 +28,7 @@
         return;
       }
 
-      viewerType = requestedType === 'navi_guide' || requestedType === 'flyffipedia' ? requestedType : result.type;
+      viewerType = requestedViewerType ?? result.type;
       alwaysOnTop = result.config.alwaysOnTop;
     } catch (error) {
       loadError = error instanceof Error ? error.message : 'Failed to initialize viewer window.';
@@ -57,6 +58,28 @@
   function closeWindow() {
     neuzosBridge.viewerWindow.close();
   }
+
+  function getViewerTitle(type: ViewerWindowType): string {
+    switch (type) {
+      case 'navi_guide':
+        return "Navi's Bestiary";
+      case 'flyffipedia':
+        return 'Flyffipedia';
+      case 'flyffulator':
+        return 'Flyffulator';
+    }
+  }
+
+  function getViewerAttribution(type: ViewerWindowType): string {
+    switch (type) {
+      case 'navi_guide':
+        return 'created by Navi2765';
+      case 'flyffipedia':
+        return 'created by Swaight';
+      case 'flyffulator':
+        return 'created by Frostiae';
+    }
+  }
 </script>
 
 <ModeWatcher />
@@ -75,8 +98,8 @@
     </div>
   {:else}
     <ViewerTitleBar
-      title={viewerType === 'navi_guide' ? "Navi's Bestiary" : 'Flyffipedia'}
-      attribution={viewerType === 'navi_guide' ? 'created by Navi2765' : 'created by Swaight'}
+      title={getViewerTitle(viewerType)}
+      attribution={getViewerAttribution(viewerType)}
       alwaysOnTop={alwaysOnTop}
       isLoading={isLoading}
       onToggleAlwaysOnTop={toggleAlwaysOnTop}
@@ -88,8 +111,10 @@
     <div class="min-h-0 flex-1">
       {#if viewerType === 'navi_guide'}
         <NaviGuideViewer onLoadingChange={handleLoadingChange} />
-      {:else}
+      {:else if viewerType === 'flyffipedia'}
         <FlyffipediaViewer onLoadingChange={handleLoadingChange} />
+      {:else}
+        <FlyffulatorViewer onLoadingChange={handleLoadingChange} />
       {/if}
     </div>
   {/if}

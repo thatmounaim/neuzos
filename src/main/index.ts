@@ -76,7 +76,7 @@ const sessionWindows = new Map<string, BrowserWindow>();
 let sessionLauncherWindow: BrowserWindow | null = null;
 let lastKeybindToggleAt = 0;
 
-type ViewerWindowType = 'navi_guide' | 'flyffipedia';
+type ViewerWindowType = 'navi_guide' | 'flyffipedia' | 'flyffulator';
 type ViewerWindowConfig = {
   x: number | null;
   y: number | null;
@@ -92,7 +92,7 @@ type ViewerWindowBounds = {
   height: number;
 };
 
-const viewerWindowTypes: ViewerWindowType[] = ['navi_guide', 'flyffipedia'];
+const viewerWindowTypes: ViewerWindowType[] = ['navi_guide', 'flyffipedia', 'flyffulator'];
 const defaultViewerWindowConfig: ViewerWindowConfig = {
   x: null,
   y: null,
@@ -101,15 +101,26 @@ const defaultViewerWindowConfig: ViewerWindowConfig = {
   alwaysOnTop: true,
 };
 
+const viewerDefaultWindowConfigs: Record<ViewerWindowType, ViewerWindowConfig> = {
+  navi_guide: {...defaultViewerWindowConfig},
+  flyffipedia: {...defaultViewerWindowConfig},
+  flyffulator: {...defaultViewerWindowConfig, width: 1337, height: 890},
+};
 const viewerWindows: Map<ViewerWindowType, BrowserWindow> = new Map();
 const viewerBoundsSaveTimers: Map<ViewerWindowType, ReturnType<typeof setTimeout>> = new Map();
 const viewerLocalStorageKeys: Record<ViewerWindowType, string> = {
   navi_guide: 'widget.viewer.naviGuide',
   flyffipedia: 'widget.viewer.flyffipedia',
+  flyffulator: 'widget.viewer.flyffulator',
 };
+function getDefaultViewerWindowConfig(type: ViewerWindowType): ViewerWindowConfig {
+  return {...viewerDefaultWindowConfigs[type]};
+}
+
 const viewerWindowConfigCache: Record<ViewerWindowType, ViewerWindowConfig> = {
-  navi_guide: {...defaultViewerWindowConfig},
-  flyffipedia: {...defaultViewerWindowConfig},
+  navi_guide: getDefaultViewerWindowConfig('navi_guide'),
+  flyffipedia: getDefaultViewerWindowConfig('flyffipedia'),
+  flyffulator: getDefaultViewerWindowConfig('flyffulator'),
 };
 
 let exitCount: number = 0;
@@ -802,21 +813,23 @@ async function cleanupQueuedSessionPartitions(config: any): Promise<void> {
   saveConfig(config);
 }
 
-function sanitizeViewerWindowConfig(value: any): ViewerWindowConfig {
+function sanitizeViewerWindowConfig(value: any, fallback: ViewerWindowConfig = defaultViewerWindowConfig): ViewerWindowConfig {
   return {
-    x: typeof value?.x === 'number' ? value.x : null,
-    y: typeof value?.y === 'number' ? value.y : null,
-    width: typeof value?.width === 'number' && value.width > 0 ? value.width : defaultViewerWindowConfig.width,
-    height: typeof value?.height === 'number' && value.height > 0 ? value.height : defaultViewerWindowConfig.height,
-    alwaysOnTop: typeof value?.alwaysOnTop === 'boolean' ? value.alwaysOnTop : defaultViewerWindowConfig.alwaysOnTop,
+    x: typeof value?.x === 'number' ? value.x : fallback.x,
+    y: typeof value?.y === 'number' ? value.y : fallback.y,
+    width: typeof value?.width === 'number' && value.width > 0 ? value.width : fallback.width,
+    height: typeof value?.height === 'number' && value.height > 0 ? value.height : fallback.height,
+    alwaysOnTop: typeof value?.alwaysOnTop === 'boolean' ? value.alwaysOnTop : fallback.alwaysOnTop,
   };
 }
 
 function setViewerWindowConfigCache(type: ViewerWindowType, value: Partial<ViewerWindowConfig> | undefined): ViewerWindowConfig {
+  const fallback = getDefaultViewerWindowConfig(type);
   viewerWindowConfigCache[type] = sanitizeViewerWindowConfig({
+    ...fallback,
     ...viewerWindowConfigCache[type],
     ...(value || {}),
-  });
+  }, fallback);
   return viewerWindowConfigCache[type];
 }
 
@@ -838,7 +851,7 @@ function parseViewerWindowConfig(value: string | null | undefined): Partial<View
 }
 
 function getViewerWindowConfig(type: ViewerWindowType): ViewerWindowConfig {
-  return viewerWindowConfigCache[type] ?? {...defaultViewerWindowConfig};
+  return viewerWindowConfigCache[type] ?? getDefaultViewerWindowConfig(type);
 }
 
 function getLocalStorageWindow(): BrowserWindow | null {
@@ -972,7 +985,7 @@ async function createViewerWindow(type: ViewerWindowType): Promise<BrowserWindow
   }
 
   const storedConfig = await readViewerWindowConfigFromLocalStorage(type);
-  setViewerWindowConfigCache(type, storedConfig ?? defaultViewerWindowConfig);
+  setViewerWindowConfigCache(type, storedConfig ?? getDefaultViewerWindowConfig(type));
 
   const viewerConfig = getViewerWindowConfig(type);
   const viewerBounds = getSanitizedViewerBounds(type);
