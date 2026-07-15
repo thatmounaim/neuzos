@@ -92,6 +92,7 @@
     neuzosConfig.sessionActions = conf.sessionActions || [];
     neuzosConfig.sessionGroups = conf.sessionGroups ?? [];
     neuzosConfig.sessionZoomLevels = conf.sessionZoomLevels ?? {};
+    neuzosConfig.syncReceiverSessionId = conf.syncReceiverSessionId ?? null;
     neuzosConfig.userAgent = conf.userAgent;
     neuzosConfig.titleBarButtons = conf.titleBarButtons;
     neuzosConfig.window = conf.window;
@@ -269,10 +270,6 @@
   };
 
   const cleanDefaultConfigValues = () => {
-    if (neuzosConfig.window?.sidebarSide !== undefined) {
-      delete neuzosConfig.window.sidebarSide;
-    }
-
     neuzosConfig.sessions = (neuzosConfig.sessions ?? []).map((session) => {
       const cleanedSession = {...session};
       if (cleanedSession.floatable === false) {

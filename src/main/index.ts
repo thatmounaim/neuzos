@@ -394,7 +394,7 @@ function normalizeSessionGroups(groups: unknown, knownSessionIds: Set<string>): 
         return [];
       }
       hasUngroupedMarker = true;
-      return [{id: 'ungrouped', type: 'ungrouped' as const}];
+      return [{id: 'ungrouped'}];
     }
 
     const label = typeof group.label === 'string' && group.label.trim() !== '' ? group.label.trim() : 'New Group';
@@ -537,6 +537,47 @@ function cleanConfigForSave(conf: any): any {
     delete cleaned.window.viewers;
   }
 
+  if (cleaned.window && Object.keys(cleaned.window).length === 0) {
+    delete cleaned.window;
+  }
+
+  if (cleaned.autoSaveSettings === false) {
+    delete cleaned.autoSaveSettings;
+  }
+
+  if (cleaned.autoDeleteAllCachesOnStartup === false) {
+    delete cleaned.autoDeleteAllCachesOnStartup;
+  }
+
+  if (cleaned.defaultLaunchMode === 'normal') {
+    delete cleaned.defaultLaunchMode;
+  }
+
+  if (cleaned.chromium?.commandLineSwitches !== undefined && Array.isArray(cleaned.chromium.commandLineSwitches) && cleaned.chromium.commandLineSwitches.length === 0) {
+    delete cleaned.chromium.commandLineSwitches;
+  }
+
+  if (cleaned.chromium && Object.keys(cleaned.chromium).length === 0) {
+    delete cleaned.chromium;
+  }
+
+  if (cleaned.syncReceiverSessionId === null) {
+    delete cleaned.syncReceiverSessionId;
+  }
+
+  if (Array.isArray(cleaned.pendingPartitionDeletes) && cleaned.pendingPartitionDeletes.length === 0) {
+    delete cleaned.pendingPartitionDeletes;
+  }
+
+  if (Array.isArray(cleaned.sessionGroups)) {
+    cleaned.sessionGroups = cleaned.sessionGroups.map((group: any) => {
+      if (group?.id === 'ungrouped' || group?.type === 'ungrouped') {
+        return {id: 'ungrouped'};
+      }
+      return group;
+    });
+  }
+
   if (Array.isArray(cleaned.sessions)) {
     cleaned.sessions = cleaned.sessions.map((sessionConfig: any) => {
       const cleanedSession = {...sessionConfig};
@@ -550,7 +591,45 @@ function cleanConfigForSave(conf: any): any {
     });
   }
 
-  return cleaned;
+  return orderConfigForSave(cleaned);
+}
+
+function orderConfigForSave(config: any): any {
+  const ordered: any = {};
+  const keyOrder = [
+    'syncReceiverSessionId',
+    'activeKeyBindProfileId',
+    'autoSaveSettings',
+    'autoDeleteAllCachesOnStartup',
+    'window',
+    'titleBarButtons',
+    'fullscreen',
+    'sessions',
+    'sessionZoomLevels',
+    'sessionGroups',
+    'defaultLayouts',
+    'layouts',
+    'keyBindProfiles',
+    'keyBinds',
+    'sessionActions',
+    'defaultLaunchMode',
+    'userAgent',
+    'chromium',
+  ];
+
+  for (const key of keyOrder) {
+    if (config[key] !== undefined) {
+      ordered[key] = config[key];
+    }
+  }
+
+  for (const key of Object.keys(config)) {
+    if (!(key in ordered)) {
+      ordered[key] = config[key];
+    }
+  }
+
+  return ordered;
 }
 
 function cleanConfigExportPayload(payload: ConfigExportPayloadV2): ConfigExportPayloadV2 {
@@ -562,6 +641,27 @@ function cleanConfigExportPayload(payload: ConfigExportPayloadV2): ConfigExportP
 
   if (cleaned.window?.viewers !== undefined) {
     delete cleaned.window.viewers;
+  }
+
+  if (cleaned.window && Object.keys(cleaned.window).length === 0) {
+    delete cleaned.window;
+  }
+
+  if (cleaned.chromium?.commandLineSwitches !== undefined && Array.isArray(cleaned.chromium.commandLineSwitches) && cleaned.chromium.commandLineSwitches.length === 0) {
+    delete cleaned.chromium.commandLineSwitches;
+  }
+
+  if (cleaned.chromium && Object.keys(cleaned.chromium).length === 0) {
+    delete cleaned.chromium;
+  }
+
+  if (Array.isArray(cleaned.sessionGroups)) {
+    cleaned.sessionGroups = cleaned.sessionGroups.map((group: any) => {
+      if (group?.id === 'ungrouped' || group?.type === 'ungrouped') {
+        return {id: 'ungrouped'};
+      }
+      return group;
+    });
   }
 
   return cleaned;

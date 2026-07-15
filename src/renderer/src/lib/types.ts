@@ -210,7 +210,6 @@ export type NeuzConfig = {
       zoom: number;
       maximized: boolean;
     },
-    sidebarSide?: 'left' | 'right';
   },
   autoSaveSettings: boolean;
   autoDeleteAllCachesOnStartup?: boolean;

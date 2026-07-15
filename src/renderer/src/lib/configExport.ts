@@ -138,15 +138,32 @@ function cloneSessionZoomLevels(sessionZoomLevels?: Record<string, number>): Rec
   return cloneValue(sessionZoomLevels ?? {});
 }
 
-function cloneWindowForExport(windowConfig: NeuzConfig['window']): NeuzConfig['window'] {
+function cloneWindowForExport(windowConfig: NeuzConfig['window']): NeuzConfig['window'] | undefined {
   const cleanedWindow = cloneValue(windowConfig);
-  if (cleanedWindow?.sidebarSide !== undefined) {
-    delete cleanedWindow.sidebarSide;
+  if ((cleanedWindow as any)?.sidebarSide !== undefined) {
+    delete (cleanedWindow as any).sidebarSide;
   }
   if ((cleanedWindow as any)?.viewers !== undefined) {
     delete (cleanedWindow as any).viewers;
   }
-  return cleanedWindow;
+  return cleanedWindow && Object.keys(cleanedWindow).length > 0 ? cleanedWindow : undefined;
+}
+
+function cloneChromiumForExport(chromium: NeuzConfig['chromium']): NeuzConfig['chromium'] | undefined {
+  const cleanedChromium = cloneValue(chromium);
+  if (Array.isArray(cleanedChromium?.commandLineSwitches) && cleanedChromium.commandLineSwitches.length === 0) {
+    delete (cleanedChromium as any).commandLineSwitches;
+  }
+  return cleanedChromium && Object.keys(cleanedChromium).length > 0 ? cleanedChromium : undefined;
+}
+
+function cloneSessionGroupsForExport(sessionGroups?: NeuzConfig['sessionGroups']): NeuzConfig['sessionGroups'] {
+  return cloneValue(sessionGroups ?? []).map((group) => {
+    if (group?.id === 'ungrouped' || group?.type === 'ungrouped') {
+      return {id: 'ungrouped'};
+    }
+    return group;
+  });
 }
 
 function getSessionActionItemCount(sessionActions: NeuzConfig['sessionActions']): number {
@@ -249,7 +266,10 @@ function cloneForExport(config: NeuzConfig, selectedCategories: ExportCategory[]
 
   if (isCategorySelected(selectedCategories, 'general-settings')) {
     if (config.window !== undefined) {
-      payload.window = cloneWindowForExport(config.window);
+      const windowConfig = cloneWindowForExport(config.window);
+      if (windowConfig !== undefined) {
+        payload.window = windowConfig;
+      }
     }
     payload.autoSaveSettings = config.autoSaveSettings;
     payload.autoDeleteAllCachesOnStartup = config.autoDeleteAllCachesOnStartup;
@@ -261,7 +281,7 @@ function cloneForExport(config: NeuzConfig, selectedCategories: ExportCategory[]
 
   if (isCategorySelected(selectedCategories, 'sessions')) {
     payload.sessions = cloneValue(config.sessions ?? []);
-    payload.sessionGroups = cloneValue(config.sessionGroups ?? []);
+    payload.sessionGroups = cloneSessionGroupsForExport(config.sessionGroups);
     payload.sessionZoomLevels = cloneSessionZoomLevels(config.sessionZoomLevels);
   }
 
@@ -275,7 +295,10 @@ function cloneForExport(config: NeuzConfig, selectedCategories: ExportCategory[]
     if (config.userAgent !== undefined) {
       payload.userAgent = config.userAgent;
     }
-    payload.chromium = cloneValue(config.chromium);
+    const chromium = cloneChromiumForExport(config.chromium);
+    if (chromium !== undefined) {
+      payload.chromium = chromium;
+    }
   }
 
   return payload;
