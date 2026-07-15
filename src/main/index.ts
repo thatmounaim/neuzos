@@ -117,6 +117,17 @@ function getDefaultViewerWindowConfig(type: ViewerWindowType): ViewerWindowConfi
   return {...viewerDefaultWindowConfigs[type]};
 }
 
+function getViewerWindowTitle(type: ViewerWindowType): string {
+  switch (type) {
+    case 'navi_guide':
+      return "NeuzOS - Navi's Bestiary";
+    case 'flyffipedia':
+      return 'NeuzOS - Flyffipedia';
+    case 'flyffulator':
+      return 'NeuzOS - Flyffulator';
+  }
+}
+
 const viewerWindowConfigCache: Record<ViewerWindowType, ViewerWindowConfig> = {
   navi_guide: getDefaultViewerWindowConfig('navi_guide'),
   flyffipedia: getDefaultViewerWindowConfig('flyffipedia'),
@@ -991,6 +1002,7 @@ async function createViewerWindow(type: ViewerWindowType): Promise<BrowserWindow
   const viewerBounds = getSanitizedViewerBounds(type);
 
   const window = new BrowserWindow({
+    title: getViewerWindowTitle(type),
     width: viewerConfig.width,
     height: viewerConfig.height,
     show: false,

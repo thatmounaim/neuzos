@@ -59,6 +59,23 @@
     neuzosBridge.viewerWindow.close();
   }
 
+  $effect(() => {
+    if (viewerType) {
+      document.title = getViewerWindowTitle(viewerType);
+    }
+  });
+
+  function getViewerWindowTitle(type: ViewerWindowType): string {
+    switch (type) {
+      case 'navi_guide':
+        return "NeuzOS - Navi's Bestiary";
+      case 'flyffipedia':
+        return 'NeuzOS - Flyffipedia';
+      case 'flyffulator':
+        return 'NeuzOS - Flyffulator';
+    }
+  }
+
   function getViewerTitle(type: ViewerWindowType): string {
     switch (type) {
       case 'navi_guide':
