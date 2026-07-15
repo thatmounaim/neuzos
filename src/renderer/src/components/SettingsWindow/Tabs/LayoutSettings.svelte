@@ -573,7 +573,7 @@
       </div>
     </div>
     <Card.Description class="flex flex-col">
-      Select which Layouts should be on your Mainbar by default when NeuzOS starts.
+      Choose which Layouts appear on the Main Bar by Default when NeuzOS starts.
     </Card.Description>
   </Card.Header>
   <Card.Content class="flex flex-wrap items-center gap-2">

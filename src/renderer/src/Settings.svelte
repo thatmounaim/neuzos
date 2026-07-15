@@ -135,6 +135,20 @@
     }
   }
 
+  const applyActiveKeybindProfilePatch = (profileId: string | null) => {
+    neuzosConfig.activeKeyBindProfileId = profileId;
+
+    if (lastConfigSnapshot) {
+      try {
+        const savedConfig = JSON.parse(lastConfigSnapshot) as NeuzConfig;
+        savedConfig.activeKeyBindProfileId = profileId;
+        lastConfigSnapshot = JSON.stringify(savedConfig);
+      } catch (error) {
+        console.error('Failed to apply active keybind profile patch to settings snapshot:', error);
+      }
+    }
+  }
+
   onMount(() => {
     void loadConfig()
     const setTab = (_: unknown, tab?: string) => {
@@ -145,13 +159,18 @@
     const handleConfigPatch = (_: unknown, patch: NeuzConfigPatch) => {
       applyConfigPatch(patch);
     };
+    const handleActiveKeybindProfileChanged = (_: unknown, profileId: string | null) => {
+      applyActiveKeybindProfilePatch(profileId);
+    };
 
     electronApi.on("settings_window.set_tab", setTab);
     electronApi.on("event.config_patch", handleConfigPatch);
+    electronApi.on("event.active_keybind_profile_changed", handleActiveKeybindProfileChanged);
 
     return () => {
       electronApi.removeListener("settings_window.set_tab", setTab);
       electronApi.removeListener("event.config_patch", handleConfigPatch);
+      electronApi.removeListener("event.active_keybind_profile_changed", handleActiveKeybindProfileChanged);
     };
   });
 

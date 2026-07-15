@@ -503,7 +503,7 @@ export const migrateSettingsLocalStorage = () => {
 export const readSettingsSortMode = (scope: SortModeScope): SortMode => {
   const current = readObject(SETTINGS_SORT_MODE_STORAGE_KEY);
   const legacyValue = canUseLocalStorage() ? window.localStorage.getItem(LEGACY_SORT_MODE_KEYS[scope]) : null;
-  const sortMode = normalizeSortMode(current[scope]) ?? normalizeSortMode(legacyValue) ?? 'arrows';
+  const sortMode = normalizeSortMode(current[scope]) ?? normalizeSortMode(legacyValue) ?? 'dragDrop';
 
   writeSettingsSortMode(scope, sortMode);
   return sortMode;
@@ -514,7 +514,7 @@ export const writeSettingsSortMode = (scope: SortModeScope, sortMode: SortMode) 
 
   const current = readObject(SETTINGS_SORT_MODE_STORAGE_KEY);
 
-  if (sortMode === 'arrows') {
+  if (sortMode === 'dragDrop') {
     delete current[scope];
   } else {
     current[scope] = sortMode;

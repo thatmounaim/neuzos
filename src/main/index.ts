@@ -3124,6 +3124,7 @@ function registerSessionKeybinds(mode: LaunchMode) {
       saveConfig(neuzosConfig);
       registerKeybinds();
       mainWindow?.webContents?.send("event.active_keybind_profile_changed", profileId);
+      settingsWindow?.webContents?.send("event.active_keybind_profile_changed", profileId);
 
       return { success: true, profileId };
     });

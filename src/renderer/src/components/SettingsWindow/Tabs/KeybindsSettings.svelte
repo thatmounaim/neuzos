@@ -274,9 +274,11 @@
     neuzosConfig.keyBinds.filter(keyBind => !isSystemActionEvent(keyBind.event))
   );
 
-  onMount(async () => {
-    allowedEventKeybinds = await electronApi.invoke("config.get_available_event_keybinds");
-    uiActions = await electronApi.invoke("config.get_available_ui_actions");
+  onMount(() => {
+    void (async () => {
+      allowedEventKeybinds = await electronApi.invoke("config.get_available_event_keybinds");
+      uiActions = await electronApi.invoke("config.get_available_ui_actions");
+    })();
   });
 
   // ── Global keybind combobox states ──────────────────────────────────────────
@@ -400,6 +402,14 @@
   function getActiveProfile(): NeuzKeyBindProfile | null {
     ensureDefaultProfile();
     return neuzosConfig.keyBindProfiles.find(p => p.id === neuzosConfig.activeKeyBindProfileId) ?? null;
+  }
+
+  async function setActiveProfile(profileId: string) {
+    if (neuzosConfig.activeKeyBindProfileId === profileId) return;
+    const result = await electronApi.invoke("keybinds.swap_profile", profileId);
+    if (result?.success !== false) {
+      neuzosConfig.activeKeyBindProfileId = profileId;
+    }
   }
 
   function addProfile() {
@@ -777,7 +787,7 @@
                       class="mr-1.5 h-6 px-2 py-0 text-[11px]"
                       onclick={(event) => {
                         event.stopPropagation();
-                        neuzosConfig.activeKeyBindProfileId = profile.id;
+                        void setActiveProfile(profile.id);
                       }}
                     >
                       Set Active
