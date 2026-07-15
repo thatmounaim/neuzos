@@ -7,12 +7,15 @@
   import NaviGuideViewer from './components/Widgets/Builtin/ViewerWindow/NaviGuideViewer.svelte';
   import FlyffipediaViewer from './components/Widgets/Builtin/ViewerWindow/FlyffipediaViewer.svelte';
   import FlyffulatorViewer from './components/Widgets/Builtin/ViewerWindow/FlyffulatorViewer.svelte';
+  import FlyffCalculatorsViewer from './components/Widgets/Builtin/ViewerWindow/FlyffCalculatorsViewer.svelte';
+  import SiegeStatsViewer from './components/Widgets/Builtin/ViewerWindow/SiegeStatsViewer.svelte';
+  import CsModelviewerViewer from './components/Widgets/Builtin/ViewerWindow/CsModelviewerViewer.svelte';
 
   // Must be called before any IPC bridge usage - mirrors what App.svelte does
   initElectronApi(window.electron.ipcRenderer);
 
+  const viewerTypes: ViewerWindowType[] = ['navi_guide', 'flyffipedia', 'flyffulator', 'flyff_calculators', 'siege_stats', 'cs_modelviewer'];
   const requestedType = new URLSearchParams(window.location.search).get('type');
-  const viewerTypes: ViewerWindowType[] = ['navi_guide', 'flyffipedia', 'flyffulator'];
   const requestedViewerType = viewerTypes.includes(requestedType as ViewerWindowType) ? requestedType as ViewerWindowType : null;
   let viewerType = $state<ViewerWindowType | null>(requestedViewerType);
   let alwaysOnTop = $state(true);
@@ -73,6 +76,12 @@
         return 'NeuzOS - Flyffipedia';
       case 'flyffulator':
         return 'NeuzOS - Flyffulator';
+      case 'flyff_calculators':
+        return 'NeuzOS - Flyff Calculators';
+      case 'siege_stats':
+        return 'NeuzOS - Siege Stats';
+      case 'cs_modelviewer':
+        return 'NeuzOS - CS-Modelviewer';
     }
   }
 
@@ -84,6 +93,12 @@
         return 'Flyffipedia';
       case 'flyffulator':
         return 'Flyffulator';
+      case 'flyff_calculators':
+        return 'Flyff Calculators';
+      case 'siege_stats':
+        return 'Siege Stats';
+      case 'cs_modelviewer':
+        return 'CS-Modelviewer';
     }
   }
 
@@ -95,6 +110,12 @@
         return 'created by Swaight';
       case 'flyffulator':
         return 'created by Frostiae';
+      case 'flyff_calculators':
+        return 'created by Stellar';
+      case 'siege_stats':
+        return 'created by Shynox';
+      case 'cs_modelviewer':
+        return 'created by i9hdkill';
     }
   }
 </script>
@@ -130,8 +151,14 @@
         <NaviGuideViewer onLoadingChange={handleLoadingChange} />
       {:else if viewerType === 'flyffipedia'}
         <FlyffipediaViewer onLoadingChange={handleLoadingChange} />
-      {:else}
+      {:else if viewerType === 'flyffulator'}
         <FlyffulatorViewer onLoadingChange={handleLoadingChange} />
+      {:else if viewerType === 'flyff_calculators'}
+        <FlyffCalculatorsViewer onLoadingChange={handleLoadingChange} />
+      {:else if viewerType === 'siege_stats'}
+        <SiegeStatsViewer onLoadingChange={handleLoadingChange} />
+      {:else}
+        <CsModelviewerViewer onLoadingChange={handleLoadingChange} />
       {/if}
     </div>
   {/if}

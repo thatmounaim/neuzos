@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { BookMarked, Coins, ListTodo, NotebookText, PawPrint, Scroll, ScrollText } from '@lucide/svelte';
+  import { BookMarked, Calculator, ChartNoAxesCombined, Coins, ListTodo, NotebookText, PawPrint, Scroll, ScrollText, Search } from '@lucide/svelte';
   import { Button } from '$lib/components/ui/button';
   import { getWidgetsContext } from '$lib/contexts/widgetsContext.svelte';
   import { getQuestPanelContext } from '$lib/contexts/questPanelContext.svelte';
@@ -63,6 +63,9 @@
       case 'navi_guide':
       case 'flyffipedia':
       case 'flyffulator':
+      case 'flyff_calculators':
+      case 'siege_stats':
+      case 'cs_modelviewer':
         return openViewerTypes.includes(id);
       case 'quest_log':
         return questPanel.isOpen;
@@ -83,6 +86,9 @@
       case 'navi_guide':
       case 'flyffipedia':
       case 'flyffulator':
+      case 'flyff_calculators':
+      case 'siege_stats':
+      case 'cs_modelviewer':
         toggleViewer(id);
         break;
       case 'quest_log':
@@ -105,6 +111,12 @@
         return 'Flyffipedia';
       case 'flyffulator':
         return 'Flyffulator';
+      case 'flyff_calculators':
+        return 'Flyff Calculators';
+      case 'siege_stats':
+        return 'Siege Stats';
+      case 'cs_modelviewer':
+        return 'CS-Modelviewer';
       case 'quest_log':
         return 'Quest Log';
     }
@@ -145,6 +157,12 @@
       <BookMarked class="size-3.5" />
     {:else if launcherId === 'flyffulator'}
       <Scroll class="size-3.5" />
+    {:else if launcherId === 'flyff_calculators'}
+      <Calculator class="size-3.5" />
+    {:else if launcherId === 'siege_stats'}
+      <ChartNoAxesCombined class="size-3.5" />
+    {:else if launcherId === 'cs_modelviewer'}
+      <Search class="size-3.5" />
     {:else if launcherId === 'quest_log'}
       <ScrollText class="size-3.5" />
     {/if}

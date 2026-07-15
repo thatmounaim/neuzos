@@ -5,7 +5,7 @@
   import { Button } from '$lib/components/ui/button';
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 
-  import { BookMarked, BrushCleaning, Check, GraduationCap, PawPrint, Scroll, ScrollText, X } from '@lucide/svelte';
+  import { BookMarked, BrushCleaning, Calculator, ChartNoAxesCombined, Check, GraduationCap, PawPrint, Scroll, ScrollText, Search, X } from '@lucide/svelte';
   import type { ViewerWindowType } from '$lib/types';
   import FCoinCalculatorDropdownItem from '../Builtin/FCoinCalculator/DropdownItem.svelte';
   import NotepadDropdownItem from '../Builtin/Notepad/DropdownItem.svelte';
@@ -199,6 +199,90 @@
             <span>Flyffulator</span>
           </div>
           <WidgetLauncherPinButton launcherId="flyffulator" />
+        </DropdownMenu.Item>
+      {/if}
+      {#if isViewerOpen('flyff_calculators')}
+        <DropdownMenu.Item class="justify-between gap-2 data-highlighted:bg-transparent data-highlighted:text-foreground" onclick={ignoreActiveLauncherClick}>
+          <div class="flex min-w-0 items-center gap-2">
+            <Calculator class="h-4 w-4" />
+            <span>Calculators</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <WidgetLauncherPinButton launcherId="flyff_calculators" />
+            <Button
+              size="icon"
+              variant="ghost"
+              class="h-6 w-6 hover:bg-destructive hover:text-destructive-foreground"
+              onclick={(event) => closeViewer('flyff_calculators', event)}
+              title="Close"
+            >
+              <X class="h-3 w-3" />
+            </Button>
+          </div>
+        </DropdownMenu.Item>
+      {:else}
+        <DropdownMenu.Item class="justify-between gap-2" onclick={() => openViewer('flyff_calculators')}>
+          <div class="flex min-w-0 items-center gap-2">
+            <Calculator class="h-4 w-4" />
+            <span>Calculators</span>
+          </div>
+          <WidgetLauncherPinButton launcherId="flyff_calculators" />
+        </DropdownMenu.Item>
+      {/if}
+      {#if isViewerOpen('siege_stats')}
+        <DropdownMenu.Item class="justify-between gap-2 data-highlighted:bg-transparent data-highlighted:text-foreground" onclick={ignoreActiveLauncherClick}>
+          <div class="flex min-w-0 items-center gap-2">
+            <ChartNoAxesCombined class="h-4 w-4" />
+            <span>Siege Stats</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <WidgetLauncherPinButton launcherId="siege_stats" />
+            <Button
+              size="icon"
+              variant="ghost"
+              class="h-6 w-6 hover:bg-destructive hover:text-destructive-foreground"
+              onclick={(event) => closeViewer('siege_stats', event)}
+              title="Close"
+            >
+              <X class="h-3 w-3" />
+            </Button>
+          </div>
+        </DropdownMenu.Item>
+      {:else}
+        <DropdownMenu.Item class="justify-between gap-2" onclick={() => openViewer('siege_stats')}>
+          <div class="flex min-w-0 items-center gap-2">
+            <ChartNoAxesCombined class="h-4 w-4" />
+            <span>Siege Stats</span>
+          </div>
+          <WidgetLauncherPinButton launcherId="siege_stats" />
+        </DropdownMenu.Item>
+      {/if}
+      {#if isViewerOpen('cs_modelviewer')}
+        <DropdownMenu.Item class="justify-between gap-2 data-highlighted:bg-transparent data-highlighted:text-foreground" onclick={ignoreActiveLauncherClick}>
+          <div class="flex min-w-0 items-center gap-2">
+            <Search class="h-4 w-4" />
+            <span>Modelviewer</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <WidgetLauncherPinButton launcherId="cs_modelviewer" />
+            <Button
+              size="icon"
+              variant="ghost"
+              class="h-6 w-6 hover:bg-destructive hover:text-destructive-foreground"
+              onclick={(event) => closeViewer('cs_modelviewer', event)}
+              title="Close"
+            >
+              <X class="h-3 w-3" />
+            </Button>
+          </div>
+        </DropdownMenu.Item>
+      {:else}
+        <DropdownMenu.Item class="justify-between gap-2" onclick={() => openViewer('cs_modelviewer')}>
+          <div class="flex min-w-0 items-center gap-2">
+            <Search class="h-4 w-4" />
+            <span>Modelviewer</span>
+          </div>
+          <WidgetLauncherPinButton launcherId="cs_modelviewer" />
         </DropdownMenu.Item>
       {/if}
       {#if isViewerOpen('navi_guide')}

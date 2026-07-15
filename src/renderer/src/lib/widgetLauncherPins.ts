@@ -5,6 +5,9 @@ export type WidgetLauncherId =
   | 'navi_guide'
   | 'flyffipedia'
   | 'flyffulator'
+  | 'flyff_calculators'
+  | 'siege_stats'
+  | 'cs_modelviewer'
   | 'quest_log';
 
 const STORAGE_KEY = 'mainbar.pinnedWidgetLaunchers';
@@ -17,6 +20,9 @@ const validLauncherIds: WidgetLauncherId[] = [
   'navi_guide',
   'flyffipedia',
   'flyffulator',
+  'flyff_calculators',
+  'siege_stats',
+  'cs_modelviewer',
   'quest_log'
 ];
 

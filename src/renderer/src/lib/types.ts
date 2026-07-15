@@ -46,7 +46,7 @@ export type NeuzLayout = {
   autoFocus?: boolean
 }
 
-export type ViewerWindowType = 'navi_guide' | 'flyffipedia' | 'flyffulator';
+export type ViewerWindowType = 'navi_guide' | 'flyffipedia' | 'flyffulator' | 'flyff_calculators' | 'siege_stats' | 'cs_modelviewer';
 
 export type ViewerWindowConfig = {
   x: number | null;

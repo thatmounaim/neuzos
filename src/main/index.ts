@@ -76,7 +76,7 @@ const sessionWindows = new Map<string, BrowserWindow>();
 let sessionLauncherWindow: BrowserWindow | null = null;
 let lastKeybindToggleAt = 0;
 
-type ViewerWindowType = 'navi_guide' | 'flyffipedia' | 'flyffulator';
+type ViewerWindowType = 'navi_guide' | 'flyffipedia' | 'flyffulator' | 'flyff_calculators' | 'siege_stats' | 'cs_modelviewer';
 type ViewerWindowConfig = {
   x: number | null;
   y: number | null;
@@ -92,7 +92,7 @@ type ViewerWindowBounds = {
   height: number;
 };
 
-const viewerWindowTypes: ViewerWindowType[] = ['navi_guide', 'flyffipedia', 'flyffulator'];
+const viewerWindowTypes: ViewerWindowType[] = ['navi_guide', 'flyffipedia', 'flyffulator', 'flyff_calculators', 'siege_stats', 'cs_modelviewer'];
 const defaultViewerWindowConfig: ViewerWindowConfig = {
   x: null,
   y: null,
@@ -102,9 +102,12 @@ const defaultViewerWindowConfig: ViewerWindowConfig = {
 };
 
 const viewerDefaultWindowConfigs: Record<ViewerWindowType, ViewerWindowConfig> = {
-  navi_guide: {...defaultViewerWindowConfig},
+  navi_guide: {...defaultViewerWindowConfig, width: 1160, height: 700},
   flyffipedia: {...defaultViewerWindowConfig},
   flyffulator: {...defaultViewerWindowConfig, width: 1337, height: 890},
+  flyff_calculators: {...defaultViewerWindowConfig, width: 975, height: 700},
+  siege_stats: {...defaultViewerWindowConfig},
+  cs_modelviewer: {...defaultViewerWindowConfig},
 };
 const viewerWindows: Map<ViewerWindowType, BrowserWindow> = new Map();
 const viewerBoundsSaveTimers: Map<ViewerWindowType, ReturnType<typeof setTimeout>> = new Map();
@@ -112,6 +115,9 @@ const viewerLocalStorageKeys: Record<ViewerWindowType, string> = {
   navi_guide: 'widget.viewer.naviGuide',
   flyffipedia: 'widget.viewer.flyffipedia',
   flyffulator: 'widget.viewer.flyffulator',
+  flyff_calculators: 'widget.viewer.flyffCalculators',
+  siege_stats: 'widget.viewer.siegeStats',
+  cs_modelviewer: 'widget.viewer.csModelviewer',
 };
 function getDefaultViewerWindowConfig(type: ViewerWindowType): ViewerWindowConfig {
   return {...viewerDefaultWindowConfigs[type]};
@@ -125,6 +131,12 @@ function getViewerWindowTitle(type: ViewerWindowType): string {
       return 'NeuzOS - Flyffipedia';
     case 'flyffulator':
       return 'NeuzOS - Flyffulator';
+    case 'flyff_calculators':
+      return 'NeuzOS - Flyff Calculators';
+    case 'siege_stats':
+      return 'NeuzOS - Siege Stats';
+    case 'cs_modelviewer':
+      return 'NeuzOS - CS-Modelviewer';
   }
 }
 
@@ -132,6 +144,9 @@ const viewerWindowConfigCache: Record<ViewerWindowType, ViewerWindowConfig> = {
   navi_guide: getDefaultViewerWindowConfig('navi_guide'),
   flyffipedia: getDefaultViewerWindowConfig('flyffipedia'),
   flyffulator: getDefaultViewerWindowConfig('flyffulator'),
+  flyff_calculators: getDefaultViewerWindowConfig('flyff_calculators'),
+  siege_stats: getDefaultViewerWindowConfig('siege_stats'),
+  cs_modelviewer: getDefaultViewerWindowConfig('cs_modelviewer'),
 };
 
 let exitCount: number = 0;
