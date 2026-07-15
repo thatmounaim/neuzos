@@ -182,12 +182,18 @@ function pruneSessionReferences(config: any): void {
     config.sessionActions = config.sessionActions.filter((entry: any) => knownSessionIds.has(entry?.sessionId));
   }
 
-  if (config.sessionZoomLevels && typeof config.sessionZoomLevels === 'object') {
-    for (const sessionId of Object.keys(config.sessionZoomLevels)) {
-      if (!knownSessionIds.has(sessionId) || config.sessionZoomLevels[sessionId] === 1.0) {
-        delete config.sessionZoomLevels[sessionId];
+  if (Array.isArray(config.sessions)) {
+    config.sessions = config.sessions.map((sessionConfig: any) => {
+      const cleanedSession = {...sessionConfig};
+      if (typeof cleanedSession.zoom !== 'number' || !Number.isFinite(cleanedSession.zoom) || cleanedSession.zoom === 1.0) {
+        delete cleanedSession.zoom;
       }
-    }
+      return cleanedSession;
+    });
+  }
+
+  if (config.sessionZoomLevels !== undefined) {
+    delete config.sessionZoomLevels;
   }
 
   if (config.syncReceiverSessionId && !knownSessionIds.has(config.syncReceiverSessionId)) {
@@ -268,7 +274,6 @@ type ConfigExportPayloadV2 = {
   sessionActions?: any[];
   sessionGroups?: any[];
   window?: any;
-  sessionZoomLevels?: Record<string, number>;
   fullscreen?: any;
   autoSaveSettings?: boolean;
   autoDeleteAllCachesOnStartup?: boolean;
@@ -333,7 +338,7 @@ function inferPayloadCategories(payload: any): ExportCategory[] {
   if (payload?.window !== undefined || payload?.autoSaveSettings !== undefined || payload?.autoDeleteAllCachesOnStartup !== undefined || payload?.titleBarButtons !== undefined || payload?.fullscreen !== undefined) {
     categories.push('general-settings');
   }
-  if (Array.isArray(payload?.sessions) || Array.isArray(payload?.sessionGroups) || payload?.sessionZoomLevels !== undefined) {
+  if (Array.isArray(payload?.sessions) || Array.isArray(payload?.sessionGroups)) {
     categories.push('sessions');
   }
   if (Array.isArray(payload?.layouts) || Array.isArray(payload?.defaultLayouts)) {
@@ -436,7 +441,6 @@ const defaultNeuzosConfig: any = {
   syncReceiverSessionId: null,
   sessionActions: [],
   sessionGroups: [],
-  sessionZoomLevels: {},
   pendingPartitionDeletes: [],
   titleBarButtons: {
     darkModeToggle: false,
@@ -529,12 +533,20 @@ function saveConfig(conf: any): void {
 function cleanConfigForSave(conf: any): any {
   const cleaned = JSON.parse(JSON.stringify(conf));
 
+  if (cleaned.changed !== undefined) {
+    delete cleaned.changed;
+  }
+
   if (cleaned.window?.sidebarSide !== undefined) {
     delete cleaned.window.sidebarSide;
   }
 
   if (cleaned.window?.viewers !== undefined) {
     delete cleaned.window.viewers;
+  }
+
+  if (cleaned.sessionZoomLevels !== undefined) {
+    delete cleaned.sessionZoomLevels;
   }
 
   if (cleaned.window && Object.keys(cleaned.window).length === 0) {
@@ -587,6 +599,9 @@ function cleanConfigForSave(conf: any): any {
       if (cleanedSession.autoDeleteCache === false) {
         delete cleanedSession.autoDeleteCache;
       }
+      if (typeof cleanedSession.zoom !== 'number' || !Number.isFinite(cleanedSession.zoom) || cleanedSession.zoom === 1.0) {
+        delete cleanedSession.zoom;
+      }
       return cleanedSession;
     });
   }
@@ -605,7 +620,6 @@ function orderConfigForSave(config: any): any {
     'titleBarButtons',
     'fullscreen',
     'sessions',
-    'sessionZoomLevels',
     'sessionGroups',
     'defaultLayouts',
     'layouts',
@@ -635,12 +649,20 @@ function orderConfigForSave(config: any): any {
 function cleanConfigExportPayload(payload: ConfigExportPayloadV2): ConfigExportPayloadV2 {
   const cleaned = JSON.parse(JSON.stringify(payload));
 
+  if (cleaned.changed !== undefined) {
+    delete cleaned.changed;
+  }
+
   if (cleaned.window?.sidebarSide !== undefined) {
     delete cleaned.window.sidebarSide;
   }
 
   if (cleaned.window?.viewers !== undefined) {
     delete cleaned.window.viewers;
+  }
+
+  if (cleaned.sessionZoomLevels !== undefined) {
+    delete cleaned.sessionZoomLevels;
   }
 
   if (cleaned.window && Object.keys(cleaned.window).length === 0) {
@@ -693,8 +715,13 @@ function loadConfig(reload: boolean = false): Promise<any> {
           // Deep merge for window config to ensure all window types (main, settings, session) exist
           const loadedWindow = neuzosConfig.window;
           neuzosConfig = {...defaultNeuzosConfig, ...neuzosConfig};
+          if (neuzosConfig.changed !== undefined) {
+            delete neuzosConfig.changed;
+          }
           neuzosConfig.sessionGroups = neuzosConfig.sessionGroups ?? [];
-          neuzosConfig.sessionZoomLevels = neuzosConfig.sessionZoomLevels ?? {};
+          if (neuzosConfig.sessionZoomLevels !== undefined) {
+            delete neuzosConfig.sessionZoomLevels;
+          }
           neuzosConfig.pendingPartitionDeletes = Array.isArray(neuzosConfig.pendingPartitionDeletes)
             ? [...new Set(neuzosConfig.pendingPartitionDeletes.filter((sessionId: any) => typeof sessionId === 'string'))]
             : [];
@@ -2504,7 +2531,6 @@ function registerSessionKeybinds(mode: LaunchMode) {
             ...(Array.isArray(parsed.sessionActions) ? {sessionActions: parsed.sessionActions} : {}),
             ...(Array.isArray(parsed.sessionGroups) ? {sessionGroups: parsed.sessionGroups} : {}),
             ...(parsed.window !== undefined ? {window: parsed.window} : {}),
-            ...(parsed.sessionZoomLevels !== undefined ? {sessionZoomLevels: parsed.sessionZoomLevels} : {}),
             ...(parsed.fullscreen !== undefined ? {fullscreen: parsed.fullscreen} : {}),
             ...(parsed.autoSaveSettings !== undefined ? {autoSaveSettings: parsed.autoSaveSettings} : {}),
             ...(parsed.autoDeleteAllCachesOnStartup !== undefined ? {autoDeleteAllCachesOnStartup: parsed.autoDeleteAllCachesOnStartup} : {}),
@@ -2845,24 +2871,6 @@ function registerSessionKeybinds(mode: LaunchMode) {
 
           const knownSessionIds = new Set((neuzosConfig.sessions ?? []).map((session: any) => session.id));
 
-          if (incomingPayload.sessionZoomLevels !== undefined) {
-            const filteredZoomLevels: Record<string, number> = {};
-            for (const [sessionId, zoomLevel] of Object.entries(incomingPayload.sessionZoomLevels ?? {})) {
-              if (knownSessionIds.has(sessionId)) {
-                filteredZoomLevels[sessionId] = zoomLevel as number;
-              }
-            }
-            if (mode === 'replace') {
-              neuzosConfig.sessionZoomLevels = filteredZoomLevels;
-            } else {
-              neuzosConfig.sessionZoomLevels = {
-                ...(neuzosConfig.sessionZoomLevels ?? {}),
-                ...filteredZoomLevels,
-              };
-            }
-            didModify = true;
-          }
-
           if (Array.isArray(incomingPayload.sessionGroups)) {
             const normalizedIncomingGroups = normalizeSessionGroups(incomingPayload.sessionGroups, knownSessionIds as Set<string>);
             if (mode === 'replace') {
@@ -3034,11 +3042,14 @@ function registerSessionKeybinds(mode: LaunchMode) {
           return {success: false, error: 'Invalid zoom level.'};
         }
 
-        neuzosConfig.sessionZoomLevels = neuzosConfig.sessionZoomLevels ?? {};
+        const sessionIndex = (neuzosConfig.sessions ?? []).findIndex((sessionConfig: any) => sessionConfig.id === sessionId);
+        if (sessionIndex < 0) {
+          return {success: false, error: 'Session not found.'};
+        }
         if (zoomLevel === 1.0) {
-          delete neuzosConfig.sessionZoomLevels[sessionId];
+          delete neuzosConfig.sessions[sessionIndex].zoom;
         } else {
-          neuzosConfig.sessionZoomLevels[sessionId] = zoomLevel;
+          neuzosConfig.sessions[sessionIndex].zoom = zoomLevel;
         }
         saveConfig(neuzosConfig);
         mainWindow?.webContents?.send("event.config_changed", JSON.stringify(neuzosConfig));

@@ -19,6 +19,7 @@ export type NeuzSession = {
   srcOverwrite?: string;
   partitionOverwrite?: string;
   autoDeleteCache?: boolean;
+  zoom?: number;
 }
 
 export type NeuzSessionState = {
@@ -113,7 +114,6 @@ export type ConfigExportPayloadV2 = {
   sessionActions?: SessionActions[];
   sessionGroups?: NeuzSessionGroup[];
   window?: NeuzConfig['window'];
-  sessionZoomLevels?: Record<string, number>;
   fullscreen?: NeuzConfig['fullscreen'];
   autoSaveSettings?: boolean;
   autoDeleteAllCachesOnStartup?: boolean;
@@ -227,7 +227,6 @@ export type NeuzConfig = {
   syncReceiverSessionId?: string | null
   sessionActions: SessionActions[];
   sessionGroups?: NeuzSessionGroup[];
-  sessionZoomLevels?: { [sessionId: string]: number };
   titleBarButtons: {
     darkModeToggle: boolean;
     fullscreenToggle: boolean;

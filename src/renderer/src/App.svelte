@@ -122,7 +122,6 @@
       keyBinds: [],
       syncReceiverSessionId: null,
       sessionActions: [],
-      sessionZoomLevels: {},
       defaultLaunchMode: 'normal',
       userAgent: undefined,
       autoSaveSettings: false,
@@ -410,7 +409,6 @@
     mainWindowState.config.syncReceiverSessionId = newConfig.syncReceiverSessionId ?? null
     mainWindowState.config.sessionActions = newConfig.sessionActions || []
     cleanupSessionActionLocalStorage(mainWindowState.config.sessionActions)
-    mainWindowState.config.sessionZoomLevels = newConfig.sessionZoomLevels ?? {}
     mainWindowState.config.defaultLaunchMode = newConfig.defaultLaunchMode
     mainWindowState.config.userAgent = newConfig.userAgent || undefined
     mainWindowState.config.titleBarButtons = newConfig.titleBarButtons
@@ -421,9 +419,8 @@
     }
     // Imperatively push new zoom levels to all running webviews.
     // The reactive $effect in NeuzClient is unreliable for cross-component deep mutations.
-    const zoomLevels = mainWindowState.config.sessionZoomLevels
     Object.entries(mainWindowState.sessionsLayoutsRef).forEach(([sessionId, sessionRef]: [string, any]) => {
-      const zoom = zoomLevels[sessionId] ?? 1.0
+      const zoom = mainWindowState.config.sessions?.find((session) => session.id === sessionId)?.zoom ?? 1.0
       applySessionZoomPreview(sessionId, zoom)
     })
   })

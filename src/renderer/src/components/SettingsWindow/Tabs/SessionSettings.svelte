@@ -197,16 +197,17 @@
   }
 
   const getSessionZoom = (sessionId: string) => {
-    return neuzosConfig.sessionZoomLevels?.[sessionId] ?? 1.0
+    return neuzosConfig.sessions?.find((session) => session.id === sessionId)?.zoom ?? 1.0
   }
 
   const setSessionZoom = (sessionId: string, value: number) => {
     const zoom = clampZoom(value)
-    neuzosConfig.sessionZoomLevels = neuzosConfig.sessionZoomLevels ?? {}
+    const session = neuzosConfig.sessions?.find((sessionConfig) => sessionConfig.id === sessionId)
+    if (!session) return
     if (zoom === 1.0) {
-      delete neuzosConfig.sessionZoomLevels[sessionId]
+      delete session.zoom
     } else {
-      neuzosConfig.sessionZoomLevels[sessionId] = zoom
+      session.zoom = zoom
     }
     void neuzosBridge.sessions.previewZoom(sessionId, zoom)
   }
@@ -635,9 +636,6 @@
           .filter((row) => row.sessionIds.length > 0),
       }))
       neuzosConfig.sessionActions = (neuzosConfig.sessionActions ?? []).filter((sessionActions) => sessionActions.sessionId !== sessionId)
-      if (neuzosConfig.sessionZoomLevels && sessionId in neuzosConfig.sessionZoomLevels) {
-        delete neuzosConfig.sessionZoomLevels[sessionId]
-      }
       if (neuzosConfig.syncReceiverSessionId === sessionId) {
         neuzosConfig.syncReceiverSessionId = null
       }

@@ -42,7 +42,6 @@
     activeKeyBindProfileId: null,
     keyBinds: [],
     sessionActions: [],
-    sessionZoomLevels: {},
     titleBarButtons: {
       darkModeToggle: false,
       fullscreenToggle: true,
@@ -71,7 +70,8 @@
       ])
 
       sessionIds.forEach((sessionId) => {
-        void neuzosBridge.sessions.previewZoom(sessionId, savedConfig.sessionZoomLevels?.[sessionId] ?? 1.0)
+        const zoom = savedConfig.sessions?.find((session) => session.id === sessionId)?.zoom ?? 1.0
+        void neuzosBridge.sessions.previewZoom(sessionId, zoom)
       })
     } catch (error) {
       console.error('Failed to restore saved zoom preview:', error)
@@ -91,7 +91,6 @@
     neuzosConfig.activeKeyBindProfileId = conf.activeKeyBindProfileId ?? null;
     neuzosConfig.sessionActions = conf.sessionActions || [];
     neuzosConfig.sessionGroups = conf.sessionGroups ?? [];
-    neuzosConfig.sessionZoomLevels = conf.sessionZoomLevels ?? {};
     neuzosConfig.syncReceiverSessionId = conf.syncReceiverSessionId ?? null;
     neuzosConfig.userAgent = conf.userAgent;
     neuzosConfig.titleBarButtons = conf.titleBarButtons;

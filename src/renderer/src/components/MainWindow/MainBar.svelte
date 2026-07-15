@@ -304,16 +304,17 @@
   const clampZoom = (value: number) => Math.min(1.5, Math.max(0.5, Math.round(value * 20) / 20))
 
   const getSessionZoom = (sessionId: string): number => {
-    return mainWindowState.config.sessionZoomLevels?.[sessionId] ?? 1.0
+    return mainWindowState.config.sessions?.find((session) => session.id === sessionId)?.zoom ?? 1.0
   }
 
   const setSessionZoom = (sessionId: string, value: number) => {
     const clamped = clampZoom(value)
-    mainWindowState.config.sessionZoomLevels = mainWindowState.config.sessionZoomLevels ?? {}
+    const sessionConfig = mainWindowState.config.sessions?.find((session) => session.id === sessionId)
+    if (!sessionConfig) return
     if (clamped === 1.0) {
-      delete mainWindowState.config.sessionZoomLevels[sessionId]
+      delete sessionConfig.zoom
     } else {
-      mainWindowState.config.sessionZoomLevels[sessionId] = clamped
+      sessionConfig.zoom = clamped
     }
     // Imperatively apply to all running webviews for this session (reactive chain is unreliable)
     const layouts = mainWindowState.sessionsLayoutsRef[sessionId]?.layouts

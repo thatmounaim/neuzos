@@ -55,12 +55,12 @@ export const exportCategories: CategoryDefinition[] = [
 
 export const categoryConfigFields: Record<ExportCategory, string[]> = {
   'general-settings': ['autoSaveSettings', 'autoDeleteAllCachesOnStartup', 'window', 'titleBarButtons', 'fullscreen'],
-  sessions: ['sessions', 'sessionGroups', 'sessionZoomLevels'],
+  sessions: ['sessions', 'sessionGroups'],
   layouts: ['layouts', 'defaultLayouts'],
   keybinds: ['keyBinds', 'keyBindProfiles', 'activeKeyBindProfileId'],
   'session-actions': ['sessionActions'],
   'launch-settings': ['defaultLaunchMode', 'userAgent', 'chromium.commandLineSwitches'],
-  'ui-layout': ['window', 'sessionZoomLevels', 'fullscreen', 'sessionGroups'],
+  'ui-layout': ['window', 'fullscreen', 'sessionGroups'],
 };
 
 const exportCategoryOrder = exportCategories.map((category) => category.id);
@@ -106,7 +106,7 @@ function inferPayloadCategories(payload: Partial<ConfigImportPayload>): ExportCa
   if ((payload as ConfigExportPayloadV2).window !== undefined || (payload as ConfigExportPayloadV2).autoSaveSettings !== undefined || (payload as ConfigExportPayloadV2).autoDeleteAllCachesOnStartup !== undefined || (payload as ConfigExportPayloadV2).titleBarButtons !== undefined || (payload as ConfigExportPayloadV2).fullscreen !== undefined) {
     categories.push('general-settings');
   }
-  if (Array.isArray((payload as ConfigExportPayloadV2).sessions) || Array.isArray((payload as ConfigExportPayloadV2).sessionGroups) || (payload as ConfigExportPayloadV2).sessionZoomLevels !== undefined) {
+  if (Array.isArray((payload as ConfigExportPayloadV2).sessions) || Array.isArray((payload as ConfigExportPayloadV2).sessionGroups)) {
     categories.push('sessions');
   }
   if (Array.isArray((payload as ConfigExportPayloadV2).layouts) || Array.isArray((payload as ConfigExportPayloadV2).defaultLayouts)) {
@@ -132,10 +132,6 @@ function getPayloadCategories(payload: ConfigImportPayload): ExportCategory[] {
 
 function isCategorySelected(selectedCategories: ExportCategory[], category: ExportCategory): boolean {
   return selectedCategories.includes(category);
-}
-
-function cloneSessionZoomLevels(sessionZoomLevels?: Record<string, number>): Record<string, number> {
-  return cloneValue(sessionZoomLevels ?? {});
 }
 
 function cloneWindowForExport(windowConfig: NeuzConfig['window']): NeuzConfig['window'] | undefined {
@@ -282,7 +278,6 @@ function cloneForExport(config: NeuzConfig, selectedCategories: ExportCategory[]
   if (isCategorySelected(selectedCategories, 'sessions')) {
     payload.sessions = cloneValue(config.sessions ?? []);
     payload.sessionGroups = cloneSessionGroupsForExport(config.sessionGroups);
-    payload.sessionZoomLevels = cloneSessionZoomLevels(config.sessionZoomLevels);
   }
 
   if (isCategorySelected(selectedCategories, 'layouts')) {
@@ -454,7 +449,6 @@ export function computeCategoryPreview(
 ): CategoryPreviewResult[] {
   const previewCategories = selectedCategories.filter((category) => category !== 'ui-layout');
   const importedCategories = new Set(getImportCategories(payload));
-  const knownSessionIds = new Set((currentConfig.sessions ?? []).map((session) => session.id));
 
   return previewCategories.map((category) => {
     if (!importedCategories.has(category)) {
@@ -519,14 +513,8 @@ export function computeCategoryPreview(
     if (category === 'sessions') {
       const importedSessions = importedListItems.sessions;
       const existingSessionIds = new Set((localListItems.sessions ?? []).map((entry) => entry.id));
-      const availableSessionIds = new Set([
-        ...knownSessionIds,
-        ...importedSessions.map((entry) => entry.id).filter(Boolean),
-      ]);
       const totalCount = importedSessions.length;
       const conflictCount = importedSessions.filter((entry) => existingSessionIds.has(entry.id)).length;
-      const sessionZoomLevels = (payload as ConfigExportPayloadV2).sessionZoomLevels ?? {};
-      const skippedSessionIds = Object.keys(sessionZoomLevels).filter((sessionId) => !availableSessionIds.has(sessionId));
 
       return {
         category,
@@ -535,7 +523,6 @@ export function computeCategoryPreview(
         totalCount,
         conflictCount,
         newCount: Math.max(totalCount - conflictCount, 0),
-        ...(skippedSessionIds.length > 0 ? {skippedSessionIds} : {}),
       } satisfies CategoryPreviewResult;
     }
 

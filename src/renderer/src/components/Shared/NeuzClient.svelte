@@ -78,7 +78,7 @@
 
   const initZoom = (wv: WebviewTag, retryLeft: number) => {
     try {
-      wv.setZoomFactor(mainWindowState.config.sessionZoomLevels?.[session.id] ?? 1.0)
+      wv.setZoomFactor(session.zoom ?? 1.0)
     } catch (e) {
       if (retryLeft > 0) {
         setTimeout(() => initZoom(wv, retryLeft - 1), 1000)

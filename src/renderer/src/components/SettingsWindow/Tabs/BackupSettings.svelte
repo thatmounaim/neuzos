@@ -485,23 +485,6 @@
 
     return hasNewOrChangedAction ? 'changed' : 'existing';
   };
-  const getSessionZoomLevelEntries = (zoomLevels: Record<string, number>): DetailValue => {
-    const entries = Object.entries(zoomLevels ?? {});
-    if (entries.length === 0) {
-      return '-';
-    }
-
-    return entries.map(([sessionId, zoomLevel]) => {
-      const sessionLabel = getSessionLabel(sessionId);
-      const zoomLabel = `${Math.round(Number(zoomLevel) * 100)}%`;
-      return {
-        label: `${sessionLabel} ${zoomLabel}`,
-        actionParts: [sessionLabel, zoomLabel],
-        iconSlug: getSessionIconSlug(sessionId),
-        status: 'neutral' as const,
-      };
-    });
-  };
   const getKeybindDetailEntries = (keybinds: any[], existingSignatures: Set<string>, criticalSignatures: Set<string>, fallback: string, existingUniqueSystemSignatures = new Set<string>()): DetailValue => {
     if (keybinds.length === 0) {
       return fallback;
@@ -914,7 +897,6 @@
     if (detailCategory === 'sessions') {
       const sessions = getImportedSessions();
       const groups = getVisibleSessionGroups(Array.isArray(payload.sessionGroups) ? payload.sessionGroups : []);
-      const zoomLevels = payload.sessionZoomLevels ?? {};
       const existingSessionIds = new Set((neuzosConfig.sessions ?? []).map((session) => session.id));
       const existingGroupIds = new Set(getVisibleSessionGroups(neuzosConfig.sessionGroups ?? []).map((group) => group.id));
       return [
@@ -927,11 +909,10 @@
           ],
         },
         {
-          title: 'Groups and Options',
+          title: 'Session Groups',
           rows: [
             ['Groups', countOrDash(groups.length, 'Group')],
             ['Group Names', getDetailEntries(groups, (group) => group?.id, (group) => group?.label ?? group?.id, existingGroupIds, '-')],
-            ['Session Zoom Levels', getSessionZoomLevelEntries(zoomLevels)],
           ],
         },
       ];
