@@ -18,6 +18,7 @@
     LayoutGrid,
     ArrowLeftRight,
     Check,
+    Save,
     Grid2x2Check,
     SquarePen,
     List,
@@ -29,7 +30,7 @@
   import * as Command from "$lib/components/ui/command";
   import * as Popover from "$lib/components/ui/popover";
   import {Separator} from "$lib/components/ui/separator";
-  import {readSettingsSortMode, writeSettingsSortMode} from "$lib/localStorageStores";
+  import {readSettingsLayoutAutoSave, readSettingsSortMode, writeSettingsLayoutAutoSave, writeSettingsSortMode} from "$lib/localStorageStores";
   import * as Table from "$lib/components/ui/table";
   import * as AlertDialog from "$lib/components/ui/alert-dialog";
   import type {NeuzConfig} from "$lib/types";
@@ -184,6 +185,11 @@
     });
   };
 
+  const deleteLayout = (layoutId: string) => {
+    neuzosConfig.layouts = neuzosConfig.layouts.filter((layout) => layout.id !== layoutId);
+    neuzosConfig.defaultLayouts = neuzosConfig.defaultLayouts.filter((defaultLayoutId) => defaultLayoutId !== layoutId);
+  };
+
   // Track icon popover state for each layout
   let iconPopoverStates: { [layoutId: string]: boolean } = $state({});
   let layoutIconViewMode: 'grid' | 'list' = $state('grid');
@@ -204,6 +210,8 @@
   let layoutCustomizationEditIds: string[] = $state([])
   let pendingSingleSessionLayoutId: string | null = $state(null)
   let multiSessionSettingsPopoverStates: { [layoutId: string]: boolean } = $state({})
+  let autoSaveLayouts = $state(true)
+  let autoSaveLayoutsPopoverOpen = $state(false)
 
   const getLayoutSessionIds = (layout: NeuzConfig['layouts'][number]) => {
     return (layout.rows ?? []).flatMap((row) => row.sessionIds ?? [])
@@ -464,6 +472,7 @@
 
   onMount(() => {
     useDragLayoutSorting = readSettingsSortMode('layoutSettings') === 'dragDrop'
+    autoSaveLayouts = readSettingsLayoutAutoSave()
 
     const handleSettingsSaved = () => {
       cleanupEmptyCustomizationRows()
@@ -524,15 +533,44 @@
       <Card.Title class="text-lg font-semibold">
         Default Layouts on Launch
       </Card.Title>
-      <Button variant="outline" size="sm" class="h-8 gap-2" onclick={toggleDefaultLayoutReordering} title={useDefaultLayoutReordering ? 'Done' : 'Reorder'}>
-        {#if useDefaultLayoutReordering}
-          <Check class="h-4 w-4"></Check>
-          Done
-        {:else}
-          <ArrowLeftRight class="h-4 w-4"></ArrowLeftRight>
-          Reorder
-        {/if}
-      </Button>
+      <div class="flex items-center gap-2">
+        <Popover.Root bind:open={autoSaveLayoutsPopoverOpen}>
+          <Popover.Trigger>
+            <Button variant="outline" size="sm" class="h-8 gap-2">
+              <Save class="h-4 w-4"></Save>
+              Auto Save
+              <Separator orientation="vertical" class="h-4"></Separator>
+              <span class={autoSaveLayouts ? 'text-foreground' : 'text-muted-foreground'}>{autoSaveLayouts ? 'ON' : 'OFF'}</span>
+            </Button>
+          </Popover.Trigger>
+          <Popover.Content class="w-80 p-3" align="end">
+            <div class="flex items-start justify-between gap-3">
+              <div class="space-y-1">
+                <div class="text-sm font-medium">Auto Save Layouts</div>
+                <p class="text-xs leading-relaxed text-muted-foreground">
+                  Manually added Layouts via the Layout Manager will directly Saved to the Default Layouts.
+                </p>
+              </div>
+              <Switch
+                checked={autoSaveLayouts}
+                onCheckedChange={(checked) => {
+                  autoSaveLayouts = checked
+                  writeSettingsLayoutAutoSave(autoSaveLayouts)
+                }}
+              />
+            </div>
+          </Popover.Content>
+        </Popover.Root>
+        <Button variant="outline" size="sm" class="h-8 gap-2" onclick={toggleDefaultLayoutReordering} title={useDefaultLayoutReordering ? 'Done' : 'Reorder'}>
+          {#if useDefaultLayoutReordering}
+            <Check class="h-4 w-4"></Check>
+            Done
+          {:else}
+            <ArrowLeftRight class="h-4 w-4"></ArrowLeftRight>
+            Reorder
+          {/if}
+        </Button>
+      </div>
     </div>
     <Card.Description class="flex flex-col">
       Select which Layouts should be on your Mainbar by default when NeuzOS starts.
@@ -1158,7 +1196,7 @@
             <Table.Cell class="py-3">
               <Button variant="outline" size="icon"
                       class="h-8 w-8 hover:bg-destructive hover:text-destructive-foreground"
-                      onclick={() => { neuzosConfig.layouts.splice(lidx, 1) }}>
+                      onclick={() => { deleteLayout(layout.id) }}>
                 <Trash class="h-4 w-4"></Trash>
               </Button>
             </Table.Cell>

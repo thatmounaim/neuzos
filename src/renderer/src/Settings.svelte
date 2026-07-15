@@ -2,7 +2,7 @@
   import {ModeWatcher} from "mode-watcher";
   import {onMount, setContext, untrack} from "svelte";
   import {neuzosBridge, initElectronApi} from "$lib/core";
-  import type {NeuzConfig} from "$lib/types";
+  import type {NeuzConfig, NeuzConfigPatch} from "$lib/types";
   import SharedEvents from "./components/Shared/SharedEvents.svelte";
   import SettingsBar from "./components/SettingsWindow/SettingsBar.svelte";
   import KeybindsSettings from "./components/SettingsWindow/Tabs/KeybindsSettings.svelte";
@@ -111,6 +111,30 @@
     }, 100);
   }
 
+  const applyConfigPatch = (patch: NeuzConfigPatch) => {
+    if (patch.sessions !== undefined) {
+      neuzosConfig.sessions = patch.sessions;
+    }
+    if (patch.layouts !== undefined) {
+      neuzosConfig.layouts = patch.layouts;
+    }
+    if (patch.defaultLayouts !== undefined) {
+      neuzosConfig.defaultLayouts = patch.defaultLayouts;
+    }
+
+    if (lastConfigSnapshot) {
+      try {
+        const savedConfig = JSON.parse(lastConfigSnapshot) as NeuzConfig;
+        if (patch.sessions !== undefined) savedConfig.sessions = patch.sessions;
+        if (patch.layouts !== undefined) savedConfig.layouts = patch.layouts;
+        if (patch.defaultLayouts !== undefined) savedConfig.defaultLayouts = patch.defaultLayouts;
+        lastConfigSnapshot = JSON.stringify(savedConfig);
+      } catch (error) {
+        console.error('Failed to apply config patch to settings snapshot:', error);
+      }
+    }
+  }
+
   onMount(() => {
     void loadConfig()
     const setTab = (_: unknown, tab?: string) => {
@@ -118,10 +142,16 @@
         activeTab = tab;
       }
     };
+    const handleConfigPatch = (_: unknown, patch: NeuzConfigPatch) => {
+      applyConfigPatch(patch);
+    };
+
     electronApi.on("settings_window.set_tab", setTab);
+    electronApi.on("event.config_patch", handleConfigPatch);
 
     return () => {
       electronApi.removeListener("settings_window.set_tab", setTab);
+      electronApi.removeListener("event.config_patch", handleConfigPatch);
     };
   });
 

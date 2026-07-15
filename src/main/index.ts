@@ -1972,12 +1972,6 @@ function registerSessionKeybinds(mode: LaunchMode) {
       mainWindow = null;
     });
 
-    ipcMain.on("main_window.reload_config", (event) => {
-      const win = BrowserWindow.fromWebContents(event.sender);
-      win?.webContents.send("event.reload_config");
-      registerKeybinds()
-    });
-
     // IPC handlers for global shortcuts toggle
     ipcMain.on("main_window.toggle_shortcuts", (_event, enabled: boolean) => {
       setMainWindowShortcutsEnabled(enabled);
@@ -2436,6 +2430,27 @@ function registerSessionKeybinds(mode: LaunchMode) {
       const parsed = JSON.parse(config);
       saveConfig(parsed);
       neuzosConfig = parsed;
+    });
+
+    ipcMain.on("config.patch", (_event, patch: any) => {
+      const allowedPatch: any = {};
+
+      if (Array.isArray(patch?.sessions)) {
+        allowedPatch.sessions = patch.sessions;
+      }
+      if (Array.isArray(patch?.layouts)) {
+        allowedPatch.layouts = patch.layouts;
+      }
+      if (Array.isArray(patch?.defaultLayouts)) {
+        allowedPatch.defaultLayouts = patch.defaultLayouts;
+      }
+
+      if (Object.keys(allowedPatch).length === 0) {
+        return;
+      }
+
+      mainWindow?.webContents?.send("event.config_patch", allowedPatch);
+      settingsWindow?.webContents?.send("event.config_patch", allowedPatch);
     });
 
     ipcMain.handle("config.export", async (event, payload: ConfigExportPayloadV2) => {

@@ -1,5 +1,5 @@
 import type {IpcRenderer} from "@electron-toolkit/preload";
-import type {ConfigApplyImportArgsV2, ConfigExportPayloadV2, ConfigImportResult, ConfigImportPayload, ExportCategory, NeuzKeybind, UIActionDescriptor} from "$lib/types";
+import type {ConfigApplyImportArgsV2, ConfigExportPayloadV2, ConfigImportResult, ConfigImportPayload, ExportCategory, NeuzConfigPatch, NeuzKeybind, UIActionDescriptor} from "$lib/types";
 import type {LocalStorageBackupPayload, LocalStorageImportResult} from "$lib/localStorageBackup";
 import type {ViewerWindowConfig, ViewerWindowType} from "./types";
 
@@ -50,9 +50,6 @@ export const neuzosBridge = {
     },
     maximize: () => {
       electronApi?.send("main_window.maximize");
-    },
-    reloadConfig: () => {
-      electronApi?.send("main_window.reload_config");
     },
     fullscreenToggle: () => {
       electronApi?.send("main_window.fullscreen_toggle");
@@ -221,6 +218,9 @@ export const neuzosBridge = {
     },
     saveSilent: (config: object): Promise<void> => {
       return electronApi?.invoke('config.save_silent', JSON.stringify(config)) ?? Promise.resolve();
+    },
+    notifyPatch: (patch: NeuzConfigPatch): void => {
+      electronApi?.send('config.patch', JSON.parse(JSON.stringify(patch)));
     }
   }
 }

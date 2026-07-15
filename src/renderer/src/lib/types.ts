@@ -57,9 +57,7 @@ export type ViewerWindowConfig = {
 }
 
 export type MainWindowState = {
-  config: (NeuzConfig & {
-    changed: boolean
-  })
+  config: NeuzConfig
   sessions: NeuzSession[]
   layouts: NeuzLayout[]
   tabs: {
@@ -237,3 +235,5 @@ export type NeuzConfig = {
     hideTitleBarInSessionLayouts: boolean;
   };
 }
+
+export type NeuzConfigPatch = Pick<Partial<NeuzConfig>, 'sessions' | 'layouts' | 'defaultLayouts'>;

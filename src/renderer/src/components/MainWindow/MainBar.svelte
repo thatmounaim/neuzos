@@ -16,7 +16,6 @@
     ChevronRight,
     ChevronDown,
     ChevronUp,
-    RefreshCw,
     Fullscreen,
     Keyboard,
     KeyboardOff,
@@ -27,7 +26,8 @@
     Globe,
     RadioTower,
     Settings,
-    Columns2
+    Columns2,
+    CircleQuestionMark
   } from '@lucide/svelte'
   import {getContext, onMount} from "svelte";
   import type {MainWindowState, NeuzLayout, NeuzSession, NeuzSessionGroup} from "$lib/types";
@@ -46,11 +46,15 @@
   import ThemeToggle from "./MainBarComponents/ThemeToggle.svelte";
   import {getQuestPanelContext} from "$lib/contexts/questPanelContext.svelte";
   import {getUIActionContext} from "$lib/contexts/uiActionContext.svelte";
-  import {readSettingsCollapsedGroups, writeSettingsCollapsedGroups} from "$lib/localStorageStores";
+  import {
+    readSettingsCollapsedGroups,
+    writeSettingsCollapsedGroups,
+  } from "$lib/localStorageStores";
 
   let shortcutsEnabled = $state(true);
   let collapsedSessionGroupIds: Record<string, boolean> = $state({});
   let hasVisibleActionPins = $state(false);
+  let launcherTab: 'layouts' | 'sessions' = $state('layouts');
   const ungroupedGroupId = 'ungrouped';
 
   function loadCollapsedSessionGroups() {
@@ -133,6 +137,28 @@
     neuzosBridge.settingsWindow.open(tab)
   }
 
+  const handleLauncherOpenChange = (open: boolean) => {
+    if (open) {
+      launcherTab = 'layouts'
+    }
+  }
+
+  const formatShortcutLabel = (key: string): string => {
+    if (key.toLowerCase() === 'commandorcontrol+delete') {
+      return 'CTRL + DELETE'
+    }
+
+    return key
+      .split('+')
+      .map((part) => part.trim().toUpperCase())
+      .join(' + ')
+  }
+
+  const getCloseFocusSessionKeybindLabel = (): string => {
+    const keyBind = mainWindowState.config.keyBinds?.find((bind) => bind.event === 'close_focus_session' && bind.key)
+    return keyBind?.key ? formatShortcutLabel(keyBind.key) : ''
+  }
+
   const switchToHome = () => {
     neuzosBridge.layouts.switch('home')
   }
@@ -187,6 +213,10 @@
     mainWindowState.layouts = [...mainWindowState.layouts, layout];
 
     await neuzosBridge.config.saveSilent(mainWindowState.config);
+    neuzosBridge.config.notifyPatch({
+      sessions: mainWindowState.config.sessions,
+      layouts: mainWindowState.config.layouts
+    });
     addLayout(layoutId);
   }
 
@@ -240,6 +270,7 @@
 
   const saveMutedLayoutState = () => {
     void neuzosBridge.config.saveSilent(mainWindowState.config)
+    neuzosBridge.config.notifyPatch({sessions: mainWindowState.config.sessions})
   }
 
   const setSessionMuted = (layoutId: string, sessionId: string, muted: boolean, save: boolean = true) => {
@@ -287,10 +318,6 @@
     setSessionMuted(layoutId, sessionId, false)
   }
 
-  const reloadConfing = () => {
-    neuzosBridge.mainWindow.reloadConfig()
-  }
-
   const clampZoom = (value: number) => Math.min(1.5, Math.max(0.5, Math.round(value * 20) / 20))
 
   const getSessionZoom = (sessionId: string): number => {
@@ -312,6 +339,7 @@
       Object.values(layouts).forEach((ref: any) => ref.setZoom?.(clamped))
     }
     void neuzosBridge.config.saveSilent(mainWindowState.config)
+    neuzosBridge.config.notifyPatch({sessions: mainWindowState.config.sessions})
   }
 
   const isActiveReceiver = (sessionId: string) => {
@@ -444,7 +472,7 @@
     <Settings class="size-3.5"/>
   </Button>
   <!----------------------------------------!-->
-  <Dialog.Root>
+  <Dialog.Root onOpenChange={handleLauncherOpenChange}>
     <Dialog.Trigger class={cn(buttonVariants({ variant: 'outline', size: 'icon-xs' }), 'cursor-pointer')}
     >
       <Plus class="size-3.5"/>
@@ -452,16 +480,32 @@
     >
     <Dialog.Content class="sm:max-w-[425px]">
       <Dialog.Header>
-        <Dialog.Title>Chose a Layout / Session</Dialog.Title>
-        <Dialog.Description
-        >
-          Layout → Add to Main Bar<br />
-          Session → Open in separate Window
-        </Dialog.Description
-        >
+        {#if launcherTab === 'layouts'}
+          <div class="flex items-start justify-between gap-4">
+            <div class="flex-1 space-y-1">
+              <Dialog.Title>Layout Manager</Dialog.Title>
+              <Dialog.Description class="space-y-1">
+                <span class="block">Add a Layout to the Main Bar</span>
+              </Dialog.Description>
+            </div>
+          </div>
+        {:else}
+          <Dialog.Title>Session Launcher</Dialog.Title>
+          <Dialog.Description class="space-y-1">
+            {@const closeFocusKeybindLabel = getCloseFocusSessionKeybindLabel()}
+            <span class="block">Open Session in a Separate Window</span>
+            <span
+              class="flex cursor-help items-center gap-1.5 pt-2"
+              title={closeFocusKeybindLabel ? `Press ${closeFocusKeybindLabel} or Close 3x to Exit the Session Window` : 'Press Close 3x to Exit the Session Window'}
+            >
+              <CircleQuestionMark class="size-3.5"/>
+              Focus Mode → Disabled Close Button
+            </span>
+          </Dialog.Description>
+        {/if}
       </Dialog.Header>
       <div class="flex min-h-0 flex-col gap-2 w-full">
-        <Tabs.Root value="layouts" class="min-h-0">
+        <Tabs.Root bind:value={launcherTab} class="min-h-0">
           <Tabs.List class="grid w-full grid-cols-2 gap-1">
             <div class="relative min-w-0">
               <Tabs.Trigger value="layouts" class="w-full pl-9">Layouts</Tabs.Trigger>
@@ -789,13 +833,6 @@
   <PinnedActions onHasPinnedActionsChange={(hasPinnedActions) => hasVisibleActionPins = hasPinnedActions}/>
 
   {#if hasVisibleActionPins}
-    <Separator orientation="vertical" class="h-4"/>
-  {/if}
-
-  {#if mainWindowState.config.changed}
-    <Button size="icon-xs" variant="outline" onclick={reloadConfing} class="cursor-pointer" title="Reload Config">
-      <RefreshCw class="size-3.5"/>
-    </Button>
     <Separator orientation="vertical" class="h-4"/>
   {/if}
 

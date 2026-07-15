@@ -86,6 +86,7 @@ type QuestlogStorage = {
 
 const SETTINGS_SORT_MODE_STORAGE_KEY = 'settings.sortMode';
 const SETTINGS_COLLAPSED_GROUPS_STORAGE_KEY = 'settings.collapsedGroups';
+const SETTINGS_LAYOUT_AUTO_SAVE_STORAGE_KEY = 'settings.layoutAutoSave';
 const MINI_BROWSER_STORAGE_KEY = 'widget.miniBrowser';
 const FCOIN_CALCULATOR_STORAGE_KEY = 'widget.fcoinCalculator';
 const NOTEPAD_STORAGE_KEY = 'widget.notepad';
@@ -521,6 +522,21 @@ export const writeSettingsSortMode = (scope: SortModeScope, sortMode: SortMode) 
 
   writeObject(SETTINGS_SORT_MODE_STORAGE_KEY, current);
   window.localStorage.removeItem(LEGACY_SORT_MODE_KEYS[scope]);
+};
+
+export const readSettingsLayoutAutoSave = (): boolean => {
+  if (!canUseLocalStorage()) return true;
+  return window.localStorage.getItem(SETTINGS_LAYOUT_AUTO_SAVE_STORAGE_KEY) !== 'false';
+};
+
+export const writeSettingsLayoutAutoSave = (enabled: boolean) => {
+  if (!canUseLocalStorage()) return;
+
+  if (enabled) {
+    window.localStorage.removeItem(SETTINGS_LAYOUT_AUTO_SAVE_STORAGE_KEY);
+  } else {
+    window.localStorage.setItem(SETTINGS_LAYOUT_AUTO_SAVE_STORAGE_KEY, 'false');
+  }
 };
 
 export const readSettingsCollapsedGroups = (

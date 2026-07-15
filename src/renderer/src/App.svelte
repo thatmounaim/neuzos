@@ -4,7 +4,7 @@
   import MainBar from "./components/MainWindow/MainBar.svelte";
   import {onDestroy, onMount, setContext} from "svelte";
   import {neuzosBridge, initElectronApi} from "$lib/core";
-  import type {MainWindowState} from "$lib/types";
+  import type {MainWindowState, NeuzConfigPatch} from "$lib/types";
   import MainSectionsContainer from "./components/MainWindow/MainSectionsContainer.svelte";
   import SharedEvents from "./components/Shared/SharedEvents.svelte";
   import {createWidgetsContext, setWidgetsContext} from '$lib/contexts/widgetsContext.svelte';
@@ -18,8 +18,9 @@
   import {flyffRegistry} from '$lib/core';
   import {Button} from "$lib/components/ui/button";
   import {Minimize} from '@lucide/svelte';
-  import {cleanupActionPadStorage, cleanupActionPinsStorage} from '$lib/localStorageStores';
 
+
+  import {cleanupActionPadStorage, cleanupActionPinsStorage, readSettingsLayoutAutoSave} from '$lib/localStorageStores';
   addEventListener('error', (event) => {
     console.error('[window.error]', event.error?.stack ?? event.message);
   });
@@ -125,7 +126,6 @@
       defaultLaunchMode: 'normal',
       userAgent: undefined,
       autoSaveSettings: false,
-      changed: false,
       titleBarButtons: {
         darkModeToggle: false,
         fullscreenToggle: true,
@@ -163,8 +163,22 @@
 
   listen('event.layout_add', (_, layoutId: string) => {
     console.log("layout_add", layoutId)
-    mainWindowState.tabs.layoutsIds.push(layoutId)
-    mainWindowState.tabs.layoutOrder.push(layoutId)
+    if (!mainWindowState.tabs.layoutsIds.includes(layoutId)) {
+      mainWindowState.tabs.layoutsIds = [...mainWindowState.tabs.layoutsIds, layoutId]
+    }
+    if (!mainWindowState.tabs.layoutOrder.includes(layoutId)) {
+      mainWindowState.tabs.layoutOrder = [...mainWindowState.tabs.layoutOrder, layoutId]
+    }
+
+    if (
+      readSettingsLayoutAutoSave() &&
+      mainWindowState.config.layouts.some((layout) => layout.id === layoutId) &&
+      !mainWindowState.config.defaultLayouts.includes(layoutId)
+    ) {
+      mainWindowState.config.defaultLayouts = [...mainWindowState.config.defaultLayouts, layoutId]
+      void neuzosBridge.config.saveSilent(mainWindowState.config)
+      neuzosBridge.config.notifyPatch({defaultLayouts: mainWindowState.config.defaultLayouts})
+    }
   })
 
   listen('event.layout_switch', (_, layoutId: string) => {
@@ -173,12 +187,18 @@
     mainWindowState.tabs.activeLayoutId = layoutId
   })
 
-  const closeLayout = (layoutId: string) => {
+  const closeLayout = (layoutId: string, mirrorDefaultLayouts = false) => {
     mainWindowState.tabs.layoutsIds = mainWindowState.tabs.layoutsIds.filter(id => id !== layoutId)
     if (mainWindowState.tabs.activeLayoutId === layoutId) {
       mainWindowState.tabs.activeLayoutId = mainWindowState.tabs.previousLayoutId ?? null
     }
     mainWindowState.tabs.layoutOrder = mainWindowState.tabs.layoutOrder.filter(id => id !== layoutId)
+
+    if (mirrorDefaultLayouts && readSettingsLayoutAutoSave() && mainWindowState.config.defaultLayouts.includes(layoutId)) {
+      mainWindowState.config.defaultLayouts = mainWindowState.config.defaultLayouts.filter((defaultLayoutId) => defaultLayoutId !== layoutId)
+      void neuzosBridge.config.saveSilent(mainWindowState.config)
+      neuzosBridge.config.notifyPatch({defaultLayouts: mainWindowState.config.defaultLayouts})
+    }
   }
 
   listen('event.layout_close_all', (_) => {
@@ -193,7 +213,7 @@
 
   listen('event.layout_close', (_, layoutId: string) => {
     console.log("layout_close", layoutId)
-    closeLayout(layoutId)
+    closeLayout(layoutId, true)
   })
 
   listen('event.layout_swap', (_) => {
@@ -395,9 +415,86 @@
     }
   }
 
+  const syncRuntimeStateFromConfig = (newConfig: any, defaultLayoutsChanged: boolean) => {
+    const nextSessions = JSON.parse(JSON.stringify(newConfig.sessions ?? []))
+    const nextLayouts = JSON.parse(JSON.stringify(newConfig.layouts ?? []))
+    const validSessionIds = new Set(nextSessions.map((session: any) => session.id))
+    const validLayoutIds = new Set(nextLayouts.map((layout: any) => layout.id))
+    const nextDefaultLayouts = (newConfig.defaultLayouts ?? []).filter((layoutId: string) => validLayoutIds.has(layoutId))
+    const nextOpenLayoutIds = defaultLayoutsChanged
+      ? nextDefaultLayouts
+      : mainWindowState.tabs.layoutOrder.filter((layoutId) => validLayoutIds.has(layoutId))
+
+    for (const [sessionId, sessionRef] of Object.entries(mainWindowState.sessionsLayoutsRef) as [string, any][]) {
+      if (!validSessionIds.has(sessionId)) {
+        Object.values(sessionRef.layouts ?? {}).forEach((client: any) => client?.stopClient?.())
+        delete mainWindowState.sessionsLayoutsRef[sessionId]
+        continue
+      }
+
+      for (const layoutId of Object.keys(sessionRef.layouts ?? {})) {
+        if (!validLayoutIds.has(layoutId) || !nextOpenLayoutIds.includes(layoutId)) {
+          sessionRef.layouts[layoutId]?.stopClient?.()
+          delete sessionRef.layouts[layoutId]
+        }
+      }
+    }
+
+    mainWindowState.sessions = nextSessions
+    mainWindowState.layouts = nextLayouts
+    mainWindowState.tabs.layoutsIds = JSON.parse(JSON.stringify(nextOpenLayoutIds))
+    mainWindowState.tabs.layoutOrder = JSON.parse(JSON.stringify(nextOpenLayoutIds))
+
+    if (
+      mainWindowState.tabs.activeLayoutId !== 'home' &&
+      !nextOpenLayoutIds.includes(mainWindowState.tabs.activeLayoutId ?? '')
+    ) {
+      mainWindowState.tabs.activeLayoutId = 'home'
+    }
+
+    if (
+      mainWindowState.tabs.previousLayoutId !== null &&
+      !nextOpenLayoutIds.includes(mainWindowState.tabs.previousLayoutId)
+    ) {
+      mainWindowState.tabs.previousLayoutId = null
+    }
+  }
+
+  listen('event.config_patch', (_, patch: NeuzConfigPatch) => {
+    const sessionsChanged = patch.sessions !== undefined && JSON.stringify(mainWindowState.config.sessions ?? []) !== JSON.stringify(patch.sessions)
+    const layoutsChanged = patch.layouts !== undefined && JSON.stringify(mainWindowState.config.layouts ?? []) !== JSON.stringify(patch.layouts)
+    const defaultLayoutsChanged = patch.defaultLayouts !== undefined && JSON.stringify(mainWindowState.config.defaultLayouts ?? []) !== JSON.stringify(patch.defaultLayouts)
+
+    const patchedConfig = {
+      ...mainWindowState.config,
+      ...(patch.sessions !== undefined ? {sessions: patch.sessions} : {}),
+      ...(patch.layouts !== undefined ? {layouts: patch.layouts} : {}),
+      ...(patch.defaultLayouts !== undefined ? {defaultLayouts: patch.defaultLayouts} : {})
+    }
+
+    if (patch.sessions !== undefined) {
+      mainWindowState.config.sessions = patch.sessions
+    }
+    if (patch.layouts !== undefined) {
+      mainWindowState.config.layouts = patch.layouts
+    }
+    if (patch.defaultLayouts !== undefined) {
+      mainWindowState.config.defaultLayouts = patch.defaultLayouts
+    }
+
+    if (sessionsChanged || layoutsChanged || defaultLayoutsChanged) {
+      syncRuntimeStateFromConfig(patchedConfig, defaultLayoutsChanged)
+    }
+  })
+
   listen('event.config_changed', (_, cfg: string) => {
-    mainWindowState.config.changed = true
     const newConfig = JSON.parse(cfg)
+    const sessionsChanged = JSON.stringify(mainWindowState.config.sessions ?? []) !== JSON.stringify(newConfig.sessions ?? [])
+    const sessionGroupsChanged = JSON.stringify(mainWindowState.config.sessionGroups ?? []) !== JSON.stringify(newConfig.sessionGroups ?? [])
+    const layoutsChanged = JSON.stringify(mainWindowState.config.layouts ?? []) !== JSON.stringify(newConfig.layouts ?? [])
+    const defaultLayoutsChanged = JSON.stringify(mainWindowState.config.defaultLayouts ?? []) !== JSON.stringify(newConfig.defaultLayouts ?? [])
+    const runtimeRelevantConfigChanged = sessionsChanged || sessionGroupsChanged || layoutsChanged || defaultLayoutsChanged
+
     mainWindowState.config.sessions = newConfig.sessions
     mainWindowState.config.sessionGroups = newConfig.sessionGroups ?? []
     mainWindowState.config.layouts = newConfig.layouts
@@ -417,6 +514,9 @@
       hideTitleBarInMainWindow: true,
       hideTitleBarInSessionLayouts: true
     }
+    if (runtimeRelevantConfigChanged) {
+      syncRuntimeStateFromConfig(newConfig, defaultLayoutsChanged)
+    }
     // Imperatively push new zoom levels to all running webviews.
     // The reactive $effect in NeuzClient is unreliable for cross-component deep mutations.
     Object.entries(mainWindowState.sessionsLayoutsRef).forEach(([sessionId, sessionRef]: [string, any]) => {
@@ -427,23 +527,6 @@
 
   listen('event.session_zoom_preview', (_, sessionId: string, zoom: number) => {
     applySessionZoomPreview(sessionId, zoom)
-  })
-
-  const reloadNeuzos = () => {
-    setTimeout(() => {
-      mainWindowState.sessions = JSON.parse(JSON.stringify(mainWindowState.config.sessions))
-      mainWindowState.layouts = JSON.parse(JSON.stringify(mainWindowState.config.layouts))
-      mainWindowState.tabs.layoutsIds = JSON.parse(JSON.stringify(mainWindowState.config.defaultLayouts))
-      mainWindowState.tabs.layoutOrder = JSON.parse(JSON.stringify(mainWindowState.config.defaultLayouts))
-      mainWindowState.tabs.activeLayoutId = 'home'
-      mainWindowState.tabs.previousLayoutId = null
-    }, 50)
-  }
-
-  listen('event.reload_config', async (_) => {
-    neuzosBridge.layouts.closeAll()
-    mainWindowState.config.changed = false
-    reloadNeuzos()
   })
 
   addEventListener('resize', () => {
