@@ -24,9 +24,7 @@
   const mainWindowState = getContext<MainWindowState>('mainWindowState')
 
   const isPersistedMuted = () => {
-    return mainWindowState.config.layouts
-      .find((layout) => layout.id === layoutId)
-      ?.mutedSessionIds?.includes(session.id) ?? false
+    return session.muted === true
   }
 
   let muted: boolean = $state(isPersistedMuted())

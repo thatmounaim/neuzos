@@ -162,6 +162,26 @@ function cloneSessionGroupsForExport(sessionGroups?: NeuzConfig['sessionGroups']
   });
 }
 
+function cloneSessionsForExport(sessions?: NeuzConfig['sessions']): NeuzConfig['sessions'] {
+  return cloneValue(sessions ?? []).map((session) => {
+    const cleanedSession = {...session};
+    if (cleanedSession.muted !== true) {
+      delete cleanedSession.muted;
+    }
+    return cleanedSession;
+  });
+}
+
+function cloneLayoutsForExport(layouts?: NeuzConfig['layouts']): NeuzConfig['layouts'] {
+  return cloneValue(layouts ?? []).map((layout: any) => {
+    const cleanedLayout = {...layout};
+    if (cleanedLayout.mutedSessionIds !== undefined) {
+      delete cleanedLayout.mutedSessionIds;
+    }
+    return cleanedLayout;
+  });
+}
+
 function getSessionActionItemCount(sessionActions: NeuzConfig['sessionActions']): number {
   return (sessionActions ?? []).reduce((total, sessionActionGroup) => total + (sessionActionGroup.actions?.length ?? 0), 0);
 }
@@ -276,12 +296,12 @@ function cloneForExport(config: NeuzConfig, selectedCategories: ExportCategory[]
   }
 
   if (isCategorySelected(selectedCategories, 'sessions')) {
-    payload.sessions = cloneValue(config.sessions ?? []);
+    payload.sessions = cloneSessionsForExport(config.sessions);
     payload.sessionGroups = cloneSessionGroupsForExport(config.sessionGroups);
   }
 
   if (isCategorySelected(selectedCategories, 'layouts')) {
-    payload.layouts = cloneValue(config.layouts ?? []);
+    payload.layouts = cloneLayoutsForExport(config.layouts);
     payload.defaultLayouts = cloneValue(config.defaultLayouts ?? []);
   }
 

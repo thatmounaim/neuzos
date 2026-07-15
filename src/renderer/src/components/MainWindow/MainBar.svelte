@@ -7,7 +7,6 @@
     Plus,
     RefreshCcw,
     VolumeX,
-    Volume,
     Volume2,
     VolumeOff,
     Square,
@@ -220,34 +219,23 @@
     if (liveMuted !== undefined) {
       return liveMuted
     }
-    return mainWindowState.config.layouts.find((layout) => layout.id === layoutId)?.mutedSessionIds?.includes(sessionId) ?? false
+    return mainWindowState.config.sessions.find((session) => session.id === sessionId)?.muted === true
   }
 
-  const setPersistedSessionMuted = (layoutId: string, sessionId: string, muted: boolean) => {
-    const updateLayout = (layout: NeuzLayout) => {
-      if (layout.id !== layoutId) {
-        return layout
-      }
-
-      const mutedSessionIds = new Set(layout.mutedSessionIds ?? [])
+  const setPersistedSessionMuted = (sessionId: string, muted: boolean) => {
+    const updateSession = (session: NeuzSession) => {
+      if (session.id !== sessionId) return session
+      const nextSession = {...session}
       if (muted) {
-        mutedSessionIds.add(sessionId)
+        nextSession.muted = true
       } else {
-        mutedSessionIds.delete(sessionId)
+        delete nextSession.muted
       }
-
-      const nextLayout = { ...layout }
-      if (mutedSessionIds.size === 0) {
-        delete nextLayout.mutedSessionIds
-      } else {
-        nextLayout.mutedSessionIds = [...mutedSessionIds]
-      }
-
-      return nextLayout
+      return nextSession
     }
 
-    mainWindowState.config.layouts = mainWindowState.config.layouts.map(updateLayout)
-    mainWindowState.layouts = mainWindowState.layouts.map(updateLayout)
+    mainWindowState.config.sessions = mainWindowState.config.sessions.map(updateSession)
+    mainWindowState.sessions = mainWindowState.sessions.map(updateSession)
   }
 
   const saveMutedLayoutState = () => {
@@ -255,8 +243,10 @@
   }
 
   const setSessionMuted = (layoutId: string, sessionId: string, muted: boolean, save: boolean = true) => {
-    setPersistedSessionMuted(layoutId, sessionId, muted)
-    mainWindowState.sessionsLayoutsRef[sessionId]?.layouts[layoutId]?.setAudioMuted?.(muted)
+    setPersistedSessionMuted(sessionId, muted)
+    Object.values(mainWindowState.sessionsLayoutsRef[sessionId]?.layouts ?? {}).forEach((client: any) => {
+      client?.setAudioMuted?.(muted)
+    })
     if (save) {
       saveMutedLayoutState()
     }
@@ -612,7 +602,7 @@
             <img src="icons/{layTab.icon.slug}.png" alt={layTab.icon.slug} class="w-4 h-4"/>
             {layTab.label}
             {#if layoutHasActiveReceiver(layTab)}
-              <RadioTower class="h-3.5 w-3.5 text-primary" />
+              <RadioTower class="ml-0.5 h-3.5 w-3.5 text-primary" />
             {/if}
           </Button>
         </ContextMenu.Trigger>
@@ -698,9 +688,14 @@
                       <img src="icons/{session.icon.slug}.png" alt={session.icon.slug} class="w-4 h-4"/>
                       {session?.label}
                     </div>
-                    {#if isSessionMuted(layoutId, sessionId)}
-                      <VolumeX class="w-4 h-4"/>
-                    {/if}
+                    <div class="flex items-center gap-1">
+                      {#if isActiveReceiver(sessionId)}
+                        <RadioTower class="w-4 h-4"/>
+                      {/if}
+                      {#if isSessionMuted(layoutId, sessionId)}
+                        <VolumeX class="w-4 h-4"/>
+                      {/if}
+                    </div>
                   </div>
                 </ContextMenu.SubTrigger>
                 <ContextMenu.SubContent class="w-48">
@@ -708,10 +703,10 @@
                     onclick={() => isSessionMuted(layoutId, sessionId) ? unmuteSession(layoutId,sessionId) : muteSession(layoutId, sessionId)}>
                     <div class="flex items-center gap-2">
                       {#if isSessionMuted(layoutId, sessionId)}
-                        <VolumeX class="h-4"/>
+                        <Volume2 class="h-4"/>
                         Unmute
                       {:else}
-                        <Volume class="h-4"/>
+                        <VolumeOff class="h-4"/>
                         Mute
                       {/if}
                     </div>

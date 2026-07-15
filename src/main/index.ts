@@ -165,13 +165,8 @@ function pruneSessionReferences(config: any): void {
             .filter((row: any) => row.sessionIds.length > 0)
         : [];
       const nextLayout = { ...layout, rows };
-      if (Array.isArray(nextLayout.mutedSessionIds)) {
-        const mutedSessionIds = [...new Set(nextLayout.mutedSessionIds.filter((id: string) => knownSessionIds.has(id)))];
-        if (mutedSessionIds.length > 0) {
-          nextLayout.mutedSessionIds = mutedSessionIds;
-        } else {
-          delete nextLayout.mutedSessionIds;
-        }
+      if (nextLayout.mutedSessionIds !== undefined) {
+        delete nextLayout.mutedSessionIds;
       }
 
       return nextLayout;
@@ -187,6 +182,9 @@ function pruneSessionReferences(config: any): void {
       const cleanedSession = {...sessionConfig};
       if (typeof cleanedSession.zoom !== 'number' || !Number.isFinite(cleanedSession.zoom) || cleanedSession.zoom === 1.0) {
         delete cleanedSession.zoom;
+      }
+      if (cleanedSession.muted !== true) {
+        delete cleanedSession.muted;
       }
       return cleanedSession;
     });
@@ -602,7 +600,20 @@ function cleanConfigForSave(conf: any): any {
       if (typeof cleanedSession.zoom !== 'number' || !Number.isFinite(cleanedSession.zoom) || cleanedSession.zoom === 1.0) {
         delete cleanedSession.zoom;
       }
+      if (cleanedSession.muted !== true) {
+        delete cleanedSession.muted;
+      }
       return cleanedSession;
+    });
+  }
+
+  if (Array.isArray(cleaned.layouts)) {
+    cleaned.layouts = cleaned.layouts.map((layout: any) => {
+      const cleanedLayout = {...layout};
+      if (cleanedLayout.mutedSessionIds !== undefined) {
+        delete cleanedLayout.mutedSessionIds;
+      }
+      return cleanedLayout;
     });
   }
 
@@ -683,6 +694,16 @@ function cleanConfigExportPayload(payload: ConfigExportPayloadV2): ConfigExportP
         return {id: 'ungrouped'};
       }
       return group;
+    });
+  }
+
+  if (Array.isArray(cleaned.layouts)) {
+    cleaned.layouts = cleaned.layouts.map((layout: any) => {
+      const cleanedLayout = {...layout};
+      if (cleanedLayout.mutedSessionIds !== undefined) {
+        delete cleanedLayout.mutedSessionIds;
+      }
+      return cleanedLayout;
     });
   }
 
@@ -2916,13 +2937,8 @@ function registerSessionKeybinds(mode: LaunchMode) {
                     .filter((row: any) => row.sessionIds.length > 0)
                 : [];
               const nextLayout = {...layout, rows};
-              if (Array.isArray(nextLayout.mutedSessionIds)) {
-                const mutedSessionIds = [...new Set(nextLayout.mutedSessionIds.filter((id: string) => knownSessionIds.has(id)))];
-                if (mutedSessionIds.length > 0) {
-                  nextLayout.mutedSessionIds = mutedSessionIds;
-                } else {
-                  delete nextLayout.mutedSessionIds;
-                }
+              if (nextLayout.mutedSessionIds !== undefined) {
+                delete nextLayout.mutedSessionIds;
               }
               return nextLayout;
             });

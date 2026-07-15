@@ -10,7 +10,7 @@
 
   import {
     Fullscreen, Minus, Maximize, X, Play,
-    Volume,
+    Volume2,
     VolumeOff,
     Square,
     Minimize,
@@ -48,6 +48,8 @@
     }
 
     if (sessionData) {
+      muted = sessionData.sessionConfig.muted === true
+
       if (sessionData.mode === 'focus' || sessionData.mode === 'focus_fullscreen') {
         showFocusExitHint(getSessionExitHint());
       }
@@ -189,7 +191,7 @@
   }
 
   let started: boolean = $state(false)
-  let muted: boolean = $state(true)
+  let muted: boolean = $state(false)
   let forceStopped: boolean = $state(false)
 
   export const startClient = () => {
@@ -233,6 +235,36 @@
 
   export const isMuted = () => {
     return muted
+  }
+
+  const persistSessionMuted = async (mu: boolean) => {
+    if (!neuzosConfig || !sessionData) return
+
+    neuzosConfig.sessions = (neuzosConfig.sessions ?? []).map((session) => {
+      if (session.id !== sessionData?.sessionId) return session
+      const nextSession = {...session}
+      if (mu) {
+        nextSession.muted = true
+      } else {
+        delete nextSession.muted
+      }
+      return nextSession
+    })
+
+    sessionData.sessionConfig = {...sessionData.sessionConfig}
+    if (mu) {
+      sessionData.sessionConfig.muted = true
+    } else {
+      delete sessionData.sessionConfig.muted
+    }
+
+    await neuzosBridge.config.saveSilent(neuzosConfig)
+  }
+
+  const toggleAudioMuted = async () => {
+    const nextMuted = !muted
+    setAudioMuted(nextMuted)
+    await persistSessionMuted(nextMuted)
   }
 
   export const getWebview = () => {
@@ -356,11 +388,11 @@ window.open = function(...args) {
             {/if}
           </Button>
         {/if}
-        <Button size="icon-xs" variant="outline" onclick={() => { muted ? setAudioMuted(false) : setAudioMuted(true)} }>
+        <Button size="icon-xs" variant="outline" onclick={toggleAudioMuted}>
           {#if muted}
             <VolumeOff class="size-3.5"/>
           {:else}
-            <Volume class="size-3.5"/>
+            <Volume2 class="size-3.5"/>
           {/if}
         </Button>
         <Separator orientation="vertical" class="h-4"/>

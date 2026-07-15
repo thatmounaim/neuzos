@@ -20,6 +20,7 @@ export type NeuzSession = {
   partitionOverwrite?: string;
   autoDeleteCache?: boolean;
   zoom?: number;
+  muted?: boolean;
 }
 
 export type NeuzSessionState = {
@@ -43,7 +44,6 @@ export type NeuzLayout = {
   locked?: boolean
   columnFirst?: boolean
   autoFocus?: boolean
-  mutedSessionIds?: string[]
 }
 
 export type ViewerWindowType = 'navi_guide' | 'flyffipedia';
