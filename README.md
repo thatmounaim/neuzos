@@ -1,4 +1,4 @@
-# <img src="https://github.com/flyffu-community/neuzos/raw/main/resources/icon.png" width="50"/> NeuzOS
+﻿# <img src="https://github.com/flyffu-community/neuzos/raw/main/resources/icon.png" width="50"/> NeuzOS
 
 [![Latest Releases](https://img.shields.io/static/v1?label=&message=Latest+Releases&color=2ea44f&style=for-the-badge&logo=electron&logoColor=fff)](https://github.com/flyffu-community/neuzos/releases) [![Community & Help - Join Discord](https://img.shields.io/static/v1?label=&message=Join+Discord+Community&color=2ea44f&style=for-the-badge&logo=discord&logoColor=fff)](https://discord.gg/k3EY7Z6MMP)
 
@@ -10,12 +10,12 @@ Built-in Features designed to enhance Gameplay, improve Efficiency, and provide 
 
 NeuzOS is designed to be intuitive and easy to use.
 
-If you still have questions or run into any issues, check the Guide Channels or ask in the Help Channel on our Discord Server.
+If you still have Questions or any Issues, check the Guide Channels or ask in the Help Channel on our Discord Server.
 
 ## Features
 
 ### News Homescreen
-Flyff Universe Latest News directly on the Startup Homescreen.
+- Flyff Universe Latest News directly on the Startup Homescreen
 
 ### Session & Layout Management
 
@@ -61,8 +61,12 @@ Flyff Universe Latest News directly on the Startup Homescreen.
 #### Viewer Windows
 
 - Open Dedicated Viewer Windows for Community Resources
-  - Navi Guide - Monster Guide by **Navi2765**
-  - Flyffipedia - Flyff Wiki by **Swaight**
+	- Navi Guide – Monster Guide by **Navi2765**
+	- Flyffipedia – Flyff Wiki by **Swaight**
+	- Flyffulator - Character Simulator by **Frostiae**
+	- Flyff Calculators - Upgrade Simulator by **Stellar**
+	- Siege Stats - Statistics for PvP Players by **Shynox**
+	- CS-Modelviewer - Character Modelviewer by **I9hdkill**
 
 #### Mini Browser
 
@@ -84,44 +88,42 @@ Flyff Universe Latest News directly on the Startup Homescreen.
   - Execute Assigned Session Actions with a Single Click
   - 1 Click -> 1 Action
 
-#### Floating Sessions
-
 ### Interaction & Controls
 
 - **Mass Actions**
-  - Right-Click Layout Tab to Open Context Menu:
-    - Start/Stop All Sessions in a Layout
-    - Mute/Unmute All Sessions in a Layout
+	- Right-Click Layout Tab to Open Context Menu:
+	- Start/Stop All Sessions in a Layout
+	- Mute/Unmute All Sessions in a Layout
 
 - **Per-Session Actions**
-  - Start/Stop
-  - Mute/Unmute
+	- Start/Stop
+	- Mute/Unmute
 
 - **Tab Actions**
-  - Move Left/Right
-  - Close
+	- Move Left/Right
+	- Close
 
 ### Additional Features
 
 - Chromium Command-Line Switches
 
 - Backup Function for:
-  - Config-Data
-  - Local Storage
+	- Config-Data
+	- Local Storage
 
 - Launch Sessions in:
-  - Dedicated Window
-  - Focus Mode (Disabled Exit Button, Alt+F4 replaced with a Dedicated Exit Hotkey)
+	- Dedicated Window
+	- Focus Mode (Disabled Close Button)
 
 - Floating Sessions
-  - Drag-and-Drop Session Windows
-  - Freely Resizable for Flexible Usage
+	- Drag-and-Drop Session Windows
+	- Freely Resizable for Flexible Usage
 
 - Keybinds
-  - Switch to Last Used Layout
-  - Switch to a Specific Layout
-  - Toggle Fullscreen
-  - And Many More...
+	- Switch to Last Used Layout
+	- Switch to a Specific Layout
+	- Toggle Fullscreen
+	- And More...
 
 ### Command Line Support
 
@@ -172,7 +174,7 @@ bun dev
 ```
 
 ## Credits
-NeuzOS was Originally created by [Abdelmounaim Bouakouk](https://github.com/thatmounaim)
+NeuzOS was Originally created by [thatmounaim](https://github.com/thatmounaim)
 
 
 This Project is built by the Flyff Community, for the Flyff Community. 
