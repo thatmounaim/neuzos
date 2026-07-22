@@ -876,11 +876,12 @@
           ],
         },
         {
-          title: 'Window Sizes',
+          title: 'Window Settings',
           rows: [
             ['Main Window', windowConfig?.main ? `${windowConfig.main.width ?? '-'} x ${windowConfig.main.height ?? '-'}, Maximized: ${formatValue(windowConfig.main.maximized)}` : '-'],
             ['Settings Window', windowConfig?.settings ? `${windowConfig.settings.width ?? '-'} x ${windowConfig.settings.height ?? '-'}, Maximized: ${formatValue(windowConfig.settings.maximized)}` : '-'],
             ['Session Window', windowConfig?.session ? `${windowConfig.session.width ?? '-'} x ${windowConfig.session.height ?? '-'}, Maximized: ${formatValue(windowConfig.session.maximized)}` : '-'],
+            ['Launcher Window', windowConfig?.launcher ? `${windowConfig.launcher.width ?? '-'} x ${windowConfig.launcher.height ?? '-'}, Position X: ${formatValue(windowConfig.launcher.x)}, Position Y: ${formatValue(windowConfig.launcher.y)}` : '-'],
           ],
         },
         {

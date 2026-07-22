@@ -76,6 +76,9 @@ const sessionWindows = new Map<string, BrowserWindow>();
 let sessionLauncherWindow: BrowserWindow | null = null;
 let lastKeybindToggleAt = 0;
 
+type ConfigurableWindowType = 'main' | 'settings' | 'session' | 'launcher';
+type RuntimeWindowBounds = {x: number; y: number; width: number; height: number};
+
 type ViewerWindowType = 'navi_guide' | 'flyffipedia' | 'flyffulator' | 'flyff_calculators' | 'siege_stats' | 'cs_modelviewer';
 type ViewerWindowConfig = {
   x: number | null;
@@ -792,6 +795,7 @@ function loadConfig(reload: boolean = false): Promise<any> {
               main: {...(defaultNeuzosConfig.window?.main || {}), ...(loadedWindow.main || {})},
               settings: {...(defaultNeuzosConfig.window?.settings || {}), ...(loadedWindow.settings || {})},
               session: {...(defaultNeuzosConfig.window?.session || {}), ...(loadedWindow.session || {})},
+              launcher: {...(defaultNeuzosConfig.window?.launcher || {}), ...(loadedWindow.launcher || {})},
             };
             delete neuzosConfig.window.viewers;
           }
@@ -1136,7 +1140,10 @@ function createSettingsWindow(initialTab?: string): void {
         settingsWindow?.maximize();
       });
     }
+    notifyRuntimeWindowBoundsChanged();
   });
+
+  settingsWindow.on("resize", notifyRuntimeWindowBoundsChanged);
 
   settingsWindow.on("closed", () => {
     settingsWindow = null;
@@ -1155,22 +1162,71 @@ function createSettingsWindow(initialTab?: string): void {
   }
 }
 
+function getRuntimeWindowBounds(win: BrowserWindow | null): RuntimeWindowBounds | null {
+  if (!win || win.isDestroyed()) {
+    return null;
+  }
+
+  const bounds = win.getBounds();
+  return {
+    x: Math.round(bounds.x),
+    y: Math.round(bounds.y),
+    width: Math.round(bounds.width),
+    height: Math.round(bounds.height),
+  };
+}
+
+function getRuntimeWindowBoundsSnapshot(): Record<ConfigurableWindowType, RuntimeWindowBounds | null> {
+  const activeSessionWindow = sessionWindow && !sessionWindow.isDestroyed()
+    ? sessionWindow
+    : [...sessionWindows.values()].find((win) => !win.isDestroyed()) ?? null;
+
+  return {
+    main: getRuntimeWindowBounds(mainWindow),
+    settings: getRuntimeWindowBounds(settingsWindow),
+    session: getRuntimeWindowBounds(activeSessionWindow),
+    launcher: getRuntimeWindowBounds(sessionLauncherWindow),
+  };
+}
+
+function notifyRuntimeWindowBoundsChanged(): void {
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    settingsWindow.webContents.send('window.runtime_bounds_changed', getRuntimeWindowBoundsSnapshot());
+  }
+}
+
 function createSessionLauncherWindow(): void {
   if (sessionLauncherWindow && !sessionLauncherWindow.isDestroyed()) {
     sessionLauncherWindow.focus();
     return;
   }
 
+  const launcherConfig = neuzosConfig.window.launcher;
+  const hasConfiguredPosition = typeof launcherConfig.x === 'number' && Number.isFinite(launcherConfig.x) &&
+    typeof launcherConfig.y === 'number' && Number.isFinite(launcherConfig.y);
+  const configuredBounds = hasConfiguredPosition
+    ? {
+      x: launcherConfig.x as number,
+      y: launcherConfig.y as number,
+      width: launcherConfig.width,
+      height: launcherConfig.height,
+    }
+    : null;
+  const launcherPosition = configuredBounds && isViewerWindowBoundsVisible(configuredBounds)
+    ? {x: configuredBounds.x, y: configuredBounds.y}
+    : {};
+
   // Small window for session launcher
   sessionLauncherWindow = new BrowserWindow({
-    width: 600,
-    height: 400,
+    width: launcherConfig.width,
+    height: launcherConfig.height,
     minWidth: 600,
     minHeight: 400,
     show: false,
     frame: false,
     autoHideMenuBar: true,
     resizable: true,
+    ...launcherPosition,
     ...(process.platform === "linux" ? {icon} : {}),
     webPreferences: {
       contextIsolation: true,
@@ -1185,6 +1241,9 @@ function createSessionLauncherWindow(): void {
     globalShortcut.unregisterAll();
   });
 
+  sessionLauncherWindow.on("resize", notifyRuntimeWindowBoundsChanged);
+  sessionLauncherWindow.on("move", notifyRuntimeWindowBoundsChanged);
+
   // Fix for MacOS Command Shortcuts
   if (process.platform !== "darwin") {
     Menu.setApplicationMenu(null);
@@ -1196,10 +1255,12 @@ function createSessionLauncherWindow(): void {
   sessionLauncherWindow.on("ready-to-show", () => {
     sessionLauncherWindow?.show();
     sessionLauncherWindow?.webContents.setZoomFactor(neuzosConfig.window.main.zoom)
+    notifyRuntimeWindowBoundsChanged();
   });
 
   sessionLauncherWindow.on("closed", () => {
     sessionLauncherWindow = null;
+    notifyRuntimeWindowBoundsChanged();
   });
 
   sessionLauncherWindow.webContents.setWindowOpenHandler((details) => {
@@ -1299,6 +1360,7 @@ function createSessionWindow(mode: LaunchMode, sessionId: string): void {
   window.on("ready-to-show", () => {
     window.show();
     window.webContents.setZoomFactor(neuzosConfig.window.session.zoom);
+    notifyRuntimeWindowBoundsChanged();
 
     // Maximize if configured and not starting in fullscreen - must happen after show() with slight delay
     if (!startFullscreen && neuzosConfig.window.session.maximized) {
@@ -1310,6 +1372,8 @@ function createSessionWindow(mode: LaunchMode, sessionId: string): void {
     }
   });
 
+  window.on("resize", notifyRuntimeWindowBoundsChanged);
+
   window.on("closed", () => {
     // Ensure shortcuts are unregistered when session window is destroyed
     globalShortcut.unregisterAll();
@@ -1317,10 +1381,12 @@ function createSessionWindow(mode: LaunchMode, sessionId: string): void {
     if (sessionWindow === window) {
       sessionWindow = null;
     }
+    notifyRuntimeWindowBoundsChanged();
   });
 
   window.on("focus", () => {
     sessionWindow = window;
+    notifyRuntimeWindowBoundsChanged();
     registerSessionKeybinds(mode);
   });
 
@@ -1416,6 +1482,7 @@ function createMainWindow(): void {
   mainWindow.on("ready-to-show", () => {
     mainWindow?.show();
     mainWindow?.webContents.setZoomFactor(neuzosConfig.window.main.zoom);
+    notifyRuntimeWindowBoundsChanged();
 
     // Maximize if configured - must happen after show() with slight delay
     if (neuzosConfig.window.main.maximized) {
@@ -1425,10 +1492,13 @@ function createMainWindow(): void {
     }
   });
 
+  mainWindow.on("resize", notifyRuntimeWindowBoundsChanged);
+
   mainWindow.on("closed", () => {
     // Ensure shortcuts are unregistered when window is destroyed
     globalShortcut.unregisterAll();
     mainWindow = null;
+    notifyRuntimeWindowBoundsChanged();
 
     // Close all viewer windows so they don't orphan the process
     for (const [, win] of viewerWindows) {
@@ -2147,6 +2217,9 @@ function registerSessionKeybinds(mode: LaunchMode) {
       return app.getVersion();
     });
 
+    ipcMain.handle("window.get_runtime_bounds", () => {
+      return getRuntimeWindowBoundsSnapshot();
+    });
 
     ipcMain.on("settings_window.open", (_, tab?: string) => {
       createSettingsWindow(tab);
@@ -3279,6 +3352,13 @@ function registerSessionKeybinds(mode: LaunchMode) {
       zoom: 1.0
     };
 
+    const defaultSessionLauncherWindowConfig = {
+      width: 600,
+      height: 400,
+      x: null,
+      y: null,
+    };
+
     // Settings window should be slightly smaller by default
     const defaultSettingsWindowConfig = {
       width: Math.floor(defaultWindowWidth * 0.85),
@@ -3293,8 +3373,13 @@ function registerSessionKeybinds(mode: LaunchMode) {
         main: defaultMainWindowConfig,
         settings: defaultSettingsWindowConfig,
         session: defaultSessionWindowConfig,
+        launcher: defaultSessionLauncherWindowConfig,
       };
     }
+    defaultNeuzosConfig.window.launcher = {
+      ...defaultSessionLauncherWindowConfig,
+      ...(defaultNeuzosConfig.window.launcher || {}),
+    };
 
     // Merge neuzosConfig with defaults (user config takes precedence)
     neuzosConfig = {...defaultNeuzosConfig, ...neuzosConfig};
@@ -3337,11 +3422,25 @@ function registerSessionKeybinds(mode: LaunchMode) {
       ...(neuzosConfig.window.session || {})
     };
 
-    for (const windowConfig of [neuzosConfig.window.main, neuzosConfig.window.settings, neuzosConfig.window.session]) {
+    neuzosConfig.window.launcher = {
+      ...defaultNeuzosConfig.window.launcher,
+      ...(neuzosConfig.window.launcher || {})
+    };
+
+    for (const windowConfig of [neuzosConfig.window.main, neuzosConfig.window.settings, neuzosConfig.window.session, neuzosConfig.window.launcher]) {
       windowConfig.width = Math.round(windowConfig.width);
       windowConfig.height = Math.round(windowConfig.height);
     }
-
+    neuzosConfig.window.launcher.width = Math.max(600, neuzosConfig.window.launcher.width);
+    neuzosConfig.window.launcher.height = Math.max(400, neuzosConfig.window.launcher.height);
+    const launcherX = neuzosConfig.window.launcher.x;
+    const launcherY = neuzosConfig.window.launcher.y;
+    neuzosConfig.window.launcher.x = typeof launcherX === 'number' && Number.isFinite(launcherX)
+      ? Math.round(launcherX)
+      : null;
+    neuzosConfig.window.launcher.y = typeof launcherY === 'number' && Number.isFinite(launcherY)
+      ? Math.round(launcherY)
+      : null;
     delete neuzosConfig.window.viewers;
     saveConfig(neuzosConfig);
 

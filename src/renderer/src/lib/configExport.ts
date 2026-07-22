@@ -18,7 +18,7 @@ export const exportCategories: CategoryDefinition[] = [
   {
     id: 'general-settings',
     label: 'General Settings',
-    description: 'Autosave, Cache Cleanup, Window Sizes, Title Bar Buttons, Fullscreen Behavior.',
+    description: 'Autosave, Cache Cleanup, Window Settings, Title Bar Buttons, Fullscreen Behavior.',
     enabled: true,
   },
   {
@@ -349,7 +349,7 @@ export function getCategoryCountLabel(config: NeuzConfig, category: ExportCatego
       const enabledSettings = 1 + 1 + titleBarButtonCount + fullscreenBehaviorCount;
       return formatPieces([
         pluralize(enabledSettings, 'Setting'),
-        config.window ? 'Window Sizes' : '',
+        config.window ? 'Window Settings' : '',
       ]);
     }
     case 'sessions':

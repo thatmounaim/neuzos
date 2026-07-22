@@ -208,6 +208,12 @@ export type NeuzConfig = {
       zoom: number;
       maximized: boolean;
     },
+    launcher: {
+      width: number;
+      height: number;
+      x: number | null;
+      y: number | null;
+    },
   },
   autoSaveSettings: boolean;
   autoDeleteAllCachesOnStartup?: boolean;
