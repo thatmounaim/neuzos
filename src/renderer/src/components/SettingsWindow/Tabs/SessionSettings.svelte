@@ -493,7 +493,9 @@
 
   const sanitizeCollapsedGroups = (collapsedGroups: Record<string, boolean>) => {
     const validGroupIds = new Set(currentGroups.map((group) => group.id))
-    validGroupIds.add(ungroupedGroupId)
+    if (currentGroups.length > 0) {
+      validGroupIds.add(ungroupedGroupId)
+    }
     return Object.fromEntries(
       Object.entries(collapsedGroups).filter(([groupId]) => validGroupIds.has(groupId))
     )
@@ -669,14 +671,14 @@
 {#snippet sessionDropZone(groupId, index)}
   {@const active = isSessionDropTarget(groupId, index)}
   {#if useDragSessionSorting}
-    <Table.Row class="border-b-0 hover:[&,&>svelte-css-wrapper]:[&>th,td]:bg-transparent">
+    <Table.Row class="h-0 border-b-0 hover:[&,&>svelte-css-wrapper]:[&>th,td]:bg-transparent">
       <Table.Cell
         colspan={8}
-        class={`p-0 transition-[height] duration-150 ${active ? 'h-10' : 'h-1'}`}
+        class={`p-0 leading-none transition-[height] duration-150 ${active ? 'h-10' : 'h-0'}`}
         ondragover={(event) => handleSessionDragOver(event, groupId, index)}
         ondrop={(event) => handleSessionDrop(event, groupId, index)}
       >
-        <div class={`mx-2 rounded-md transition-all duration-150 ${active ? 'h-8 border border-dashed border-primary/70 bg-primary/10 shadow-sm' : 'h-1 bg-transparent'}`}></div>
+        <div class={`mx-2 rounded-md transition-all duration-150 ${active ? 'h-8 border border-dashed border-primary/70 bg-primary/10 shadow-sm' : 'h-0 bg-transparent'}`}></div>
       </Table.Cell>
     </Table.Row>
   {/if}
@@ -685,7 +687,7 @@
 {#snippet sessionRow(session, sessionIndex, sectionLength, groupId)}
   {@const currentGroupId = getSessionGroupId(session.id)}
   <Table.Row
-    class={useDragSessionSorting && draggedSession?.sessionId === session.id ? 'opacity-50' : ''}
+    class={`${sessionIndex === sectionLength - 1 ? 'border-b-0' : ''} ${useDragSessionSorting && draggedSession?.sessionId === session.id ? 'opacity-50' : ''}`}
     ondragover={(event) => handleSessionRowDragOver(event, groupId, sessionIndex)}
     ondrop={(event) => handleSessionRowDrop(event, groupId, sessionIndex)}
   >
@@ -694,7 +696,7 @@
         <button
           type="button"
           draggable="true"
-          class="inline-flex h-8 w-8 cursor-grab items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:cursor-grabbing"
+          class="inline-flex h-8 w-8 cursor-grab items-center justify-center rounded-md border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:cursor-grabbing"
           ondragstart={(event) => handleSessionDragStart(event, groupId, session.id)}
           ondragend={handleSessionDragEnd}
           aria-label="Drag session to reorder"
@@ -810,41 +812,43 @@
         }}
       />
     </Table.Cell>
-    <Table.Cell class="w-[90px]">
-      {@const groupLabel = currentGroupId
-        ? (currentGroups.find(g => g.id === currentGroupId)?.label ?? 'Unknown')
-        : 'Ungrouped'}
-      {@const isGroupOpen = groupPopoverStates[session.id] ?? false}
-      <Tooltip.Provider>
-        <Tooltip.Root>
-          <Popover.Root open={isGroupOpen} onOpenChange={(open) => { groupPopoverStates[session.id] = open; }}>
-            <Tooltip.Trigger>
-              <Popover.Trigger class="h-9 w-9 inline-flex items-center justify-center rounded-md border border-input bg-muted/50 text-sm shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring {currentGroupId ? 'border-primary text-primary ring-1 ring-primary/50' : ''}">
-                <Users class="h-4 w-4"/>
-              </Popover.Trigger>
-            </Tooltip.Trigger>
-            <Popover.Content class="w-[220px] p-1" align="start">
-              <button
-                class="w-full text-left px-2 py-1.5 text-sm rounded-sm hover:bg-accent hover:text-accent-foreground {!currentGroupId ? 'font-semibold' : ''}"
-                onclick={() => { assignSessionToGroup(session.id, null); groupPopoverStates[session.id] = false; }}
-              >
-                Ungrouped
-              </button>
-              <div class="my-1 h-px bg-border"></div>
-              {#each currentGroups as group}
+    {#if currentGroups.length > 0}
+      <Table.Cell class="w-[90px]">
+        {@const groupLabel = currentGroupId
+          ? (currentGroups.find(g => g.id === currentGroupId)?.label ?? 'Unknown')
+          : 'Ungrouped'}
+        {@const isGroupOpen = groupPopoverStates[session.id] ?? false}
+        <Tooltip.Provider>
+          <Tooltip.Root>
+            <Popover.Root open={isGroupOpen} onOpenChange={(open) => { groupPopoverStates[session.id] = open; }}>
+              <Tooltip.Trigger>
+                <Popover.Trigger class="h-9 w-9 inline-flex items-center justify-center rounded-md border border-input bg-muted/50 text-sm shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring {currentGroupId ? 'border-primary text-primary ring-1 ring-primary/50' : ''}">
+                  <Users class="h-4 w-4"/>
+                </Popover.Trigger>
+              </Tooltip.Trigger>
+              <Popover.Content class="w-[220px] p-1" align="start">
                 <button
-                  class="w-full text-left px-2 py-1.5 text-sm rounded-sm hover:bg-accent hover:text-accent-foreground {currentGroupId === group.id ? 'font-semibold' : ''}"
-                  onclick={() => { assignSessionToGroup(session.id, group.id); groupPopoverStates[session.id] = false; }}
+                  class="w-full text-left px-2 py-1.5 text-sm rounded-sm hover:bg-accent hover:text-accent-foreground {!currentGroupId ? 'font-semibold' : ''}"
+                  onclick={() => { assignSessionToGroup(session.id, null); groupPopoverStates[session.id] = false; }}
                 >
-                  {group.label ?? defaultGroupLabel}
+                  Ungrouped
                 </button>
-              {/each}
-            </Popover.Content>
-          </Popover.Root>
-          <Tooltip.Content>{groupLabel}</Tooltip.Content>
-        </Tooltip.Root>
-      </Tooltip.Provider>
-    </Table.Cell>
+                <div class="my-1 h-px bg-border"></div>
+                {#each currentGroups as group}
+                  <button
+                    class="w-full text-left px-2 py-1.5 text-sm rounded-sm hover:bg-accent hover:text-accent-foreground {currentGroupId === group.id ? 'font-semibold' : ''}"
+                    onclick={() => { assignSessionToGroup(session.id, group.id); groupPopoverStates[session.id] = false; }}
+                  >
+                    {group.label ?? defaultGroupLabel}
+                  </button>
+                {/each}
+              </Popover.Content>
+            </Popover.Root>
+            <Tooltip.Content>{groupLabel}</Tooltip.Content>
+          </Tooltip.Root>
+        </Tooltip.Provider>
+      </Table.Cell>
+    {/if}
     <Table.Cell class="w-[130px] text-center">
       {@const zoomOpen = zoomPopoverStates[session.id] ?? false}
       {@const zoomValue = getSessionZoom(session.id)}
@@ -1146,29 +1150,33 @@
       </div>
     </div>
     <Card.Description>
-      Configure your Flyff Universe Sessions below. You can Add, Edit, Reorder, and Delete Sessions.
+      Configure your Sessions. You can Add, Edit, Reorder, and Delete Sessions.
     </Card.Description>
   </Card.Header>
   <Card.Content class="flex flex-col gap-4">
     <div class="flex flex-col gap-3">
       {#each orderedSessionSections as group, gidx (group.id)}
         {@const groupSessions = isUngroupedGroup(group) ? ungroupedSessions : getGroupSessions(group)}
-        {@const groupCollapsed = isGroupCollapsed(group.id)}
-        <Card.Root class="overflow-hidden gap-0 border-border/70">
+        {@const groupControlsVisible = !isUngroupedGroup(group) || currentGroups.length > 0}
+        {@const groupCollapsed = groupControlsVisible && isGroupCollapsed(group.id)}
+        <Card.Root class="overflow-hidden gap-0 border-border/70 {groupCollapsed ? '' : 'pb-0'}">
           <div class={`flex items-center justify-between gap-3 px-2.5 ${groupCollapsed ? 'h-5 py-0' : 'h-7 py-0'}`}>
             <button
               type="button"
-              class="flex min-w-0 flex-1 items-center gap-1.5 self-stretch rounded-sm text-left leading-none transition-opacity hover:opacity-80"
+              class="flex min-w-0 flex-1 items-center gap-1.5 self-stretch rounded-sm text-left leading-none transition-opacity {groupControlsVisible ? 'hover:opacity-80' : 'cursor-default'}"
+              disabled={!groupControlsVisible}
               onclick={() => toggleGroupCollapsed(group.id)}
               aria-label={groupCollapsed ? 'Expand group' : 'Collapse group'}
             >
-              <span class="inline-flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground">
-                {#if groupCollapsed}
-                  <ChevronDown class="h-4 w-4"></ChevronDown>
-                {:else}
-                  <ChevronUp class="h-4 w-4"></ChevronUp>
-                {/if}
-              </span>
+              {#if groupControlsVisible}
+                <span class="inline-flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground">
+                  {#if groupCollapsed}
+                    <ChevronDown class="h-4 w-4"></ChevronDown>
+                  {:else}
+                    <ChevronUp class="h-4 w-4"></ChevronUp>
+                  {/if}
+                </span>
+              {/if}
               {#if isUngroupedGroup(group)}
                 <span class="truncate text-sm font-semibold">Sessions</span>
               {:else if editingGroupId === group.id}
@@ -1212,12 +1220,14 @@
             </button>
             <div class="flex shrink-0 items-center gap-1.5">
               <span class="inline-flex h-6 items-center text-xs leading-none text-muted-foreground">{formatSessionCount(groupSessions.length)}</span>
-              <Button variant="outline" size="icon-xs" onclick={() => moveGroup(group.id, -1)} disabled={gidx <= 0}>
-                <ChevronUp class="h-4 w-4"></ChevronUp>
-              </Button>
-              <Button variant="outline" size="icon-xs" onclick={() => moveGroup(group.id, 1)} disabled={gidx >= orderedSessionSections.length - 1}>
-                <ChevronDown class="h-4 w-4"></ChevronDown>
-              </Button>
+              {#if groupControlsVisible}
+                <Button variant="outline" size="icon-xs" onclick={() => moveGroup(group.id, -1)} disabled={gidx <= 0}>
+                  <ChevronUp class="h-4 w-4"></ChevronUp>
+                </Button>
+                <Button variant="outline" size="icon-xs" onclick={() => moveGroup(group.id, 1)} disabled={gidx >= orderedSessionSections.length - 1}>
+                  <ChevronDown class="h-4 w-4"></ChevronDown>
+                </Button>
+              {/if}
               {#if !isUngroupedGroup(group)}
                 <Button variant="outline" size="icon-xs" class="hover:bg-destructive hover:text-destructive-foreground" onclick={() => deleteGroup(group.id)}>
                   <Trash class="h-4 w-4"></Trash>
@@ -1230,8 +1240,20 @@
             <div class="border-b border-border mt-2"></div>
             <Card.Content class="p-0">
               {#if groupSessions.length === 0}
-                <div class="px-3 py-3 text-sm text-muted-foreground">
-                  {isUngroupedGroup(group) ? 'No Ungrouped Sessions.' : 'No Sessions in this Group.'}
+                <div class="p-3">
+                  <div class="flex w-full flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border px-4 py-8 text-center">
+                    {#if isUngroupedGroup(group)}
+                      <p class="text-sm font-medium text-foreground">No Sessions Configured</p>
+                      <p class="text-xs text-muted-foreground">
+                        Press the <span class="inline-flex h-6 items-center gap-1 rounded-md border border-input bg-background px-2 text-[11px] font-medium text-foreground shadow-xs"><Plus class="h-3 w-3"></Plus>Add Session</span> Button below to Add a New Session
+                      </p>
+                    {:else}
+                      <p class="text-sm font-medium text-foreground">No Sessions in this Group</p>
+                      <p class="text-xs text-muted-foreground">
+                        Click on the <span class="inline-flex h-6 w-6 items-center justify-center rounded-md border border-input bg-background text-foreground shadow-xs"><Users class="h-3.5 w-3.5"></Users></span> Button to Manage the Session Group
+                      </p>
+                    {/if}
+                  </div>
                 </div>
               {:else}
                 <Table.Root>
@@ -1240,18 +1262,20 @@
                       <Table.Head class="w-[48px]"></Table.Head>
                       <Table.Head class="w-[72px]">Icon</Table.Head>
                       <Table.Head class="w-[420px] min-w-[420px]">Label</Table.Head>
-                      <Table.Head class="w-[90px] text-center">
-                        <Tooltip.Provider>
-                          <Tooltip.Root>
-                            <Tooltip.Trigger>
-                              <span class="inline-flex cursor-help items-center justify-center">Group</span>
-                            </Tooltip.Trigger>
-                            <Tooltip.Content class="max-w-xs">
-                              Assign Sessions to a Group. Sessions within the same Group are displayed together in the Session Launcher.
-                            </Tooltip.Content>
-                          </Tooltip.Root>
-                        </Tooltip.Provider>
-                      </Table.Head>
+                      {#if currentGroups.length > 0}
+                        <Table.Head class="w-[90px] text-center">
+                          <Tooltip.Provider>
+                            <Tooltip.Root>
+                              <Tooltip.Trigger>
+                                <span class="inline-flex cursor-help items-center justify-center">Group</span>
+                              </Tooltip.Trigger>
+                              <Tooltip.Content class="max-w-xs">
+                                Assign Sessions to a Group. Sessions within the same Group are displayed together in the Session Launcher.
+                              </Tooltip.Content>
+                            </Tooltip.Root>
+                          </Tooltip.Provider>
+                        </Table.Head>
+                      {/if}
                       <Table.Head class="w-[130px] text-center">
                         <Tooltip.Provider>
                           <Tooltip.Root>
@@ -1276,7 +1300,9 @@
                       {@render sessionDropZone(isUngroupedGroup(group) ? null : group.id, sidx)}
                       {@render sessionRow(session, sidx, groupSessions.length, isUngroupedGroup(group) ? null : group.id)}
                     {/each}
-                    {@render sessionDropZone(isUngroupedGroup(group) ? null : group.id, groupSessions.length)}
+                    {#if isSessionDropTarget(isUngroupedGroup(group) ? null : group.id, groupSessions.length)}
+                      {@render sessionDropZone(isUngroupedGroup(group) ? null : group.id, groupSessions.length)}
+                    {/if}
                   </Table.Body>
                 </Table.Root>
               {/if}
@@ -1293,48 +1319,52 @@
           <Plus class="h-4 w-4 mr-2"/>
           Add Session
         </Button>
-        <Button variant="outline" size="sm" onclick={addGroup}>
-          <Plus class="h-4 w-4 mr-2"/>
-          Add Group
-        </Button>
-      </div>
-      <AlertDialog.Root open={clearAllCacheOpenModal} onOpenChange={(open) => {
-        clearAllCacheOpenModal = open;
-      }}>
-        <AlertDialog.Trigger>
-          <Button variant="outline" size="sm">
-            <FileX class="h-4 w-4 mr-2"/>
-            Clear All Cache
+        {#if neuzosConfig.sessions.length > 0}
+          <Button variant="outline" size="sm" onclick={addGroup}>
+            <Plus class="h-4 w-4 mr-2"/>
+            Add Group
           </Button>
-        </AlertDialog.Trigger>
-        <AlertDialog.Content class="max-h-[85vh] overflow-hidden">
-          <AlertDialog.Header>
-            <AlertDialog.Title>Clear All Sessions' Cache?</AlertDialog.Title>
-            <AlertDialog.Description>
-              This Action will clear the Cache for all Sessions.<br/><br/>
-              <strong>Sessions that will be affected:</strong>
-              <div class="mt-2 max-h-[40vh] overflow-y-auto rounded-md border border-border/60 bg-muted/20 p-2">
-                <ul class="space-y-1 list-disc list-inside">
-                  {#each neuzosConfig.sessions as session}
-                    <li class="text-sm">
-                      <span class="font-medium">{session.label}</span>
-                      <span class="text-muted-foreground"> (ID: {session.id})</span>
-                    </li>
-                  {/each}
-                </ul>
-              </div>
-              <br/>
-              Your Session Data will still be saved.
-            </AlertDialog.Description>
-          </AlertDialog.Header>
-          <AlertDialog.Footer>
-            <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
-            <AlertDialog.Action onclick={clearAllCache}>
+        {/if}
+      </div>
+      {#if neuzosConfig.sessions.length > 0}
+        <AlertDialog.Root open={clearAllCacheOpenModal} onOpenChange={(open) => {
+          clearAllCacheOpenModal = open;
+        }}>
+          <AlertDialog.Trigger>
+            <Button variant="outline" size="sm">
+              <FileX class="h-4 w-4 mr-2"/>
               Clear All Cache
-            </AlertDialog.Action>
-          </AlertDialog.Footer>
-        </AlertDialog.Content>
-      </AlertDialog.Root>
+            </Button>
+          </AlertDialog.Trigger>
+          <AlertDialog.Content class="max-h-[85vh] overflow-hidden">
+            <AlertDialog.Header>
+              <AlertDialog.Title>Clear All Sessions' Cache?</AlertDialog.Title>
+              <AlertDialog.Description>
+                This Action will clear the Cache for all Sessions.<br/><br/>
+                <strong>Sessions that will be affected:</strong>
+                <div class="mt-2 max-h-[40vh] overflow-y-auto rounded-md border border-border/60 bg-muted/20 p-2">
+                  <ul class="space-y-1 list-disc list-inside">
+                    {#each neuzosConfig.sessions as session}
+                      <li class="text-sm">
+                        <span class="font-medium">{session.label}</span>
+                        <span class="text-muted-foreground"> (ID: {session.id})</span>
+                      </li>
+                    {/each}
+                  </ul>
+                </div>
+                <br/>
+                Your Session Data will still be saved.
+              </AlertDialog.Description>
+            </AlertDialog.Header>
+            <AlertDialog.Footer>
+              <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+              <AlertDialog.Action onclick={clearAllCache}>
+                Clear All Cache
+              </AlertDialog.Action>
+            </AlertDialog.Footer>
+          </AlertDialog.Content>
+        </AlertDialog.Root>
+      {/if}
     </div>
   </Card.Footer>
 </Card.Root>

@@ -27,7 +27,9 @@
     RadioTower,
     Settings,
     Columns2,
-    CircleQuestionMark
+    CircleQuestionMark,
+    Search,
+    ArrowDown
   } from '@lucide/svelte'
   import {getContext, onMount} from "svelte";
   import type {MainWindowState, NeuzLayout, NeuzSession, NeuzSessionGroup} from "$lib/types";
@@ -40,6 +42,7 @@
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
   import {cn} from "$lib/utils";
   import {Separator} from "$lib/components/ui/separator";
+  import {Input} from "$lib/components/ui/input";
   import PinnedActions from "./MainBarComponents/PinnedActions.svelte";
   import PinnedWidgetLaunchers from "./MainBarComponents/PinnedWidgetLaunchers.svelte";
   import WidgetsButton from "./MainBarComponents/WidgetsButton.svelte";
@@ -55,6 +58,8 @@
   let collapsedSessionGroupIds: Record<string, boolean> = $state({});
   let hasVisibleActionPins = $state(false);
   let launcherTab: 'layouts' | 'sessions' = $state('layouts');
+  let layoutLauncherSearchQuery = $state('');
+  let sessionLauncherSearchQuery = $state('');
   const ungroupedGroupId = 'ungrouped';
 
   function loadCollapsedSessionGroups() {
@@ -140,6 +145,9 @@
   const handleLauncherOpenChange = (open: boolean) => {
     if (open) {
       launcherTab = 'layouts'
+    } else {
+      layoutLauncherSearchQuery = ''
+      sessionLauncherSearchQuery = ''
     }
   }
 
@@ -226,6 +234,14 @@
 
   const closeLayout = (layoutId: string) => {
     neuzosBridge.layouts.close(layoutId)
+  }
+
+  const toggleLayoutInMainBar = (layoutId: string) => {
+    if (mainWindowState.tabs.layoutsIds.includes(layoutId)) {
+      closeLayout(layoutId)
+    } else {
+      addLayout(layoutId)
+    }
   }
 
   const stopSession = (sessionId: string) => {
@@ -374,6 +390,17 @@
     return mainWindowState.sessions.filter(session => session.partitionOverwrite !== 'browser');
   }
 
+  function getFilteredLayouts(): NeuzLayout[] {
+    const query = layoutLauncherSearchQuery.trim().toLowerCase();
+    if (!query) {
+      return mainWindowState.layouts;
+    }
+
+    return mainWindowState.layouts.filter((layout) =>
+      layout.label.toLowerCase().includes(query) || layout.id.toLowerCase().includes(query)
+    );
+  }
+
   function getSessionGroups(): NeuzSessionGroup[] {
     return mainWindowState.config.sessionGroups ?? [];
   }
@@ -403,6 +430,29 @@
   function getUngroupedSessions(): NeuzSession[] {
     const groupedSessionIds = new Set(getSessionGroups().flatMap((group) => isUngroupedGroup(group) ? [] : (Array.isArray(group.sessionIds) ? group.sessionIds : [])));
     return getLaunchableSessions().filter((session) => !groupedSessionIds.has(session.id));
+  }
+
+  function getFilteredSessionGroupSessions(group: NeuzSessionGroup, groupSessions: NeuzSession[]): NeuzSession[] {
+    const query = sessionLauncherSearchQuery.trim().toLowerCase();
+    if (!query) {
+      return groupSessions;
+    }
+
+    const groupLabel = isUngroupedGroup(group) ? '' : (group.label ?? 'New Group');
+    if (groupLabel.toLowerCase().includes(query)) {
+      return groupSessions;
+    }
+
+    return groupSessions.filter((session) =>
+      session.label.toLowerCase().includes(query) || session.id.toLowerCase().includes(query)
+    );
+  }
+
+  function hasSessionLauncherSearchMatches(): boolean {
+    return getOrderedSessionSections().some((group) => {
+      const groupSessions = isUngroupedGroup(group) ? getUngroupedSessions() : getGroupSessions(group);
+      return getFilteredSessionGroupSessions(group, groupSessions).length > 0;
+    });
   }
 
   function isSessionGroupCollapsed(groupId: string): boolean {
@@ -508,51 +558,90 @@
         <Tabs.Root bind:value={launcherTab} class="min-h-0">
           <Tabs.List class="grid w-full grid-cols-2 gap-1">
             <div class="relative min-w-0">
-              <Tabs.Trigger value="layouts" class="w-full pl-9">Layouts</Tabs.Trigger>
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                class="absolute left-1 top-1/2 h-6 w-6 -translate-y-1/2 bg-transparent hover:bg-accent hover:text-accent-foreground"
-                title="Manage Layouts"
-                onclick={(event) => {
-                  event.stopPropagation();
-                  openSettings('layouts');
-                }}
-              >
-                <Settings class="size-3.5"/>
-              </Button>
+              <Tabs.Trigger value="layouts" class="w-full {launcherTab === 'layouts' ? 'pl-9' : ''}">Layouts</Tabs.Trigger>
+              {#if launcherTab === 'layouts'}
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  class="absolute left-1 top-1/2 h-6 w-6 -translate-y-1/2 bg-transparent hover:bg-accent hover:text-accent-foreground"
+                  title="Manage Layouts"
+                  onclick={(event) => {
+                    event.stopPropagation();
+                    openSettings('layouts');
+                  }}
+                >
+                  <Settings class="size-3.5"/>
+                </Button>
+              {/if}
             </div>
             <div class="relative min-w-0">
-              <Tabs.Trigger value="sessions" class="w-full pl-9">Sessions</Tabs.Trigger>
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                class="absolute left-1 top-1/2 h-6 w-6 -translate-y-1/2 bg-transparent hover:bg-accent hover:text-accent-foreground"
-                title="Manage Sessions"
-                onclick={(event) => {
-                  event.stopPropagation();
-                  openSettings('sessions');
-                }}
-              >
-                <Settings class="size-3.5"/>
-              </Button>
+              <Tabs.Trigger value="sessions" class="w-full {launcherTab === 'sessions' ? 'pl-9' : ''}">Sessions</Tabs.Trigger>
+              {#if launcherTab === 'sessions'}
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  class="absolute left-1 top-1/2 h-6 w-6 -translate-y-1/2 bg-transparent hover:bg-accent hover:text-accent-foreground"
+                  title="Manage Sessions"
+                  onclick={(event) => {
+                    event.stopPropagation();
+                    openSettings('sessions');
+                  }}
+                >
+                  <Settings class="size-3.5"/>
+                </Button>
+              {/if}
             </div>
           </Tabs.List>
           <Tabs.Content value="layouts" class="min-h-0">
-            <div class="flex h-[33vh] flex-col gap-2 overflow-y-auto px-6">
-              {#each mainWindowState.layouts as layTab (layTab.id)}
-                {@const disabledAdd = mainWindowState.tabs.layoutsIds.includes(layTab.id)}
-                <Button variant="outline" size="sm" class="flex gap-2 justify-start items-center"
-                        disabled={disabledAdd}
-                        onclick={() => addLayout(layTab.id)}>
-                  <img class="w-6 h-6" src="icons/{layTab.icon?.slug ?? 'misc/unknown'}.png" alt=""/> {layTab.label}
+            {#if mainWindowState.layouts.length > 0}
+              <div class="px-6 pt-2">
+                <div class="relative">
+                  <Search class="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"/>
+                  <Input bind:value={layoutLauncherSearchQuery} placeholder="Search Layouts..." class="h-8 pl-8"/>
+                </div>
+              </div>
+            {/if}
+            <div class="flex flex-col gap-2 overflow-y-auto px-6 pt-3 {mainWindowState.layouts.length > 0 ? 'h-[33vh]' : ''}">
+              {#each getFilteredLayouts() as layTab (layTab.id)}
+                {@const isSelected = mainWindowState.tabs.layoutsIds.includes(layTab.id)}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  class="flex gap-2 justify-start items-center {isSelected ? 'border-primary/60 bg-primary/10 opacity-50 hover:opacity-70' : ''}"
+                  aria-pressed={isSelected}
+                  onclick={() => toggleLayoutInMainBar(layTab.id)}
+                >
+                  <img class="w-6 h-6" src="icons/{layTab.icon?.slug ?? 'misc/unknown'}.png" alt=""/>
+                  {layTab.label}
+                  {#if isSelected}
+                    <Check class="ml-auto size-4"/>
+                  {/if}
                 </Button>
               {/each}
+              {#if mainWindowState.layouts.length === 0}
+                <div class="flex w-full flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border px-4 py-8 text-center">
+                  <p class="text-sm font-medium text-foreground">No Layouts Available</p>
+                  <p class="text-xs text-muted-foreground">
+                    Press the <span class="inline-flex h-6 w-6 items-center justify-center rounded-md border border-input bg-background text-foreground shadow-xs"><Settings class="h-3.5 w-3.5"></Settings></span> Button to Configure Layouts
+                  </p>
+                  <div class="mt-3 flex items-start justify-center gap-1.5 text-xs text-muted-foreground">
+                    <CircleQuestionMark class="mt-0.5 size-4 shrink-0"/>
+                    <span>
+                      <span class="block">You can also Quick Create a Layout Session below</span>
+                      <span class="mt-1 block">Edit the Layout Name / Icon / Configuration Later within the Settings</span>
+                    </span>
+                  </div>
+                  <ArrowDown class="mx-auto mt-1 size-6 text-muted-foreground"/>
+                </div>
+              {:else if getFilteredLayouts().length === 0}
+                <div class="flex w-full flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border px-4 py-8 text-center">
+                  <p class="text-sm font-medium text-foreground">No Matching Layouts Found</p>
+                </div>
+              {/if}
             </div>
             <div class="px-6 pt-2">
               <div class="rounded-md border border-border/70 bg-muted/20 p-3">
                 <div class="mb-2 flex items-center justify-center gap-1.5 text-sm font-semibold text-foreground">
-                  <Plus class="size-4"/>
                   Quick Create Layout Session
                 </div>
                 <div class="grid grid-cols-2 gap-2">
@@ -581,10 +670,20 @@
             </div>
           </Tabs.Content>
           <Tabs.Content value="sessions" class="min-h-0">
-            <div class="flex h-[33vh] w-full flex-col gap-3 overflow-y-auto px-6">
+            {#if getLaunchableSessions().length > 0}
+              <div class="px-6 pt-2">
+                <div class="relative">
+                  <Search class="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"/>
+                  <Input bind:value={sessionLauncherSearchQuery} placeholder="Search Sessions..." class="h-8 pl-8"/>
+                </div>
+              </div>
+            {/if}
+            <div class="flex h-[33vh] w-full flex-col gap-3 overflow-y-auto px-6 pt-3">
               {#each getOrderedSessionSections() as group (group.id)}
                 {@const groupSessions = isUngroupedGroup(group) ? getUngroupedSessions() : getGroupSessions(group)}
-                {#if groupSessions.length > 0}
+                {@const filteredGroupSessions = getFilteredSessionGroupSessions(group, groupSessions)}
+                {@const groupCollapsed = !sessionLauncherSearchQuery.trim() && isSessionGroupCollapsed(group.id)}
+                {#if filteredGroupSessions.length > 0}
                   <Card.Root class="shrink-0 overflow-hidden gap-0 border-border/70 py-0">
                     <button
                       type="button"
@@ -592,19 +691,19 @@
                       onclick={() => toggleSessionGroupCollapsed(group.id)}
                     >
                       <div class="flex min-w-0 items-center gap-1.5">
-                        {#if isSessionGroupCollapsed(group.id)}
+                        {#if groupCollapsed}
                           <ChevronDown class="size-4 shrink-0"/>
                         {:else}
                           <ChevronUp class="size-4 shrink-0"/>
                         {/if}
                         <span class="truncate font-semibold text-foreground">{isUngroupedGroup(group) ? 'Sessions' : (group.label ?? 'New Group')}</span>
                       </div>
-                      <span class="inline-flex h-6 shrink-0 items-center text-xs leading-none text-muted-foreground">{formatSessionCount(groupSessions.length)}</span>
+                      <span class="inline-flex h-6 shrink-0 items-center text-xs leading-none text-muted-foreground">{formatSessionCount(filteredGroupSessions.length)}</span>
                     </button>
-                    {#if !isSessionGroupCollapsed(group.id)}
+                    {#if !groupCollapsed}
                       <Card.Content class="p-3 pt-1">
                         <div class="grid gap-2">
-                          {#each groupSessions as sessionTab (sessionTab.id)}
+                          {#each filteredGroupSessions as sessionTab (sessionTab.id)}
                             {@render sessionLaunchCard(sessionTab)}
                           {/each}
                         </div>
@@ -615,7 +714,16 @@
               {/each}
 
               {#if getLaunchableSessions().length === 0}
-                <p class="text-center text-sm text-muted-foreground">No Sessions available</p>
+                <div class="flex w-full flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border px-4 py-8 text-center">
+                  <p class="text-sm font-medium text-foreground">No Sessions Available</p>
+                  <p class="text-xs text-muted-foreground">
+                    Press the <span class="inline-flex h-6 w-6 items-center justify-center rounded-md border border-input bg-background text-foreground shadow-xs"><Settings class="h-3.5 w-3.5"></Settings></span> Button to Configure Sessions
+                  </p>
+                </div>
+              {:else if !hasSessionLauncherSearchMatches()}
+                <div class="flex w-full flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border px-4 py-8 text-center">
+                  <p class="text-sm font-medium text-foreground">No Matching Sessions Found</p>
+                </div>
               {/if}
             </div>
           </Tabs.Content>
@@ -631,7 +739,7 @@
         class="h-7 px-3 inline-flex items-center justify-center rounded-md border border-dashed border-border/70 text-xs text-muted-foreground cursor-help"
         title="Click the + Button to Add a Layout to the Main Bar"
       >
-        No Active Layouts
+        No Layouts Selected
       </div>
     {/if}
     {#each mainWindowState.tabs.layoutOrder as layoutId (layoutId)}

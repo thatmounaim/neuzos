@@ -4,8 +4,9 @@
   import {initElectronApi, neuzosBridge} from "$lib/core";
   import * as Card from "$lib/components/ui/card";
   import {Button} from "$lib/components/ui/button";
+  import {Input} from "$lib/components/ui/input";
   import type {NeuzSession, NeuzSessionGroup} from "$lib/types";
-  import {ChevronDown, ChevronUp, Minus, Settings2, X} from "@lucide/svelte";
+  import {ChevronDown, ChevronUp, Minus, Search, Settings, X} from "@lucide/svelte";
   import {Separator} from "$lib/components/ui/separator";
   import {setElectronContext, getElectronContext} from "$lib/contexts/electronContext";
   import {setNeuzosBridgeContext} from "$lib/contexts/neuzosBridgeContext";
@@ -15,6 +16,7 @@
   let sessions: NeuzSession[] = $state([]);
   let groups: NeuzSessionGroup[] = $state([]);
   let collapsedGroupIds: Record<string, boolean> = $state({});
+  let sessionSearchQuery = $state('');
   const ungroupedGroupId = 'ungrouped';
 
   setElectronContext(window.electron.ipcRenderer);
@@ -126,6 +128,22 @@
     return sessions.filter((session) => !groupedSessionIds.has(session.id));
   }
 
+  function getFilteredGroupSessions(group: NeuzSessionGroup, groupSessions: NeuzSession[]): NeuzSession[] {
+    const query = sessionSearchQuery.trim().toLowerCase();
+    if (!query) {
+      return groupSessions;
+    }
+
+    const groupLabel = isUngroupedGroup(group) ? '' : (group.label ?? 'New Group');
+    if (groupLabel.toLowerCase().includes(query)) {
+      return groupSessions;
+    }
+
+    return groupSessions.filter((session) =>
+      session.label.toLowerCase().includes(query) || session.id.toLowerCase().includes(query)
+    );
+  }
+
   const ungroupedSessions = $derived.by(() => getUngroupedSessions())
 
   const orderedSessionSections = $derived.by(() => {
@@ -134,10 +152,17 @@
       : [...groups, { id: ungroupedGroupId, type: 'ungrouped' as const }];
   })
 
+  const hasSessionSearchMatches = $derived.by(() => {
+    return orderedSessionSections.some((group) => {
+      const groupSessions = isUngroupedGroup(group) ? ungroupedSessions : getGroupSessions(group);
+      return getFilteredGroupSessions(group, groupSessions).length > 0;
+    });
+  })
+
   const formatSessionCount = (count: number) => `${count} ${count === 1 ? 'Session' : 'Sessions'}`
 
   const openSettings = () => {
-    neuzosBridge.settingsWindow.open();
+    neuzosBridge.settingsWindow.open('sessions');
   }
 </script>
 
@@ -206,7 +231,7 @@
       </div>
       <div class="flex gap-1">
         <Button size="icon-xs" variant="outline" onclick={openSettings} class="cursor-pointer">
-          <Settings2 class="size-3.5"/>
+          <Settings class="size-3.5"/>
         </Button>
         <Separator orientation="vertical" class="h-4"/>
 
@@ -233,46 +258,63 @@
     <div class="flex-1 overflow-auto p-3">
       {#if sessions.length === 0}
         <div class="flex items-center justify-center h-full">
-          <p class="text-muted-foreground text-sm">No sessions available</p>
+          <div class="flex w-full flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border px-4 py-8 text-center">
+            <p class="text-sm font-medium text-foreground">No Sessions Available</p>
+            <p class="text-xs text-muted-foreground">
+              Press the <span class="inline-flex h-6 w-6 items-center justify-center rounded-md border border-input bg-background text-foreground shadow-xs"><Settings class="h-3.5 w-3.5"></Settings></span> Button to Configure Sessions
+            </p>
+          </div>
         </div>
       {:else}
         <div class="flex flex-col gap-3">
-          {#each orderedSessionSections as group (group.id)}
-            {@const groupSessions = isUngroupedGroup(group) ? ungroupedSessions : getGroupSessions(group)}
-            {#if !isUngroupedGroup(group) || groupSessions.length > 0}
-              <Card.Root class="overflow-hidden gap-0 border-border/70">
-                <button
-                  type="button"
-                  class="flex h-7 w-full items-center justify-between gap-3 px-2.5 py-0 text-left transition-opacity hover:opacity-80"
-                  onclick={() => toggleGroupCollapsed(group.id)}
-                >
-                  <div class="flex min-w-0 items-center gap-1.5">
-                    {#if isGroupCollapsed(group.id)}
-                      <ChevronDown class="size-4 shrink-0" />
-                    {:else}
-                      <ChevronUp class="size-4 shrink-0" />
-                    {/if}
-                    <span class="truncate font-semibold">{isUngroupedGroup(group) ? 'Sessions' : (group.label ?? 'New Group')}</span>
-                  </div>
-                  <span class="inline-flex h-6 shrink-0 items-center text-xs leading-none text-muted-foreground">{formatSessionCount(groupSessions.length)}</span>
-                </button>
+          <div class="relative">
+            <Search class="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"/>
+            <Input bind:value={sessionSearchQuery} placeholder="Search Sessions..." class="h-8 pl-8"/>
+          </div>
+          {#if sessionSearchQuery.trim() && !hasSessionSearchMatches}
+            <div class="flex w-full flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border px-4 py-8 text-center">
+              <p class="text-sm font-medium text-foreground">No Matching Sessions Found</p>
+            </div>
+          {:else}
+            {#each orderedSessionSections as group (group.id)}
+              {@const groupSessions = isUngroupedGroup(group) ? ungroupedSessions : getGroupSessions(group)}
+              {@const filteredGroupSessions = getFilteredGroupSessions(group, groupSessions)}
+              {@const groupCollapsed = !sessionSearchQuery.trim() && isGroupCollapsed(group.id)}
+              {#if filteredGroupSessions.length > 0 || (!sessionSearchQuery.trim() && !isUngroupedGroup(group))}
+                <Card.Root class="overflow-hidden gap-0 border-border/70">
+                  <button
+                    type="button"
+                    class="flex h-7 w-full items-center justify-between gap-3 px-2.5 py-0 text-left transition-opacity hover:opacity-80"
+                    onclick={() => toggleGroupCollapsed(group.id)}
+                  >
+                    <div class="flex min-w-0 items-center gap-1.5">
+                      {#if groupCollapsed}
+                        <ChevronDown class="size-4 shrink-0" />
+                      {:else}
+                        <ChevronUp class="size-4 shrink-0" />
+                      {/if}
+                      <span class="truncate font-semibold">{isUngroupedGroup(group) ? 'Sessions' : (group.label ?? 'New Group')}</span>
+                    </div>
+                    <span class="inline-flex h-6 shrink-0 items-center text-xs leading-none text-muted-foreground">{formatSessionCount(filteredGroupSessions.length)}</span>
+                  </button>
 
-                {#if !isGroupCollapsed(group.id)}
-                  <Card.Content class="p-3 pt-1">
-                    {#if groupSessions.length === 0}
-                      <p class="text-sm text-muted-foreground">No Sessions in this Group.</p>
-                    {:else}
-                      <div class="grid gap-2">
-                        {#each groupSessions as session (session.id)}
-                          {@render sessionTile(session)}
-                        {/each}
-                      </div>
-                    {/if}
-                  </Card.Content>
-                {/if}
-              </Card.Root>
-            {/if}
-          {/each}
+                  {#if !groupCollapsed}
+                    <Card.Content class="p-3 pt-1">
+                      {#if filteredGroupSessions.length === 0}
+                        <p class="text-sm text-muted-foreground">No Sessions in this Group.</p>
+                      {:else}
+                        <div class="grid gap-2">
+                          {#each filteredGroupSessions as session (session.id)}
+                            {@render sessionTile(session)}
+                          {/each}
+                        </div>
+                      {/if}
+                    </Card.Content>
+                  {/if}
+                </Card.Root>
+              {/if}
+            {/each}
+          {/if}
         </div>
       {/if}
     </div>

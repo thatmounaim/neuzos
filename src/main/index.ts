@@ -2464,6 +2464,7 @@ function registerSessionKeybinds(mode: LaunchMode) {
       checkKeybinds();
       registerKeybinds();
       mainWindow?.webContents?.send("event.config_changed", config);
+      sessionLauncherWindow?.webContents?.send("event.config_changed", config);
     });
 
     ipcMain.handle("config.save_silent", async (_, config: any) => {
@@ -2491,6 +2492,7 @@ function registerSessionKeybinds(mode: LaunchMode) {
 
       mainWindow?.webContents?.send("event.config_patch", allowedPatch);
       settingsWindow?.webContents?.send("event.config_patch", allowedPatch);
+      sessionLauncherWindow?.webContents?.send("event.config_changed");
     });
 
     ipcMain.handle("config.export", async (event, payload: ConfigExportPayloadV2) => {

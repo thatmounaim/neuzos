@@ -349,14 +349,14 @@
 {#snippet actionDropZone(sessionActions, index)}
   {@const active = isActionDropTarget(sessionActions.sessionId, index)}
   {#if useDragActionSorting}
-    <Table.Row class="border-b-0 hover:[&,&>svelte-css-wrapper]:[&>th,td]:bg-transparent">
+    <Table.Row class="h-0 border-b-0 hover:[&,&>svelte-css-wrapper]:[&>th,td]:bg-transparent">
       <Table.Cell
         colspan={9}
-        class={`p-0 transition-[height] duration-150 ${active ? 'h-10' : 'h-1'}`}
+        class={`p-0 leading-none transition-[height] duration-150 ${active ? 'h-10' : 'h-0'}`}
         ondragover={(event) => handleActionDragOver(event, sessionActions.sessionId, index)}
         ondrop={(event) => handleActionDrop(event, sessionActions, index)}
       >
-        <div class={`mx-2 rounded-md transition-all duration-150 ${active ? 'h-8 border border-dashed border-primary/70 bg-primary/10 shadow-sm' : 'h-1 bg-transparent'}`}></div>
+        <div class={`mx-2 rounded-md transition-all duration-150 ${active ? 'h-8 border border-dashed border-primary/70 bg-primary/10 shadow-sm' : 'h-0 bg-transparent'}`}></div>
       </Table.Cell>
     </Table.Row>
   {/if}
@@ -428,13 +428,15 @@
       <p class="text-sm">
         Manage Actions for your Sessions. These are required for various NeuzOS features, such as Keybinds and Widgets.
       </p>
-      <Alert.Root class="mt-4">
-        <AlertCircleIcon/>
-        <Alert.Title>Important Note!</Alert.Title>
-        <Alert.Description class="pt-2">
-          Please configure the Key here to match the one used by the corresponding Skill/ Item In-Game.
-        </Alert.Description>
-      </Alert.Root>
+      {#if neuzosConfig.sessionActions.length > 0}
+        <Alert.Root class="mt-4">
+          <AlertCircleIcon/>
+          <Alert.Title>Important Note!</Alert.Title>
+          <Alert.Description class="pt-2">
+            Please configure the Key here to match the one used by the corresponding Skill/ Item In-Game.
+          </Alert.Description>
+        </Alert.Root>
+      {/if}
     </Card.Description>
   </Card.Header>
   <Card.Content class="flex flex-col gap-4">
@@ -492,7 +494,7 @@
               <div class="space-y-4">
                 <!-- Actions Table -->
                 {#if sessionActions.actions.length > 0}
-                  <div class="rounded-md border">
+                  <div class="overflow-hidden rounded-md border">
                     <Table.Root>
                       <Table.Header>
                         <Table.Row>
@@ -562,7 +564,7 @@
                             categoryOpen: false
                           }}
                           <Table.Row
-                            class="hover:bg-muted/50 {useDragActionSorting && draggedAction?.sessionId === sessionActions.sessionId && draggedAction?.actionId === action.id ? 'opacity-50' : ''}"
+                            class="hover:bg-muted/50 {index === sessionActions.actions.length - 1 ? 'border-b-0' : ''} {useDragActionSorting && draggedAction?.sessionId === sessionActions.sessionId && draggedAction?.actionId === action.id ? 'opacity-50' : ''}"
                             ondragover={(event) => handleActionRowDragOver(event, sessionActions.sessionId, index)}
                             ondrop={(event) => handleActionRowDrop(event, sessionActions, index)}
                           >
@@ -817,9 +819,12 @@
                     </Table.Root>
                   </div>
                 {:else}
-                  <p class="text-sm text-muted-foreground text-center py-4">
-                    No Actions configured. Click the Button below to Add your first Action.
-                  </p>
+                  <div class="flex w-full flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border px-4 py-8 text-center">
+                    <p class="text-sm font-medium text-foreground">No Actions Configured</p>
+                    <p class="text-xs text-muted-foreground">
+                      Press the <span class="inline-flex h-6 items-center gap-1 rounded-md border border-input bg-background px-2 text-[11px] font-medium text-foreground shadow-xs"><Plus class="h-3 w-3"></Plus>Add Action</span> Button below to Add a New Action
+                    </p>
+                  </div>
                 {/if}
 
                 <!-- Add Action Button -->
@@ -840,9 +845,11 @@
     </div>
 
     {#if neuzosConfig.sessionActions.length === 0}
-      <div class="text-center py-8 text-muted-foreground">
-        <p>No Sessions configured yet.</p>
-        <p class="text-sm">Add a Session below to start managing Actions.</p>
+      <div class="flex w-full flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border px-4 py-8 text-center">
+        <p class="text-sm font-medium text-foreground">No Session Actions Configured</p>
+        <p class="text-xs text-muted-foreground">
+          Press the <span class="inline-flex h-6 items-center gap-1 rounded-md border border-input bg-background px-2 text-[11px] font-medium text-foreground shadow-xs"><Plus class="h-3 w-3"></Plus>Add Session to Manage</span> Button below to Add a New Session
+        </p>
       </div>
     {/if}
 

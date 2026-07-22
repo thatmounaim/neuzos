@@ -1198,17 +1198,19 @@
         <p class="text-xs text-muted-foreground mt-1">These Keybinds control System Features, User Interface and Window Behavior. They are independent of Profiles.</p>
       </div>
 
-      <Table.Root class="table-fixed min-w-[1260px]">
-        <Table.Header>
-          <Table.Row>
-            <Table.Head class="font-bold w-[60px]"></Table.Head>
-            <Table.Head class="font-bold w-[340px]">Action</Table.Head>
-            <Table.Head class="font-bold w-[500px]">Modifier + Key</Table.Head>
-            <Table.Head class="font-bold">Event</Table.Head>
-            <Table.Head class="w-[56px]"></Table.Head>
-          </Table.Row>
-        </Table.Header>
-        <Table.Body>
+      {#if systemActionKeybinds.length > 0}
+        <div class="rounded-md border">
+          <Table.Root class="table-fixed min-w-[1260px]">
+          <Table.Header>
+            <Table.Row>
+              <Table.Head class="font-bold w-[60px]"></Table.Head>
+              <Table.Head class="font-bold w-[340px]">Action</Table.Head>
+              <Table.Head class="font-bold w-[500px]">Modifier + Key</Table.Head>
+              <Table.Head class="font-bold">Event</Table.Head>
+              <Table.Head class="w-[56px]"></Table.Head>
+            </Table.Row>
+          </Table.Header>
+          <Table.Body>
             {#each systemActionKeybinds as keyBind, actionIndex (keyBind)}
               {@const action = getSystemActionInfo(keyBind.event)}
               {@const eventInfo = allowedEventKeybinds[keyBind.event]}
@@ -1372,8 +1374,10 @@
                 </Table.Row>
               {/if}
             {/each}
-        </Table.Body>
-      </Table.Root>
+          </Table.Body>
+          </Table.Root>
+        </div>
+      {/if}
       <Popover.Root open={addSystemKeybindPopoverOpen} onOpenChange={(open) => { addSystemKeybindPopoverOpen = open; }}>
         <Popover.Trigger class="self-start">
           <Button variant="outline" size="sm">
@@ -1417,17 +1421,18 @@
         <p class="text-xs text-muted-foreground mt-1">These Keybinds are always active regardless of the selected Profile.</p>
       </div>
       {#if regularGlobalKeybinds.length > 0}
-      <Table.Root class="table-fixed min-w-[1260px]">
-        <Table.Header>
-          <Table.Row>
-            <Table.Head class="font-bold w-[60px]"></Table.Head>
-            <Table.Head class="font-bold w-[340px]">Action</Table.Head>
-            <Table.Head class="font-bold w-[500px]">Modifier + Key</Table.Head>
-            <Table.Head class="font-bold">Event</Table.Head>
-            <Table.Head class="font-bold w-[56px]"></Table.Head>
-          </Table.Row>
-        </Table.Header>
-        <Table.Body>
+        <div class="rounded-md border">
+          <Table.Root class="table-fixed min-w-[1260px]">
+            <Table.Header>
+              <Table.Row>
+                <Table.Head class="font-bold w-[60px]"></Table.Head>
+                <Table.Head class="font-bold w-[340px]">Action</Table.Head>
+                <Table.Head class="font-bold w-[500px]">Modifier + Key</Table.Head>
+                <Table.Head class="font-bold">Event</Table.Head>
+                <Table.Head class="font-bold w-[56px]"></Table.Head>
+              </Table.Row>
+            </Table.Header>
+            <Table.Body>
           {#each neuzosConfig.keyBinds as keyBind, index}
             {@const eventInfo = allowedEventKeybinds[keyBind.event]}
             {@const parsed = parseKeybind(keyBind.key)}
@@ -1734,8 +1739,9 @@
               {/if}
             {/if}
           {/each}
-        </Table.Body>
-      </Table.Root>
+            </Table.Body>
+          </Table.Root>
+        </div>
       {/if}
       <Popover.Root open={addKeybindPopoverOpen} onOpenChange={(open) => { addKeybindPopoverOpen = open; }}>
         <Popover.Trigger class="self-start">

@@ -512,15 +512,15 @@
 {#snippet layoutDropZone(index)}
   {@const active = layoutDropTarget === index}
   {#if useDragLayoutSorting}
-    <Table.Row class="border-b-0 hover:[&,&>svelte-css-wrapper]:[&>th,td]:bg-transparent">
+    <Table.Row class="h-0 border-b-0 hover:[&,&>svelte-css-wrapper]:[&>th,td]:bg-transparent">
       <Table.Cell
         colspan={6}
-        class={`p-0 transition-[height] duration-150 ${active ? 'h-10' : 'h-1'}`}
+        class={`p-0 leading-none transition-[height] duration-150 ${active ? 'h-10' : 'h-0'}`}
         ondragover={(event) => handleLayoutDragOver(event, index)}
         ondrop={(event) => handleLayoutDrop(event, index)}
       >
         <div
-          class={`mx-2 rounded-md transition-all duration-150 ${active ? 'h-8 border border-dashed border-primary/70 bg-primary/10 shadow-sm' : 'h-1 bg-transparent'}`}
+          class={`mx-2 rounded-md transition-all duration-150 ${active ? 'h-8 border border-dashed border-primary/70 bg-primary/10 shadow-sm' : 'h-0 bg-transparent'}`}
         ></div>
       </Table.Cell>
     </Table.Row>
@@ -705,7 +705,7 @@
     </AlertDialog.Footer>
   </AlertDialog.Content>
 </AlertDialog.Root>
-<Separator class="mb-4 mt-6"/>
+<div class="h-4"></div>
 <Card.Root bind:ref={layoutSettingsScrollContainer} class="overflow-y-auto">
   <Card.Header>
     <div class="flex items-center justify-between gap-3">
@@ -726,23 +726,32 @@
       </div>
     </div>
     <Card.Description class="flex flex-col">
-      Configure your Layouts below. You can Add, Edit, Reorder, and Delete Layouts.
+      Configure your Layouts. You can Add, Edit, Reorder, and Delete Layouts.
     </Card.Description>
   </Card.Header>
   <Card.Content class="flex flex-col gap-4">
-    <Table.Root>
-      <Table.Header>
-        <Table.Row>
-          <Table.Head class=""></Table.Head>
-          <Table.Head class="w-[100px]">Icon</Table.Head>
-          <Table.Head class="w-1/3">Label</Table.Head>
-          <Table.Head class="w-[260px]">Layout Mode</Table.Head>
-          <Table.Head class="w-2/3">Sessions</Table.Head>
-          <Table.Head></Table.Head>
+    {#if neuzosConfig.layouts.length === 0}
+      <div class="flex w-full flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border px-4 py-8 text-center">
+        <p class="text-sm font-medium text-foreground">No Layouts Configured</p>
+        <p class="text-xs text-muted-foreground">
+          Press the <span class="inline-flex h-6 items-center gap-1 rounded-md border border-input bg-background px-2 text-[11px] font-medium text-foreground shadow-xs"><Plus class="h-3 w-3"></Plus>Add Layout</span> Button below to Add a New Layout
+        </p>
+      </div>
+    {:else}
+      <div class="overflow-hidden rounded-md border">
+        <Table.Root>
+          <Table.Header>
+            <Table.Row>
+              <Table.Head class=""></Table.Head>
+              <Table.Head class="w-[100px]">Icon</Table.Head>
+              <Table.Head class="w-1/3">Label</Table.Head>
+              <Table.Head class="w-[260px]">Layout Mode</Table.Head>
+              <Table.Head class="w-2/3">Sessions</Table.Head>
+              <Table.Head></Table.Head>
 
-        </Table.Row>
-      </Table.Header>
-      <Table.Body>
+            </Table.Row>
+          </Table.Header>
+          <Table.Body>
         {#each neuzosConfig.layouts as layout, lidx (layout.id)}
           {@const isMultiSession = isMultiSessionLayout(layout)}
           {@const isCustomizationEditing = isLayoutCustomizationEditing(layout.id)}
@@ -753,7 +762,7 @@
           {@const maxLayoutCellCount = Math.max(1, ...layoutRows.map(row => (row.sessionIds?.length ?? 0) + (layoutCanAddSession && (!isMultiSession || isCustomizationEditing || layoutSessionCount === 0) ? 1 : 0)))}
           {@render layoutDropZone(lidx)}
           <Table.Row
-            class="hover:bg-muted/50 {useDragLayoutSorting && draggedLayoutId === layout.id ? 'opacity-50' : ''}"
+            class="hover:bg-muted/50 {lidx === neuzosConfig.layouts.length - 1 ? 'border-b-0' : ''} {useDragLayoutSorting && draggedLayoutId === layout.id ? 'opacity-50' : ''}"
             ondragover={(event) => handleLayoutRowDragOver(event, lidx)}
             ondrop={(event) => handleLayoutRowDrop(event, lidx)}
           >
@@ -1203,8 +1212,10 @@
           </Table.Row>
         {/each}
         {@render layoutDropZone(neuzosConfig.layouts.length)}
-      </Table.Body>
-    </Table.Root>
+          </Table.Body>
+        </Table.Root>
+      </div>
+    {/if}
   </Card.Content>
   <Card.Footer>
     <div class="flex items-center justify-between">
