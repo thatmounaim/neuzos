@@ -1734,11 +1734,12 @@ function dispatchKeybindEvent(bind: any) {
   }
 }
 
-const inputFallbackKeybindKeys = new Set(["delete", "^", "<", ">", ".", "`", "\u00b4", "\u00df"]);
+const inputFallbackKeybindKeys = new Set(["delete", "^", "<", ">", ".", "#", "plus", "`", "\u00b4", "\u00df", "\u00e4", "\u00f6", "\u00fc"]);
 
 function isInputFallbackKeybind(key: string): boolean {
   const normalizedKey = key.toLowerCase();
-  return inputFallbackKeybindKeys.has(normalizedKey);
+  const primaryKey = normalizedKey.split("+").at(-1) ?? normalizedKey;
+  return inputFallbackKeybindKeys.has(primaryKey);
 }
 
 function canRegisterGlobalShortcutKey(key: string): boolean {
@@ -1766,6 +1767,8 @@ function normalizeWebviewInputKey(input: any): string | null {
     key = ".";
   } else if (input.code === "Delete") {
     key = "delete";
+  } else if (input.key === "+") {
+    key = "plus";
   } else if (input.key === "Dead") {
     if (input.code === "Backquote") key = "^";
     if (input.code === "Equal") key = "\u00b4";

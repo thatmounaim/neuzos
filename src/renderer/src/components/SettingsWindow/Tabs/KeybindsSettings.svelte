@@ -37,9 +37,10 @@
     "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
     "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",
     "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
+    "\u00e4", "\u00f6", "\u00fc",
     "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11", "f12",
     "f13", "f14", "f15", "f16", "f17", "f18", "f19", "f20", "f21", "f22", "f23", "f24",
-    "plus", "space", "tab", "capslock", "numlock", "scrolllock", "backspace",
+    "space", "tab", "capslock", "numlock", "scrolllock", "backspace",
     "delete", "insert", "return", "enter", "up", "down", "left", "right",
     "home", "end", "pageup", "pagedown", "escape", "esc",
     "volumeup", "volumedown", "volumemute", "medianexttrack", "mediaprevioustrack",
@@ -47,7 +48,7 @@
     "num0", "num1", "num2", "num3", "num4", "num5", "num6", "num7", "num8", "num9",
     "numdec", "numadd", "numsub", "nummult", "numdiv",
     "printscreen", "pause",
-    ")", "!", "@", "#", "$", "%", "^", "&", "*", "(", ":", ";", ":", "+", "=", "<", ",", "_", "-", ">", ".", "?", "/", "~", "`", "´", "ß", "{", "]", "[", "|", "\\", "}",
+    ")", "!", "@", "#", "$", "%", "^", "&", "*", "(", ":", ";", ":", "=", "<", ",", "_", "plus", "-", ">", ".", "?", "/", "~", "`", "\u00b4", "\u00df", "{", "]", "[", "|", "\\", "}",
   ];
   const mouseButtonKeys = ["Middle", "Mouse4", "Mouse5"];
 
@@ -261,6 +262,7 @@
 
   function formatKeyLabel(key: string): string {
     if (key === '\u00df' || key === '\u00c3\u0178') return '\u00df';
+    if (key === 'plus') return '+';
     return key.toUpperCase();
   }
   const electronApi = getElectronContext();
@@ -910,7 +912,7 @@
                                               <span class={!keyOnly ? "text-primary" : ""}>None</span>
                                             </Command.Item>
                                             {#each allowedKeys as key}
-                                              <Command.Item value={key} onSelect={() => { if (applyProfileKeybind(profile, keyBind, buildKeybind(parsed.modifier, key))) state.open = false; }} class="font-mono font-semibold py-2.5">
+                                              <Command.Item value={key} keywords={key === 'plus' ? ['+'] : []} onSelect={() => { if (applyProfileKeybind(profile, keyBind, buildKeybind(parsed.modifier, key))) state.open = false; }} class="font-mono font-semibold py-2.5">
                                                 <Check class={keyOnly === key ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
                                                 <span class={keyOnly === key ? "text-primary" : ""}>{formatKeyLabel(key)}</span>
                                               </Command.Item>
@@ -1088,7 +1090,7 @@
                                                       <span class={!ingameParsed.key ? "text-primary" : ""}>None</span>
                                                     </Command.Item>
                                                     {#each allowedKeys as key}
-                                                      <Command.Item value={key} onSelect={() => { if (!keyBind.args) keyBind.args = []; keyBind.args[argIndex] = buildKeybind(ingameParsed.modifier, key); if (!profileIngameKeyStates[profile.id]) profileIngameKeyStates[profile.id] = {}; profileIngameKeyStates[profile.id][index] = false; }} class="font-mono font-semibold py-2.5">
+                                                      <Command.Item value={key} keywords={key === 'plus' ? ['+'] : []} onSelect={() => { if (!keyBind.args) keyBind.args = []; keyBind.args[argIndex] = buildKeybind(ingameParsed.modifier, key); if (!profileIngameKeyStates[profile.id]) profileIngameKeyStates[profile.id] = {}; profileIngameKeyStates[profile.id][index] = false; }} class="font-mono font-semibold py-2.5">
                                                         <Check class={ingameParsed.key === key ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
                                                         <span class={ingameParsed.key === key ? "text-primary" : ""}>{formatKeyLabel(key)}</span>
                                                       </Command.Item>
@@ -1277,7 +1279,7 @@
                                 <span class={!keyOnly ? "text-primary" : ""}>None</span>
                               </Command.Item>
                               {#each allowedKeys as key}
-                                <Command.Item value={key} onSelect={() => { if (applySystemActionKeybind(keyBind, buildKeybind(parsed.modifier, key))) state.open = false; }} class="font-mono font-semibold py-2.5">
+                                <Command.Item value={key} keywords={key === 'plus' ? ['+'] : []} onSelect={() => { if (applySystemActionKeybind(keyBind, buildKeybind(parsed.modifier, key))) state.open = false; }} class="font-mono font-semibold py-2.5">
                                   <Check class={keyOnly === key ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
                                   <span class={keyOnly === key ? "text-primary" : ""}>{formatKeyLabel(key)}</span>
                                 </Command.Item>
@@ -1499,7 +1501,7 @@
                                 <span class={!keyOnly ? "text-primary" : ""}>None</span>
                               </Command.Item>
                               {#each allowedKeys as key}
-                                <Command.Item value={key} onSelect={() => { if (applyGlobalKeybind(keyBind, buildKeybind(parsed.modifier, key))) state.open = false; }} class="font-mono font-semibold py-2.5">
+                                <Command.Item value={key} keywords={key === 'plus' ? ['+'] : []} onSelect={() => { if (applyGlobalKeybind(keyBind, buildKeybind(parsed.modifier, key))) state.open = false; }} class="font-mono font-semibold py-2.5">
                                   <Check class={keyOnly === key ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
                                   <span class={keyOnly === key ? "text-primary" : ""}>{formatKeyLabel(key)}</span>
                                 </Command.Item>
@@ -1678,7 +1680,7 @@
                                         <span class={!ingameParsed.key ? "text-primary" : ""}>None</span>
                                       </Command.Item>
                                       {#each allowedKeys as key}
-                                        <Command.Item value={key} onSelect={() => { keyBind.args[argIndex] = buildKeybind(ingameParsed.modifier, key); ingameKeyStates[index] = false; }} class="font-mono font-semibold py-2.5">
+                                        <Command.Item value={key} keywords={key === 'plus' ? ['+'] : []} onSelect={() => { keyBind.args[argIndex] = buildKeybind(ingameParsed.modifier, key); ingameKeyStates[index] = false; }} class="font-mono font-semibold py-2.5">
                                           <Check class={ingameParsed.key === key ? "mr-2 h-4 w-4 text-primary" : "mr-2 h-4 w-4 opacity-0"}/>
                                           <span class={ingameParsed.key === key ? "text-primary" : ""}>{formatKeyLabel(key)}</span>
                                         </Command.Item>

@@ -43,13 +43,24 @@
 
   function normalizeKeyboardKey(event: KeyboardEvent): string | null {
     const {code} = event;
+    const localizedKey = event.key.toLowerCase();
 
     if (modifierKeys.has(code)) {
       return null;
     }
 
+    if (event.key === "Dead") {
+      if (code === "Backquote") return "^";
+      if (code === "Equal") return "\u00b4";
+      return null;
+    }
+
+    if (["\u00e4", "\u00f6", "\u00fc", "\u00df"].includes(localizedKey)) {
+      return localizedKey;
+    }
+
     if (code.startsWith("Key")) {
-      return code.slice(3).toLowerCase();
+      return /^[a-z]$/.test(localizedKey) ? localizedKey : code.slice(3).toLowerCase();
     }
 
     if (code.startsWith("Digit")) {
@@ -75,6 +86,11 @@
         NumpadDivide: "numdiv",
       };
       return numpadMap[code] ?? null;
+    }
+
+    if (!event.shiftKey) {
+      if (localizedKey === "+") return "plus";
+      if (["-", "#"].includes(localizedKey)) return localizedKey;
     }
 
     const codeMap: Record<string, string> = {
@@ -138,6 +154,7 @@
         const normalized = part.toLowerCase();
         if (normalized === "cmdorctrl" || normalized === "commandorcontrol") return "CMD / CTRL";
         if (normalized === "control") return "CTRL";
+        if (normalized === "plus") return "+";
         if (normalized === "\u00df" || normalized === "\u00c3\u0178") return "\u00df";
         return part.toUpperCase();
       })
@@ -230,7 +247,7 @@
       return () => {};
     }
 
-    const handleKeyDown = (event: KeyboardEvent) => {
+    const captureKeyboardEvent = (event: KeyboardEvent) => {
       if (!open || !isRecording) {
         return;
       }
@@ -252,6 +269,16 @@
       validationMessage = "";
       isRecording = false;
       blurActiveElementSoon();
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      captureKeyboardEvent(event);
+    };
+
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.code === "PrintScreen") {
+        captureKeyboardEvent(event);
+      }
     };
 
     const handleMouseDown = (event: MouseEvent) => {
@@ -312,6 +339,7 @@
     };
 
     window.addEventListener("keydown", handleKeyDown, true);
+    window.addEventListener("keyup", handleKeyUp, true);
     if (!keyboardOnly) {
       window.addEventListener("mousedown", handleMouseDown, true);
       gamepadRafId = requestAnimationFrame(pollGamepads);
@@ -319,6 +347,7 @@
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown, true);
+      window.removeEventListener("keyup", handleKeyUp, true);
       if (!keyboardOnly) {
         window.removeEventListener("mousedown", handleMouseDown, true);
       }

@@ -62,10 +62,11 @@
     // Letters
     "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",
     "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
+    "\u00e4", "\u00f6", "\u00fc",
     // Function keys
     "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11", "f12",
     // Punctuation
-    "plus", "space", "tab", "capslock", "numlock", "scrolllock", "backspace",
+    "space", "tab", "capslock", "numlock", "scrolllock", "backspace",
     "delete", "insert", "return", "enter", "up", "down", "left", "right",
     "home", "end", "pageup", "pagedown", "escape", "esc",
     // Media keys
@@ -77,7 +78,7 @@
     // Special
     "printscreen",
     // Punctuation
-    ")", "!", "@", "#", "$", "%", "^", "&", "*", "(", ":", ";", ":", "+", "=", "<", ",", "_", "-", ">", ".", "?", "/", "~", "`", "´", "ß", "{", "]", "[", "|", "\\", "}"
+    ")", "!", "@", "#", "$", "%", "^", "&", "*", "(", ":", ";", ":", "=", "<", ",", "_", "plus", "-", ">", ".", "?", "/", "~", "`", "\u00b4", "\u00df", "{", "]", "[", "|", "\\", "}"
   ];
 
   function parseKeybind(keybind: string): { modifier: string; key: string } {
@@ -98,7 +99,8 @@
   }
 
   function formatKeyLabel(key: string): string {
-    return key === 'ß' ? 'ß' : key.toUpperCase();
+    if (key === 'plus') return '+';
+    return key === '\u00df' ? '\u00df' : key.toUpperCase();
   }
 
   const neuzosConfig = getContext<NeuzConfig>("neuzosConfig");
@@ -699,6 +701,7 @@
                                           {#each allowedKeys as key}
                                             <Command.Item
                                               value={key}
+                                              keywords={key === 'plus' ? ['+'] : []}
                                               onSelect={() => {
                                                   action.ingameKey = buildKeybind(parsed.modifier, key);
                                                   state.keyOpen = false;
