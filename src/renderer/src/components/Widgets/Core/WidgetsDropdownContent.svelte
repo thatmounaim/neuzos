@@ -16,6 +16,13 @@
   import FloatingSessionDropdownItem from '../Builtin/FloatingSession/DropdownItem.svelte';
   import WidgetLauncherPinButton from './WidgetLauncherPinButton.svelte';
 
+  type Props = {
+    onManageActionPins?: () => void;
+    onManageFloatingSessions?: () => void;
+  };
+
+  let {onManageActionPins, onManageFloatingSessions}: Props = $props();
+
   const questPanel = getQuestPanelContext();
   const neuzosBridge = getNeuzosBridgeContext();
   let openViewerTypes = $state<ViewerWindowType[]>([]);
@@ -95,7 +102,6 @@
 
 <DropdownMenu.Group>
   <FCoinCalculatorDropdownItem />
-  <NotepadDropdownItem />
   {#if questPanel.isOpen}
     <DropdownMenu.Item class="justify-between gap-2 data-highlighted:bg-transparent data-highlighted:text-foreground" onclick={ignoreActiveLauncherClick}>
       <div class="flex min-w-0 items-center gap-2">
@@ -124,8 +130,10 @@
       <WidgetLauncherPinButton launcherId="quest_log" />
     </DropdownMenu.Item>
   {/if}
+  <NotepadDropdownItem />
   <TodoDropdownItem />
   <DropdownMenu.Separator />
+  {#snippet communityResources()}
   <DropdownMenu.Sub>
     <DropdownMenu.SubTrigger>
       <GraduationCap class="h-4 w-4 mr-2" />
@@ -315,9 +323,11 @@
       {/if}
     </DropdownMenu.SubContent>
   </DropdownMenu.Sub>
-  <MiniBrowserDropdownItem />
-  <DropdownMenu.Separator />
-  <ActionPinDropdownItem />
+  {/snippet}
+  <ActionPinDropdownItem onManagePins={onManageActionPins} />
   <ActionPadDropdownItem />
-  <FloatingSessionDropdownItem />
+  <DropdownMenu.Separator />
+  <MiniBrowserDropdownItem />
+  <FloatingSessionDropdownItem onManageSessions={onManageFloatingSessions} />
+  {@render communityResources()}
 </DropdownMenu.Group>

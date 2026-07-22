@@ -38,7 +38,7 @@
     <Globe class="h-4 w-4 mr-2" />
     <span>Mini Browser</span>
   </DropdownMenu.SubTrigger>
-  <DropdownMenu.SubContent>
+  <DropdownMenu.SubContent side="right">
     <DropdownMenu.Item onSelect={(event) => event.preventDefault()} onclick={createWidget}>
       <Plus class="h-4 w-4 mr-2" />
       <span>New Browser</span>

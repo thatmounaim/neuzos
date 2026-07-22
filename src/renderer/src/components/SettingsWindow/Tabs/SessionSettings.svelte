@@ -7,7 +7,6 @@
     Copy,
     FilePen,
     FileX,
-    PictureInPicture2,
     ArrowDownUp,
     GripVertical,
     Plus,
@@ -990,32 +989,6 @@
               </Popover.Content>
             </Popover.Root>
           </div>
-          <Popover.Root>
-            <Tooltip.Root>
-              <Tooltip.Trigger>
-                <Popover.Trigger>
-                  <Button variant={session.floatable ? 'default' : 'outline'} size="icon" class="h-8 w-8">
-                    <PictureInPicture2 class="h-4 w-4"/>
-                  </Button>
-                </Popover.Trigger>
-              </Tooltip.Trigger>
-              <Tooltip.Content>Floating Session</Tooltip.Content>
-            </Tooltip.Root>
-            <Popover.Content class="w-[360px] p-3" align="start">
-              <div class="flex items-start justify-between gap-4">
-                <div class="space-y-1">
-                  <div class="text-sm font-semibold">Floating Session</div>
-                  <p class="text-xs text-muted-foreground">
-                    Allows this Session to be opened in a Floating Window via the Floating Sessions Widget.
-                  </p>
-                </div>
-                <Switch
-                  checked={session.floatable ?? false}
-                  onCheckedChange={(checked) => { session.floatable = checked; }}
-                />
-              </div>
-            </Popover.Content>
-          </Popover.Root>
           <AlertDialog.Root open={launchUrlOverwriteModal === session.id} onOpenChange={(open) => {
             if (open) {
               openLaunchUrlOverwriteModal(session)

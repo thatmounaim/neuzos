@@ -9,7 +9,6 @@
   import {getContext, onMount} from "svelte";
   import {Button} from "$lib/components/ui/button";
   import {Input} from "$lib/components/ui/input";
-  import {Switch} from "$lib/components/ui/switch";
   import * as Alert from "$lib/components/ui/alert";
   import KeyBinder from "../../Shared/KeyBinder.svelte";
   import type {NeuzConfig, SessionActions} from "$lib/types";
@@ -353,7 +352,7 @@
   {#if useDragActionSorting}
     <Table.Row class="h-0 border-b-0 hover:[&,&>svelte-css-wrapper]:[&>th,td]:bg-transparent">
       <Table.Cell
-        colspan={9}
+        colspan={8}
         class={`p-0 leading-none transition-[height] duration-150 ${active ? 'h-10' : 'h-0'}`}
         ondragover={(event) => handleActionDragOver(event, sessionActions.sessionId, index)}
         ondrop={(event) => handleActionDrop(event, sessionActions, index)}
@@ -536,18 +535,6 @@
                                 </Tooltip.Trigger>
                                 <Tooltip.Content class="max-w-xs">
                                   Choose which Category your specific Skill/ Item is. This Value is necessary for some Widgets.
-                                </Tooltip.Content>
-                              </Tooltip.Root>
-                            </Tooltip.Provider>
-                          </Table.Head>
-                          <Table.Head class="w-[70px] text-center">
-                            <Tooltip.Provider>
-                              <Tooltip.Root>
-                                <Tooltip.Trigger>
-                                  <span class="inline-flex cursor-help items-center justify-center">Pinned</span>
-                                </Tooltip.Trigger>
-                                <Tooltip.Content class="max-w-xs">
-                                  Pin this Skill/ Item to your Mainbar. Required for the Action Pins Widget.
                                 </Tooltip.Content>
                               </Tooltip.Root>
                             </Tooltip.Provider>
@@ -797,13 +784,6 @@
                               </Popover.Root>
                             </Table.Cell>
 
-                            <!-- Pinned -->
-                            <Table.Cell class="py-3">
-                              <div class="flex items-center justify-center">
-                                <Switch checked={action.pinned ?? false}
-                                        onCheckedChange={(checked) => { action.pinned = checked; }}/>
-                              </div>
-                            </Table.Cell>
                             <!-- Delete -->
                             <Table.Cell class="py-3">
                               <Button
