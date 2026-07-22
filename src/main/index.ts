@@ -1115,7 +1115,7 @@ function createSettingsWindow(initialTab?: string): void {
       contextIsolation: true,
       preload: path.join(__dirname, "../preload/index.js"),
       sandbox: false,
-      zoomFactor: neuzosConfig.window.settings.zoom ?? 1.0,
+      zoomFactor: 1.0,
     }
   });
 
@@ -1129,7 +1129,6 @@ function createSettingsWindow(initialTab?: string): void {
 
   settingsWindow.on("ready-to-show", () => {
     settingsWindow?.show();
-    settingsWindow?.webContents.setZoomFactor(neuzosConfig.window.settings.zoom);
     if (initialTab) {
       settingsWindow?.webContents.send("settings_window.set_tab", initialTab);
     }
@@ -1195,6 +1194,37 @@ function notifyRuntimeWindowBoundsChanged(): void {
   }
 }
 
+type UiZoomTarget = 'main' | 'settings' | 'session';
+
+function sendUiZoom(target: UiZoomTarget, zoom: number): void {
+  const sendToWindow = (window: BrowserWindow | null): void => {
+    if (window && !window.isDestroyed()) {
+      window.webContents.send('event.ui_zoom_changed', zoom);
+    }
+  };
+
+  if (target === 'main') {
+    sendToWindow(mainWindow);
+    sendToWindow(sessionLauncherWindow);
+    return;
+  }
+
+  if (target === 'settings') {
+    sendToWindow(settingsWindow);
+    return;
+  }
+
+  for (const window of sessionWindows.values()) {
+    sendToWindow(window);
+  }
+}
+
+function notifyUiZoomChanged(): void {
+  sendUiZoom('main', neuzosConfig.window.main.zoom);
+  sendUiZoom('settings', neuzosConfig.window.settings.zoom);
+  sendUiZoom('session', neuzosConfig.window.session.zoom);
+}
+
 function createSessionLauncherWindow(): void {
   if (sessionLauncherWindow && !sessionLauncherWindow.isDestroyed()) {
     sessionLauncherWindow.focus();
@@ -1232,7 +1262,7 @@ function createSessionLauncherWindow(): void {
       contextIsolation: true,
       preload: path.join(__dirname, "../preload/index.js"),
       sandbox: false,
-      zoomFactor: neuzosConfig.window.main.zoom ?? 1.0,
+      zoomFactor: 1.0,
     }
   });
 
@@ -1254,7 +1284,6 @@ function createSessionLauncherWindow(): void {
 
   sessionLauncherWindow.on("ready-to-show", () => {
     sessionLauncherWindow?.show();
-    sessionLauncherWindow?.webContents.setZoomFactor(neuzosConfig.window.main.zoom)
     notifyRuntimeWindowBoundsChanged();
   });
 
@@ -1324,7 +1353,7 @@ function createSessionWindow(mode: LaunchMode, sessionId: string): void {
       sandbox: false,
       webviewTag: true,
       partition: `persist:${sessionId}`,
-      zoomFactor: neuzosConfig.window.session.zoom ?? 1.0,
+      zoomFactor: 1.0,
     }
   });
   sessionWindow = window;
@@ -1359,7 +1388,6 @@ function createSessionWindow(mode: LaunchMode, sessionId: string): void {
 
   window.on("ready-to-show", () => {
     window.show();
-    window.webContents.setZoomFactor(neuzosConfig.window.session.zoom);
     notifyRuntimeWindowBoundsChanged();
 
     // Maximize if configured and not starting in fullscreen - must happen after show() with slight delay
@@ -1438,7 +1466,7 @@ function createMainWindow(): void {
       preload: path.join(__dirname, "../preload/index.js"),
       sandbox: false,
       webviewTag: true,
-      zoomFactor: neuzosConfig.window.main.zoom ?? 1.0,
+      zoomFactor: 1.0,
     }
   });
 
@@ -1481,7 +1509,6 @@ function createMainWindow(): void {
 
   mainWindow.on("ready-to-show", () => {
     mainWindow?.show();
-    mainWindow?.webContents.setZoomFactor(neuzosConfig.window.main.zoom);
     notifyRuntimeWindowBoundsChanged();
 
     // Maximize if configured - must happen after show() with slight delay
@@ -2221,6 +2248,13 @@ function registerSessionKeybinds(mode: LaunchMode) {
       return getRuntimeWindowBoundsSnapshot();
     });
 
+    ipcMain.on('window.ui_zoom_preview', (_event, target: UiZoomTarget, zoom: number) => {
+      if (!['main', 'settings', 'session'].includes(target)) return;
+      if (!Number.isFinite(zoom) || zoom < 0.25 || zoom > 3) return;
+
+      sendUiZoom(target, zoom);
+    });
+
     ipcMain.on("settings_window.open", (_, tab?: string) => {
       createSettingsWindow(tab);
     });
@@ -2536,6 +2570,7 @@ function registerSessionKeybinds(mode: LaunchMode) {
       neuzosConfig = parsed;
       checkKeybinds();
       registerKeybinds();
+      notifyUiZoomChanged();
       mainWindow?.webContents?.send("event.config_changed", config);
       sessionLauncherWindow?.webContents?.send("event.config_changed", config);
     });

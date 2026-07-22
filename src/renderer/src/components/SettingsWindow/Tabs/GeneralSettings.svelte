@@ -248,9 +248,11 @@
   }
 
   function handleMainWindowZoom(value: number) {
+    if (!Number.isFinite(value) || value < 0.25 || value > 3) return;
     if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
     if (!neuzosConfig.window.main) neuzosConfig.window.main = {width: 1200, height: 800, zoom: 1.0, maximized: true};
     neuzosConfig.window.main.zoom = value;
+    electronApi.send('window.ui_zoom_preview', 'main', value);
   }
 
   function handleMainWindowMaximized(enabled: boolean) {
@@ -273,9 +275,11 @@
   }
 
   function handleSettingsWindowZoom(value: number) {
+    if (!Number.isFinite(value) || value < 0.25 || value > 3) return;
     if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
     if (!neuzosConfig.window.settings) neuzosConfig.window.settings = {width: 1200, height: 800, zoom: 1.0, maximized: false};
     neuzosConfig.window.settings.zoom = value;
+    electronApi.send('window.ui_zoom_preview', 'settings', value);
   }
 
   function handleSettingsWindowMaximized(enabled: boolean) {
@@ -308,6 +312,7 @@
   }
 
   function handleSessionWindowZoom(value: number) {
+    if (!Number.isFinite(value) || value < 0.25 || value > 3) return;
     if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
     if (!neuzosConfig.window.session) neuzosConfig.window.session = {
       width: 1024,
@@ -316,6 +321,7 @@
       maximized: true
     };
     neuzosConfig.window.session.zoom = value;
+    electronApi.send('window.ui_zoom_preview', 'session', value);
   }
 
   function handleSessionWindowMaximized(enabled: boolean) {

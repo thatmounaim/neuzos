@@ -73,6 +73,11 @@
         const zoom = savedConfig.sessions?.find((session) => session.id === sessionId)?.zoom ?? 1.0
         void neuzosBridge.sessions.previewZoom(sessionId, zoom)
       })
+
+      const savedWindowZoom = savedConfig.window
+      electronApi.send('window.ui_zoom_preview', 'main', savedWindowZoom?.main?.zoom ?? 1.0)
+      electronApi.send('window.ui_zoom_preview', 'settings', savedWindowZoom?.settings?.zoom ?? 1.0)
+      electronApi.send('window.ui_zoom_preview', 'session', savedWindowZoom?.session?.zoom ?? 1.0)
     } catch (error) {
       console.error('Failed to restore saved zoom preview:', error)
     }

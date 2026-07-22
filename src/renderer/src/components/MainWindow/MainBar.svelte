@@ -528,7 +528,7 @@
       <Plus class="size-3.5"/>
     </Dialog.Trigger
     >
-    <Dialog.Content class="sm:max-w-[425px]">
+    <Dialog.Content class="max-h-[calc(100vh-2rem)] w-[calc(100%-2rem)] overflow-y-auto sm:max-w-[26.5625rem]">
       <Dialog.Header>
         {#if launcherTab === 'layouts'}
           <div class="flex items-start justify-between gap-4">

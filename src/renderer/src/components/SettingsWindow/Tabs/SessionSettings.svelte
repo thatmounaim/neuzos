@@ -735,7 +735,7 @@
               <img class="w-6 h-6" src="icons/neuzos_pang.png" alt=""/>
             {/if}
           </Popover.Trigger>
-          <Popover.Content class="w-[230px] p-0">
+          <Popover.Content class="w-[14.375rem] max-w-[calc(100vw-2rem)] p-0">
             <Command.Root shouldFilter={true}>
               <div class="flex items-center gap-2 border-b px-2 py-2">
                 <Command.Input placeholder="Search Icons..." class="h-9 border-0 px-1 focus-visible:ring-0 focus-visible:ring-offset-0" />
@@ -756,7 +756,7 @@
                 </Button>
               </div>
               <Command.Empty>No Icon found.</Command.Empty>
-              <Command.List class="max-h-[320px]">
+              <Command.List class="max-h-[min(20rem,calc(100vh-8rem))]">
                 {#each sessionIconGroups as group (group.heading)}
                   <Command.Group heading={group.heading}>
                     {#if sessionIconViewMode === 'grid'}

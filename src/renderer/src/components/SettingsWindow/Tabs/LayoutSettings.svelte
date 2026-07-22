@@ -745,7 +745,7 @@
               <Table.Head class=""></Table.Head>
               <Table.Head class="w-[100px]">Icon</Table.Head>
               <Table.Head class="w-1/3">Label</Table.Head>
-              <Table.Head class="w-[260px]">Layout Mode</Table.Head>
+              <Table.Head class="w-[16.25rem]">Layout Mode</Table.Head>
               <Table.Head class="w-2/3">Sessions</Table.Head>
               <Table.Head></Table.Head>
 
@@ -817,7 +817,7 @@
                       <img class="w-6 h-6" src="icons/neuzos_pang.png" alt=""/>
                     {/if}
                   </Popover.Trigger>
-                  <Popover.Content class="w-[280px] p-0">
+                  <Popover.Content class="w-[17.5rem] max-w-[calc(100vw-2rem)] p-0">
                     <Command.Root shouldFilter={true}>
                       <div class="flex items-center gap-2 border-b px-2 py-2">
                         <Command.Input placeholder="Search Icon..." class="h-9 border-0 px-1 focus-visible:ring-0 focus-visible:ring-offset-0"/>
@@ -838,7 +838,7 @@
                         </Button>
                       </div>
                       <Command.Empty>No Icon found.</Command.Empty>
-                      <Command.List class="max-h-[320px]">
+                      <Command.List class="max-h-[min(20rem,calc(100vh-8rem))]">
                         {#each layoutIconGroups as group (group.heading)}
                           <Command.Group heading={group.heading}>
                             {#if layoutIconViewMode === 'grid'}
@@ -896,7 +896,7 @@
             </Table.Cell>
             <Table.Cell class="py-3">
               <div class="flex items-center gap-2">
-                <div class="flex w-[95px] flex-col">
+                <div class="flex w-[5.9375rem] shrink-0 flex-col">
                   <span class="text-xs text-muted-foreground">Layout Mode</span>
                   <span class="text-sm font-medium">{isMultiSession ? 'Multi-Session' : 'Single-Session'}</span>
                 </div>
