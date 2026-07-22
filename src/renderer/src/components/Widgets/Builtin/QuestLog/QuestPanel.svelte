@@ -11,7 +11,7 @@
   import * as ContextMenu from '$lib/components/ui/context-menu';
   import { getQuestPanelContext, RECOMMENDATION_CATEGORIES, type FlyffClassName } from '$lib/contexts/questPanelContext.svelte';
   import { quests as allQuests, type Quest } from '$lib/data/quests';
-  import { isQuestInFWCFilter, getRecommendationTextColor } from '$lib/data/questFilters';
+  import { formatRecommendationLabel, isQuestInFWCFilter, getRecommendationTextColor } from '$lib/data/questFilters';
   import type { MainWindowState, NeuzIcon } from '$lib/types';
   import QuestlineGroup from './QuestlineGroup.svelte';
 
@@ -359,7 +359,7 @@
               onchange={(e) => questPanel.setRecommendationFilter(cat, (e.target as HTMLInputElement).checked)}
               class="rounded border-border"
             />
-            <span class="text-xs {getRecommendationTextColor(cat)}">{cat}</span>
+            <span class="text-xs {getRecommendationTextColor(cat)}">{formatRecommendationLabel(cat)}</span>
           </label>
         {/each}
       </div>
@@ -379,7 +379,7 @@
           onchange={(e) => questPanel.setLevelAppropriateOnly((e.target as HTMLInputElement).checked)}
           class="rounded border-border"
         />
-        <span class="text-xs text-muted-foreground">Level-appropriate only (&#177;5)</span>
+        <span class="text-xs text-muted-foreground">Level Appropriate Only (&#177; 5 Lv.)</span>
       </label>
     </div>
   {/if}
@@ -421,8 +421,15 @@
   <!-- Quest List -->
   <div class="flex-1 overflow-y-auto">
     {#if !questPanel.activeCharacterId}
-      <div class="flex items-center justify-center h-32 text-sm text-muted-foreground">
-        Add a Character to get started.
+      <div class="m-3 flex min-h-32 flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border px-4 py-6 text-center">
+        <p class="text-sm font-medium text-foreground">No Characters Configured</p>
+        <p class="flex flex-wrap items-center justify-center gap-1.5 text-xs text-muted-foreground">
+          Press the
+          <span class="inline-flex size-6 items-center justify-center rounded-md border border-input bg-background text-foreground shadow-xs">
+            <Plus class="size-3.5" />
+          </span>
+          Button to Add a Character
+        </p>
       </div>
     {:else if filteredQuestlines.size === 0}
       <div class="flex items-center justify-center h-32 text-sm text-muted-foreground">

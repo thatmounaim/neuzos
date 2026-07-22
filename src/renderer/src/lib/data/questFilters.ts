@@ -26,6 +26,10 @@ const FWC_SPECIFIC_OFFICE_QUESTS = new Set([
 
 const FWC_OFFICE_LEVEL_THRESHOLD = 115;
 
+export function formatRecommendationLabel(recommendation: string): string {
+  return recommendation.toLowerCase() === "on the go" ? "On the Go" : recommendation;
+}
+
 export function getRecommendationTextColor(cat: string): string {
   switch (cat) {
     case "Mandatory":
