@@ -743,7 +743,7 @@
                 <button
                   class="rounded p-1 transition-colors hover:bg-accent"
                   onclick={() => todoCtx.restoreTrashItem(item.id)}
-                  title="Restore to Done"
+                  title={item.sourceView === 'open' ? 'Restore to Open' : 'Restore to Done'}
                 >
                   <RotateCcw class="size-3 text-muted-foreground" />
                 </button>
