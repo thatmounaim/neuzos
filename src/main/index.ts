@@ -461,11 +461,11 @@ const defaultNeuzosConfig: any = {
   activeKeyBindProfileId: null,
   keyBinds: [
     {
-      "key": "CommandOrControl+Tab",
+      "key": "commandorcontrol+Tab",
       "event": "layout_swap",
     },
     {
-      "key": "CommandOrControl+Delete",
+      "key": "commandorcontrol+Delete",
       "event": "close_focus_session"
     },
     {
@@ -3258,8 +3258,8 @@ function registerSessionKeybinds(mode: LaunchMode) {
     const primaryDisplay = screen.getPrimaryDisplay();
     const {width: defaultScreenWidth, height: defaultScreenHeight} = primaryDisplay.workAreaSize;
     const aspectRatio = defaultScreenWidth / defaultScreenHeight;
-    const defaultWindowWidth = aspectRatio >= 2 ? defaultScreenWidth / 2 : defaultScreenWidth - defaultScreenWidth / 12;
-    const defaultWindowHeight = defaultScreenHeight - (defaultScreenHeight / 12);
+    const defaultWindowWidth = Math.round(aspectRatio >= 2 ? defaultScreenWidth / 2 : defaultScreenWidth - defaultScreenWidth / 12);
+    const defaultWindowHeight = Math.round(defaultScreenHeight - (defaultScreenHeight / 12));
 
     // Ensure window config exists
     // Calculate default window sizes
@@ -3334,6 +3334,12 @@ function registerSessionKeybinds(mode: LaunchMode) {
       ...defaultNeuzosConfig.window.session,
       ...(neuzosConfig.window.session || {})
     };
+
+    for (const windowConfig of [neuzosConfig.window.main, neuzosConfig.window.settings, neuzosConfig.window.session]) {
+      windowConfig.width = Math.round(windowConfig.width);
+      windowConfig.height = Math.round(windowConfig.height);
+    }
+
     delete neuzosConfig.window.viewers;
     saveConfig(neuzosConfig);
 

@@ -108,8 +108,8 @@
 
   // Update current window dimensions
   function updateWindowDimensions() {
-    currentWindowWidth = window.innerWidth;
-    currentWindowHeight = window.innerHeight;
+    currentWindowWidth = Math.round(window.innerWidth);
+    currentWindowHeight = Math.round(window.innerHeight);
   }
 
   // Apply current dimensions to main window settings
@@ -195,13 +195,13 @@
   function handleMainWindowWidth(value: number) {
     if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
     if (!neuzosConfig.window.main) neuzosConfig.window.main = {width: 1200, height: 800, zoom: 1.0, maximized: true};
-    neuzosConfig.window.main.width = value;
+    neuzosConfig.window.main.width = Math.round(value);
   }
 
   function handleMainWindowHeight(value: number) {
     if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
     if (!neuzosConfig.window.main) neuzosConfig.window.main = {width: 1200, height: 800, zoom: 1.0, maximized: true};
-    neuzosConfig.window.main.height = value;
+    neuzosConfig.window.main.height = Math.round(value);
   }
 
   function handleMainWindowZoom(value: number) {
@@ -220,13 +220,13 @@
   function handleSettingsWindowWidth(value: number) {
     if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
     if (!neuzosConfig.window.settings) neuzosConfig.window.settings = {width: 1200, height: 800, zoom: 1.0, maximized: false};
-    neuzosConfig.window.settings.width = value;
+    neuzosConfig.window.settings.width = Math.round(value);
   }
 
   function handleSettingsWindowHeight(value: number) {
     if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
     if (!neuzosConfig.window.settings) neuzosConfig.window.settings = {width: 1200, height: 800, zoom: 1.0, maximized: false};
-    neuzosConfig.window.settings.height = value;
+    neuzosConfig.window.settings.height = Math.round(value);
   }
 
   function handleSettingsWindowZoom(value: number) {
@@ -250,7 +250,7 @@
       zoom: 1.0,
       maximized: true
     };
-    neuzosConfig.window.session.width = value;
+    neuzosConfig.window.session.width = Math.round(value);
   }
 
   function handleSessionWindowHeight(value: number) {
@@ -261,7 +261,7 @@
       zoom: 1.0,
       maximized: true
     };
-    neuzosConfig.window.session.height = value;
+    neuzosConfig.window.session.height = Math.round(value);
   }
 
   function handleSessionWindowZoom(value: number) {
@@ -392,6 +392,7 @@
                   type="number"
                   min="400"
                   max="3840"
+                  step="1"
                   value={neuzosConfig.window?.main?.width ?? 1200}
                   oninput={(e) => {
                     const target = e.target as HTMLInputElement;
@@ -407,6 +408,7 @@
                   type="number"
                   min="300"
                   max="2160"
+                  step="1"
                   value={neuzosConfig.window?.main?.height ?? 800}
                   oninput={(e) => {
                     const target = e.target as HTMLInputElement;
@@ -455,6 +457,7 @@
                   type="number"
                   min="400"
                   max="3840"
+                  step="1"
                   value={neuzosConfig.window?.settings?.width ?? 1200}
                   oninput={(e) => {
                     const target = e.target as HTMLInputElement;
@@ -470,6 +473,7 @@
                   type="number"
                   min="300"
                   max="2160"
+                  step="1"
                   value={neuzosConfig.window?.settings?.height ?? 800}
                   oninput={(e) => {
                     const target = e.target as HTMLInputElement;
@@ -518,6 +522,7 @@
                   type="number"
                   min="400"
                   max="3840"
+                  step="1"
                   value={neuzosConfig.window?.session?.width ?? 1024}
                   oninput={(e) => {
                     const target = e.target as HTMLInputElement;
@@ -533,6 +538,7 @@
                   type="number"
                   min="300"
                   max="2160"
+                  step="1"
                   value={neuzosConfig.window?.session?.height ?? 768}
                   oninput={(e) => {
                     const target = e.target as HTMLInputElement;
