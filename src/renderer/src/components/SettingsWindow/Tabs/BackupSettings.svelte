@@ -401,6 +401,7 @@
       pill: 'Pill Category',
       refresher: 'Refresher Category',
       vital: 'Vital Category',
+      eq_switch: 'EQ Switch Category',
     };
     const parts = [
       {

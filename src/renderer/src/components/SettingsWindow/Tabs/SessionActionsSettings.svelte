@@ -52,7 +52,8 @@
     {value: "food", label: "Food"},
     {value: "pill", label: "Pill"},
     {value: "refresher", label: "Refresher"},
-    {value: "vital", label: "Vital"}
+    {value: "vital", label: "Vital"},
+    {value: "eq_switch", label: "EQ Switch"}
   ];
 
   const allowedKeys = [
