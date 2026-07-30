@@ -1,113 +1,185 @@
-# NeuzOS
+﻿# <img src="https://github.com/flyffu-community/neuzos/raw/main/resources/icon.png" width="50"/> NeuzOS
 
-[![Latest Releases](https://img.shields.io/static/v1?label=&message=Latest+Releases&color=2ea44f&style=for-the-badge&logo=electron&logoColor=fff)](https://github.com/thatmounaim/neuzos/releases)
-[![Community & Help - Join Discord](https://img.shields.io/static/v1?label=&message=Join+Discord+Community&color=2ea44f&style=for-the-badge&logo=discord&logoColor=fff)](https://discord.gg/k3EY7Z6MMP)
+[![Latest Releases](https://img.shields.io/static/v1?label=&message=Latest+Releases&color=2ea44f&style=for-the-badge&logo=electron&logoColor=fff)](https://github.com/flyffu-community/neuzos/releases) [![Community & Help - Join Discord](https://img.shields.io/static/v1?label=&message=Join+Discord+Community&color=2ea44f&style=for-the-badge&logo=discord&logoColor=fff)](https://discord.gg/k3EY7Z6MMP)
 
-An Electron WebView based Multi Client for Flyff Universe with Svelte and TypeScript.
+An Electron WebView-based Multi-Client for Flyff Universe, built with Svelte and TypeScript.
 
-<img src="resources/icon.png" alt="neuzos logo" width="100"/>
+Built-in Features designed to enhance Gameplay, improve Efficiency, and provide a smoother overall Experience.
 
 ## How to Use
 
-[Shiraho's Youtube Video on NeuzOS v1](https://youtu.be/nu7v5rQQFcI)
-Thank you Shiraho for the Showcase
+NeuzOS is designed to be intuitive and easy to use.
 
-As of today there is no official video guide for v2, but the discord has great written guides written by Cezay.
+If you still have Questions or any Issues, check the Guide Channels or ask in the Help Channel on our Discord Server.
 
 ## Features
 
-### Session Management
-- **Multi-session support** — run multiple Flyff Universe accounts simultaneously, each in its own isolated browser partition
-  - Custom icon and label per session
-  - Launch URL override per session
-  - Shared or isolated browser data partition (useful for non-game sessions like YouTube/Netflix to save disk space)
-  - Clear cache / clear storage per session
-- **Per-session zoom** — set an independent zoom level (50 %–150 %) for each session pane
-  - Hover-activated zoom toolbar in the bottom-right corner of each pane
-  - Fine-tune or reset instantly; zoom is persisted across app restarts
-  - Also configurable per session from Settings → Sessions
+### News Homescreen
+- Flyff Universe Latest News directly on the Startup Homescreen
 
-### Layout System
-- Define any number of layouts, each with its own icon and name
-- Arrange sessions in rows within each layout
-- **Default layouts on startup** — configure which layouts open automatically when the app launches
-- Right-click a layout tab for quick actions:
-  - **Mass actions**: Start/Stop all sessions, Mute/Unmute all sessions
-  - **Per-session actions**: Start/Stop, Mute/Unmute individual sessions
-  - **Tab actions**: Move left/right, Close
+### Session & Layout Management
 
-### Session Health Monitor
-- **Crash overlay** — if a session's renderer process crashes, a full-pane overlay appears with a human-readable reason (killed by OS, out of memory, etc.) and a "Reload Session" button
-- **Load-failure overlay** — if a session URL fails to load (DNS failure, network error, invalid URL), an overlay shows the error code and a "Retry" button
-- **Unresponsive indicator** — an amber pulsing ring appears around a session pane if it becomes temporarily unresponsive
-- Health state is preserved when switching between layout tabs
+- Multi-Session Support
+- Custom Icon per Session/Layout
+- Custom Launch URL (Supports the Public Test Server with different Login URLs)
+- Unique Data Partition per Session
+- Clear Session Cache (Manually or Automatically on Startup)
+- Create Layouts
+- Auto-Focus Sessions on Mouse Hover within Layouts
 
-### Config Import / Export (Backup)
-Available under **Settings → Backup**:
-- **Export** — saves session actions, keybinds, keybind profiles and active profile to a portable JSON file via a native Save dialog
-- **Import with preview** — select a JSON backup, review item counts and any warnings before applying
-- **Replace mode** — replaces all current session actions, keybinds and profiles with the backup
-- **Merge mode** — adds only items that don't already exist (deduplication by ID / key); nothing is deleted
+### Widgets
 
-### Keybinds & Shortcuts
-- Global bindable shortcuts:
-  - Switch between last two used layouts
-  - Toggle fullscreen
-  - Switch to a specific layout by ID
-- Keybind profiles — create multiple profiles and switch between them at runtime
-- Session Actions — define in-game key macros per session and trigger them from the UI or via keybinds
+#### FCoin Calculator
 
-### Window & Display
-- **Focus session on hover** — the active webview automatically receives focus when you hover over it
-- **Pop-out session window** — launch any session in its own dedicated window with optional focus/fullscreen mode
-- **Accidental exit protection** — closing the window or pressing the OS quit shortcut three times in a row is required to actually exit
-  - Windows: Alt+F4 × 3
-  - macOS: Cmd+Q × 3
+- Simple Tool to Calculate FCoin-to-Penya Rates
 
-### Advanced
-- **Chromium flags** — enable/disable GPU, rendering and performance flags from Settings → Launch Settings
-- **Launcher mode** (`--mode=session_launcher`) — a minimal launcher window to start individual sessions
-- **Direct session launch** via command-line:
-  ```
-  --mode=session|focus|focus_fullscreen --session_id=<id>
-  ```
+#### Notepad
 
-## Download Pre-compiled Binaries
+- Lightweight Notepad for Quick Notes
+- Supports Multiple Tabs
+- Notes are Saved Automatically
+- Basic Markdown Support
+- Semi-Rich Text Editor with Additional Formatting Options
+- Includes a Simple To-Do Template
+- Switch Tab Direction (Vertical/Horizontal)
 
-[View Latest Releases](https://github.com/thatmounaim/neuzos/releases)
-## Project Setup - Build From Source
+#### Quest Log
+
+- Contributed by **Pepsi**
+- Opens a Side Panel for Quick Access to Flyff Quest Information
+- Manage Multiple Sessions and Configure your Class/Level
+  - Set Recommendation Filters (Mandatory, Prioritize, On the Go, Skip, etc.)
+  - View Required Quest Levels
+  - Display Quests in Organized Groups or by Quest Chain
+  - Show EXP Rewards for your Current Level
+  - Track Quest Progress per Character/Session
+
+#### To-Do
+
+- Dedicated To-Do Widget for Creating To-Do Lists
+
+#### Viewer Windows
+
+- Open Dedicated Viewer Windows for Community Resources
+	- Navi Guide – Monster Guide by **Navi2765**
+	- Flyffipedia – Flyff Wiki by **Swaight**
+	- Flyffulator - Character Simulator by **Frostiae**
+	- Flyff Calculators - Upgrade Simulator by **Stellar**
+	- Siege Stats - Statistics for PvP Players by **Shynox**
+	- CS-Modelviewer - Character Modelviewer by **I9hdkill**
+
+#### Mini Browser
+
+- Fully Functional Browser inside NeuzOS
+- Drag-and-Drop Positioning
+- Supports Multiple Instances
+- Ideal for Guides, YouTube, Netflix, and more
+- Uses a Separate Browser Cache
+
+#### Action Pins & Action Pads
+
+- **Action Pins**
+  - Display Session Actions in the Main Bar
+  - See Cooldown Timers with Visual Feedback
+
+- **Action Pads**
+  - Draggable Action Interface (Similar to a Stream Deck Overlay)
+  - Freely Positionable within the Window
+  - Execute Assigned Session Actions with a Single Click
+  - 1 Click -> 1 Action
+
+### Interaction & Controls
+
+- **Mass Actions**
+	- Right-Click Layout Tab to Open Context Menu:
+	- Start/Stop All Sessions in a Layout
+	- Mute/Unmute All Sessions in a Layout
+
+- **Per-Session Actions**
+	- Start/Stop
+	- Mute/Unmute
+
+- **Tab Actions**
+	- Move Left/Right
+	- Close
+
+### Additional Features
+
+- Chromium Command-Line Switches
+
+- Backup Function for:
+	- Config-Data
+	- Local Storage
+
+- Launch Sessions in:
+	- Dedicated Window
+	- Focus Mode (Disabled Close Button)
+
+- Floating Sessions
+	- Drag-and-Drop Session Windows
+	- Freely Resizable for Flexible Usage
+
+- Keybinds
+	- Switch to Last Used Layout
+	- Switch to a Specific Layout
+	- Toggle Fullscreen
+	- And More...
+
+### Command Line Support
+
+```bash
+--mode=session_launcher
+--mode=session --session_id=<id>
+--mode=focus --session_id=<id>
+--mode=focus_fullscreen --session_id=<id>
+```
+
+## Project Setup - Build from Source
 
 ### Clone Project Repository
+
 ```bash
-$ git clone https://github.com/thatmounaim/neuzos.git
+git clone https://github.com/flyffu-community/neuzos.git
 ```
 
 ### Install Dependencies
 
 ```bash
-$ bun install
-$ bun postinstall
+bun install
+bun postinstall
 ```
 
 ### Build
 
 ```bash
-# For windows
-$ bun build:win
+# Windows
+bun build:win
 
-# For macOS
-$ bun build:mac
+# macOS
+bun build:mac
 
-# For Linux
-$ bun build:linux
+# Linux
+bun build:linux
 ```
 
 ## Dev Notes
 
-The base of the project was generate with [electron-vite](https://electron-vite.org/) using the Svelte Template
-Some TS Warnings might appear in editor, found it okay to ignore, will give more importance to it in future.
+The Base of the Project was generate with [electron-vite](https://electron-vite.org/) using the Svelte Template
+
+Some TypeScript Warnings may appear during Development. These are currently non-critical and can be ignored.
 
 ```bash
-# Run Devmode
-$ bun dev
+# Run Dev Mode
+bun dev
 ```
+
+## Credits
+NeuzOS was Originally created by [thatmounaim](https://github.com/thatmounaim)
+
+
+This Project is built by the Flyff Community, for the Flyff Community. 
+
+Special Thanks to everyone who Contributes their Time and Effort to the Project. 
+
+### Contributors
+[Cezay](https://github.com/cezaay) • [Celteron](https://github.com/Celteron) • [Pepsi](https://github.com/egenvall)

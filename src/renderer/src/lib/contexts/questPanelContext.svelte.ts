@@ -1,9 +1,8 @@
-import { getContext, onMount, setContext } from 'svelte';
-import { neuzosBridge } from '$lib/core';
+import { getContext, setContext } from 'svelte';
 import type { NeuzIcon } from '$lib/types';
+import {readQuestlogState, writeQuestlogState} from '$lib/localStorageStores';
 
 const QUEST_PANEL_CONTEXT_KEY = Symbol('questPanel');
-const STORAGE_KEY = 'questPanel';
 
 export const RECOMMENDATION_CATEGORIES = [
   'Mandatory',
@@ -43,9 +42,14 @@ interface CharacterState {
 interface PersistedState {
   characters: CharacterState[];
   activeCharacterId: string | null;
+  sidebarSide: 'left' | 'right';
   recommendationFilters: Record<string, boolean>;
   levelAppropriateOnly: boolean;
   fwcFilterEnabled: boolean;
+}
+
+function normalizeSidebarSide(side: unknown): 'left' | 'right' {
+  return side === 'left' ? 'left' : 'right';
 }
 
 function createDefaultCharacter(name: string, flyffClass: FlyffClassName | null = null, icon: NeuzIcon | null = null): CharacterState {
@@ -69,9 +73,8 @@ function normalizeQuestlineName(name: string): string {
 
 function loadPersistedState(): PersistedState {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
+    const parsed = readQuestlogState();
+    if (parsed) {
       const characters: CharacterState[] = Array.isArray(parsed.characters)
         ? parsed.characters.map((c: any) => ({
             id: c.id ?? Date.now().toString(36),
@@ -98,6 +101,7 @@ function loadPersistedState(): PersistedState {
       return {
         characters,
         activeCharacterId: parsed.activeCharacterId ?? characters[0]?.id ?? null,
+        sidebarSide: normalizeSidebarSide(parsed.sidebarSide),
         recommendationFilters: { ...defaultRecommendationFilters(), ...(parsed.recommendationFilters ?? {}) },
         levelAppropriateOnly: parsed.levelAppropriateOnly ?? false,
         fwcFilterEnabled: parsed.fwcFilterEnabled ?? false,
@@ -109,6 +113,7 @@ function loadPersistedState(): PersistedState {
   return {
     characters: [],
     activeCharacterId: null,
+    sidebarSide: 'right',
     recommendationFilters: defaultRecommendationFilters(),
     levelAppropriateOnly: false,
     fwcFilterEnabled: false,
@@ -162,22 +167,12 @@ export function createQuestPanelContext(): QuestPanelContext {
   const persisted = loadPersistedState();
 
   let isOpen = $state(false);
-  let sidebarSide = $state<'left' | 'right'>('left');
+  let sidebarSide = $state<'left' | 'right'>(persisted.sidebarSide);
   let characters = $state<CharacterState[]>(persisted.characters.map(c => ({ ...c })));
   let activeCharacterId = $state<string | null>(persisted.activeCharacterId);
   let recommendationFilters = $state<Record<string, boolean>>({ ...persisted.recommendationFilters });
   let levelAppropriateOnly = $state(persisted.levelAppropriateOnly);
   let fwcFilterEnabled = $state(persisted.fwcFilterEnabled);
-
-  onMount(() => {
-    neuzosBridge.sidebarPanel.getSide()
-      .then((side) => {
-        sidebarSide = side;
-      })
-      .catch((error) => {
-        console.warn('[QuestPanel] Failed to load sidebar side from config:', error);
-      });
-  });
 
   // Derived index for the active character -- we use a getter pattern to avoid $derived proxy issues
   function getActiveChar(): CharacterState | null {
@@ -202,11 +197,12 @@ export function createQuestPanelContext(): QuestPanelContext {
           expandedQuestlines: [...c.expandedQuestlines],
         })),
         activeCharacterId,
+        sidebarSide,
         recommendationFilters: { ...recommendationFilters },
         levelAppropriateOnly,
         fwcFilterEnabled,
       };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(plain));
+      writeQuestlogState(plain);
     } catch (e) {
       console.error('[QuestPanel] Failed to persist state:', e);
     }
@@ -245,7 +241,7 @@ export function createQuestPanelContext(): QuestPanelContext {
     close() { isOpen = false; },
     setSidebarSide(side: 'left' | 'right') {
       sidebarSide = side;
-      neuzosBridge.sidebarPanel.setSide(side);
+      save();
     },
 
     // -- Character management --

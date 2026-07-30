@@ -21,7 +21,8 @@
             <Resizable.Pane>
               <Resizable.PaneGroup direction={layout.columnFirst ? "vertical" : "horizontal"} autoSaveId={(layout.columnFirst ? 'cells_' : 'cells_') + existingSessionIds[0]}>
                 {#each existingSessionIds as sessionId, cellIndex}
-                  {@const session = mainWindowState.sessions.find((s) => s.id === sessionId)}
+                  {@const runtimeSession = mainWindowState.sessions.find((s) => s.id === sessionId)}
+                  {@const session = mainWindowState.config.sessions.find((s) => s.id === sessionId) ?? runtimeSession}
                   {#if session}
                     <Resizable.Pane>
                       <NeuzClient

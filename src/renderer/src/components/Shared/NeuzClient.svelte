@@ -20,14 +20,24 @@
   let partition: string = $state('')
   let started: boolean = $state(false)
   let webview: WebviewTag | HTMLElement = $state()
-  let muted: boolean = $state(false)
+  let webviewReady: boolean = $state(false)
   const mainWindowState = getContext<MainWindowState>('mainWindowState')
 
+  const isPersistedMuted = () => {
+    return session.muted === true
+  }
+
+  let muted: boolean = $state(isPersistedMuted())
+
   const ensureSessionState = () => {
-    const sessionState = mainWindowState.sessionsLayoutsRef[session.id] ??= {
-      layouts: {},
-      healthStatus: 'healthy',
-      healthDetail: ''
+    let sessionState = mainWindowState.sessionsLayoutsRef[session.id]
+    if (!sessionState) {
+      sessionState = {
+        layouts: {},
+        healthStatus: 'healthy',
+        healthDetail: ''
+      }
+      mainWindowState.sessionsLayoutsRef[session.id] = sessionState
     }
 
     sessionState.healthStatus ??= 'healthy'
@@ -52,20 +62,36 @@
   // effect to take an early-return path that drops $derived from the dependency graph.
   $effect(() => {
     const wv = webview?.tagName === 'WEBVIEW' ? (webview as WebviewTag) : null
-    if (!wv) return
-    initZoom(wv, 3)
+    if (!wv || !webviewReady) return
+    initZoom(wv, 0)
+  })
+
+  $effect(() => {
+    const wv = webview?.tagName === 'WEBVIEW' ? (webview as WebviewTag) : null
+    const shouldBeMuted = isPersistedMuted()
+
+    if (!wv || !webviewReady) return
+    applyAudioMuted(wv, shouldBeMuted)
   })
 
   const initZoom = (wv: WebviewTag, retryLeft: number) => {
     try {
-      wv.setZoomFactor(mainWindowState.config.sessionZoomLevels?.[session.id] ?? 1.0)
+      wv.setZoomFactor(session.zoom ?? 1.0)
     } catch (e) {
-      console.log('Failed to set zoom, retrying...', e)
       if (retryLeft > 0) {
         setTimeout(() => initZoom(wv, retryLeft - 1), 1000)
       } else {
-        console.error('Failed to set zoom after multiple retries')
+        console.warn('Failed to set zoom after webview became ready:', e)
       }
+    }
+  }
+
+  const applyAudioMuted = (wv: WebviewTag, shouldBeMuted: boolean) => {
+    try {
+      wv.setAudioMuted(shouldBeMuted)
+      muted = wv.isAudioMuted() ?? false
+    } catch {
+      // Muting can be requested before the webview is fully ready; the persisted state is still kept.
     }
   }
 
@@ -114,12 +140,8 @@ window.open = function(...args) {
   }
   export const startClient = () => {
     started = true
+    webviewReady = false
     onUpdate(session.id)
-    const wv = getWebview()
-    if (wv) {
-      const wid = wv.getWebContentsId()
-      window.electron.ipcRenderer.send('webview.register_mouse', { sessionId: session.id, webContentsId: wid })
-    }
   }
 
   export const stopClient = (onStopped?: () => void) => {
@@ -131,12 +153,12 @@ window.open = function(...args) {
     }
     clearSessionHealth()
     started = false
+    webviewReady = false
     if (session.autoDeleteCache) {
       void neuzosBridge.sessions.clearCache(session.id)
     }
     onUpdate(session.id)
     koreanLinkFixed = false
-    window.electron.ipcRenderer.send('webview.unregister_mouse', { sessionId: session.id })
     // BUG-013: Await Svelte's DOM flush so the <webview> element is removed from the DOM
     // before the ACK reaches main. Without this, the 2-second grace period starts while
     // Chromium still holds file-system handles on the partition directory.
@@ -163,13 +185,14 @@ window.open = function(...args) {
   }
 
   export const setAudioMuted = (mu: boolean) => {
+    muted = mu
     try {
       if (webview) {
         ;(webview as WebviewTag)?.setAudioMuted(mu)
         muted = (webview as WebviewTag)?.isAudioMuted() ?? false
       }
-    } catch (e) {
-      console.log('Cant mute, maybe client not started')
+    } catch {
+      // Muting can be requested before the webview is fully ready; the persisted state is still kept.
     }
     onUpdate(session.id)
   }
@@ -317,12 +340,18 @@ window.open = function(...args) {
 
     const onIpcMessage = (event: Event) => {
       const e = event as any
-      if (e.channel !== 'keydown') return
       const key: string = e.args?.[0]
       if (!key) return
-      document.dispatchEvent(new CustomEvent('neuz:keydown', {
-        detail: { sessionId: session.id, key }
-      }))
+
+      if (e.channel === 'keydown') {
+        document.dispatchEvent(new CustomEvent('neuz:keydown', {
+          detail: { sessionId: session.id, key }
+        }))
+      } else if (e.channel === 'mousebind') {
+        document.dispatchEvent(new CustomEvent('neuz:mousebind', {
+          detail: { sessionId: session.id, key }
+        }))
+      }
     }
 
     const onRenderProcessGone = (event: Event) => {
@@ -353,9 +382,12 @@ window.open = function(...args) {
     // did-finish-load also fires after failed loads (Electron renders the error page),
     // so we use it only for re-applying zoom, not for clearing health.
     const onDidNavigate = () => clearSessionHealth()
-    const onDidFinishLoad = () => {
-      getWebview()?.setZoomFactor(mainWindowState.config.sessionZoomLevels?.[session.id] ?? 1.0)
+    const applyZoomWhenReady = () => {
+      webviewReady = true
+      initZoom(webviewEl, 0)
     }
+    const onDidFinishLoad = () => applyZoomWhenReady()
+    const onDomReady = () => applyZoomWhenReady()
 
     const onUnresponsive = () => setSessionHealth('unresponsive', '')
     const onResponsive = () => clearSessionHealth()
@@ -367,6 +399,7 @@ window.open = function(...args) {
     webviewEl.addEventListener('responsive', onResponsive)
     webviewEl.addEventListener('did-navigate', onDidNavigate)
     webviewEl.addEventListener('did-finish-load', onDidFinishLoad)
+    webviewEl.addEventListener('dom-ready', onDomReady)
 
     return () => {
       webviewEl.removeEventListener('ipc-message', onIpcMessage)
@@ -376,6 +409,7 @@ window.open = function(...args) {
       webviewEl.removeEventListener('responsive', onResponsive)
       webviewEl.removeEventListener('did-navigate', onDidNavigate)
       webviewEl.removeEventListener('did-finish-load', onDidFinishLoad)
+      webviewEl.removeEventListener('dom-ready', onDomReady)
     }
   })
 
@@ -434,8 +468,11 @@ window.open = function(...args) {
         class="w-full h-full flex items-center flex-col gap-2 justify-center select-none"
       >
         <img src="flyffu-logo.png" alt="Flyff Universe Logo" class="w-1/2 max-w-32 pointer-events-none select-none"/>
-        <Button variant="outline" onclick={() => neuzosBridge.sessions.start(session.id,layoutId)}>Start Session
-          - {session.label}</Button>
+        <Button variant="outline" onclick={() => neuzosBridge.sessions.start(session.id,layoutId)}>
+          Start Session -
+          <img class="size-4" src="icons/{session.icon.slug || 'neuzos_pang'}.png" alt=""/>
+          {session.label}
+        </Button>
 
 
       </div>

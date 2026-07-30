@@ -19,6 +19,8 @@ export type NeuzSession = {
   srcOverwrite?: string;
   partitionOverwrite?: string;
   autoDeleteCache?: boolean;
+  zoom?: number;
+  muted?: boolean;
 }
 
 export type NeuzSessionState = {
@@ -27,8 +29,9 @@ export type NeuzSessionState = {
 
 export type NeuzSessionGroup = {
   id: string;
-  label: string;
-  sessionIds: string[];
+  label?: string;
+  sessionIds?: string[];
+  type?: 'ungrouped';
 }
 
 export type NeuzLayout = {
@@ -43,7 +46,7 @@ export type NeuzLayout = {
   autoFocus?: boolean
 }
 
-export type ViewerWindowType = 'navi_guide' | 'flyffipedia';
+export type ViewerWindowType = 'navi_guide' | 'flyffipedia' | 'flyffulator' | 'flyff_calculators' | 'siege_stats' | 'cs_modelviewer';
 
 export type ViewerWindowConfig = {
   x: number | null;
@@ -54,9 +57,7 @@ export type ViewerWindowConfig = {
 }
 
 export type MainWindowState = {
-  config: (NeuzConfig & {
-    changed: boolean
-  })
+  config: NeuzConfig
   sessions: NeuzSession[]
   layouts: NeuzLayout[]
   tabs: {
@@ -90,9 +91,11 @@ export type ConfigExportPayload = {
 export type ExportCategory =
   | 'keybinds'
   | 'session-actions'
-  | 'ui-layout'
+  | 'sessions'
+  | 'layouts'
   | 'general-settings'
-  | 'quest-log'
+  | 'launch-settings'
+  | 'ui-layout'
 
 export type ConfigExportPayloadV2 = {
   schemaVersion: 2;
@@ -103,17 +106,19 @@ export type ConfigExportPayloadV2 = {
   keyBinds?: NeuzKeybind[];
   keyBindProfiles?: NeuzKeyBindProfile[];
   activeKeyBindProfileId?: string | null;
+  sessions?: NeuzSession[];
+  layouts?: NeuzLayout[];
+  defaultLayouts?: string[];
   sessionActions?: SessionActions[];
   sessionGroups?: NeuzSessionGroup[];
   window?: NeuzConfig['window'];
-  sessionZoomLevels?: Record<string, number>;
   fullscreen?: NeuzConfig['fullscreen'];
   autoSaveSettings?: boolean;
   autoDeleteAllCachesOnStartup?: boolean;
   defaultLaunchMode?: NeuzConfig['defaultLaunchMode'];
+  chromium?: NeuzConfig['chromium'];
   userAgent?: string;
   titleBarButtons?: NeuzConfig['titleBarButtons'];
-  questLogTemplates?: never[];
 }
 
 export type ConfigImportPayload = ConfigExportPayload | ConfigExportPayloadV2;
@@ -203,8 +208,12 @@ export type NeuzConfig = {
       zoom: number;
       maximized: boolean;
     },
-    viewers?: Record<ViewerWindowType, ViewerWindowConfig>;
-    sidebarSide?: 'left' | 'right';
+    launcher: {
+      width: number;
+      height: number;
+      x: number | null;
+      y: number | null;
+    },
   },
   autoSaveSettings: boolean;
   autoDeleteAllCachesOnStartup?: boolean;
@@ -222,7 +231,6 @@ export type NeuzConfig = {
   syncReceiverSessionId?: string | null
   sessionActions: SessionActions[];
   sessionGroups?: NeuzSessionGroup[];
-  sessionZoomLevels?: { [sessionId: string]: number };
   titleBarButtons: {
     darkModeToggle: boolean;
     fullscreenToggle: boolean;
@@ -233,3 +241,5 @@ export type NeuzConfig = {
     hideTitleBarInSessionLayouts: boolean;
   };
 }
+
+export type NeuzConfigPatch = Pick<Partial<NeuzConfig>, 'sessions' | 'layouts' | 'defaultLayouts'>;

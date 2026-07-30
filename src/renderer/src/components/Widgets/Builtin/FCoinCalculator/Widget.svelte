@@ -4,6 +4,12 @@
   import {Label} from '$lib/components/ui/label';
   import {Coins} from '@lucide/svelte';
   import {formatPenya, parsePenya, formatPenyaInput} from '$lib/utils/format';
+  import {
+    readFcoinCalculatorRate,
+    readFcoinCalculatorWindowState,
+    writeFcoinCalculatorRate,
+    writeFcoinCalculatorWindowState
+  } from '$lib/localStorageStores';
   interface Props {
     visible?: boolean;
     onClose?: () => void;
@@ -12,32 +18,19 @@
   }
   let { visible = true, onClose, onHide, data: _data }: Props = $props();
   const WIDGET_IDENTIFIER = 'widget.builtin.fcoin_calculator';
-  const RATE_STORAGE_KEY = WIDGET_IDENTIFIER + '.rate';
   let windowRef: FloatingWindow;
   function loadRate(): number {
-    try {
-      const stored = localStorage.getItem(RATE_STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        return parsed.rate || 180000000;
-      }
-    } catch (e) {
-      console.error('Failed to load FCoin rate from localStorage:', e);
-    }
-    return 180000000;
+    return readFcoinCalculatorRate();
   }
   function saveRate(newRate: number) {
-    try {
-      localStorage.setItem(RATE_STORAGE_KEY, JSON.stringify({rate: newRate}));
-    } catch (e) {
-      console.error('Failed to save FCoin rate to localStorage:', e);
-    }
+    writeFcoinCalculatorRate(newRate);
   }
-  let rate = $state(loadRate());
+  const initialRate = loadRate();
+  let rate = $state(initialRate);
   let fcoin = $state(0);
   let penya = $state(0);
   let lastModified: 'rate' | 'fcoin' | 'penya' = 'fcoin';
-  let rateInput = $state(formatPenya(rate));
+  let rateInput = $state(formatPenya(initialRate));
   let fcoinInput = $state('0');
   let penyaInput = $state('0');
   function handleRateInput(e: Event) {
@@ -91,6 +84,8 @@
   <FloatingWindow
     bind:this={windowRef}
     persistId={WIDGET_IDENTIFIER}
+    loadPersistedState={readFcoinCalculatorWindowState}
+    savePersistedState={writeFcoinCalculatorWindowState}
     defaultX={200}
     defaultY={150}
     defaultWidth={320}

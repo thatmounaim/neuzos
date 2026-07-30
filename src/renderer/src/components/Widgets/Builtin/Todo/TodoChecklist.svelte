@@ -414,7 +414,15 @@
                       <ContextMenu.Trigger class="w-full">
                         <div
                           class="flex items-center gap-1 px-0.5 py-0.5 rounded-sm group transition-colors hover:bg-accent/30 cursor-pointer"
+                          role="button"
+                          tabindex="0"
                           onclick={() => { todoCtx.setActiveList(list.id); todoCtx.toggleExpand(todo.id); }}
+                          onkeydown={(event) => {
+                            if (event.key !== 'Enter' && event.key !== ' ') return;
+                            event.preventDefault();
+                            todoCtx.setActiveList(list.id);
+                            todoCtx.toggleExpand(todo.id);
+                          }}
                         >
                           <div class="cursor-grab active:cursor-grabbing shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                             <GripVertical class="size-3 text-muted-foreground" />
@@ -735,7 +743,7 @@
                 <button
                   class="rounded p-1 transition-colors hover:bg-accent"
                   onclick={() => todoCtx.restoreTrashItem(item.id)}
-                  title="Restore to Done"
+                  title={item.sourceView === 'open' ? 'Restore to Open' : 'Restore to Done'}
                 >
                   <RotateCcw class="size-3 text-muted-foreground" />
                 </button>

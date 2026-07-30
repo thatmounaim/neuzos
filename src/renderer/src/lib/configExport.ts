@@ -16,38 +16,55 @@ export type CategoryDefinition = {
 
 export const exportCategories: CategoryDefinition[] = [
   {
+    id: 'general-settings',
+    label: 'General Settings',
+    description: 'Autosave, Cache Cleanup, Window Settings, Title Bar Buttons, Fullscreen Behavior.',
+    enabled: true,
+  },
+  {
+    id: 'sessions',
+    label: 'Session',
+    description: 'Sessions and Groups.',
+    enabled: true,
+  },
+  {
+    id: 'layouts',
+    label: 'Layouts',
+    description: 'Layouts and Default Layouts.',
+    enabled: true,
+  },
+  {
     id: 'keybinds',
-    label: 'Keybinds & Hotkeys',
-    description: 'Global keybinds plus keybind profiles and the active profile.',
+    label: 'Keybinds',
+    description: 'Keybinds and Profiles.',
     enabled: true,
   },
   {
     id: 'session-actions',
     label: 'Session Actions',
-    description: 'Session-specific action groups and their actions.',
+    description: 'Sessions including their Actions and Settings.',
     enabled: true,
   },
   {
-    id: 'ui-layout',
-    label: 'UI Layout',
-    description: 'Window sizes, zoom values, fullscreen behavior, and layout state.',
+    id: 'launch-settings',
+    label: 'Launch Settings',
+    description: 'Launch Mode, Custom User Agent, Command Line Switches.',
     enabled: true,
-  },
-  {
-    id: 'general-settings',
-    label: 'General Settings',
-    description: 'Autosave, startup cache cleanup, launch mode, user agent, and title bar button settings.',
-    enabled: true,
-  },
-  {
-    id: 'quest-log',
-    label: 'Quest Log Templates',
-    description: 'Reserved placeholder for a future quest log export feature.',
-    enabled: false,
   },
 ];
 
+export const categoryConfigFields: Record<ExportCategory, string[]> = {
+  'general-settings': ['autoSaveSettings', 'autoDeleteAllCachesOnStartup', 'window', 'titleBarButtons', 'fullscreen'],
+  sessions: ['sessions', 'sessionGroups'],
+  layouts: ['layouts', 'defaultLayouts'],
+  keybinds: ['keyBinds', 'keyBindProfiles', 'activeKeyBindProfileId'],
+  'session-actions': ['sessionActions'],
+  'launch-settings': ['defaultLaunchMode', 'userAgent', 'chromium.commandLineSwitches'],
+  'ui-layout': ['window', 'fullscreen', 'sessionGroups'],
+};
+
 const exportCategoryOrder = exportCategories.map((category) => category.id);
+const legacyCategoryOrder: ExportCategory[] = ['ui-layout'];
 const pathPattern = /^[A-Za-z]:\\|^\/home\/|^\/Users\//;
 
 function cloneValue<T>(value: T): T {
@@ -59,7 +76,22 @@ function normalizeCategories(categories: unknown): ExportCategory[] {
     return [];
   }
 
-  return categories.filter((category): category is ExportCategory => exportCategoryOrder.includes(category as ExportCategory));
+  return categories.filter((category): category is ExportCategory => [...exportCategoryOrder, ...legacyCategoryOrder].includes(category as ExportCategory));
+}
+
+function expandLegacyCategories(categories: ExportCategory[]): ExportCategory[] {
+  const expanded = new Set<ExportCategory>();
+  for (const category of categories) {
+    if (category === 'ui-layout') {
+      expanded.add('general-settings');
+      expanded.add('sessions');
+      expanded.add('layouts');
+      continue;
+    }
+    expanded.add(category);
+  }
+
+  return exportCategoryOrder.filter((category) => expanded.has(category));
 }
 
 function inferPayloadCategories(payload: Partial<ConfigImportPayload>): ExportCategory[] {
@@ -71,14 +103,17 @@ function inferPayloadCategories(payload: Partial<ConfigImportPayload>): ExportCa
   if (Array.isArray((payload as ConfigExportPayloadV2).sessionActions)) {
     categories.push('session-actions');
   }
-  if ((payload as ConfigExportPayloadV2).window !== undefined || (payload as ConfigExportPayloadV2).sessionZoomLevels !== undefined || (payload as ConfigExportPayloadV2).fullscreen !== undefined || Array.isArray((payload as ConfigExportPayloadV2).sessionGroups)) {
-    categories.push('ui-layout');
-  }
-  if ((payload as ConfigExportPayloadV2).autoSaveSettings !== undefined || (payload as ConfigExportPayloadV2).autoDeleteAllCachesOnStartup !== undefined || (payload as ConfigExportPayloadV2).defaultLaunchMode !== undefined || (payload as ConfigExportPayloadV2).userAgent !== undefined || (payload as ConfigExportPayloadV2).titleBarButtons !== undefined) {
+  if ((payload as ConfigExportPayloadV2).window !== undefined || (payload as ConfigExportPayloadV2).autoSaveSettings !== undefined || (payload as ConfigExportPayloadV2).autoDeleteAllCachesOnStartup !== undefined || (payload as ConfigExportPayloadV2).titleBarButtons !== undefined || (payload as ConfigExportPayloadV2).fullscreen !== undefined) {
     categories.push('general-settings');
   }
-  if (Array.isArray((payload as ConfigExportPayloadV2).questLogTemplates)) {
-    categories.push('quest-log');
+  if (Array.isArray((payload as ConfigExportPayloadV2).sessions) || Array.isArray((payload as ConfigExportPayloadV2).sessionGroups)) {
+    categories.push('sessions');
+  }
+  if (Array.isArray((payload as ConfigExportPayloadV2).layouts) || Array.isArray((payload as ConfigExportPayloadV2).defaultLayouts)) {
+    categories.push('layouts');
+  }
+  if ((payload as ConfigExportPayloadV2).defaultLaunchMode !== undefined || (payload as ConfigExportPayloadV2).userAgent !== undefined || (payload as ConfigExportPayloadV2).chromium !== undefined) {
+    categories.push('launch-settings');
   }
 
   return categories;
@@ -90,23 +125,83 @@ function getPayloadCategories(payload: ConfigImportPayload): ExportCategory[] {
   }
 
   const explicitCategories = normalizeCategories(payload.categories);
-  return explicitCategories.length > 0 ? explicitCategories : inferPayloadCategories(payload);
+  return explicitCategories.length > 0
+    ? [...new Set([...expandLegacyCategories(explicitCategories), ...inferPayloadCategories(payload)])]
+    : inferPayloadCategories(payload);
 }
 
 function isCategorySelected(selectedCategories: ExportCategory[], category: ExportCategory): boolean {
   return selectedCategories.includes(category);
 }
 
-function cloneSessionZoomLevels(sessionZoomLevels?: Record<string, number>): Record<string, number> {
-  return cloneValue(sessionZoomLevels ?? {});
+function cloneWindowForExport(windowConfig: NeuzConfig['window']): NeuzConfig['window'] | undefined {
+  const cleanedWindow = cloneValue(windowConfig);
+  if ((cleanedWindow as any)?.sidebarSide !== undefined) {
+    delete (cleanedWindow as any).sidebarSide;
+  }
+  if ((cleanedWindow as any)?.viewers !== undefined) {
+    delete (cleanedWindow as any).viewers;
+  }
+  return cleanedWindow && Object.keys(cleanedWindow).length > 0 ? cleanedWindow : undefined;
+}
+
+function cloneChromiumForExport(chromium: NeuzConfig['chromium']): NeuzConfig['chromium'] | undefined {
+  const cleanedChromium = cloneValue(chromium);
+  if (Array.isArray(cleanedChromium?.commandLineSwitches) && cleanedChromium.commandLineSwitches.length === 0) {
+    delete (cleanedChromium as any).commandLineSwitches;
+  }
+  return cleanedChromium && Object.keys(cleanedChromium).length > 0 ? cleanedChromium : undefined;
+}
+
+function cloneSessionGroupsForExport(sessionGroups?: NeuzConfig['sessionGroups']): NeuzConfig['sessionGroups'] {
+  return cloneValue(sessionGroups ?? []).map((group) => {
+    if (group?.id === 'ungrouped' || group?.type === 'ungrouped') {
+      return {id: 'ungrouped'};
+    }
+    return group;
+  });
+}
+
+function cloneSessionsForExport(sessions?: NeuzConfig['sessions']): NeuzConfig['sessions'] {
+  return cloneValue(sessions ?? []).map((session) => {
+    const cleanedSession = {...session};
+    if (cleanedSession.muted !== true) {
+      delete cleanedSession.muted;
+    }
+    return cleanedSession;
+  });
+}
+
+function cloneLayoutsForExport(layouts?: NeuzConfig['layouts']): NeuzConfig['layouts'] {
+  return cloneValue(layouts ?? []).map((layout: any) => {
+    const cleanedLayout = {...layout};
+    if (cleanedLayout.mutedSessionIds !== undefined) {
+      delete cleanedLayout.mutedSessionIds;
+    }
+    return cleanedLayout;
+  });
 }
 
 function getSessionActionItemCount(sessionActions: NeuzConfig['sessionActions']): number {
   return (sessionActions ?? []).reduce((total, sessionActionGroup) => total + (sessionActionGroup.actions?.length ?? 0), 0);
 }
 
-function getKeybindItemCount(keyBinds: NeuzConfig['keyBinds'], keyBindProfiles: NeuzConfig['keyBindProfiles']): number {
-  return (keyBinds ?? []).length + (keyBindProfiles ?? []).length;
+function getProfileKeybindCount(keyBindProfiles: NeuzConfig['keyBindProfiles']): number {
+  return (keyBindProfiles ?? []).reduce((total, profile) => total + (profile.keybinds?.length ?? 0), 0);
+}
+
+function getKeybindSignature(keybind: { key?: string; event?: string }): string {
+  const key = String(keybind?.key ?? '').trim().toLowerCase();
+  const event = String(keybind?.event ?? '').trim().toLowerCase();
+  return key && event ? `${key}::${event}` : '';
+}
+
+function pluralize(count: number, singular: string, plural = `${singular}s`): string {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function formatPieces(pieces: string[]): string {
+  return pieces.filter(Boolean).join(', ');
 }
 
 function getImportCategories(payload: ConfigImportPayload): ExportCategory[] {
@@ -185,29 +280,40 @@ function cloneForExport(config: NeuzConfig, selectedCategories: ExportCategory[]
     payload.sessionActions = cloneValue(config.sessionActions ?? []);
   }
 
-  if (isCategorySelected(selectedCategories, 'ui-layout')) {
+  if (isCategorySelected(selectedCategories, 'general-settings')) {
     if (config.window !== undefined) {
-      payload.window = cloneValue(config.window);
+      const windowConfig = cloneWindowForExport(config.window);
+      if (windowConfig !== undefined) {
+        payload.window = windowConfig;
+      }
     }
-    payload.sessionZoomLevels = cloneSessionZoomLevels(config.sessionZoomLevels);
+    payload.autoSaveSettings = config.autoSaveSettings;
+    payload.autoDeleteAllCachesOnStartup = config.autoDeleteAllCachesOnStartup;
+    payload.titleBarButtons = cloneValue(config.titleBarButtons);
     if (config.fullscreen !== undefined) {
       payload.fullscreen = cloneValue(config.fullscreen);
     }
-    payload.sessionGroups = cloneValue(config.sessionGroups ?? []);
   }
 
-  if (isCategorySelected(selectedCategories, 'general-settings')) {
-    payload.autoSaveSettings = config.autoSaveSettings;
-    payload.autoDeleteAllCachesOnStartup = config.autoDeleteAllCachesOnStartup;
+  if (isCategorySelected(selectedCategories, 'sessions')) {
+    payload.sessions = cloneSessionsForExport(config.sessions);
+    payload.sessionGroups = cloneSessionGroupsForExport(config.sessionGroups);
+  }
+
+  if (isCategorySelected(selectedCategories, 'layouts')) {
+    payload.layouts = cloneLayoutsForExport(config.layouts);
+    payload.defaultLayouts = cloneValue(config.defaultLayouts ?? []);
+  }
+
+  if (isCategorySelected(selectedCategories, 'launch-settings')) {
     payload.defaultLaunchMode = config.defaultLaunchMode;
     if (config.userAgent !== undefined) {
       payload.userAgent = config.userAgent;
     }
-    payload.titleBarButtons = cloneValue(config.titleBarButtons);
-  }
-
-  if (isCategorySelected(selectedCategories, 'quest-log')) {
-    payload.questLogTemplates = [];
+    const chromium = cloneChromiumForExport(config.chromium);
+    if (chromium !== undefined) {
+      payload.chromium = chromium;
+    }
   }
 
   return payload;
@@ -217,42 +323,56 @@ export function getDefaultCategorySelection(): Record<ExportCategory, boolean> {
   return {
     keybinds: true,
     'session-actions': true,
-    'ui-layout': true,
     'general-settings': true,
-    'quest-log': false,
+    sessions: true,
+    layouts: true,
+    'launch-settings': true,
+    'ui-layout': false,
   };
 }
 
 export function getCategoryCountLabel(config: NeuzConfig, category: ExportCategory): string {
   switch (category) {
     case 'keybinds':
-      return `${getKeybindItemCount(config.keyBinds, config.keyBindProfiles)} item(s)`;
+      return formatPieces([
+        pluralize((config.keyBinds ?? []).length + getProfileKeybindCount(config.keyBindProfiles), 'Keybind'),
+        pluralize((config.keyBindProfiles ?? []).length, 'Profile'),
+      ]);
     case 'session-actions':
-      return `${getSessionActionItemCount(config.sessionActions)} action(s)`;
-    case 'ui-layout': {
-      const zoomCount = Object.keys(config.sessionZoomLevels ?? {}).length;
-      const groupCount = config.sessionGroups?.length ?? 0;
-      const layoutPieces = [
-        config.window ? 'window' : null,
-        zoomCount > 0 ? `${zoomCount} zoom level(s)` : null,
-        groupCount > 0 ? `${groupCount} group(s)` : null,
-        config.fullscreen ? 'fullscreen' : null,
-      ].filter(Boolean);
-      return layoutPieces.length > 0 ? layoutPieces.join(', ') : 'layout defaults';
-    }
+      return formatPieces([
+        pluralize((config.sessionActions ?? []).length, 'Session'),
+        pluralize(getSessionActionItemCount(config.sessionActions), 'Action'),
+      ]);
     case 'general-settings': {
-      const enabledSettings = [
-        'autoSaveSettings',
-          'autoDeleteAllCachesOnStartup',
-        'defaultLaunchMode',
-        config.userAgent !== undefined ? 'userAgent' : null,
-        'titleBarButtons',
-        config.fullscreen ? 'fullscreen' : null,
-      ].filter(Boolean);
-      return `${enabledSettings.length} setting(s)`;
+      const titleBarButtonCount = Object.keys(config.titleBarButtons ?? {}).length;
+      const fullscreenBehaviorCount = Object.keys(config.fullscreen ?? {}).length;
+      const enabledSettings = 1 + 1 + titleBarButtonCount + fullscreenBehaviorCount;
+      return formatPieces([
+        pluralize(enabledSettings, 'Setting'),
+        config.window ? 'Window Settings' : '',
+      ]);
     }
-    case 'quest-log':
-      return 'disabled placeholder';
+    case 'sessions':
+      return formatPieces([
+        pluralize((config.sessions ?? []).length, 'Session'),
+        pluralize((config.sessionGroups ?? []).length, 'Group'),
+      ]);
+    case 'layouts':
+      return formatPieces([
+        pluralize((config.layouts ?? []).length, 'Layout'),
+        pluralize((config.defaultLayouts ?? []).length, 'Default Layout'),
+      ]);
+    case 'launch-settings': {
+      return formatPieces([
+        'Default Launch Mode',
+        config.userAgent !== undefined ? 'Custom User Agent' : '',
+        (config.chromium?.commandLineSwitches ?? []).length > 0
+          ? pluralize((config.chromium?.commandLineSwitches ?? []).length, 'Command Line Switch', 'Command Line Switches')
+          : '',
+      ]);
+    }
+    case 'ui-layout':
+      return 'Legacy UI Layout';
   }
 }
 
@@ -275,7 +395,7 @@ export function sanitizeConfigForExport(payload: ConfigExportPayloadV2): Sanitiz
   };
 }
 
-function getImportedListItems(payload: ConfigImportPayload, category: 'keybinds' | 'session-actions') {
+function getImportedListItems(payload: ConfigImportPayload, category: 'keybinds' | 'session-actions' | 'sessions' | 'layouts') {
   if (category === 'keybinds') {
     return {
       keyBinds: (payload as ConfigExportPayloadV2).keyBinds ?? [],
@@ -283,12 +403,24 @@ function getImportedListItems(payload: ConfigImportPayload, category: 'keybinds'
     };
   }
 
+  if (category === 'session-actions') {
+    return {
+      sessionActions: (payload as ConfigExportPayloadV2).sessionActions ?? [],
+    };
+  }
+
+  if (category === 'sessions') {
+    return {
+      sessions: (payload as ConfigExportPayloadV2).sessions ?? [],
+    };
+  }
+
   return {
-    sessionActions: (payload as ConfigExportPayloadV2).sessionActions ?? [],
+    layouts: (payload as ConfigExportPayloadV2).layouts ?? [],
   };
 }
 
-function getLocalListItems(config: NeuzConfig, category: 'keybinds' | 'session-actions') {
+function getLocalListItems(config: NeuzConfig, category: 'keybinds' | 'session-actions' | 'sessions' | 'layouts') {
   if (category === 'keybinds') {
     return {
       keyBinds: config.keyBinds ?? [],
@@ -296,24 +428,35 @@ function getLocalListItems(config: NeuzConfig, category: 'keybinds' | 'session-a
     };
   }
 
+  if (category === 'session-actions') {
+    return {
+      sessionActions: config.sessionActions ?? [],
+    };
+  }
+
+  if (category === 'sessions') {
+    return {
+      sessions: config.sessions ?? [],
+    };
+  }
+
   return {
-    sessionActions: config.sessionActions ?? [],
+    layouts: config.layouts ?? [],
   };
 }
 
-function getObjectPreviewCounts(payload: ConfigImportPayload, category: 'ui-layout' | 'general-settings') {
-  if (category === 'ui-layout') {
-    const layoutPayload = payload as ConfigExportPayloadV2;
+function getObjectPreviewCounts(payload: ConfigImportPayload, category: 'general-settings' | 'launch-settings') {
+  const settingsPayload = payload as ConfigExportPayloadV2;
+  if (category === 'launch-settings') {
     return {
-      totalCount: ['window', 'sessionZoomLevels', 'fullscreen', 'sessionGroups']
-        .filter((field) => layoutPayload[field as keyof ConfigExportPayloadV2] !== undefined)
+      totalCount: ['defaultLaunchMode', 'userAgent', 'chromium']
+        .filter((field) => settingsPayload[field as keyof ConfigExportPayloadV2] !== undefined)
         .length,
     };
   }
 
-  const settingsPayload = payload as ConfigExportPayloadV2;
   return {
-    totalCount: ['autoSaveSettings', 'autoDeleteAllCachesOnStartup', 'defaultLaunchMode', 'userAgent', 'titleBarButtons']
+    totalCount: ['autoSaveSettings', 'autoDeleteAllCachesOnStartup', 'window', 'titleBarButtons', 'fullscreen']
       .filter((field) => settingsPayload[field as keyof ConfigExportPayloadV2] !== undefined)
       .length,
   };
@@ -324,20 +467,19 @@ export function computeCategoryPreview(
   selectedCategories: ExportCategory[],
   currentConfig: NeuzConfig,
 ): CategoryPreviewResult[] {
-  const previewCategories = selectedCategories.filter((category) => category !== 'quest-log');
+  const previewCategories = selectedCategories.filter((category) => category !== 'ui-layout');
   const importedCategories = new Set(getImportCategories(payload));
-  const knownSessionIds = new Set((currentConfig.sessions ?? []).map((session) => session.id));
 
   return previewCategories.map((category) => {
     if (!importedCategories.has(category)) {
       return {
         category,
         foundInFile: false,
-        type: category === 'ui-layout' || category === 'general-settings' ? 'object' : 'list',
+        type: category === 'general-settings' || category === 'launch-settings' ? 'object' : 'list',
       } satisfies CategoryPreviewResult;
     }
 
-    if (category === 'ui-layout' || category === 'general-settings') {
+    if (category === 'general-settings' || category === 'launch-settings') {
       const {totalCount} = getObjectPreviewCounts(payload, category);
       const preview: CategoryPreviewResult = {
         category,
@@ -346,14 +488,6 @@ export function computeCategoryPreview(
         totalCount,
         willReplace: true,
       };
-
-      if (category === 'ui-layout') {
-        const sessionZoomLevels = (payload as ConfigExportPayloadV2).sessionZoomLevels ?? {};
-        const skippedSessionIds = Object.keys(sessionZoomLevels).filter((sessionId) => !knownSessionIds.has(sessionId));
-        if (skippedSessionIds.length > 0) {
-          preview.skippedSessionIds = skippedSessionIds;
-        }
-      }
 
       return preview;
     }
@@ -364,10 +498,10 @@ export function computeCategoryPreview(
     if (category === 'keybinds') {
       const importedKeyBinds = importedListItems.keyBinds;
       const importedProfiles = importedListItems.keyBindProfiles;
-      const existingKeyBindKeys = new Set((localListItems.keyBinds ?? []).map((bind) => String(bind.key ?? '').trim().toLowerCase()));
+      const existingKeyBindSignatures = new Set((localListItems.keyBinds ?? []).map((bind) => getKeybindSignature(bind)).filter(Boolean));
       const existingProfileIds = new Set((localListItems.keyBindProfiles ?? []).map((profile) => profile.id));
       const totalCount = importedKeyBinds.length + importedProfiles.length;
-      const conflictCount = importedKeyBinds.filter((bind) => existingKeyBindKeys.has(String(bind.key ?? '').trim().toLowerCase())).length
+      const conflictCount = importedKeyBinds.filter((bind) => existingKeyBindSignatures.has(getKeybindSignature(bind))).length
         + importedProfiles.filter((profile) => existingProfileIds.has(profile.id)).length;
 
       return {
@@ -380,10 +514,42 @@ export function computeCategoryPreview(
       } satisfies CategoryPreviewResult;
     }
 
-    const importedSessions = importedListItems.sessionActions;
-    const existingSessionIds = new Set((localListItems.sessionActions ?? []).map((entry) => entry.sessionId));
-    const totalCount = importedSessions.length;
-    const conflictCount = importedSessions.filter((entry) => existingSessionIds.has(entry.sessionId)).length;
+    if (category === 'session-actions') {
+      const importedSessions = importedListItems.sessionActions;
+      const existingSessionIds = new Set((localListItems.sessionActions ?? []).map((entry) => entry.sessionId));
+      const totalCount = importedSessions.length;
+      const conflictCount = importedSessions.filter((entry) => existingSessionIds.has(entry.sessionId)).length;
+
+      return {
+        category,
+        foundInFile: true,
+        type: 'list',
+        totalCount,
+        conflictCount,
+        newCount: Math.max(totalCount - conflictCount, 0),
+      } satisfies CategoryPreviewResult;
+    }
+
+    if (category === 'sessions') {
+      const importedSessions = importedListItems.sessions;
+      const existingSessionIds = new Set((localListItems.sessions ?? []).map((entry) => entry.id));
+      const totalCount = importedSessions.length;
+      const conflictCount = importedSessions.filter((entry) => existingSessionIds.has(entry.id)).length;
+
+      return {
+        category,
+        foundInFile: true,
+        type: 'list',
+        totalCount,
+        conflictCount,
+        newCount: Math.max(totalCount - conflictCount, 0),
+      } satisfies CategoryPreviewResult;
+    }
+
+    const importedLayouts = importedListItems.layouts;
+    const existingLayoutIds = new Set((localListItems.layouts ?? []).map((entry) => entry.id));
+    const totalCount = importedLayouts.length;
+    const conflictCount = importedLayouts.filter((entry) => existingLayoutIds.has(entry.id)).length;
 
     return {
       category,
@@ -397,5 +563,5 @@ export function computeCategoryPreview(
 }
 
 export function getSelectedCategories(selection: Record<ExportCategory, boolean>): ExportCategory[] {
-  return exportCategoryOrder.filter((category) => category !== 'quest-log' && selection[category]);
+  return exportCategoryOrder.filter((category) => selection[category]);
 }

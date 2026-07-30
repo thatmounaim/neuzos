@@ -27,7 +27,7 @@ linux:
   target:
     - AppImage
   category: Games
-  maintainer: thatmounaim
+  maintainer: FlyffU-Community
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false

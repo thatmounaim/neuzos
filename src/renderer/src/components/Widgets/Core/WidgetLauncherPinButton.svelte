@@ -41,7 +41,7 @@
   variant={pinned ? 'secondary' : 'ghost'}
   class="h-6 w-6 shrink-0"
   onclick={togglePin}
-  title={pinned ? 'Unpin from taskbar' : 'Pin to taskbar'}
+  title={pinned ? 'Unpin from Mainbar' : 'Pin to Mainbar'}
 >
   <Pin class="h-3 w-3 {pinned ? 'fill-current' : ''}" />
 </Button>

@@ -2,7 +2,7 @@
   import { ChevronDown, ChevronRight, EyeOff, Eye, ExternalLink, Check } from '@lucide/svelte';
   import { Button } from '$lib/components/ui/button';
   import { type Quest, FIRST_JOB_QUEST_OVERRIDES } from '$lib/data/quests';
-  import { getRecommendationBadgeColor } from '$lib/data/questFilters';
+  import { formatRecommendationLabel, getRecommendationBadgeColor } from '$lib/data/questFilters';
   import { getQuestPanelContext } from '$lib/contexts/questPanelContext.svelte';
 
   let { questline, quests }: {
@@ -152,7 +152,7 @@
             </div>
             <div class="flex items-center gap-1 mt-0.5 pl-7">
               <span class="text-[10px] border rounded px-1 {getRecommendationBadgeColor(quest.recommendation)}">
-                {quest.recommendation}
+                {formatRecommendationLabel(quest.recommendation)}
               </span>
               {#if quest.experience && quest.experience !== '-'}
                 <span class="text-[10px] text-muted-foreground">{quest.experience}</span>

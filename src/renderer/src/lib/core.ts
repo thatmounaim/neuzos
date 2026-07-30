@@ -1,8 +1,11 @@
 import type {IpcRenderer} from "@electron-toolkit/preload";
-import type {ConfigApplyImportArgsV2, ConfigExportPayloadV2, ConfigImportResult, ConfigImportPayload, ExportCategory, NeuzKeybind, UIActionDescriptor} from "$lib/types";
+import type {ConfigApplyImportArgsV2, ConfigExportPayloadV2, ConfigImportResult, ConfigImportPayload, ExportCategory, NeuzConfigPatch, NeuzKeybind, UIActionDescriptor} from "$lib/types";
+import type {LocalStorageBackupPayload, LocalStorageImportResult} from "$lib/localStorageBackup";
 import type {ViewerWindowConfig, ViewerWindowType} from "./types";
 
 let electronApi: IpcRenderer | undefined = undefined;
+const viewerWindowStateCallbacks = new Set<() => void>();
+let removeViewerWindowStateListener: (() => void) | null = null;
 
 type SessionCloneResult =
   | { success: true; stoppedBeforeClone: boolean; newId: string }
@@ -10,6 +13,31 @@ type SessionCloneResult =
 
 export function initElectronApi(ipcRenderer: IpcRenderer) {
   electronApi = ipcRenderer;
+}
+
+function subscribeViewerWindowStateChanged(callback: () => void): () => void {
+  viewerWindowStateCallbacks.add(callback);
+
+  if (!removeViewerWindowStateListener) {
+    const listener = () => {
+      for (const stateCallback of viewerWindowStateCallbacks) {
+        stateCallback();
+      }
+    };
+
+    electronApi?.on('viewer_window.state_changed', listener);
+    removeViewerWindowStateListener = () => {
+      electronApi?.removeListener?.('viewer_window.state_changed', listener);
+      removeViewerWindowStateListener = null;
+    };
+  }
+
+  return () => {
+    viewerWindowStateCallbacks.delete(callback);
+    if (viewerWindowStateCallbacks.size === 0) {
+      removeViewerWindowStateListener?.();
+    }
+  };
 }
 
 export const neuzosBridge = {
@@ -23,9 +51,6 @@ export const neuzosBridge = {
     maximize: () => {
       electronApi?.send("main_window.maximize");
     },
-    reloadConfig: () => {
-      electronApi?.send("main_window.reload_config");
-    },
     fullscreenToggle: () => {
       electronApi?.send("main_window.fullscreen_toggle");
     },
@@ -34,8 +59,8 @@ export const neuzosBridge = {
     }
   },
   settingsWindow: {
-    open: () => {
-      electronApi?.send("settings_window.open");
+    open: (tab?: string) => {
+      electronApi?.send("settings_window.open", tab);
     },
     close: () => {
       electronApi?.send("settings_window.close");
@@ -69,7 +94,11 @@ export const neuzosBridge = {
   keybinds: {
     dispatch: (bind: NeuzKeybind) => {
       // Spread into a plain object to avoid Svelte $state Proxy serialization error
-      electronApi?.send("keybinds.dispatch", { key: bind.key, event: bind.event, args: bind.args });
+      electronApi?.send("keybinds.dispatch", {
+        key: bind.key,
+        event: bind.event,
+        args: Array.isArray(bind.args) ? [...bind.args] : undefined
+      });
     }
   },
   sessions: {
@@ -97,11 +126,25 @@ export const neuzosBridge = {
     deleteSession: (sessionId: string): Promise<{ success: boolean; error?: string }> => {
       return electronApi?.invoke("session.delete", sessionId) ?? Promise.resolve({ success: false, error: "Electron API unavailable" });
     },
+    openPartitionFolder: (sessionId: string): Promise<boolean> => {
+      return electronApi?.invoke("session.open_partition_folder", sessionId) ?? Promise.resolve(false);
+    },
     setZoom: (sessionId: string, zoomLevel: number) => {
       return electronApi?.invoke("config.set_session_zoom", sessionId, zoomLevel) ?? Promise.resolve({success: false, error: "Electron API unavailable"});
     },
+    previewZoom: (sessionId: string, zoomLevel: number) => {
+      return electronApi
+        ?.invoke("config.preview_session_zoom", sessionId, zoomLevel)
+        .catch((error) => ({success: false, error: error?.message ?? String(error)}))
+        ?? Promise.resolve({success: false, error: "Electron API unavailable"});
+    },
     setSyncReceiver: (sessionId: string | null) => {
       electronApi?.invoke("config.set_sync_receiver", sessionId);
+    }
+  },
+  browser: {
+    clearCache: (): Promise<boolean> => {
+      return electronApi?.invoke("browser.clear_cache") ?? Promise.resolve(false);
     }
   },
   backup: {
@@ -113,6 +156,15 @@ export const neuzosBridge = {
     },
     applyImport: (payload: ConfigImportPayload, mode: ConfigApplyImportArgsV2["mode"], categories: ExportCategory[]): Promise<{ success: boolean; error?: string; added?: { actions: number; binds: number; profiles: number } }> => {
       return electronApi?.invoke("config.apply_import", {payload, mode, categories} satisfies ConfigApplyImportArgsV2) ?? Promise.resolve({success: false, error: "Electron API unavailable"});
+    },
+    openConfigFolder: (): Promise<boolean> => {
+      return electronApi?.invoke("app.open_config_folder") ?? Promise.resolve(false);
+    },
+    exportLocalStorage: (payload: LocalStorageBackupPayload): Promise<{ success: boolean; filePath?: string; error?: string }> => {
+      return electronApi?.invoke("local_storage.export", payload) ?? Promise.resolve({success: false, error: "Electron API unavailable"});
+    },
+    importLocalStorage: (): Promise<LocalStorageImportResult> => {
+      return electronApi?.invoke("local_storage.import") ?? Promise.resolve({valid: false, error: "Electron API unavailable"});
     }
   },
   sessionWindow: {
@@ -129,6 +181,9 @@ export const neuzosBridge = {
     }
   },
   viewerWindow: {
+    clearCache: (): Promise<boolean> => {
+      return electronApi?.invoke('viewer.clear_cache') ?? Promise.resolve(false);
+    },
     open: (type: ViewerWindowType) => {
       electronApi?.send('viewer_window.open', type);
     },
@@ -154,22 +209,18 @@ export const neuzosBridge = {
       return electronApi?.invoke('viewer_window.get_open_types') ?? Promise.resolve([]);
     },
     onStateChanged: (callback: () => void): (() => void) => {
-      const listener = () => callback();
-      electronApi?.on('viewer_window.state_changed', listener);
-      return () => electronApi?.removeListener?.('viewer_window.state_changed', listener);
-    }
-  },
-  sidebarPanel: {
-    getSide: (): Promise<'left' | 'right'> => {
-      return electronApi?.invoke('sidebar_panel.get_side') ?? Promise.resolve('left');
-    },
-    setSide: (side: 'left' | 'right') => {
-      electronApi?.send('sidebar_panel.set_side', side);
+      return subscribeViewerWindowStateChanged(callback);
     }
   },
   config: {
     save: (config: object): Promise<void> => {
       return electronApi?.invoke('config.save', JSON.stringify(config)) ?? Promise.resolve();
+    },
+    saveSilent: (config: object): Promise<void> => {
+      return electronApi?.invoke('config.save_silent', JSON.stringify(config)) ?? Promise.resolve();
+    },
+    notifyPatch: (patch: NeuzConfigPatch): void => {
+      electronApi?.send('config.patch', JSON.parse(JSON.stringify(patch)));
     }
   }
 }

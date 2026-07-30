@@ -1,6 +1,7 @@
 <script lang="ts">
   import * as Popover from "$lib/components/ui/popover";
   import {Button} from "$lib/components/ui/button";
+  import {Keyboard} from "@lucide/svelte";
 
   type Props = {
     actionId: string;
@@ -17,7 +18,6 @@
   let isRecording = $state(false);
   let capturedKey = $state("");
   let validationMessage = $state("");
-  let gamepadDetected = $state(false);
   let suppressCancel = false;
   let gamepadRafId: number | null = null;
   let pressedGamepadButtons = new Set<string>();
@@ -43,13 +43,24 @@
 
   function normalizeKeyboardKey(event: KeyboardEvent): string | null {
     const {code} = event;
+    const localizedKey = event.key.toLowerCase();
 
     if (modifierKeys.has(code)) {
       return null;
     }
 
+    if (event.key === "Dead") {
+      if (code === "Backquote") return "^";
+      if (code === "Equal") return "\u00b4";
+      return null;
+    }
+
+    if (["\u00e4", "\u00f6", "\u00fc", "\u00df"].includes(localizedKey)) {
+      return localizedKey;
+    }
+
     if (code.startsWith("Key")) {
-      return code.slice(3).toLowerCase();
+      return /^[a-z]$/.test(localizedKey) ? localizedKey : code.slice(3).toLowerCase();
     }
 
     if (code.startsWith("Digit")) {
@@ -75,6 +86,11 @@
         NumpadDivide: "numdiv",
       };
       return numpadMap[code] ?? null;
+    }
+
+    if (!event.shiftKey) {
+      if (localizedKey === "+") return "plus";
+      if (["-", "#"].includes(localizedKey)) return localizedKey;
     }
 
     const codeMap: Record<string, string> = {
@@ -128,6 +144,21 @@
     if (button === 3) return "Mouse4";
     if (button === 4) return "Mouse5";
     return null;
+  }
+
+  function formatKeyLabel(key: string): string {
+    if (key === '\u00df' || key === '\u00c3\u0178') return '\u00df';
+    return key
+      .split("+")
+      .map(part => {
+        const normalized = part.toLowerCase();
+        if (normalized === "cmdorctrl" || normalized === "commandorcontrol") return "CMD / CTRL";
+        if (normalized === "control") return "CTRL";
+        if (normalized === "plus") return "+";
+        if (normalized === "\u00df" || normalized === "\u00c3\u0178") return "\u00df";
+        return part.toUpperCase();
+      })
+      .join(" + ");
   }
 
   function buildKeyCombination(event: KeyboardEvent): string | null {
@@ -194,13 +225,20 @@
     isRecording = true;
   }
 
+  function blurActiveElementSoon() {
+    setTimeout(() => {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    }, 0);
+  }
+
   function stopGamepadLoop() {
     if (gamepadRafId !== null) {
       cancelAnimationFrame(gamepadRafId);
       gamepadRafId = null;
     }
     pressedGamepadButtons = new Set();
-    gamepadDetected = false;
   }
 
   $effect(() => {
@@ -209,7 +247,7 @@
       return () => {};
     }
 
-    const handleKeyDown = (event: KeyboardEvent) => {
+    const captureKeyboardEvent = (event: KeyboardEvent) => {
       if (!open || !isRecording) {
         return;
       }
@@ -230,6 +268,17 @@
       capturedKey = normalized;
       validationMessage = "";
       isRecording = false;
+      blurActiveElementSoon();
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      captureKeyboardEvent(event);
+    };
+
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.code === "PrintScreen") {
+        captureKeyboardEvent(event);
+      }
     };
 
     const handleMouseDown = (event: MouseEvent) => {
@@ -248,12 +297,12 @@
       capturedKey = normalized;
       validationMessage = "";
       isRecording = false;
+      blurActiveElementSoon();
     };
 
     const pollGamepads = () => {
       const gamepads = navigator.getGamepads();
       const activeButtons = new Set<string>();
-      gamepadDetected = Array.from(gamepads).some(Boolean);
 
       for (const gamepad of gamepads) {
         if (!gamepad) continue;
@@ -272,6 +321,7 @@
           capturedKey = key;
           validationMessage = "";
           isRecording = false;
+          blurActiveElementSoon();
           pressedGamepadButtons.add(key);
           break;
         }
@@ -289,6 +339,7 @@
     };
 
     window.addEventListener("keydown", handleKeyDown, true);
+    window.addEventListener("keyup", handleKeyUp, true);
     if (!keyboardOnly) {
       window.addEventListener("mousedown", handleMouseDown, true);
       gamepadRafId = requestAnimationFrame(pollGamepads);
@@ -296,6 +347,7 @@
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown, true);
+      window.removeEventListener("keyup", handleKeyUp, true);
       if (!keyboardOnly) {
         window.removeEventListener("mousedown", handleMouseDown, true);
       }
@@ -305,7 +357,8 @@
 </script>
 
 <Popover.Root open={open} onOpenChange={handleOpenChange}>
-  <Popover.Trigger class="h-9 px-3 inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm whitespace-nowrap">
+  <Popover.Trigger class="h-9 px-3 inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary/50 shadow-sm whitespace-nowrap">
+    <Keyboard class="h-4 w-4 shrink-0"></Keyboard>
     <span class="truncate text-foreground">Record Keybind</span>
   </Popover.Trigger>
 
@@ -313,22 +366,20 @@
     <div class="space-y-2">
       <div class="flex items-center gap-2">
         <span class={`size-2 rounded-full ${isRecording ? 'bg-primary animate-pulse' : 'bg-muted-foreground/40'}`}></span>
-        <p class="text-sm font-semibold">{isRecording ? 'Listening…' : 'Record mode ready'}</p>
+        <p class="text-sm font-semibold">{isRecording ? 'Listening…' : 'Record Mode Ready'}</p>
       </div>
       <p class="text-xs text-muted-foreground">
-        Press a Key to record Keybind. Press Escape to Cancel.
+        Press a Keyboard or Mouse Key to Record.<br/>
+        Press Escape to Cancel.
       </p>
-      {#if isRecording && !gamepadDetected}
-        <p class="text-xs text-muted-foreground">No gamepad detected — keyboard and mouse capture still active</p>
-      {/if}
       <div class="rounded-md border bg-muted/40 p-3">
         <p class="text-xs text-muted-foreground">Action</p>
         <p class="text-sm font-medium">{actionId}</p>
-        <p class="mt-2 text-xs text-muted-foreground">Current binding</p>
-        <p class="text-sm font-mono">{currentKey || 'none'}</p>
+        <p class="mt-2 text-xs text-muted-foreground">Current Binding</p>
+        <p class="text-sm font-mono">{currentKey ? formatKeyLabel(currentKey) : 'none'}</p>
         {#if capturedKey}
           <p class="mt-2 text-xs text-muted-foreground">Captured</p>
-          <p class="text-sm font-mono font-semibold">{capturedKey}</p>
+          <p class="text-sm font-mono font-semibold">{formatKeyLabel(capturedKey)}</p>
         {/if}
       </div>
       {#if validationMessage}
@@ -336,10 +387,12 @@
       {/if}
     </div>
 
-    <div class="flex flex-wrap gap-2">
-      <Button variant="outline" size="sm" type="button" onclick={retryRecording} disabled={!open}>Listen Again</Button>
-      <Button variant="secondary" size="sm" type="button" onclick={confirmBinding} disabled={!capturedKey}>Confirm</Button>
-      <Button variant="ghost" size="sm" type="button" onclick={cancelRecording}>Cancel</Button>
+    <div class="flex flex-wrap justify-end gap-2">
+      {#if !isRecording}
+        <Button variant="outline" size="sm" type="button" onclick={retryRecording} disabled={!open}>Listen Again</Button>
+      {/if}
+      <Button variant="outline" size="sm" type="button" onclick={confirmBinding} disabled={!capturedKey}>Confirm</Button>
+      <Button variant="outline" size="sm" type="button" onclick={cancelRecording}>Cancel</Button>
     </div>
   </Popover.Content>
 </Popover.Root>

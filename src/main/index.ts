@@ -28,55 +28,58 @@ const allowedCommandLineSwitches = [
   // Thanks to Kumara finding this one flag to be useful
   //{flag: "site-per-process", description: "Enable site isolation for each site"},
   // 🚀 Rendering / GPU Performance
-  {flag: "force_high_performance_gpu", description: "Use high performance GPU on hybrid systems"},
+  {flag: "force_high_performance_gpu", description: "Forces the Application to use the Dedicated GPU instead of an Integrated GPU on Hybrid Systems like Laptops.", tooltip: "This ensures Maximum Graphical Performance and avoids the Application running on the slower Integrated GPU."},
   //{flag: "force_low_power_gpu", description: "Use integrated GPU on hybrid systems"},
-  {flag: "enable-gpu-rasterization", description: "Force GPU rasterization"},
-  {flag: "enable-zero-copy", description: "Use zero-copy textures for better WebGL performance"},
+  {flag: "enable-gpu-rasterization", description: "Enables GPU Rasterization.", tooltip: "Forces the GPU to perform Rasterization instead of the CPU, which can significantly improve Rendering Performance in Graphics-Heavy Applications."},
+  {flag: "enable-zero-copy", description: "Enables Zero-Copy Texture Uploads.", tooltip: "Allows the GPU to access Textures directly instead of copying them multiple times between CPU and GPU Memory, reducing Memory Bandwidth Usage and improving WebGL Performance."},
   // {flag: "enable-gpu-compositing", description: "Force GPU compositing"},
   //{flag: "enable-native-gpu-memory-buffers", description: "Use native GPU memory buffers"},
-  {flag: "enable-oop-rasterization", description: "Out-of-process rasterization"},
-  {flag: "enable-accelerated-2d-canvas", description: "Speed up canvas rendering"},
+  {flag: "enable-oop-rasterization", description: "Enables Out-Of-Process Rasterization.", tooltip: "Moves Rasterization into a separate GPU Process, improving Stability because Rasterization Crashes will not crash the Main Application."},
+  {flag: "enable-accelerated-2d-canvas", description: "Enables GPU Acceleration for HTML5 2D Canvas Rendering.", tooltip: "Offloads Canvas Rendering Operations such as Shapes, Images, and Animations to the GPU, significantly improving Canvas Performance."},
   //{flag: "enable-accelerated-video-decode", description: "Use GPU for video decoding"},
-  {flag: "disable-software-rasterizer", description: "Avoid CPU fallback for rendering"},
+  {flag: "disable-software-rasterizer", description: "Disables the Software Rasterizer Fallback.", tooltip: "Prevents Chromium from falling back to CPU Rendering if GPU Acceleration fails, forcing the Application to use GPU Rendering only."},
   //{flag: "enforce-gl-minimums", description: "Enforce OpenGL minimum requirements"},
   //{flag: "enable-webgl-draft-extensions", description: "Enable experimental WebGL extensions"},
-  {flag: "enable-gpu-memory-buffer-compositor-resources", description: "GPU memory buffer optimizations"},
+  {flag: "enable-gpu-memory-buffer-compositor-resources", description: "Enables GPU Memory Buffers for Compositor Resources.", tooltip: "Improves Memory Sharing between the GPU and Compositor, reducing Copy Overhead and increasing Rendering Efficiency."},
   // {flag: "enable-gpu-memory-buffer-video-frames", description: "GPU memory buffer for video frames"},
   //{flag: "video-capture-use-gpu-memory-buffer", description: "Use GPU memory buffer for video capture"},
 
   // 🧠 GPU Stability & Speed
-  {flag: "ignore-gpu-blocklist", description: "Forces all GPU features on all drivers"},
-  {flag: "enable-gpu-driver-workarounds", description: "GPU driver stability workarounds"},
+  {flag: "ignore-gpu-blocklist", description: "Ignores Chromium's GPU Blocklist.", tooltip: "Forces GPU Features to remain enabled even on unsupported Hardware or Drivers. This may improve Performance but can reduce Stability."},
+  {flag: "enable-gpu-driver-workarounds", description: "Enables GPU Driver Workarounds.", tooltip: "Keeps Chromium's Driver-Specific Compatibility Fixes enabled to improve Stability on GPUs with known Driver Issues."},
   //{flag: "enable-unsafe-webgpu", description: "Enable unsafe WebGPU features"},
 
   // ⚡ FPS & Frame Timing
-  {flag: "disable-frame-rate-limit", description: "Uncap FPS"},
-  {flag: "disable-gpu-vsync", description: "Disable vsync for uncapped rendering"},
+  {flag: "disable-frame-rate-limit", description: "Disables the Internal Frame Rate Limit.", tooltip: "Allows the Application to render Frames as fast as possible instead of respecting an internal FPS Limit."},
+  {flag: "disable-gpu-vsync", description: "Disables GPU Vertical Synchronization (VSync).", tooltip: "Removes VSync to allow uncapped Frame Rates, which may improve Responsiveness but can cause Screen Tearing."},
   //{flag: "enable-fast-unload", description: "Speeds up tab/window destruction"},
-  {flag: "disable-backgrounding-occluded-windows", description: "Keep background windows active"},
+  {flag: "disable-backgrounding-occluded-windows", description: "Disables Background Throttling for Occluded Windows.", tooltip: "Prevents Windows that are covered or hidden from being throttled, allowing them to continue Rendering at full Performance."},
 
   // 💤 Prevent Throttling / Background Slowdown
-  {flag: "disable-background-timer-throttling", description: "Prevent timers from slowing in background"},
-  {flag: "disable-renderer-backgrounding", description: "Prevent renderer throttling"},
-  {flag: "enable-gpu-shader-disk-cache", description: "Cache shaders to disk"},
+  {flag: "disable-background-timer-throttling", description: "Disables Background Timer Throttling.", tooltip: "Prevents JavaScript Timers from being slowed down while the Application is running in the Background."},
+  {flag: "disable-renderer-backgrounding", description: "Disables Renderer Background Prioritization.", tooltip: "Keeps the Renderer Process running at full CPU Priority even when the Application is minimized or inactive."},
+  {flag: "enable-gpu-shader-disk-cache", description: "Enables the GPU Shader Disk Cache.", tooltip: "Stores compiled GPU Shaders on Disk to reduce Shader Compilation Times, improve Startup Performance, and minimize Rendering Stutter."},
 
   // 🔧 Misc Performance Tweaks
   //{flag: "disable-low-res-tiling", description: "Avoid low-resolution tiles"},
-  {flag: "enable-threaded-compositing", description: "Use multi-threaded compositor"},
-  {flag: "max-active-webgl-contexts=16", description: "Allow more active WebGL contexts (16)"},
-  {flag: "max-active-webgl-contexts=32", description: "Allow more active WebGL contexts (32)"},
+  {flag: "enable-threaded-compositing", description: "Enables Threaded Compositing.", tooltip: "Moves Compositing Tasks onto multiple Threads to improve Rendering Performance and Application Responsiveness."},
+  {flag: "max-active-webgl-contexts=16", description: "Sets the Maximum Number of active WebGL Contexts to 16.", tooltip: "Allows up to 16 simultaneous WebGL Contexts, which is useful for Applications using multiple WebGL Canvases."},
+  {flag: "max-active-webgl-contexts=32", description: "Sets the Maximum Number of active WebGL Contexts to 32.", tooltip: "Allows up to 32 simultaneous WebGL Contexts for Applications with heavy WebGL Usage."},
   //{flag: "no-proxy-server", description: "Reduce network latency from proxy lookups"},
-  {flag: "enable-low-end-device-mode", description: "Low-end device mode optimizations (Reduced Performance)"},
+  {flag: "enable-low-end-device-mode", description: "Enables Low-End Device Optimizations.", tooltip: "Reduces Memory Usage and simplifies Rendering to improve Performance on Low-End Hardware."},
 ];
 
 let mainWindow: BrowserWindow | null = null;
 let settingsWindow: BrowserWindow | null = null;
 let sessionWindow: BrowserWindow | null = null;
+const sessionWindows = new Map<string, BrowserWindow>();
+let sessionLauncherWindow: BrowserWindow | null = null;
 let lastKeybindToggleAt = 0;
 
-type ViewerWindowType = 'navi_guide' | 'flyffipedia';
-type SidebarSide = 'left' | 'right';
+type ConfigurableWindowType = 'main' | 'settings' | 'session' | 'launcher';
+type RuntimeWindowBounds = {x: number; y: number; width: number; height: number};
 
+type ViewerWindowType = 'navi_guide' | 'flyffipedia' | 'flyffulator' | 'flyff_calculators' | 'siege_stats' | 'cs_modelviewer';
 type ViewerWindowConfig = {
   x: number | null;
   y: number | null;
@@ -92,7 +95,7 @@ type ViewerWindowBounds = {
   height: number;
 };
 
-const viewerWindowTypes: ViewerWindowType[] = ['navi_guide', 'flyffipedia'];
+const viewerWindowTypes: ViewerWindowType[] = ['navi_guide', 'flyffipedia', 'flyffulator', 'flyff_calculators', 'siege_stats', 'cs_modelviewer'];
 const defaultViewerWindowConfig: ViewerWindowConfig = {
   x: null,
   y: null,
@@ -101,17 +104,58 @@ const defaultViewerWindowConfig: ViewerWindowConfig = {
   alwaysOnTop: true,
 };
 
-const defaultSidebarSide: SidebarSide = 'right';
-
+const viewerDefaultWindowConfigs: Record<ViewerWindowType, ViewerWindowConfig> = {
+  navi_guide: {...defaultViewerWindowConfig, width: 1160, height: 700},
+  flyffipedia: {...defaultViewerWindowConfig},
+  flyffulator: {...defaultViewerWindowConfig, width: 1337, height: 890},
+  flyff_calculators: {...defaultViewerWindowConfig, width: 975, height: 700},
+  siege_stats: {...defaultViewerWindowConfig},
+  cs_modelviewer: {...defaultViewerWindowConfig},
+};
 const viewerWindows: Map<ViewerWindowType, BrowserWindow> = new Map();
 const viewerBoundsSaveTimers: Map<ViewerWindowType, ReturnType<typeof setTimeout>> = new Map();
+const viewerLocalStorageKeys: Record<ViewerWindowType, string> = {
+  navi_guide: 'widget.viewer.naviGuide',
+  flyffipedia: 'widget.viewer.flyffipedia',
+  flyffulator: 'widget.viewer.flyffulator',
+  flyff_calculators: 'widget.viewer.flyffCalculators',
+  siege_stats: 'widget.viewer.siegeStats',
+  cs_modelviewer: 'widget.viewer.csModelviewer',
+};
+function getDefaultViewerWindowConfig(type: ViewerWindowType): ViewerWindowConfig {
+  return {...viewerDefaultWindowConfigs[type]};
+}
+
+function getViewerWindowTitle(type: ViewerWindowType): string {
+  switch (type) {
+    case 'navi_guide':
+      return "NeuzOS - Navi's Bestiary";
+    case 'flyffipedia':
+      return 'NeuzOS - Flyffipedia';
+    case 'flyffulator':
+      return 'NeuzOS - Flyffulator';
+    case 'flyff_calculators':
+      return 'NeuzOS - Flyff Calculators';
+    case 'siege_stats':
+      return 'NeuzOS - Siege Stats';
+    case 'cs_modelviewer':
+      return 'NeuzOS - CS-Modelviewer';
+  }
+}
+
+const viewerWindowConfigCache: Record<ViewerWindowType, ViewerWindowConfig> = {
+  navi_guide: getDefaultViewerWindowConfig('navi_guide'),
+  flyffipedia: getDefaultViewerWindowConfig('flyffipedia'),
+  flyffulator: getDefaultViewerWindowConfig('flyffulator'),
+  flyff_calculators: getDefaultViewerWindowConfig('flyff_calculators'),
+  siege_stats: getDefaultViewerWindowConfig('siege_stats'),
+  cs_modelviewer: getDefaultViewerWindowConfig('cs_modelviewer'),
+};
 
 let exitCount: number = 0;
 let mainWindowShortcutsEnabled: boolean = true;
 let sessionWindowShortcutsEnabled: boolean = true;
 
-// Maps sessionId -> webContentsId for mouse-bind interception via before-input-event
-const mouseBindWebContents = new Map<string, number>();
 const runningSessionIds = new Set<string>();
 // Tracks sessions actively being deleted so session.clear_cache does not recreate their partition folder
 const deletingSessionIds = new Set<string>();
@@ -160,7 +204,12 @@ function pruneSessionReferences(config: any): void {
             })
             .filter((row: any) => row.sessionIds.length > 0)
         : [];
-      return { ...layout, rows };
+      const nextLayout = { ...layout, rows };
+      if (nextLayout.mutedSessionIds !== undefined) {
+        delete nextLayout.mutedSessionIds;
+      }
+
+      return nextLayout;
     });
   }
 
@@ -168,12 +217,21 @@ function pruneSessionReferences(config: any): void {
     config.sessionActions = config.sessionActions.filter((entry: any) => knownSessionIds.has(entry?.sessionId));
   }
 
-  if (config.sessionZoomLevels && typeof config.sessionZoomLevels === 'object') {
-    for (const sessionId of Object.keys(config.sessionZoomLevels)) {
-      if (!knownSessionIds.has(sessionId)) {
-        delete config.sessionZoomLevels[sessionId];
+  if (Array.isArray(config.sessions)) {
+    config.sessions = config.sessions.map((sessionConfig: any) => {
+      const cleanedSession = {...sessionConfig};
+      if (typeof cleanedSession.zoom !== 'number' || !Number.isFinite(cleanedSession.zoom) || cleanedSession.zoom === 1.0) {
+        delete cleanedSession.zoom;
       }
-    }
+      if (cleanedSession.muted !== true) {
+        delete cleanedSession.muted;
+      }
+      return cleanedSession;
+    });
+  }
+
+  if (config.sessionZoomLevels !== undefined) {
+    delete config.sessionZoomLevels;
   }
 
   if (config.syncReceiverSessionId && !knownSessionIds.has(config.syncReceiverSessionId)) {
@@ -234,9 +292,11 @@ type ConfigExportPayload = {
 type ExportCategory =
   | 'keybinds'
   | 'session-actions'
-  | 'ui-layout'
+  | 'sessions'
+  | 'layouts'
   | 'general-settings'
-  | 'quest-log';
+  | 'launch-settings'
+  | 'ui-layout';
 
 type ConfigExportPayloadV2 = {
   schemaVersion: 2;
@@ -246,16 +306,19 @@ type ConfigExportPayloadV2 = {
   keyBinds?: any[];
   keyBindProfiles?: any[];
   activeKeyBindProfileId?: string | null;
+  sessions?: any[];
+  layouts?: any[];
+  defaultLayouts?: string[];
   sessionActions?: any[];
   sessionGroups?: any[];
   window?: any;
-  sessionZoomLevels?: Record<string, number>;
   fullscreen?: any;
   autoSaveSettings?: boolean;
+  autoDeleteAllCachesOnStartup?: boolean;
   defaultLaunchMode?: string;
+  chromium?: { commandLineSwitches?: string[] };
   userAgent?: string;
   titleBarButtons?: any;
-  questLogTemplates?: never[];
 };
 
 type ConfigImportPayload = ConfigExportPayload | ConfigExportPayloadV2;
@@ -270,8 +333,9 @@ type ConfigApplyImportArgsV2 = {
   categories: ExportCategory[];
 };
 
-const exportCategoryOrder: ExportCategory[] = ['keybinds', 'session-actions', 'ui-layout', 'general-settings', 'quest-log'];
-const exportCategorySet = new Set<ExportCategory>(exportCategoryOrder);
+const exportCategoryOrder: ExportCategory[] = ['general-settings', 'sessions', 'layouts', 'keybinds', 'session-actions', 'launch-settings'];
+const legacyCategoryOrder: ExportCategory[] = ['ui-layout'];
+const exportCategorySet = new Set<ExportCategory>([...exportCategoryOrder, ...legacyCategoryOrder]);
 
 function isExportCategory(value: unknown): value is ExportCategory {
   return typeof value === 'string' && exportCategorySet.has(value as ExportCategory);
@@ -285,6 +349,21 @@ function normalizeCategories(categories: unknown): ExportCategory[] {
   return categories.filter(isExportCategory);
 }
 
+function expandLegacyCategories(categories: ExportCategory[]): ExportCategory[] {
+  const expanded = new Set<ExportCategory>();
+  for (const category of categories) {
+    if (category === 'ui-layout') {
+      expanded.add('general-settings');
+      expanded.add('sessions');
+      expanded.add('layouts');
+      continue;
+    }
+    expanded.add(category);
+  }
+
+  return exportCategoryOrder.filter((category) => expanded.has(category));
+}
+
 function inferPayloadCategories(payload: any): ExportCategory[] {
   const categories: ExportCategory[] = [];
 
@@ -294,14 +373,17 @@ function inferPayloadCategories(payload: any): ExportCategory[] {
   if (Array.isArray(payload?.sessionActions)) {
     categories.push('session-actions');
   }
-  if (payload?.window !== undefined || payload?.sessionZoomLevels !== undefined || payload?.fullscreen !== undefined || Array.isArray(payload?.sessionGroups)) {
-    categories.push('ui-layout');
-  }
-  if (payload?.autoSaveSettings !== undefined || payload?.defaultLaunchMode !== undefined || payload?.userAgent !== undefined || payload?.titleBarButtons !== undefined) {
+  if (payload?.window !== undefined || payload?.autoSaveSettings !== undefined || payload?.autoDeleteAllCachesOnStartup !== undefined || payload?.titleBarButtons !== undefined || payload?.fullscreen !== undefined) {
     categories.push('general-settings');
   }
-  if (Array.isArray(payload?.questLogTemplates)) {
-    categories.push('quest-log');
+  if (Array.isArray(payload?.sessions) || Array.isArray(payload?.sessionGroups)) {
+    categories.push('sessions');
+  }
+  if (Array.isArray(payload?.layouts) || Array.isArray(payload?.defaultLayouts)) {
+    categories.push('layouts');
+  }
+  if (payload?.defaultLaunchMode !== undefined || payload?.userAgent !== undefined || payload?.chromium !== undefined) {
+    categories.push('launch-settings');
   }
 
   return categories;
@@ -313,11 +395,25 @@ function getPayloadCategories(payload: ConfigImportPayload): ExportCategory[] {
   }
 
   const explicitCategories = normalizeCategories(payload.categories);
-  return explicitCategories.length > 0 ? explicitCategories : inferPayloadCategories(payload);
+  return explicitCategories.length > 0 ? expandLegacyCategories(explicitCategories) : inferPayloadCategories(payload);
 }
 
 function cloneData<T>(value: T): T {
   return value === undefined ? value : JSON.parse(JSON.stringify(value));
+}
+
+function getKeybindSignature(keybind: any): string {
+  const key = String(keybind?.key ?? '').trim().toLowerCase();
+  const event = String(keybind?.event ?? '').trim().toLowerCase();
+  return key && event ? `${key}::${event}` : '';
+}
+
+function getKeybindKey(keybind: any): string {
+  return String(keybind?.key ?? '').trim().toLowerCase();
+}
+
+function isUniqueGlobalKeybindEvent(event: string): boolean {
+  return event === 'ui.toggle_quest_log' || Boolean((allowedEventKeybinds as Record<string, any>)[event]?.unique);
 }
 
 function normalizeSessionGroups(groups: unknown, knownSessionIds: Set<string>): any[] {
@@ -325,7 +421,8 @@ function normalizeSessionGroups(groups: unknown, knownSessionIds: Set<string>): 
     return [];
   }
 
-  return groups.flatMap((group: any) => {
+  let hasUngroupedMarker = false;
+  return groups.flatMap<any>((group: any) => {
     if (!group || typeof group !== 'object') {
       return [];
     }
@@ -333,6 +430,14 @@ function normalizeSessionGroups(groups: unknown, knownSessionIds: Set<string>): 
     const id = typeof group.id === 'string' && group.id.trim() !== '' ? group.id.trim() : null;
     if (!id) {
       return [];
+    }
+
+    if (id === 'ungrouped' || group.type === 'ungrouped') {
+      if (hasUngroupedMarker) {
+        return [];
+      }
+      hasUngroupedMarker = true;
+      return [{id: 'ungrouped'}];
     }
 
     const label = typeof group.label === 'string' && group.label.trim() !== '' ? group.label.trim() : 'New Group';
@@ -350,16 +455,7 @@ const defaultNeuzosConfig: any = {
   autoDeleteAllCachesOnStartup: false,
   defaultLaunchMode: "normal",
   chromium: {
-    commandLineSwitches: [
-      "force_high_performance_gpu",
-      //"disable-frame-rate-limit",
-      "enable-accelerated-2d-canvas",
-      "enable-gpu-rasterization",
-      "enable-oop-rasterization",
-      "ignore-gpu-blocklist",
-      "max-active-webgl-contexts=16",
-      "enable-gpu-memory-buffer-compositor-resources",
-    ]
+    commandLineSwitches: []
   },
   sessions: [],
   layouts: [],
@@ -368,8 +464,12 @@ const defaultNeuzosConfig: any = {
   activeKeyBindProfileId: null,
   keyBinds: [
     {
-      "key": "CommandOrControl+Tab",
+      "key": "commandorcontrol+Tab",
       "event": "layout_swap",
+    },
+    {
+      "key": "commandorcontrol+Delete",
+      "event": "close_focus_session"
     },
     {
       "key": "F11",
@@ -379,12 +479,15 @@ const defaultNeuzosConfig: any = {
   syncReceiverSessionId: null,
   sessionActions: [],
   sessionGroups: [],
-  sessionZoomLevels: {},
   pendingPartitionDeletes: [],
   titleBarButtons: {
-    darkModeToggle: true,
+    darkModeToggle: false,
     fullscreenToggle: true,
     keybindToggle: true,
+  },
+  fullscreen: {
+    hideTitleBarInMainWindow: true,
+    hideTitleBarInSessionLayouts: true,
   },
 };
 
@@ -462,7 +565,189 @@ function saveConfig(conf: any): void {
   console.log("Saving config...");
   const configPath = path.join(configDirectoryPath, "/config.json");
   console.log("Saving config to:", configPath);
-  fs.writeFileSync(configPath, JSON.stringify(conf, null, 2));
+  fs.writeFileSync(configPath, JSON.stringify(cleanConfigForSave(conf), null, 2));
+}
+
+function cleanConfigForSave(conf: any): any {
+  const cleaned = JSON.parse(JSON.stringify(conf));
+
+  if (cleaned.changed !== undefined) {
+    delete cleaned.changed;
+  }
+
+  if (cleaned.window?.sidebarSide !== undefined) {
+    delete cleaned.window.sidebarSide;
+  }
+
+  if (cleaned.window?.viewers !== undefined) {
+    delete cleaned.window.viewers;
+  }
+
+  if (cleaned.sessionZoomLevels !== undefined) {
+    delete cleaned.sessionZoomLevels;
+  }
+
+  if (cleaned.window && Object.keys(cleaned.window).length === 0) {
+    delete cleaned.window;
+  }
+
+  if (cleaned.autoSaveSettings === false) {
+    delete cleaned.autoSaveSettings;
+  }
+
+  if (cleaned.autoDeleteAllCachesOnStartup === false) {
+    delete cleaned.autoDeleteAllCachesOnStartup;
+  }
+
+  if (cleaned.defaultLaunchMode === 'normal') {
+    delete cleaned.defaultLaunchMode;
+  }
+
+  if (cleaned.chromium?.commandLineSwitches !== undefined && Array.isArray(cleaned.chromium.commandLineSwitches) && cleaned.chromium.commandLineSwitches.length === 0) {
+    delete cleaned.chromium.commandLineSwitches;
+  }
+
+  if (cleaned.chromium && Object.keys(cleaned.chromium).length === 0) {
+    delete cleaned.chromium;
+  }
+
+  if (cleaned.syncReceiverSessionId === null) {
+    delete cleaned.syncReceiverSessionId;
+  }
+
+  if (Array.isArray(cleaned.pendingPartitionDeletes) && cleaned.pendingPartitionDeletes.length === 0) {
+    delete cleaned.pendingPartitionDeletes;
+  }
+
+  if (Array.isArray(cleaned.sessionGroups)) {
+    cleaned.sessionGroups = cleaned.sessionGroups.map((group: any) => {
+      if (group?.id === 'ungrouped' || group?.type === 'ungrouped') {
+        return {id: 'ungrouped'};
+      }
+      return group;
+    });
+  }
+
+  if (Array.isArray(cleaned.sessions)) {
+    cleaned.sessions = cleaned.sessions.map((sessionConfig: any) => {
+      const cleanedSession = {...sessionConfig};
+      if (cleanedSession.floatable === false) {
+        delete cleanedSession.floatable;
+      }
+      if (cleanedSession.autoDeleteCache === false) {
+        delete cleanedSession.autoDeleteCache;
+      }
+      if (typeof cleanedSession.zoom !== 'number' || !Number.isFinite(cleanedSession.zoom) || cleanedSession.zoom === 1.0) {
+        delete cleanedSession.zoom;
+      }
+      if (cleanedSession.muted !== true) {
+        delete cleanedSession.muted;
+      }
+      return cleanedSession;
+    });
+  }
+
+  if (Array.isArray(cleaned.layouts)) {
+    cleaned.layouts = cleaned.layouts.map((layout: any) => {
+      const cleanedLayout = {...layout};
+      if (cleanedLayout.mutedSessionIds !== undefined) {
+        delete cleanedLayout.mutedSessionIds;
+      }
+      return cleanedLayout;
+    });
+  }
+
+  return orderConfigForSave(cleaned);
+}
+
+function orderConfigForSave(config: any): any {
+  const ordered: any = {};
+  const keyOrder = [
+    'syncReceiverSessionId',
+    'activeKeyBindProfileId',
+    'autoSaveSettings',
+    'autoDeleteAllCachesOnStartup',
+    'window',
+    'titleBarButtons',
+    'fullscreen',
+    'sessions',
+    'sessionGroups',
+    'defaultLayouts',
+    'layouts',
+    'keyBindProfiles',
+    'keyBinds',
+    'sessionActions',
+    'defaultLaunchMode',
+    'userAgent',
+    'chromium',
+  ];
+
+  for (const key of keyOrder) {
+    if (config[key] !== undefined) {
+      ordered[key] = config[key];
+    }
+  }
+
+  for (const key of Object.keys(config)) {
+    if (!(key in ordered)) {
+      ordered[key] = config[key];
+    }
+  }
+
+  return ordered;
+}
+
+function cleanConfigExportPayload(payload: ConfigExportPayloadV2): ConfigExportPayloadV2 {
+  const cleaned = JSON.parse(JSON.stringify(payload));
+
+  if (cleaned.changed !== undefined) {
+    delete cleaned.changed;
+  }
+
+  if (cleaned.window?.sidebarSide !== undefined) {
+    delete cleaned.window.sidebarSide;
+  }
+
+  if (cleaned.window?.viewers !== undefined) {
+    delete cleaned.window.viewers;
+  }
+
+  if (cleaned.sessionZoomLevels !== undefined) {
+    delete cleaned.sessionZoomLevels;
+  }
+
+  if (cleaned.window && Object.keys(cleaned.window).length === 0) {
+    delete cleaned.window;
+  }
+
+  if (cleaned.chromium?.commandLineSwitches !== undefined && Array.isArray(cleaned.chromium.commandLineSwitches) && cleaned.chromium.commandLineSwitches.length === 0) {
+    delete cleaned.chromium.commandLineSwitches;
+  }
+
+  if (cleaned.chromium && Object.keys(cleaned.chromium).length === 0) {
+    delete cleaned.chromium;
+  }
+
+  if (Array.isArray(cleaned.sessionGroups)) {
+    cleaned.sessionGroups = cleaned.sessionGroups.map((group: any) => {
+      if (group?.id === 'ungrouped' || group?.type === 'ungrouped') {
+        return {id: 'ungrouped'};
+      }
+      return group;
+    });
+  }
+
+  if (Array.isArray(cleaned.layouts)) {
+    cleaned.layouts = cleaned.layouts.map((layout: any) => {
+      const cleanedLayout = {...layout};
+      if (cleanedLayout.mutedSessionIds !== undefined) {
+        delete cleanedLayout.mutedSessionIds;
+      }
+      return cleanedLayout;
+    });
+  }
+
+  return cleaned;
 }
 
 function loadConfig(reload: boolean = false): Promise<any> {
@@ -491,8 +776,13 @@ function loadConfig(reload: boolean = false): Promise<any> {
           // Deep merge for window config to ensure all window types (main, settings, session) exist
           const loadedWindow = neuzosConfig.window;
           neuzosConfig = {...defaultNeuzosConfig, ...neuzosConfig};
+          if (neuzosConfig.changed !== undefined) {
+            delete neuzosConfig.changed;
+          }
           neuzosConfig.sessionGroups = neuzosConfig.sessionGroups ?? [];
-          neuzosConfig.sessionZoomLevels = neuzosConfig.sessionZoomLevels ?? {};
+          if (neuzosConfig.sessionZoomLevels !== undefined) {
+            delete neuzosConfig.sessionZoomLevels;
+          }
           neuzosConfig.pendingPartitionDeletes = Array.isArray(neuzosConfig.pendingPartitionDeletes)
             ? [...new Set(neuzosConfig.pendingPartitionDeletes.filter((sessionId: any) => typeof sessionId === 'string'))]
             : [];
@@ -505,20 +795,9 @@ function loadConfig(reload: boolean = false): Promise<any> {
               main: {...(defaultNeuzosConfig.window?.main || {}), ...(loadedWindow.main || {})},
               settings: {...(defaultNeuzosConfig.window?.settings || {}), ...(loadedWindow.settings || {})},
               session: {...(defaultNeuzosConfig.window?.session || {}), ...(loadedWindow.session || {})},
-              viewers: {
-                ...(defaultNeuzosConfig.window?.viewers || {}),
-                ...(loadedWindow.viewers || {}),
-                navi_guide: {
-                  ...defaultViewerWindowConfig,
-                  ...(loadedWindow.viewers?.navi_guide || {}),
-                },
-                flyffipedia: {
-                  ...defaultViewerWindowConfig,
-                  ...(loadedWindow.viewers?.flyffipedia || {}),
-                },
-              },
-              sidebarSide: loadedWindow.sidebarSide || defaultSidebarSide,
+              launcher: {...(defaultNeuzosConfig.window?.launcher || {}), ...(loadedWindow.launcher || {})},
             };
+            delete neuzosConfig.window.viewers;
           }
 
           pruneSessionReferences(neuzosConfig);
@@ -564,39 +843,90 @@ async function cleanupQueuedSessionPartitions(config: any): Promise<void> {
   saveConfig(config);
 }
 
-function createDefaultViewerWindowConfigs(): Record<ViewerWindowType, ViewerWindowConfig> {
+function sanitizeViewerWindowConfig(value: any, fallback: ViewerWindowConfig = defaultViewerWindowConfig): ViewerWindowConfig {
   return {
-    navi_guide: {...defaultViewerWindowConfig},
-    flyffipedia: {...defaultViewerWindowConfig},
+    x: typeof value?.x === 'number' ? value.x : fallback.x,
+    y: typeof value?.y === 'number' ? value.y : fallback.y,
+    width: typeof value?.width === 'number' && value.width > 0 ? value.width : fallback.width,
+    height: typeof value?.height === 'number' && value.height > 0 ? value.height : fallback.height,
+    alwaysOnTop: typeof value?.alwaysOnTop === 'boolean' ? value.alwaysOnTop : fallback.alwaysOnTop,
   };
 }
 
-function ensureViewerWindowState(): Record<ViewerWindowType, ViewerWindowConfig> {
-  if (!neuzosConfig.window) {
-    neuzosConfig.window = {};
+function setViewerWindowConfigCache(type: ViewerWindowType, value: Partial<ViewerWindowConfig> | undefined): ViewerWindowConfig {
+  const fallback = getDefaultViewerWindowConfig(type);
+  viewerWindowConfigCache[type] = sanitizeViewerWindowConfig({
+    ...fallback,
+    ...viewerWindowConfigCache[type],
+    ...(value || {}),
+  }, fallback);
+  return viewerWindowConfigCache[type];
+}
+
+function parseViewerWindowConfig(value: string | null | undefined): Partial<ViewerWindowConfig> | null {
+  if (!value) {
+    return null;
   }
 
-  if (!neuzosConfig.window.viewers) {
-    neuzosConfig.window.viewers = createDefaultViewerWindowConfigs();
-  }
+  try {
+    const parsed = JSON.parse(value);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return null;
+    }
 
-  for (const type of viewerWindowTypes) {
-    neuzosConfig.window.viewers[type] = {
-      ...defaultViewerWindowConfig,
-      ...(neuzosConfig.window.viewers[type] || {}),
-    };
+    return parsed;
+  } catch {
+    return null;
   }
-
-  if (!neuzosConfig.window.sidebarSide) {
-    neuzosConfig.window.sidebarSide = defaultSidebarSide;
-  }
-
-  return neuzosConfig.window.viewers;
 }
 
 function getViewerWindowConfig(type: ViewerWindowType): ViewerWindowConfig {
-  const viewers = ensureViewerWindowState();
-  return viewers[type] ?? {...defaultViewerWindowConfig};
+  return viewerWindowConfigCache[type] ?? getDefaultViewerWindowConfig(type);
+}
+
+function getLocalStorageWindow(): BrowserWindow | null {
+  const candidates = [mainWindow, settingsWindow, ...viewerWindows.values()];
+  return candidates.find((win) => win && !win.isDestroyed() && !win.webContents.isDestroyed()) ?? null;
+}
+
+function escapeJavaScriptString(value: string): string {
+  return JSON.stringify(value);
+}
+
+function syncViewerWindowConfigToLocalStorage(type: ViewerWindowType): void {
+  const win = getLocalStorageWindow();
+  if (!win) {
+    return;
+  }
+
+  const key = viewerLocalStorageKeys[type];
+  const value = JSON.stringify(getViewerWindowConfig(type));
+  void win.webContents.executeJavaScript(
+    `window.localStorage.setItem(${escapeJavaScriptString(key)}, ${escapeJavaScriptString(value)})`,
+    true,
+  ).catch((error: any) => {
+    console.warn('Failed to sync viewer window config to Local Storage:', error);
+  });
+}
+
+
+async function readViewerWindowConfigFromLocalStorage(type: ViewerWindowType): Promise<Partial<ViewerWindowConfig> | null> {
+  const win = getLocalStorageWindow();
+  if (!win) {
+    return null;
+  }
+
+  try {
+    const key = viewerLocalStorageKeys[type];
+    const value = await win.webContents.executeJavaScript(
+      `window.localStorage.getItem(${escapeJavaScriptString(key)})`,
+      true,
+    );
+    return parseViewerWindowConfig(typeof value === 'string' ? value : null);
+  } catch (error) {
+    console.warn('Failed to read viewer window config from Local Storage:', error);
+    return null;
+  }
 }
 
 function getViewerWindowTypeFromWindow(win: BrowserWindow | null): ViewerWindowType | null {
@@ -651,17 +981,14 @@ function getSanitizedViewerBounds(type: ViewerWindowType): Partial<ViewerWindowB
 
 function persistViewerWindowBounds(type: ViewerWindowType, win: BrowserWindow): void {
   const bounds = win.getBounds();
-  const viewers = ensureViewerWindowState();
-  viewers[type] = {
-    ...defaultViewerWindowConfig,
-    ...viewers[type],
+  setViewerWindowConfigCache(type, {
     x: bounds.x,
     y: bounds.y,
     width: bounds.width,
     height: bounds.height,
     alwaysOnTop: win.isAlwaysOnTop(),
-  };
-  saveConfig(neuzosConfig);
+  });
+  syncViewerWindowConfigToLocalStorage(type);
 }
 
 function scheduleViewerWindowBoundsSave(type: ViewerWindowType, win: BrowserWindow): void {
@@ -680,17 +1007,21 @@ function scheduleViewerWindowBoundsSave(type: ViewerWindowType, win: BrowserWind
   viewerBoundsSaveTimers.set(type, timer);
 }
 
-function createViewerWindow(type: ViewerWindowType): BrowserWindow | null {
+async function createViewerWindow(type: ViewerWindowType): Promise<BrowserWindow | null> {
   const existingWindow = viewerWindows.get(type);
   if (existingWindow && !existingWindow.isDestroyed()) {
     existingWindow.focus();
     return existingWindow;
   }
 
+  const storedConfig = await readViewerWindowConfigFromLocalStorage(type);
+  setViewerWindowConfigCache(type, storedConfig ?? getDefaultViewerWindowConfig(type));
+
   const viewerConfig = getViewerWindowConfig(type);
   const viewerBounds = getSanitizedViewerBounds(type);
 
   const window = new BrowserWindow({
+    title: getViewerWindowTitle(type),
     width: viewerConfig.width,
     height: viewerConfig.height,
     show: false,
@@ -763,9 +1094,12 @@ function createViewerWindow(type: ViewerWindowType): BrowserWindow | null {
 }
 
 
-function createSettingsWindow(): void {
+function createSettingsWindow(initialTab?: string): void {
   if (settingsWindow && !settingsWindow.isDestroyed()) {
     settingsWindow.focus();
+    if (initialTab) {
+      settingsWindow.webContents.send("settings_window.set_tab", initialTab);
+    }
     return;
   }
 
@@ -781,7 +1115,7 @@ function createSettingsWindow(): void {
       contextIsolation: true,
       preload: path.join(__dirname, "../preload/index.js"),
       sandbox: false,
-      zoomFactor: neuzosConfig.window.settings.zoom ?? 1.0,
+      zoomFactor: 1.0,
     }
   });
 
@@ -795,7 +1129,9 @@ function createSettingsWindow(): void {
 
   settingsWindow.on("ready-to-show", () => {
     settingsWindow?.show();
-    settingsWindow?.webContents.setZoomFactor(neuzosConfig.window.settings.zoom);
+    if (initialTab) {
+      settingsWindow?.webContents.send("settings_window.set_tab", initialTab);
+    }
 
     // Maximize if configured - must happen after show() with slight delay
     if (neuzosConfig.window.settings.maximized) {
@@ -803,7 +1139,10 @@ function createSettingsWindow(): void {
         settingsWindow?.maximize();
       });
     }
+    notifyRuntimeWindowBoundsChanged();
   });
+
+  settingsWindow.on("resize", notifyRuntimeWindowBoundsChanged);
 
   settingsWindow.on("closed", () => {
     settingsWindow = null;
@@ -822,61 +1161,147 @@ function createSettingsWindow(): void {
   }
 }
 
-function createSessionLauncherWindow(): void {
-  if (sessionWindow && !sessionWindow.isDestroyed()) {
-    sessionWindow.focus();
+function getRuntimeWindowBounds(win: BrowserWindow | null): RuntimeWindowBounds | null {
+  if (!win || win.isDestroyed()) {
+    return null;
+  }
+
+  const bounds = win.getBounds();
+  return {
+    x: Math.round(bounds.x),
+    y: Math.round(bounds.y),
+    width: Math.round(bounds.width),
+    height: Math.round(bounds.height),
+  };
+}
+
+function getRuntimeWindowBoundsSnapshot(): Record<ConfigurableWindowType, RuntimeWindowBounds | null> {
+  const activeSessionWindow = sessionWindow && !sessionWindow.isDestroyed()
+    ? sessionWindow
+    : [...sessionWindows.values()].find((win) => !win.isDestroyed()) ?? null;
+
+  return {
+    main: getRuntimeWindowBounds(mainWindow),
+    settings: getRuntimeWindowBounds(settingsWindow),
+    session: getRuntimeWindowBounds(activeSessionWindow),
+    launcher: getRuntimeWindowBounds(sessionLauncherWindow),
+  };
+}
+
+function notifyRuntimeWindowBoundsChanged(): void {
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    settingsWindow.webContents.send('window.runtime_bounds_changed', getRuntimeWindowBoundsSnapshot());
+  }
+}
+
+type UiZoomTarget = 'main' | 'settings' | 'session';
+
+function sendUiZoom(target: UiZoomTarget, zoom: number): void {
+  const sendToWindow = (window: BrowserWindow | null): void => {
+    if (window && !window.isDestroyed()) {
+      window.webContents.send('event.ui_zoom_changed', zoom);
+    }
+  };
+
+  if (target === 'main') {
+    sendToWindow(mainWindow);
+    sendToWindow(sessionLauncherWindow);
     return;
   }
 
+  if (target === 'settings') {
+    sendToWindow(settingsWindow);
+    return;
+  }
+
+  for (const window of sessionWindows.values()) {
+    sendToWindow(window);
+  }
+}
+
+function notifyUiZoomChanged(): void {
+  sendUiZoom('main', neuzosConfig.window.main.zoom);
+  sendUiZoom('settings', neuzosConfig.window.settings.zoom);
+  sendUiZoom('session', neuzosConfig.window.session.zoom);
+}
+
+function createSessionLauncherWindow(): void {
+  if (sessionLauncherWindow && !sessionLauncherWindow.isDestroyed()) {
+    sessionLauncherWindow.focus();
+    return;
+  }
+
+  const launcherConfig = neuzosConfig.window.launcher;
+  const hasConfiguredPosition = typeof launcherConfig.x === 'number' && Number.isFinite(launcherConfig.x) &&
+    typeof launcherConfig.y === 'number' && Number.isFinite(launcherConfig.y);
+  const configuredBounds = hasConfiguredPosition
+    ? {
+      x: launcherConfig.x as number,
+      y: launcherConfig.y as number,
+      width: launcherConfig.width,
+      height: launcherConfig.height,
+    }
+    : null;
+  const launcherPosition = configuredBounds && isViewerWindowBoundsVisible(configuredBounds)
+    ? {x: configuredBounds.x, y: configuredBounds.y}
+    : {};
+
   // Small window for session launcher
-  sessionWindow = new BrowserWindow({
-    width: 600,
-    height: 400,
+  sessionLauncherWindow = new BrowserWindow({
+    width: launcherConfig.width,
+    height: launcherConfig.height,
+    minWidth: 600,
+    minHeight: 400,
     show: false,
     frame: false,
     autoHideMenuBar: true,
-    resizable: false,
+    resizable: true,
+    ...launcherPosition,
     ...(process.platform === "linux" ? {icon} : {}),
     webPreferences: {
       contextIsolation: true,
       preload: path.join(__dirname, "../preload/index.js"),
       sandbox: false,
-      zoomFactor: neuzosConfig.window.main.zoom ?? 1.0,
+      zoomFactor: 1.0,
     }
   });
 
   // Single-click exit for session launcher
-  sessionWindow.on("close", () => {
+  sessionLauncherWindow.on("close", () => {
     globalShortcut.unregisterAll();
   });
+
+  sessionLauncherWindow.on("resize", notifyRuntimeWindowBoundsChanged);
+  sessionLauncherWindow.on("move", notifyRuntimeWindowBoundsChanged);
 
   // Fix for MacOS Command Shortcuts
   if (process.platform !== "darwin") {
     Menu.setApplicationMenu(null);
   } else {
     Menu.setApplicationMenu(Menu.buildFromTemplate([{role: "appMenu"}, {role: "editMenu"}]));
-    sessionWindow.setMenuBarVisibility(false);
+    sessionLauncherWindow.setMenuBarVisibility(false);
   }
 
-  sessionWindow.on("ready-to-show", () => {
-    sessionWindow?.show();
-    sessionWindow?.webContents.setZoomFactor(neuzosConfig.window.main.zoom)
+  sessionLauncherWindow.on("ready-to-show", () => {
+    sessionLauncherWindow?.show();
+    notifyRuntimeWindowBoundsChanged();
   });
 
-  sessionWindow.on("closed", () => {
-    sessionWindow = null;
+  sessionLauncherWindow.on("closed", () => {
+    sessionLauncherWindow = null;
+    notifyRuntimeWindowBoundsChanged();
   });
 
-  sessionWindow.webContents.setWindowOpenHandler((details) => {
+  sessionLauncherWindow.webContents.setWindowOpenHandler((details) => {
     openExternalSafe(details.url);
     return {action: "deny"};
   });
 
   // Load the session launcher HTML
   if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
-    sessionWindow.webContents.loadURL(process.env["ELECTRON_RENDERER_URL"] + "/session_launcher.html");
+    sessionLauncherWindow.webContents.loadURL(process.env["ELECTRON_RENDERER_URL"] + "/session_launcher.html");
   } else {
-    sessionWindow.webContents.loadFile(path.join(__dirname, "../renderer/session_launcher.html"));
+    sessionLauncherWindow.webContents.loadFile(path.join(__dirname, "../renderer/session_launcher.html"));
   }
 }
 
@@ -903,8 +1328,10 @@ function createSessionWindow(mode: LaunchMode, sessionId: string): void {
     return;
   }
 
-  if (sessionWindow && !sessionWindow.isDestroyed()) {
-    sessionWindow.focus();
+  const existingSessionWindow = sessionWindows.get(sessionId);
+  if (existingSessionWindow && !existingSessionWindow.isDestroyed()) {
+    sessionWindow = existingSessionWindow;
+    existingSessionWindow.focus();
     return;
   }
 
@@ -912,7 +1339,7 @@ function createSessionWindow(mode: LaunchMode, sessionId: string): void {
   const startFullscreen = mode === 'focus_fullscreen';
 
   // Create the session window
-  sessionWindow = new BrowserWindow({
+  const window = new BrowserWindow({
     width: neuzosConfig.window.session.width,
     height: neuzosConfig.window.session.height,
     show: false,
@@ -926,14 +1353,17 @@ function createSessionWindow(mode: LaunchMode, sessionId: string): void {
       sandbox: false,
       webviewTag: true,
       partition: `persist:${sessionId}`,
-      zoomFactor: neuzosConfig.window.session.zoom ?? 1.0,
+      zoomFactor: 1.0,
     }
   });
+  sessionWindow = window;
+  sessionWindows.set(sessionId, window);
 
   // Exit behavior similar to main window
-  sessionWindow.on("close", (event) => {
+  window.on("close", (event) => {
     // Always unregister shortcuts when session window is closing
     globalShortcut.unregisterAll();
+
     if (exitCount < 2) {
       event.preventDefault();
       console.log("Prevented manual close");
@@ -953,47 +1383,57 @@ function createSessionWindow(mode: LaunchMode, sessionId: string): void {
     Menu.setApplicationMenu(null);
   } else {
     Menu.setApplicationMenu(Menu.buildFromTemplate([{role: "appMenu"}, {role: "editMenu"}]));
-    sessionWindow.setMenuBarVisibility(false);
+    window.setMenuBarVisibility(false);
   }
 
-  sessionWindow.on("ready-to-show", () => {
-    sessionWindow?.show();
-    sessionWindow?.webContents.setZoomFactor(neuzosConfig.window.session.zoom);
+  window.on("ready-to-show", () => {
+    window.show();
+    notifyRuntimeWindowBoundsChanged();
 
     // Maximize if configured and not starting in fullscreen - must happen after show() with slight delay
     if (!startFullscreen && neuzosConfig.window.session.maximized) {
       setImmediate(() => {
-        sessionWindow?.maximize();
+        if (!window.isDestroyed()) {
+          window.maximize();
+        }
       });
     }
   });
 
-  sessionWindow.on("closed", () => {
+  window.on("resize", notifyRuntimeWindowBoundsChanged);
+
+  window.on("closed", () => {
     // Ensure shortcuts are unregistered when session window is destroyed
     globalShortcut.unregisterAll();
-    sessionWindow = null;
+    sessionWindows.delete(sessionId);
+    if (sessionWindow === window) {
+      sessionWindow = null;
+    }
+    notifyRuntimeWindowBoundsChanged();
   });
 
-  sessionWindow.on("focus", () => {
+  window.on("focus", () => {
+    sessionWindow = window;
+    notifyRuntimeWindowBoundsChanged();
     registerSessionKeybinds(mode);
   });
 
   // Track fullscreen state changes
-  sessionWindow.on("enter-full-screen", () => {
-    sessionWindow?.webContents.send("event.fullscreen_changed", true);
+  window.on("enter-full-screen", () => {
+    window.webContents.send("event.fullscreen_changed", true);
   });
 
-  sessionWindow.on("leave-full-screen", () => {
-    sessionWindow?.webContents.send("event.fullscreen_changed", false);
+  window.on("leave-full-screen", () => {
+    window.webContents.send("event.fullscreen_changed", false);
   });
 
-  sessionWindow.webContents.setWindowOpenHandler((details) => {
+  window.webContents.setWindowOpenHandler((details) => {
     openExternalSafe(details.url);
     return {action: "deny"};
   });
 
   // Store session data for IPC handlers
-  (sessionWindow as any).sessionData = {
+  (window as any).sessionData = {
     mode,
     sessionId,
     sessionConfig: sessionData
@@ -1001,9 +1441,9 @@ function createSessionWindow(mode: LaunchMode, sessionId: string): void {
 
   // Load the session HTML
   if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
-    sessionWindow.webContents.loadURL(process.env["ELECTRON_RENDERER_URL"] + "/session.html");
+    window.webContents.loadURL(process.env["ELECTRON_RENDERER_URL"] + "/session.html");
   } else {
-    sessionWindow.webContents.loadFile(path.join(__dirname, "../renderer/session.html"));
+    window.webContents.loadFile(path.join(__dirname, "../renderer/session.html"));
   }
 }
 
@@ -1026,12 +1466,13 @@ function createMainWindow(): void {
       preload: path.join(__dirname, "../preload/index.js"),
       sandbox: false,
       webviewTag: true,
-      zoomFactor: neuzosConfig.window.main.zoom ?? 1.0,
+      zoomFactor: 1.0,
     }
   });
 
-  mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
-    console.log(`[renderer:${level}] ${message} (${sourceId}:${line})`);
+  mainWindow.webContents.on('console-message', (event) => {
+    const messageEvent = event as any;
+    console.log(`[renderer:${messageEvent.level}] ${messageEvent.message} (${messageEvent.sourceId}:${messageEvent.lineNumber})`);
   });
 
   mainWindow.webContents.on('render-process-gone', (_event, details) => {
@@ -1068,7 +1509,7 @@ function createMainWindow(): void {
 
   mainWindow.on("ready-to-show", () => {
     mainWindow?.show();
-    mainWindow?.webContents.setZoomFactor(neuzosConfig.window.main.zoom);
+    notifyRuntimeWindowBoundsChanged();
 
     // Maximize if configured - must happen after show() with slight delay
     if (neuzosConfig.window.main.maximized) {
@@ -1078,10 +1519,13 @@ function createMainWindow(): void {
     }
   });
 
+  mainWindow.on("resize", notifyRuntimeWindowBoundsChanged);
+
   mainWindow.on("closed", () => {
     // Ensure shortcuts are unregistered when window is destroyed
     globalShortcut.unregisterAll();
     mainWindow = null;
+    notifyRuntimeWindowBoundsChanged();
 
     // Close all viewer windows so they don't orphan the process
     for (const [, win] of viewerWindows) {
@@ -1216,7 +1660,7 @@ function setMainWindowShortcutsEnabled(enabled: boolean) {
 
 function registerKeybindToggleShortcut() {
   const toggleBind = neuzosConfig?.keyBinds?.find((bind: any) => bind.event === "toggle_keybinds");
-  if (!toggleBind?.key) return;
+  if (!toggleBind?.key || !canRegisterGlobalShortcutKey(toggleBind.key)) return;
 
   try {
     globalShortcut.unregister(toggleBind.key);
@@ -1290,8 +1734,78 @@ function dispatchKeybindEvent(bind: any) {
   }
 }
 
+const inputFallbackKeybindKeys = new Set(["delete", "^", "<", ">", ".", "#", "plus", "`", "\u00b4", "\u00df", "\u00e4", "\u00f6", "\u00fc"]);
+
+function isInputFallbackKeybind(key: string): boolean {
+  const normalizedKey = key.toLowerCase();
+  const primaryKey = normalizedKey.split("+").at(-1) ?? normalizedKey;
+  return inputFallbackKeybindKeys.has(primaryKey);
+}
+
+function canRegisterGlobalShortcutKey(key: string): boolean {
+  const normalizedKey = String(key).toLowerCase();
+  return (
+    normalizedKey !== "middle" &&
+    !normalizedKey.startsWith("mouse") &&
+    !normalizedKey.startsWith("gamepad") &&
+    !isInputFallbackKeybind(normalizedKey)
+  );
+}
+
+function normalizeWebviewInputKey(input: any): string | null {
+  let key = "";
+
+  if (input.code === "Backquote") {
+    key = input.shift ? "`" : "^";
+  } else if (input.code === "Equal") {
+    key = input.shift ? "`" : "\u00b4";
+  } else if (input.code === "IntlBackslash") {
+    key = input.shift ? ">" : "<";
+  } else if (input.code === "Minus") {
+    key = "\u00df";
+  } else if (input.code === "Period") {
+    key = ".";
+  } else if (input.code === "Delete") {
+    key = "delete";
+  } else if (input.key === "+") {
+    key = "plus";
+  } else if (input.key === "Dead") {
+    if (input.code === "Backquote") key = "^";
+    if (input.code === "Equal") key = "\u00b4";
+  } else if (input.key === "Delete") {
+    key = "delete";
+  } else if (typeof input.key === "string" && input.key.length === 1) {
+    key = input.key.toLowerCase();
+  }
+
+  if (!key || !inputFallbackKeybindKeys.has(key)) {
+    return null;
+  }
+
+  const modifiers: string[] = [];
+  if (input.control || input.meta) modifiers.push("commandorcontrol");
+  if (input.alt) modifiers.push("alt");
+  if (input.shift) modifiers.push("shift");
+
+  return modifiers.length > 0 ? `${modifiers.join("+")}+${key}` : key;
+}
+
+function isSettingsWindowInputWebContents(wc: Electron.WebContents): boolean {
+  return settingsWindow?.webContents.id === wc.id;
+}
+
+function isSettingsWindowFocused(): boolean {
+  return Boolean(settingsWindow && !settingsWindow.isDestroyed() && settingsWindow.isFocused());
+}
+
 function registerKeybinds() {
   globalShortcut.unregisterAll()
+
+  // Config changes can request a re-registration while the separate settings
+  // window has focus. Keep every key available for typing/searching there.
+  if (isSettingsWindowFocused()) {
+    return;
+  }
 
   // Only register shortcuts if they are enabled for main window
   if (!mainWindowShortcutsEnabled) {
@@ -1308,8 +1822,7 @@ function registerKeybinds() {
 
   allBinds.forEach((bind) => {
     if (!bind.key) return;
-    const normalizedKey = String(bind.key).toLowerCase();
-    if (normalizedKey.startsWith('mouse') || normalizedKey.startsWith('gamepad')) {
+    if (!canRegisterGlobalShortcutKey(bind.key)) {
       return;
     }
     try {
@@ -1332,7 +1845,7 @@ function registerSessionKeybinds(mode: LaunchMode) {
   const fullscreenBind = neuzosConfig.keyBinds.find((bind: any) => bind.event === "fullscreen_toggle");
   const closeFocusSessionBind = neuzosConfig.keyBinds.find((bind: any) => bind.event === "close_focus_session");
 
-  if (!fullscreenBind && !closeFocusSessionBind) {
+  if (!fullscreenBind && !closeFocusSessionBind && mode !== 'focus' && mode !== 'focus_fullscreen') {
     return;
   }
 
@@ -1406,24 +1919,15 @@ function registerSessionKeybinds(mode: LaunchMode) {
     // handles on the target folders, and no session startup can recreate them mid-delete.
     await cleanupQueuedSessionPartitions(neuzosConfig);
 
-    // ── Mouse-button keybind interception for session webviews ──────────────
-    // Keyboard binds use globalShortcut (OS-level, works while webview has focus).
-    // Mouse extra buttons (Middle, Mouse4, Mouse5) cannot use globalShortcut, so
-    // we intercept them via before-input-event on each registered webview webContents.
+    // Some keyboard keys cannot be handled reliably via globalShortcut.
+    // Intercept them through before-input-event.
     app.on("web-contents-created", (_e, wc) => {
-      wc.on("before-input-event", (_event, input) => {
-        if (input.type !== "mouseDown") return;
-        // Only handle extra mouse buttons (1=middle, 3=Mouse4, 4=Mouse5)
-        const buttonMap: Record<number, string> = { 1: "middle", 3: "mouse4", 4: "mouse5" };
-        const key = buttonMap[(input as any).button as number];
+      wc.on("before-input-event", (event, input) => {
+        if (input.type !== "keyDown" || (input as any).isAutoRepeat) return;
+        const key = normalizeWebviewInputKey(input);
         if (!key) return;
-        // Check if this webContents belongs to a registered session webview
-        const wcId = wc.id;
-        let matched = false;
-        for (const registeredId of mouseBindWebContents.values()) {
-          if (registeredId === wcId) { matched = true; break; }
-        }
-        if (!matched) return;
+        if (isSettingsWindowInputWebContents(wc)) return;
+
         // Find matching bind and dispatch
         const activeProfile = neuzosConfig?.keyBindProfiles?.find(
           (p: any) => p.id === neuzosConfig.activeKeyBindProfileId
@@ -1431,6 +1935,10 @@ function registerSessionKeybinds(mode: LaunchMode) {
         const allBinds: any[] = [...(neuzosConfig?.keyBinds ?? []), ...(activeProfile?.keybinds ?? [])];
         const bind = allBinds.find((b: any) => b.key && b.key.toLowerCase() === key);
         if (bind) {
+          if (!mainWindowShortcutsEnabled && bind.event !== "toggle_keybinds") {
+            return;
+          }
+          event.preventDefault();
           dispatchKeybindEvent(bind);
         }
       });
@@ -1527,63 +2035,57 @@ function registerSessionKeybinds(mode: LaunchMode) {
         console.warn('[session_launcher.launch_session] Blocked invalid mode:', mode);
         return;
       }
-      const execPath = process.execPath;
-      const args = [`--mode=${mode}`, `--session_id=${sessionId}`];
-
-      // Spawn new process
-      const {spawn} = require('child_process');
-      spawn(execPath, args, {
-        detached: true,
-        stdio: 'ignore'
-      }).unref();
+      createSessionWindow(mode, sessionId);
     });
 
     ipcMain.on("session_launcher.close", () => {
       globalShortcut.unregisterAll();
-      sessionWindow?.destroy();
-      sessionWindow = null;
+      sessionLauncherWindow?.destroy();
+      sessionLauncherWindow = null;
     });
 
     ipcMain.on("session_launcher.minimize", () => {
-      sessionWindow?.minimize();
+      sessionLauncherWindow?.minimize();
     });
 
     // Setup IPC handlers for session window
-    ipcMain.handle("session_window.get_data", async () => {
-      return (sessionWindow as any)?.sessionData || null;
+    ipcMain.handle("session_window.get_data", async (event) => {
+      const win = BrowserWindow.fromWebContents(event.sender);
+      return (win as any)?.sessionData || null;
     });
 
-    ipcMain.on("session_window.fullscreen_toggle", () => {
-      const mode = (sessionWindow as any)?.sessionData?.mode;
+    ipcMain.on("session_window.fullscreen_toggle", (event) => {
+      const win = BrowserWindow.fromWebContents(event.sender);
+      const mode = (win as any)?.sessionData?.mode;
       if (mode === 'session') {
-        const newFullscreenState = !sessionWindow?.isFullScreen();
-        sessionWindow?.setFullScreen(newFullscreenState);
+        const newFullscreenState = !win?.isFullScreen();
+        win?.setFullScreen(newFullscreenState);
         // Event will be sent by enter-full-screen/leave-full-screen handlers
       } else if (mode === 'focus_fullscreen') {
         // Keep fullscreen
-        if (!sessionWindow?.isFullScreen()) {
-          sessionWindow?.setFullScreen(true);
+        if (!win?.isFullScreen()) {
+          win?.setFullScreen(true);
         }
       }
       // For 'focus' mode, do nothing (prevent fullscreen)
     });
 
-    ipcMain.on("session_window.minimize", () => {
-      sessionWindow?.minimize();
+    ipcMain.on("session_window.minimize", (event) => {
+      BrowserWindow.fromWebContents(event.sender)?.minimize();
     });
 
-    ipcMain.on("session_window.maximize", () => {
-      if (sessionWindow?.isMaximized()) {
-        sessionWindow?.unmaximize();
+    ipcMain.on("session_window.maximize", (event) => {
+      const win = BrowserWindow.fromWebContents(event.sender);
+      if (win?.isMaximized()) {
+        win.unmaximize();
       } else {
-        sessionWindow?.maximize();
+        win?.maximize();
       }
     });
 
-    ipcMain.on("session_window.close", () => {
+    ipcMain.on("session_window.close", (event) => {
       globalShortcut.unregisterAll();
-      sessionWindow?.destroy();
-      sessionWindow = null;
+      BrowserWindow.fromWebContents(event.sender)?.destroy();
     });
 
     ipcMain.on("main_window.fullscreen_toggle", () => {
@@ -1610,12 +2112,6 @@ function registerSessionKeybinds(mode: LaunchMode) {
       mainWindow = null;
     });
 
-    ipcMain.on("main_window.reload_config", (event) => {
-      const win = BrowserWindow.fromWebContents(event.sender);
-      win?.webContents.send("event.reload_config");
-      registerKeybinds()
-    });
-
     // IPC handlers for global shortcuts toggle
     ipcMain.on("main_window.toggle_shortcuts", (_event, enabled: boolean) => {
       setMainWindowShortcutsEnabled(enabled);
@@ -1632,7 +2128,7 @@ function registerSessionKeybinds(mode: LaunchMode) {
     ipcMain.on("session_window.toggle_shortcuts", (event, enabled: boolean) => {
       sessionWindowShortcutsEnabled = enabled;
       const win = BrowserWindow.fromWebContents(event.sender);
-      const mode = (sessionWindow as any)?.sessionData?.mode;
+      const mode = (win as any)?.sessionData?.mode;
       if (enabled && mode) {
         registerSessionKeybinds(mode);
       } else {
@@ -1641,10 +2137,10 @@ function registerSessionKeybinds(mode: LaunchMode) {
       win?.webContents.send("event.shortcuts_state_changed", enabled);
     });
 
-    ipcMain.on('viewer_window.open', (_event, type: ViewerWindowType) => {
+    ipcMain.on('viewer_window.open', async (_event, type: ViewerWindowType) => {
       try {
         if (!viewerWindowTypes.includes(type)) return;
-        createViewerWindow(type);
+        await createViewerWindow(type);
       } catch (error) {
         console.error('Failed to open viewer window:', error);
       }
@@ -1706,12 +2202,11 @@ function registerSessionKeybinds(mode: LaunchMode) {
         } else {
           win.setAlwaysOnTop(false);
         }
-        const viewers = ensureViewerWindowState();
-        viewers[type] = {
+        setViewerWindowConfigCache(type, {
           ...getViewerWindowConfig(type),
           alwaysOnTop,
-        };
-        saveConfig(neuzosConfig);
+        });
+        syncViewerWindowConfigToLocalStorage(type);
       } catch (error) {
         console.error('Failed to update always-on-top state:', error);
       }
@@ -1741,24 +2236,6 @@ function registerSessionKeybinds(mode: LaunchMode) {
       });
     });
 
-    ipcMain.handle('sidebar_panel.get_side', () => {
-      ensureViewerWindowState();
-      return neuzosConfig.window.sidebarSide || defaultSidebarSide;
-    });
-
-    ipcMain.on('sidebar_panel.set_side', (event, side: SidebarSide) => {
-      try {
-        if (side !== 'left' && side !== 'right') return;
-        ensureViewerWindowState();
-        neuzosConfig.window.sidebarSide = side;
-        saveConfig(neuzosConfig);
-        const win = BrowserWindow.fromWebContents(event.sender);
-        win?.webContents.send('event.sidebar_side_changed', side);
-      } catch (error) {
-        console.error('Failed to persist sidebar side:', error);
-      }
-    });
-
     ipcMain.handle("shortcuts.get_state", () => {
       return {
         mainWindow: mainWindowShortcutsEnabled,
@@ -1766,9 +2243,23 @@ function registerSessionKeybinds(mode: LaunchMode) {
       };
     });
 
+    ipcMain.handle("app.get_version", () => {
+      return app.getVersion();
+    });
 
-    ipcMain.on("settings_window.open", (_) => {
-      createSettingsWindow();
+    ipcMain.handle("window.get_runtime_bounds", () => {
+      return getRuntimeWindowBoundsSnapshot();
+    });
+
+    ipcMain.on('window.ui_zoom_preview', (_event, target: UiZoomTarget, zoom: number) => {
+      if (!['main', 'settings', 'session'].includes(target)) return;
+      if (!Number.isFinite(zoom) || zoom < 0.25 || zoom > 3) return;
+
+      sendUiZoom(target, zoom);
+    });
+
+    ipcMain.on("settings_window.open", (_, tab?: string) => {
+      createSettingsWindow(tab);
     });
 
     ipcMain.on("settings_window.close", () => {
@@ -1821,19 +2312,6 @@ function registerSessionKeybinds(mode: LaunchMode) {
       win?.webContents.send("event.start_session", sessionId, layoutId);
     });
 
-    ipcMain.on("webview.register_mouse", (_event, payload: { sessionId: string; webContentsId: number }) => {
-      const { sessionId, webContentsId } = payload ?? {};
-      if (typeof sessionId !== 'string' || typeof webContentsId !== 'number') return;
-      mouseBindWebContents.set(sessionId, webContentsId);
-    });
-
-    ipcMain.on("webview.unregister_mouse", (_event, payload: { sessionId: string }) => {
-      const { sessionId } = payload ?? {};
-      if (typeof sessionId === 'string') {
-        mouseBindWebContents.delete(sessionId);
-      }
-    });
-
     ipcMain.on("session.restart", (event, sessionId: string, layoutId: string) => {
       const win = BrowserWindow.fromWebContents(event.sender);
       win?.webContents.send("event.stop_session", sessionId);
@@ -1882,12 +2360,10 @@ function registerSessionKeybinds(mode: LaunchMode) {
         if (mainWindow && !mainWindow.isDestroyed()) {
           stopAckSenderIds.add(mainWindow.webContents.id);
         }
-        // Only expect an ACK from sessionWindow if it is actually showing THIS session.
-        // If sessionWindow shows a different session it will never ACK for this sessionId,
-        // causing a guaranteed 5-second timeout for every non-running session delete.
-        const sessionWindowSessionId = (sessionWindow as any)?.sessionData?.sessionId;
-        if (sessionWindow && !sessionWindow.isDestroyed() && sessionWindowSessionId === sessionId) {
-          stopAckSenderIds.add(sessionWindow.webContents.id);
+        // Only expect ACKs from standalone session windows actually showing THIS session.
+        const standaloneSessionWindow = sessionWindows.get(sessionId);
+        if (standaloneSessionWindow && !standaloneSessionWindow.isDestroyed()) {
+          stopAckSenderIds.add(standaloneSessionWindow.webContents.id);
         }
         const stopAckPromise = stopAckSenderIds.size === 0
           ? Promise.resolve(false)
@@ -1919,15 +2395,15 @@ function registerSessionKeybinds(mode: LaunchMode) {
             });
 
         mainWindow?.webContents.send("event.stop_session", sessionId);
-        sessionWindow?.webContents.send("event.stop_session", sessionId);
+        standaloneSessionWindow?.webContents.send("event.stop_session", sessionId);
         const stopAckReceived = await stopAckPromise;
         if (!stopAckReceived) {
           console.warn("Timed out waiting for stop_session_ack during delete for session", sessionId);
         }
 
-        if (sessionWindow && !sessionWindow.isDestroyed() && sessionWindowSessionId === sessionId) {
+        if (standaloneSessionWindow && !standaloneSessionWindow.isDestroyed()) {
           try {
-            sessionWindow.destroy();
+            standaloneSessionWindow.destroy();
           } catch (error) {
             console.warn("Failed to destroy session window during delete for session", sessionId, error);
           }
@@ -2072,6 +2548,16 @@ function registerSessionKeybinds(mode: LaunchMode) {
       await sess.clearCache();
     });
 
+    ipcMain.handle("browser.clear_cache", async function () {
+      await session.fromPartition("persist:browser").clearCache();
+      return true;
+    });
+
+    ipcMain.handle("viewer.clear_cache", async function () {
+      await session.fromPartition("persist:viewer").clearCache();
+      return true;
+    });
+
     ipcMain.on("preferences.set_theme_mode", async function (_, themeMode: string) {
       mainWindow?.webContents.send("event.theme_mode_changed", themeMode);
     });
@@ -2087,7 +2573,37 @@ function registerSessionKeybinds(mode: LaunchMode) {
       neuzosConfig = parsed;
       checkKeybinds();
       registerKeybinds();
+      notifyUiZoomChanged();
       mainWindow?.webContents?.send("event.config_changed", config);
+      sessionLauncherWindow?.webContents?.send("event.config_changed", config);
+    });
+
+    ipcMain.handle("config.save_silent", async (_, config: any) => {
+      const parsed = JSON.parse(config);
+      saveConfig(parsed);
+      neuzosConfig = parsed;
+    });
+
+    ipcMain.on("config.patch", (_event, patch: any) => {
+      const allowedPatch: any = {};
+
+      if (Array.isArray(patch?.sessions)) {
+        allowedPatch.sessions = patch.sessions;
+      }
+      if (Array.isArray(patch?.layouts)) {
+        allowedPatch.layouts = patch.layouts;
+      }
+      if (Array.isArray(patch?.defaultLayouts)) {
+        allowedPatch.defaultLayouts = patch.defaultLayouts;
+      }
+
+      if (Object.keys(allowedPatch).length === 0) {
+        return;
+      }
+
+      mainWindow?.webContents?.send("event.config_patch", allowedPatch);
+      settingsWindow?.webContents?.send("event.config_patch", allowedPatch);
+      sessionLauncherWindow?.webContents?.send("event.config_changed");
     });
 
     ipcMain.handle("config.export", async (event, payload: ConfigExportPayloadV2) => {
@@ -2106,10 +2622,10 @@ function registerSessionKeybinds(mode: LaunchMode) {
           : dialog.showSaveDialog(saveOptions));
 
         if (saveResult.canceled || !saveResult.filePath) {
-          return {success: false, error: 'canceled'};
+          return {success: false, error: 'Canceled.'};
         }
 
-        await fs.promises.writeFile(saveResult.filePath, JSON.stringify(payload, null, 2), 'utf8');
+        await fs.promises.writeFile(saveResult.filePath, JSON.stringify(cleanConfigExportPayload(payload), null, 2), 'utf8');
         return {success: true, filePath: saveResult.filePath};
       } catch (error: any) {
         return {success: false, error: error?.message ?? String(error)};
@@ -2128,7 +2644,7 @@ function registerSessionKeybinds(mode: LaunchMode) {
           : dialog.showOpenDialog(openOptions));
 
         if (openResult.canceled || openResult.filePaths.length === 0) {
-          return {valid: false, error: 'canceled'};
+          return {valid: false, error: 'Canceled.'};
         }
 
         const filePath = openResult.filePaths[0];
@@ -2198,16 +2714,19 @@ function registerSessionKeybinds(mode: LaunchMode) {
             ...(Array.isArray(parsed.keyBinds) ? {keyBinds: parsed.keyBinds} : {}),
             ...(Array.isArray(parsed.keyBindProfiles) ? {keyBindProfiles: parsed.keyBindProfiles} : {}),
             ...(parsed.activeKeyBindProfileId !== undefined ? {activeKeyBindProfileId: parsed.activeKeyBindProfileId} : {}),
+            ...(Array.isArray(parsed.sessions) ? {sessions: parsed.sessions} : {}),
+            ...(Array.isArray(parsed.layouts) ? {layouts: parsed.layouts} : {}),
+            ...(Array.isArray(parsed.defaultLayouts) ? {defaultLayouts: parsed.defaultLayouts} : {}),
             ...(Array.isArray(parsed.sessionActions) ? {sessionActions: parsed.sessionActions} : {}),
             ...(Array.isArray(parsed.sessionGroups) ? {sessionGroups: parsed.sessionGroups} : {}),
             ...(parsed.window !== undefined ? {window: parsed.window} : {}),
-            ...(parsed.sessionZoomLevels !== undefined ? {sessionZoomLevels: parsed.sessionZoomLevels} : {}),
             ...(parsed.fullscreen !== undefined ? {fullscreen: parsed.fullscreen} : {}),
             ...(parsed.autoSaveSettings !== undefined ? {autoSaveSettings: parsed.autoSaveSettings} : {}),
+            ...(parsed.autoDeleteAllCachesOnStartup !== undefined ? {autoDeleteAllCachesOnStartup: parsed.autoDeleteAllCachesOnStartup} : {}),
             ...(parsed.defaultLaunchMode !== undefined ? {defaultLaunchMode: parsed.defaultLaunchMode} : {}),
             ...(parsed.userAgent !== undefined ? {userAgent: parsed.userAgent} : {}),
+            ...(parsed.chromium !== undefined ? {chromium: parsed.chromium} : {}),
             ...(parsed.titleBarButtons !== undefined ? {titleBarButtons: parsed.titleBarButtons} : {}),
-            ...(Array.isArray(parsed.questLogTemplates) ? {questLogTemplates: parsed.questLogTemplates} : {}),
           };
         }
 
@@ -2216,7 +2735,10 @@ function registerSessionKeybinds(mode: LaunchMode) {
           warnings.push(`Imported schema version ${importedSchemaVersion} is newer than this app.`);
         }
 
-        const knownSessionIds = new Set((neuzosConfig.sessions ?? []).map((session: any) => session.id));
+        const knownSessionIds = new Set([
+          ...(neuzosConfig.sessions ?? []).map((session: any) => session.id),
+          ...((payload as ConfigExportPayloadV2).sessions ?? []).map((session: any) => session?.id).filter(Boolean),
+        ]);
         const orphanedSessionIds = [...new Set((payload.sessionActions ?? [])
           .map((action: any) => action?.sessionId)
           .filter((sessionId: any) => typeof sessionId === 'string' && sessionId !== '' && !knownSessionIds.has(sessionId)))];
@@ -2225,6 +2747,114 @@ function registerSessionKeybinds(mode: LaunchMode) {
         }
 
         return {valid: true, payload, warnings} satisfies ConfigImportResult;
+      } catch (error: any) {
+        return {valid: false, error: error?.message ?? String(error)};
+      }
+    });
+
+    ipcMain.handle("local_storage.export", async (event, payload) => {
+      try {
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+          return {success: false, error: 'Invalid Local Storage export payload.'};
+        }
+
+        const exportPayload = payload as Record<string, any>;
+        if (
+          exportPayload.type !== 'neuzos-local-storage-backup'
+          || exportPayload.version !== 1
+          || typeof exportPayload.exportedAt !== 'string'
+          || !Array.isArray(exportPayload.items)
+        ) {
+          return {success: false, error: 'Invalid Local Storage export payload.'};
+        }
+
+        const parentWindow = BrowserWindow.fromWebContents(event.sender) ?? mainWindow;
+        const saveOptions = {
+          defaultPath: `neuzos-local-storage-export-${new Date().toISOString().slice(0, 10)}.json`,
+          filters: [{name: 'JSON', extensions: ['json']}],
+        };
+        const saveResult = await (parentWindow
+          ? dialog.showSaveDialog(parentWindow, saveOptions)
+          : dialog.showSaveDialog(saveOptions));
+
+        if (saveResult.canceled || !saveResult.filePath) {
+          return {success: false, error: 'Canceled.'};
+        }
+
+        await fs.promises.writeFile(saveResult.filePath, JSON.stringify(exportPayload, null, 2), 'utf8');
+        return {success: true, filePath: saveResult.filePath};
+      } catch (error: any) {
+        return {success: false, error: error?.message ?? String(error)};
+      }
+    });
+
+    ipcMain.handle("local_storage.import", async (event) => {
+      try {
+        const openWindow = BrowserWindow.fromWebContents(event.sender) ?? mainWindow;
+        const openOptions = {
+          properties: ['openFile' as const],
+          filters: [{name: 'JSON', extensions: ['json']}],
+        };
+        const openResult = await (openWindow
+          ? dialog.showOpenDialog(openWindow, openOptions)
+          : dialog.showOpenDialog(openOptions));
+
+        if (openResult.canceled || openResult.filePaths.length === 0) {
+          return {valid: false, error: 'Canceled.'};
+        }
+
+        const filePath = openResult.filePaths[0];
+        const stats = await fs.promises.stat(filePath);
+        if (stats.size > 5 * 1024 * 1024) {
+          return {valid: false, error: 'Import file exceeds 5 MB limit.'};
+        }
+
+        const rawText = await fs.promises.readFile(filePath, 'utf8');
+        let parsed: any;
+        try {
+          parsed = JSON.parse(rawText);
+        } catch (error: any) {
+          return {valid: false, error: `Invalid JSON: ${error?.message ?? String(error)}`};
+        }
+
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          return {valid: false, error: 'Invalid Local Storage Backup: expected a JSON object.'};
+        }
+
+        if (parsed.type !== 'neuzos-local-storage-backup' || parsed.version !== 1 || typeof parsed.exportedAt !== 'string' || !Array.isArray(parsed.items)) {
+          return {valid: false, error: 'Invalid Local Storage Backup format.'};
+        }
+
+        const warnings: string[] = [];
+        const seenKeys = new Set<string>();
+        const items: Array<{ key: string; value: string }> = [];
+
+        for (const item of parsed.items) {
+          if (!item || typeof item !== 'object' || Array.isArray(item) || typeof item.key !== 'string' || item.key.trim() === '' || typeof item.value !== 'string') {
+            warnings.push('Skipped invalid Local Storage item.');
+            continue;
+          }
+
+          if (seenKeys.has(item.key)) {
+            warnings.push(`Skipped duplicate Local Storage key: ${item.key}`);
+            continue;
+          }
+
+          seenKeys.add(item.key);
+          items.push({key: item.key, value: item.value});
+        }
+
+        return {
+          valid: true,
+          payload: {
+            type: 'neuzos-local-storage-backup',
+            version: 1,
+            exportedAt: parsed.exportedAt,
+            items,
+          },
+          items: [],
+          warnings,
+        };
       } catch (error: any) {
         return {valid: false, error: error?.message ?? String(error)};
       }
@@ -2264,15 +2894,29 @@ function registerSessionKeybinds(mode: LaunchMode) {
           const incomingProfiles = incomingPayload.keyBindProfiles ?? [];
 
           const existingKeyBinds = [...(neuzosConfig.keyBinds ?? [])];
-          const existingKeyBindKeys = new Set(existingKeyBinds.map((bind: any) => String(bind?.key ?? '').trim().toLowerCase()));
+          const existingKeyBindSignatures = new Set(existingKeyBinds.map((bind: any) => getKeybindSignature(bind)).filter(Boolean));
+          const existingGlobalKeys = new Set(existingKeyBinds.map((bind: any) => getKeybindKey(bind)).filter(Boolean));
+          const existingUniqueGlobalEvents = new Set(existingKeyBinds
+            .map((bind: any) => String(bind?.event ?? '').trim())
+            .filter((event: string) => isUniqueGlobalKeybindEvent(event)));
           for (const bind of incomingKeyBinds) {
-            const normalizedKey = String(bind?.key ?? '').trim().toLowerCase();
-            if (normalizedKey && !existingKeyBindKeys.has(normalizedKey)) {
-              existingKeyBinds.push(cloneData(bind));
-              existingKeyBindKeys.add(normalizedKey);
-              addedBinds++;
-              didModify = true;
+            const signature = getKeybindSignature(bind);
+            const key = getKeybindKey(bind);
+            const event = String(bind?.event ?? '').trim();
+            if (!signature || existingKeyBindSignatures.has(signature) || existingGlobalKeys.has(key) || (isUniqueGlobalKeybindEvent(event) && existingUniqueGlobalEvents.has(event))) {
+              continue;
             }
+
+            existingKeyBinds.push(cloneData(bind));
+            existingKeyBindSignatures.add(signature);
+            if (key) {
+              existingGlobalKeys.add(key);
+            }
+            if (isUniqueGlobalKeybindEvent(event)) {
+              existingUniqueGlobalEvents.add(event);
+            }
+            addedBinds++;
+            didModify = true;
           }
           neuzosConfig.keyBinds = existingKeyBinds;
 
@@ -2281,21 +2925,46 @@ function registerSessionKeybinds(mode: LaunchMode) {
           for (const importProfile of incomingProfiles) {
             const existingProfile = existingProfileMap.get(importProfile?.id);
             if (!existingProfile) {
-              existingProfiles.push(cloneData(importProfile));
-              existingProfileMap.set(importProfile?.id, importProfile);
+              const clonedProfile = cloneData(importProfile);
+              const profileKeybinds: any[] = [];
+              const profileBindSignatures = new Set<string>();
+              const profileKeys = new Set<string>();
+              for (const bind of (clonedProfile?.keybinds ?? [])) {
+                const signature = getKeybindSignature(bind);
+                const key = getKeybindKey(bind);
+                if (!signature || profileBindSignatures.has(signature) || profileKeys.has(key)) {
+                  continue;
+                }
+
+                profileKeybinds.push(bind);
+                profileBindSignatures.add(signature);
+                if (key) {
+                  profileKeys.add(key);
+                }
+              }
+              clonedProfile.keybinds = profileKeybinds;
+              existingProfiles.push(clonedProfile);
+              existingProfileMap.set(clonedProfile?.id, clonedProfile);
               addedProfiles++;
               didModify = true;
             } else {
               const existingProfileKeybinds: any[] = existingProfile.keybinds ?? [];
-              const existingBindKeys = new Set(existingProfileKeybinds.map((b: any) => String(b?.key ?? '').trim().toLowerCase()));
+              const existingBindSignatures = new Set(existingProfileKeybinds.map((b: any) => getKeybindSignature(b)).filter(Boolean));
+              const existingProfileKeys = new Set(existingProfileKeybinds.map((b: any) => getKeybindKey(b)).filter(Boolean));
               let innerAdded = 0;
               for (const bind of (importProfile?.keybinds ?? [])) {
-                const normalizedKey = String(bind?.key ?? '').trim().toLowerCase();
-                if (normalizedKey && !existingBindKeys.has(normalizedKey)) {
-                  existingProfileKeybinds.push(cloneData(bind));
-                  existingBindKeys.add(normalizedKey);
-                  innerAdded++;
+                const signature = getKeybindSignature(bind);
+                const key = getKeybindKey(bind);
+                if (!signature || existingBindSignatures.has(signature) || existingProfileKeys.has(key)) {
+                  continue;
                 }
+
+                existingProfileKeybinds.push(cloneData(bind));
+                existingBindSignatures.add(signature);
+                if (key) {
+                  existingProfileKeys.add(key);
+                }
+                innerAdded++;
               }
               if (innerAdded > 0) {
                 didModify = true;
@@ -2346,29 +3015,50 @@ function registerSessionKeybinds(mode: LaunchMode) {
           neuzosConfig.sessionActions = existingSessionActions;
         };
 
-        const applyUiLayout = () => {
+        const applyGeneralSettings = () => {
           const incomingPayload = payload as ConfigExportPayloadV2;
-          const knownSessionIds = new Set((neuzosConfig.sessions ?? []).map((session: any) => session.id));
           if (incomingPayload.window !== undefined) {
             neuzosConfig.window = cloneData(incomingPayload.window);
             didModify = true;
           }
-
-          if (incomingPayload.sessionZoomLevels !== undefined) {
-            const filteredZoomLevels: Record<string, number> = {};
-            for (const [sessionId, zoomLevel] of Object.entries(incomingPayload.sessionZoomLevels ?? {})) {
-              if (knownSessionIds.has(sessionId)) {
-                filteredZoomLevels[sessionId] = zoomLevel as number;
-              }
-            }
-            neuzosConfig.sessionZoomLevels = filteredZoomLevels;
+          if (incomingPayload.autoSaveSettings !== undefined) {
+            neuzosConfig.autoSaveSettings = incomingPayload.autoSaveSettings;
             didModify = true;
           }
-
+          if (incomingPayload.autoDeleteAllCachesOnStartup !== undefined) {
+            neuzosConfig.autoDeleteAllCachesOnStartup = incomingPayload.autoDeleteAllCachesOnStartup;
+            didModify = true;
+          }
+          if (incomingPayload.titleBarButtons !== undefined) {
+            neuzosConfig.titleBarButtons = cloneData(incomingPayload.titleBarButtons);
+            didModify = true;
+          }
           if (incomingPayload.fullscreen !== undefined) {
             neuzosConfig.fullscreen = cloneData(incomingPayload.fullscreen);
             didModify = true;
           }
+        };
+
+        const applySessions = () => {
+          const incomingPayload = payload as ConfigExportPayloadV2;
+          if (Array.isArray(incomingPayload.sessions)) {
+            if (mode === 'replace') {
+              neuzosConfig.sessions = cloneData(incomingPayload.sessions);
+            } else {
+              const existingSessions = [...(neuzosConfig.sessions ?? [])];
+              const existingSessionIds = new Set(existingSessions.map((session: any) => session?.id));
+              for (const importSession of incomingPayload.sessions) {
+                if (importSession?.id && !existingSessionIds.has(importSession.id)) {
+                  existingSessions.push(cloneData(importSession));
+                  existingSessionIds.add(importSession.id);
+                }
+              }
+              neuzosConfig.sessions = existingSessions;
+            }
+            didModify = true;
+          }
+
+          const knownSessionIds = new Set((neuzosConfig.sessions ?? []).map((session: any) => session.id));
 
           if (Array.isArray(incomingPayload.sessionGroups)) {
             const normalizedIncomingGroups = normalizeSessionGroups(incomingPayload.sessionGroups, knownSessionIds as Set<string>);
@@ -2399,12 +3089,69 @@ function registerSessionKeybinds(mode: LaunchMode) {
           }
         };
 
-        const applyGeneralSettings = () => {
+        const applyLayouts = () => {
           const incomingPayload = payload as ConfigExportPayloadV2;
-          if (incomingPayload.autoSaveSettings !== undefined) {
-            neuzosConfig.autoSaveSettings = incomingPayload.autoSaveSettings;
+          const knownSessionIds = new Set((neuzosConfig.sessions ?? []).map((session: any) => session.id));
+          const normalizeLayouts = (layouts: any[]) => {
+            return cloneData(layouts ?? []).map((layout: any) => {
+              const rows = Array.isArray(layout?.rows)
+                ? layout.rows
+                    .map((row: any) => ({
+                      ...row,
+                      sessionIds: Array.isArray(row?.sessionIds)
+                        ? row.sessionIds.filter((id: string) => knownSessionIds.has(id))
+                        : [],
+                    }))
+                    .filter((row: any) => row.sessionIds.length > 0)
+                : [];
+              const nextLayout = {...layout, rows};
+              if (nextLayout.mutedSessionIds !== undefined) {
+                delete nextLayout.mutedSessionIds;
+              }
+              return nextLayout;
+            });
+          };
+
+          if (Array.isArray(incomingPayload.layouts)) {
+            const incomingLayouts = normalizeLayouts(incomingPayload.layouts);
+            if (mode === 'replace') {
+              neuzosConfig.layouts = incomingLayouts;
+            } else {
+              const existingLayouts = [...(neuzosConfig.layouts ?? [])];
+              const existingLayoutIds = new Set(existingLayouts.map((layout: any) => layout?.id));
+              for (const importLayout of incomingLayouts) {
+                if (importLayout?.id && !existingLayoutIds.has(importLayout.id)) {
+                  existingLayouts.push(importLayout);
+                  existingLayoutIds.add(importLayout.id);
+                }
+              }
+              neuzosConfig.layouts = existingLayouts;
+            }
             didModify = true;
           }
+
+          if (Array.isArray(incomingPayload.defaultLayouts)) {
+            const knownLayoutIds = new Set((neuzosConfig.layouts ?? []).map((layout: any) => layout.id));
+            const incomingDefaultLayouts = incomingPayload.defaultLayouts.filter((layoutId) => knownLayoutIds.has(layoutId));
+            if (mode === 'replace') {
+              neuzosConfig.defaultLayouts = incomingDefaultLayouts;
+            } else {
+              const defaultLayouts = [...(neuzosConfig.defaultLayouts ?? [])];
+              const existingDefaultLayoutIds = new Set(defaultLayouts);
+              for (const layoutId of incomingDefaultLayouts) {
+                if (!existingDefaultLayoutIds.has(layoutId)) {
+                  defaultLayouts.push(layoutId);
+                  existingDefaultLayoutIds.add(layoutId);
+                }
+              }
+              neuzosConfig.defaultLayouts = defaultLayouts;
+            }
+            didModify = true;
+          }
+        };
+
+        const applyLaunchSettings = () => {
+          const incomingPayload = payload as ConfigExportPayloadV2;
           if (incomingPayload.defaultLaunchMode !== undefined) {
             const allowedLaunchModes = ['normal', 'session_launcher'];
             if (allowedLaunchModes.includes(incomingPayload.defaultLaunchMode as string)) {
@@ -2416,8 +3163,12 @@ function registerSessionKeybinds(mode: LaunchMode) {
             neuzosConfig.userAgent = incomingPayload.userAgent;
             didModify = true;
           }
-          if (incomingPayload.titleBarButtons !== undefined) {
-            neuzosConfig.titleBarButtons = cloneData(incomingPayload.titleBarButtons);
+          if (incomingPayload.chromium !== undefined) {
+            neuzosConfig.chromium = {
+              commandLineSwitches: Array.isArray(incomingPayload.chromium?.commandLineSwitches)
+                ? cloneData(incomingPayload.chromium.commandLineSwitches)
+                : [],
+            };
             didModify = true;
           }
         };
@@ -2430,15 +3181,25 @@ function registerSessionKeybinds(mode: LaunchMode) {
             case 'session-actions':
               applySessionActions();
               break;
-            case 'ui-layout':
-              applyUiLayout();
-              break;
             case 'general-settings':
               applyGeneralSettings();
               break;
-            case 'quest-log':
+            case 'sessions':
+              applySessions();
+              break;
+            case 'layouts':
+              applyLayouts();
+              break;
+            case 'launch-settings':
+              applyLaunchSettings();
+              break;
+            case 'ui-layout':
               break;
           }
+        }
+
+        if (didModify) {
+          pruneSessionReferences(neuzosConfig);
         }
 
         if (didModify) {
@@ -2465,10 +3226,33 @@ function registerSessionKeybinds(mode: LaunchMode) {
           return {success: false, error: 'Invalid zoom level.'};
         }
 
-        neuzosConfig.sessionZoomLevels = neuzosConfig.sessionZoomLevels ?? {};
-        neuzosConfig.sessionZoomLevels[sessionId] = zoomLevel;
+        const sessionIndex = (neuzosConfig.sessions ?? []).findIndex((sessionConfig: any) => sessionConfig.id === sessionId);
+        if (sessionIndex < 0) {
+          return {success: false, error: 'Session not found.'};
+        }
+        if (zoomLevel === 1.0) {
+          delete neuzosConfig.sessions[sessionIndex].zoom;
+        } else {
+          neuzosConfig.sessions[sessionIndex].zoom = zoomLevel;
+        }
         saveConfig(neuzosConfig);
         mainWindow?.webContents?.send("event.config_changed", JSON.stringify(neuzosConfig));
+        return {success: true};
+      } catch (error: any) {
+        return {success: false, error: error?.message ?? String(error)};
+      }
+    });
+
+    ipcMain.handle("config.preview_session_zoom", async (_, sessionId: string, zoomLevel: number) => {
+      try {
+        if (typeof sessionId !== 'string' || sessionId.trim() === '') {
+          return {success: false, error: 'Invalid session ID.'};
+        }
+        if (typeof zoomLevel !== 'number' || !Number.isFinite(zoomLevel) || zoomLevel < 0.5 || zoomLevel > 1.5) {
+          return {success: false, error: 'Invalid zoom level.'};
+        }
+
+        mainWindow?.webContents?.send("event.session_zoom_preview", sessionId, zoomLevel);
         return {success: true};
       } catch (error: any) {
         return {success: false, error: error?.message ?? String(error)};
@@ -2493,6 +3277,7 @@ function registerSessionKeybinds(mode: LaunchMode) {
       saveConfig(neuzosConfig);
       registerKeybinds();
       mainWindow?.webContents?.send("event.active_keybind_profile_changed", profileId);
+      settingsWindow?.webContents?.send("event.active_keybind_profile_changed", profileId);
 
       return { success: true, profileId };
     });
@@ -2557,11 +3342,37 @@ function registerSessionKeybinds(mode: LaunchMode) {
       }
     })
 
+    ipcMain.handle('app.open_config_folder', async () => {
+      try {
+        await shell.openPath(configDirectoryPath);
+        return true;
+      } catch (e) {
+        console.error('Failed to open config folder:', e);
+        return false;
+      }
+    })
+
+    ipcMain.handle('session.open_partition_folder', async (_, sessionId: string) => {
+      try {
+        const { paths } = getSessionPartitionPaths(sessionId);
+        const targetPath = paths.find((partitionPath) => fs.existsSync(partitionPath)) ?? paths[0];
+        if (!targetPath) {
+          return false;
+        }
+        await fs.promises.mkdir(targetPath, { recursive: true });
+        await shell.openPath(targetPath);
+        return true;
+      } catch (e) {
+        console.error('Failed to open session partition folder:', e);
+        return false;
+      }
+    })
+
     const primaryDisplay = screen.getPrimaryDisplay();
     const {width: defaultScreenWidth, height: defaultScreenHeight} = primaryDisplay.workAreaSize;
     const aspectRatio = defaultScreenWidth / defaultScreenHeight;
-    const defaultWindowWidth = aspectRatio >= 2 ? defaultScreenWidth / 2 : defaultScreenWidth - defaultScreenWidth / 12;
-    const defaultWindowHeight = defaultScreenHeight - (defaultScreenHeight / 12);
+    const defaultWindowWidth = Math.round(aspectRatio >= 2 ? defaultScreenWidth / 2 : defaultScreenWidth - defaultScreenWidth / 12);
+    const defaultWindowHeight = Math.round(defaultScreenHeight - (defaultScreenHeight / 12));
 
     // Ensure window config exists
     // Calculate default window sizes
@@ -2579,6 +3390,13 @@ function registerSessionKeybinds(mode: LaunchMode) {
       zoom: 1.0
     };
 
+    const defaultSessionLauncherWindowConfig = {
+      width: 600,
+      height: 400,
+      x: null,
+      y: null,
+    };
+
     // Settings window should be slightly smaller by default
     const defaultSettingsWindowConfig = {
       width: Math.floor(defaultWindowWidth * 0.85),
@@ -2593,10 +3411,13 @@ function registerSessionKeybinds(mode: LaunchMode) {
         main: defaultMainWindowConfig,
         settings: defaultSettingsWindowConfig,
         session: defaultSessionWindowConfig,
-        viewers: createDefaultViewerWindowConfigs(),
-        sidebarSide: defaultSidebarSide,
+        launcher: defaultSessionLauncherWindowConfig,
       };
     }
+    defaultNeuzosConfig.window.launcher = {
+      ...defaultSessionLauncherWindowConfig,
+      ...(defaultNeuzosConfig.window.launcher || {}),
+    };
 
     // Merge neuzosConfig with defaults (user config takes precedence)
     neuzosConfig = {...defaultNeuzosConfig, ...neuzosConfig};
@@ -2639,22 +3460,26 @@ function registerSessionKeybinds(mode: LaunchMode) {
       ...(neuzosConfig.window.session || {})
     };
 
-    neuzosConfig.window.viewers = {
-      ...defaultNeuzosConfig.window.viewers,
-      ...(neuzosConfig.window.viewers || {}),
-      navi_guide: {
-        ...defaultViewerWindowConfig,
-        ...(neuzosConfig.window.viewers?.navi_guide || {}),
-      },
-      flyffipedia: {
-        ...defaultViewerWindowConfig,
-        ...(neuzosConfig.window.viewers?.flyffipedia || {}),
-      },
+    neuzosConfig.window.launcher = {
+      ...defaultNeuzosConfig.window.launcher,
+      ...(neuzosConfig.window.launcher || {})
     };
 
-    neuzosConfig.window.sidebarSide = neuzosConfig.window.sidebarSide || defaultSidebarSide;
-
-    ensureViewerWindowState();
+    for (const windowConfig of [neuzosConfig.window.main, neuzosConfig.window.settings, neuzosConfig.window.session, neuzosConfig.window.launcher]) {
+      windowConfig.width = Math.round(windowConfig.width);
+      windowConfig.height = Math.round(windowConfig.height);
+    }
+    neuzosConfig.window.launcher.width = Math.max(600, neuzosConfig.window.launcher.width);
+    neuzosConfig.window.launcher.height = Math.max(400, neuzosConfig.window.launcher.height);
+    const launcherX = neuzosConfig.window.launcher.x;
+    const launcherY = neuzosConfig.window.launcher.y;
+    neuzosConfig.window.launcher.x = typeof launcherX === 'number' && Number.isFinite(launcherX)
+      ? Math.round(launcherX)
+      : null;
+    neuzosConfig.window.launcher.y = typeof launcherY === 'number' && Number.isFinite(launcherY)
+      ? Math.round(launcherY)
+      : null;
+    delete neuzosConfig.window.viewers;
     saveConfig(neuzosConfig);
 
     // Handle different launch modes

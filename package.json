@@ -5,10 +5,9 @@
   "description": "Launcher for Flyff Universe",
   "main": "./out/main/index.js",
   "author": {
-    "name": "Abdelmounaim Bouakouk",
-    "email": "abdelmounaim@bouakouk.com"
+    "name": "FlyffU-Community"
   },
-  "homepage": "https://github.com/thatmounaim/neuzos",
+  "homepage": "https://github.com/flyffu-community/neuzos",
   "scripts": {
     "format": "prettier --plugin prettier-plugin-svelte --write .",
     "lint": "eslint --cache .",

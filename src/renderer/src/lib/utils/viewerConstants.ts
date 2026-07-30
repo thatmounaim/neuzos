@@ -6,6 +6,10 @@ export type SheetTab = {
 export const NAVI_BESTIARY_BASE_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ8eNyPRo38JZA7ACZbCNJ1MYsW1nqhVnV8pHWv-GBEx7W8jf2-UGwWr6QCEwUBr5QmCj12_wKxtE9v/pubhtml';
 
 export const FLYFFIPEDIA_URL = 'https://flyffipedia.com';
+export const FLYFFULATOR_URL = 'https://flyffulator.com/';
+export const FLYFF_CALCULATORS_URL = 'https://flyff-calculators.com/';
+export const SIEGE_STATS_URL = 'https://siegestats.cc/';
+export const CS_MODELVIEWER_URL = 'https://flyffuniversemodelviewer.com/cs-viewer';
 
 export const NAVI_BESTIARY_SHEETS: SheetTab[] = [
   { label: 'Info', gid: '1445446233' },

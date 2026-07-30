@@ -3,17 +3,21 @@
   import { ModeWatcher } from 'mode-watcher';
   import { initElectronApi, neuzosBridge } from '$lib/core';
   import type { ViewerWindowType } from '$lib/types';
-  import ViewerTitleBar from './components/ViewerWindow/ViewerTitleBar.svelte';
-  import NaviGuideViewer from './components/ViewerWindow/NaviGuideViewer.svelte';
-  import FlyffipediaViewer from './components/ViewerWindow/FlyffipediaViewer.svelte';
+  import ViewerTitleBar from './components/Widgets/Builtin/ViewerWindow/ViewerTitleBar.svelte';
+  import NaviGuideViewer from './components/Widgets/Builtin/ViewerWindow/NaviGuideViewer.svelte';
+  import FlyffipediaViewer from './components/Widgets/Builtin/ViewerWindow/FlyffipediaViewer.svelte';
+  import FlyffulatorViewer from './components/Widgets/Builtin/ViewerWindow/FlyffulatorViewer.svelte';
+  import FlyffCalculatorsViewer from './components/Widgets/Builtin/ViewerWindow/FlyffCalculatorsViewer.svelte';
+  import SiegeStatsViewer from './components/Widgets/Builtin/ViewerWindow/SiegeStatsViewer.svelte';
+  import CsModelviewerViewer from './components/Widgets/Builtin/ViewerWindow/CsModelviewerViewer.svelte';
 
-  // Must be called before any IPC bridge usage – mirrors what App.svelte does
+  // Must be called before any IPC bridge usage - mirrors what App.svelte does
   initElectronApi(window.electron.ipcRenderer);
 
+  const viewerTypes: ViewerWindowType[] = ['navi_guide', 'flyffipedia', 'flyffulator', 'flyff_calculators', 'siege_stats', 'cs_modelviewer'];
   const requestedType = new URLSearchParams(window.location.search).get('type');
-  let viewerType = $state<ViewerWindowType | null>(
-    requestedType === 'navi_guide' || requestedType === 'flyffipedia' ? requestedType : null
-  );
+  const requestedViewerType = viewerTypes.includes(requestedType as ViewerWindowType) ? requestedType as ViewerWindowType : null;
+  let viewerType = $state<ViewerWindowType | null>(requestedViewerType);
   let alwaysOnTop = $state(true);
   let isLoading = $state(true);
   let loadError = $state('');
@@ -27,7 +31,7 @@
         return;
       }
 
-      viewerType = requestedType === 'navi_guide' || requestedType === 'flyffipedia' ? requestedType : result.type;
+      viewerType = requestedViewerType ?? result.type;
       alwaysOnTop = result.config.alwaysOnTop;
     } catch (error) {
       loadError = error instanceof Error ? error.message : 'Failed to initialize viewer window.';
@@ -57,6 +61,63 @@
   function closeWindow() {
     neuzosBridge.viewerWindow.close();
   }
+
+  $effect(() => {
+    if (viewerType) {
+      document.title = getViewerWindowTitle(viewerType);
+    }
+  });
+
+  function getViewerWindowTitle(type: ViewerWindowType): string {
+    switch (type) {
+      case 'navi_guide':
+        return "NeuzOS - Navi's Bestiary";
+      case 'flyffipedia':
+        return 'NeuzOS - Flyffipedia';
+      case 'flyffulator':
+        return 'NeuzOS - Flyffulator';
+      case 'flyff_calculators':
+        return 'NeuzOS - Flyff Calculators';
+      case 'siege_stats':
+        return 'NeuzOS - Siege Stats';
+      case 'cs_modelviewer':
+        return 'NeuzOS - CS-Modelviewer';
+    }
+  }
+
+  function getViewerTitle(type: ViewerWindowType): string {
+    switch (type) {
+      case 'navi_guide':
+        return "Navi's Bestiary";
+      case 'flyffipedia':
+        return 'Flyffipedia';
+      case 'flyffulator':
+        return 'Flyffulator';
+      case 'flyff_calculators':
+        return 'Flyff Calculators';
+      case 'siege_stats':
+        return 'Siege Stats';
+      case 'cs_modelviewer':
+        return 'CS-Modelviewer';
+    }
+  }
+
+  function getViewerAttribution(type: ViewerWindowType): string {
+    switch (type) {
+      case 'navi_guide':
+        return 'created by Navi2765';
+      case 'flyffipedia':
+        return 'created by Swaight';
+      case 'flyffulator':
+        return 'created by Frostiae';
+      case 'flyff_calculators':
+        return 'created by Stellar';
+      case 'siege_stats':
+        return 'created by Shynox';
+      case 'cs_modelviewer':
+        return 'created by i9hdkill';
+    }
+  }
 </script>
 
 <ModeWatcher />
@@ -75,8 +136,8 @@
     </div>
   {:else}
     <ViewerTitleBar
-      title={viewerType === 'navi_guide' ? "Navi's Bestiary" : 'Flyffipedia'}
-      attribution={viewerType === 'navi_guide' ? 'created by Navi2765' : undefined}
+      title={getViewerTitle(viewerType)}
+      attribution={getViewerAttribution(viewerType)}
       alwaysOnTop={alwaysOnTop}
       isLoading={isLoading}
       onToggleAlwaysOnTop={toggleAlwaysOnTop}
@@ -88,8 +149,16 @@
     <div class="min-h-0 flex-1">
       {#if viewerType === 'navi_guide'}
         <NaviGuideViewer onLoadingChange={handleLoadingChange} />
-      {:else}
+      {:else if viewerType === 'flyffipedia'}
         <FlyffipediaViewer onLoadingChange={handleLoadingChange} />
+      {:else if viewerType === 'flyffulator'}
+        <FlyffulatorViewer onLoadingChange={handleLoadingChange} />
+      {:else if viewerType === 'flyff_calculators'}
+        <FlyffCalculatorsViewer onLoadingChange={handleLoadingChange} />
+      {:else if viewerType === 'siege_stats'}
+        <SiegeStatsViewer onLoadingChange={handleLoadingChange} />
+      {:else}
+        <CsModelviewerViewer onLoadingChange={handleLoadingChange} />
       {/if}
     </div>
   {/if}

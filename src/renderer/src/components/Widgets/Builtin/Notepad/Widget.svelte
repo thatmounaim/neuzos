@@ -25,6 +25,12 @@
     PanelTopOpen
   } from '@lucide/svelte';
   import * as Tabs from '$lib/components/ui/tabs';
+  import {
+    readNotepadState,
+    readNotepadWindowState,
+    writeNotepadState,
+    writeNotepadWindowState
+  } from '$lib/localStorageStores';
 
   interface NotepadFile {
     id: string;
@@ -103,15 +109,12 @@
   let windowRef: FloatingWindow;
 
   const WIDGET_IDENTIFIER = 'widget.builtin.notepad';
-  const STORAGE_KEY = WIDGET_IDENTIFIER;
   const TODO_START_MARKER = '$startTodo';
   const TODO_END_MARKER = '$endTodo';
 
   function loadPersistedState(): PersistedNotepadState | null {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (!stored) return null;
-      return JSON.parse(stored) as PersistedNotepadState;
+      return readNotepadState<PersistedNotepadState>();
     } catch (e) {
       console.error('Failed to load notepad state:', e);
       return null;
@@ -135,10 +138,7 @@
   // Save files to localStorage
   function saveFiles() {
     try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ files, tabLayoutMode } satisfies PersistedNotepadState)
-      );
+      writeNotepadState({ files, tabLayoutMode } satisfies PersistedNotepadState);
     } catch (e) {
       console.error('Failed to save notepad files:', e);
     }
@@ -333,7 +333,7 @@
   let lastEditModeByFile = $state<Record<string, 'wysiwyg' | 'raw'>>({});
   let editingFileId = $state<string | null>(null);
   let editingFileName = $state<string>('');
-  let tabsListRef: HTMLDivElement;
+  let tabsListRef: HTMLDivElement | null = $state(null);
   let rawEditorRef: HTMLDivElement | null = null;
   let textEditorRefs = $state<Record<string, HTMLDivElement | null>>({});
   let previewTodoCollapsedByFile = $state<Record<string, Record<string, boolean>>>({});
@@ -1541,6 +1541,8 @@
   <FloatingWindow
     bind:this={windowRef}
     persistId={WIDGET_IDENTIFIER}
+    loadPersistedState={readNotepadWindowState}
+    savePersistedState={writeNotepadWindowState}
     defaultX={300}
     defaultY={200}
     defaultWidth={600}
@@ -1551,39 +1553,43 @@
     onHide={onHide}
   >
     {#snippet titleSnippet()}
-      <div class="flex w-full items-center justify-between gap-2">
-        <div class="flex min-w-0 items-center gap-2">
-          <StickyNote size={16} />
-          <span class="truncate">Notepad - {activeFile?.name || 'Untitled'}</span>
+      <div class="flex min-w-0 items-center gap-2">
+        <StickyNote size={16} />
+        <span class="truncate">Notepad - {activeFile?.name || 'Untitled'}</span>
+      </div>
+    {/snippet}
+
+    {#snippet controlSnippet()}
+      <div class="flex shrink-0 items-center gap-2" role="presentation" onmousedown={(e) => e.stopPropagation()}>
+        <div class="flex items-center gap-1 rounded-md border border-border bg-background/80 p-0.5">
+          <Button
+            size="sm"
+            variant={isEditMode ? 'default' : 'ghost'}
+            class="h-6 px-2 text-xs"
+            onclick={() => setTopLevelMode('edit')}
+          >
+            <NotebookPen class="h-3.5 w-3.5 mr-1" />
+            Edit
+          </Button>
+          <Button
+            size="sm"
+            variant={activeEditorMode === 'preview' ? 'default' : 'ghost'}
+            class="h-6 px-2 text-xs"
+            onclick={() => setTopLevelMode('preview')}
+          >
+            <Eye class="h-3.5 w-3.5 mr-1" />
+            Preview
+          </Button>
         </div>
 
-        <div class="flex shrink-0 items-center gap-2" onmousedown={(e) => e.stopPropagation()}>
-          <div class="flex items-center gap-1 rounded-md border border-border bg-background/80 p-0.5">
-            <Button
-              size="sm"
-              variant={isEditMode ? 'default' : 'ghost'}
-              class="h-6 px-2 text-xs"
-              onclick={() => setTopLevelMode('edit')}
-            >
-              <NotebookPen class="h-3.5 w-3.5 mr-1" />
-              Edit
-            </Button>
-            <Button
-              size="sm"
-              variant={activeEditorMode === 'preview' ? 'default' : 'ghost'}
-              class="h-6 px-2 text-xs"
-              onclick={() => setTopLevelMode('preview')}
-            >
-              <Eye class="h-3.5 w-3.5 mr-1" />
-              Preview
-            </Button>
-          </div>
-
         <div class="relative">
-          <Button
-            size="icon"
-            variant={settingsOpen ? 'secondary' : 'ghost'}
-            class="h-7 w-7"
+          <button
+            type="button"
+            class="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded border border-transparent p-1 text-foreground transition-colors hover:border-input hover:bg-background dark:hover:bg-input/30 {settingsOpen ? 'bg-secondary text-secondary-foreground' : 'bg-transparent'}"
+            onmousedown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
             onclick={(e) => {
               e.stopPropagation();
               settingsOpen = !settingsOpen;
@@ -1591,11 +1597,12 @@
             title="Settings"
           >
             <Settings class="h-4 w-4" />
-          </Button>
+          </button>
 
           {#if settingsOpen}
             <div
               class="absolute right-0 top-8 z-30 w-44 rounded-md border border-border bg-popover p-2 shadow-md"
+              role="presentation"
               onmousedown={(e) => e.stopPropagation()}
             >
               <div class="mb-2 text-xs font-medium text-muted-foreground">Tab Layout</div>
@@ -1619,7 +1626,6 @@
               </div>
             </div>
           {/if}
-        </div>
         </div>
       </div>
     {/snippet}

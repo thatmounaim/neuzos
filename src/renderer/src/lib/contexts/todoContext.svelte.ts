@@ -1,7 +1,7 @@
 import { getContext, setContext } from 'svelte';
+import {readTodoState, writeTodoState} from '$lib/localStorageStores';
 
 const TODO_CONTEXT_KEY = Symbol('todoChecklist');
-const STORAGE_KEY_PREFIX = 'todoChecklist';
 
 export interface Subtask {
   id: string;
@@ -26,6 +26,7 @@ export interface TodoList {
 export interface ArchivedTodoItem extends TodoItem {
   sourceListId?: string;
   sourceListName?: string;
+  sourceView?: 'open' | 'done';
 }
 
 interface PersistedState {
@@ -37,10 +38,6 @@ interface PersistedState {
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-}
-
-function storageKeyFor(characterId: string | null): string {
-  return characterId ? `${STORAGE_KEY_PREFIX}:${characterId}` : STORAGE_KEY_PREFIX;
 }
 
 function parseTodos(parsed: any): TodoItem[] {
@@ -68,6 +65,7 @@ function parseArchivedTodos(parsed: any): ArchivedTodoItem[] {
       ...todo,
       sourceListId: typeof source?.sourceListId === 'string' ? source.sourceListId : undefined,
       sourceListName: typeof source?.sourceListName === 'string' ? source.sourceListName : undefined,
+      sourceView: source?.sourceView === 'open' || source?.sourceView === 'done' ? source.sourceView : undefined,
     };
   });
 }
@@ -103,6 +101,7 @@ function cloneArchivedTodo(todo: ArchivedTodoItem): ArchivedTodoItem {
     ...cloneTodo(todo),
     sourceListId: todo.sourceListId,
     sourceListName: todo.sourceListName,
+    sourceView: todo.sourceView,
   };
 }
 
@@ -115,10 +114,8 @@ function isTodoDone(todo: TodoItem): boolean {
 
 function loadPersistedState(characterId: string | null): PersistedState {
   try {
-    const key = storageKeyFor(characterId);
-    const stored = localStorage.getItem(key);
-    if (stored) {
-      const parsed = JSON.parse(stored);
+    const parsed = readTodoState(characterId);
+    if (parsed) {
       if (Array.isArray(parsed.lists)) {
         const lists = parsed.lists.map((list: any) => ({
           id: list.id ?? generateId(),
@@ -233,6 +230,7 @@ export function createTodoContext(): TodoContext {
         expanded: t.expanded,
         sourceListId: t.sourceListId,
         sourceListName: t.sourceListName,
+        sourceView: t.sourceView,
         subtasks: t.subtasks.map((s) => ({
           id: s.id,
           text: s.text,
@@ -246,6 +244,7 @@ export function createTodoContext(): TodoContext {
         expanded: t.expanded,
         sourceListId: t.sourceListId,
         sourceListName: t.sourceListName,
+        sourceView: t.sourceView,
         subtasks: t.subtasks.map((s) => ({
           id: s.id,
           text: s.text,
@@ -272,8 +271,7 @@ export function createTodoContext(): TodoContext {
 
   function save() {
     try {
-      const key = storageKeyFor(currentCharacterId);
-      localStorage.setItem(key, JSON.stringify(serializeTodos()));
+      writeTodoState(currentCharacterId, serializeTodos() as Record<string, unknown>);
     } catch (e) {
       console.error('[TodoWidget] Failed to persist state:', e);
     }
@@ -366,7 +364,25 @@ export function createTodoContext(): TodoContext {
     },
 
     removeTodo(id: string) {
-      updateActiveTodos((todos) => todos.filter((t) => t.id !== id));
+      const sourceList = getActiveList();
+      const todo = sourceList?.todos.find((item) => item.id === id);
+      if (!sourceList || !todo) return;
+
+      trashItems = [
+        ...trashItems,
+        {
+          ...cloneTodo(todo),
+          sourceListId: sourceList.id,
+          sourceListName: sourceList.name,
+          sourceView: 'open',
+        },
+      ];
+      lists = lists.map((list) =>
+        list.id === sourceList.id
+          ? {...list, todos: list.todos.filter((item) => item.id !== id)}
+          : list
+      );
+      save();
     },
 
     toggleTodo(id: string) {
@@ -552,14 +568,17 @@ export function createTodoContext(): TodoContext {
       const item = doneItems.find((todo) => todo.id === id);
       if (!item) return;
 
-      trashItems = [...trashItems, cloneArchivedTodo(item)];
+      trashItems = [...trashItems, {...cloneArchivedTodo(item), sourceView: 'done'}];
       doneItems = doneItems.filter((todo) => todo.id !== id);
       save();
     },
 
     deleteDoneItems() {
       if (doneItems.length === 0) return;
-      trashItems = [...trashItems, ...doneItems.map(cloneArchivedTodo)];
+      trashItems = [
+        ...trashItems,
+        ...doneItems.map((item) => ({...cloneArchivedTodo(item), sourceView: 'done' as const})),
+      ];
       doneItems = [];
       save();
     },
@@ -568,7 +587,25 @@ export function createTodoContext(): TodoContext {
       const item = trashItems.find((todo) => todo.id === id);
       if (!item) return;
 
-      doneItems = [...doneItems, cloneArchivedTodo(item)];
+      if (item.sourceView === 'open') {
+        const restored = cloneTodo(item);
+        const targetListId = lists.some((list) => list.id === item.sourceListId)
+          ? item.sourceListId
+          : lists[0]?.id;
+
+        if (targetListId) {
+          lists = lists.map((list) =>
+            list.id === targetListId ? {...list, todos: [...list.todos, restored]} : list
+          );
+          activeListId = targetListId;
+        } else {
+          const list = createList(item.sourceListName || 'New List', [restored]);
+          lists = [list];
+          activeListId = list.id;
+        }
+      } else {
+        doneItems = [...doneItems, cloneArchivedTodo(item)];
+      }
       trashItems = trashItems.filter((todo) => todo.id !== id);
       save();
     },

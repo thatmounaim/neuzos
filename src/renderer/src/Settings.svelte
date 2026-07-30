@@ -2,7 +2,7 @@
   import {ModeWatcher} from "mode-watcher";
   import {onMount, setContext, untrack} from "svelte";
   import {neuzosBridge, initElectronApi} from "$lib/core";
-  import type {NeuzConfig} from "$lib/types";
+  import type {NeuzConfig, NeuzConfigPatch} from "$lib/types";
   import SharedEvents from "./components/Shared/SharedEvents.svelte";
   import SettingsBar from "./components/SettingsWindow/SettingsBar.svelte";
   import KeybindsSettings from "./components/SettingsWindow/Tabs/KeybindsSettings.svelte";
@@ -42,16 +42,15 @@
     activeKeyBindProfileId: null,
     keyBinds: [],
     sessionActions: [],
-    sessionZoomLevels: {},
     titleBarButtons: {
-      darkModeToggle: true,
+      darkModeToggle: false,
       fullscreenToggle: true,
       keybindToggle: true
     },
     autoSaveSettings: false,
     fullscreen: {
-      hideTitleBarInMainWindow: false,
-      hideTitleBarInSessionLayouts: false
+      hideTitleBarInMainWindow: true,
+      hideTitleBarInSessionLayouts: true
     }
   });
 
@@ -59,6 +58,30 @@
 
   setContext("neuzosConfig", neuzosConfig);
   setContext("loadConfig", loadConfig);
+
+  const restoreSavedZoomPreview = (snapshot: string = lastConfigSnapshot) => {
+    if (!snapshot) return
+
+    try {
+      const savedConfig = JSON.parse(snapshot) as NeuzConfig
+      const sessionIds = new Set([
+        ...(neuzosConfig.sessions ?? []).map((session) => session.id),
+        ...(savedConfig.sessions ?? []).map((session) => session.id)
+      ])
+
+      sessionIds.forEach((sessionId) => {
+        const zoom = savedConfig.sessions?.find((session) => session.id === sessionId)?.zoom ?? 1.0
+        void neuzosBridge.sessions.previewZoom(sessionId, zoom)
+      })
+
+      const savedWindowZoom = savedConfig.window
+      electronApi.send('window.ui_zoom_preview', 'main', savedWindowZoom?.main?.zoom ?? 1.0)
+      electronApi.send('window.ui_zoom_preview', 'settings', savedWindowZoom?.settings?.zoom ?? 1.0)
+      electronApi.send('window.ui_zoom_preview', 'session', savedWindowZoom?.session?.zoom ?? 1.0)
+    } catch (error) {
+      console.error('Failed to restore saved zoom preview:', error)
+    }
+  }
 
   async function loadConfig() {
     isLoading = true;
@@ -73,18 +96,19 @@
     neuzosConfig.activeKeyBindProfileId = conf.activeKeyBindProfileId ?? null;
     neuzosConfig.sessionActions = conf.sessionActions || [];
     neuzosConfig.sessionGroups = conf.sessionGroups ?? [];
-    neuzosConfig.sessionZoomLevels = conf.sessionZoomLevels ?? {};
+    neuzosConfig.syncReceiverSessionId = conf.syncReceiverSessionId ?? null;
     neuzosConfig.userAgent = conf.userAgent;
     neuzosConfig.titleBarButtons = conf.titleBarButtons;
     neuzosConfig.window = conf.window;
     neuzosConfig.autoSaveSettings = conf.autoSaveSettings ?? false;
     neuzosConfig.fullscreen = conf.fullscreen ?? {
-      hideTitleBarInMainWindow: false,
-      hideTitleBarInSessionLayouts: false
+      hideTitleBarInMainWindow: true,
+      hideTitleBarInSessionLayouts: true
     };
 
     // Initialize snapshot after config is loaded
     lastConfigSnapshot = JSON.stringify(neuzosConfig);
+    restoreSavedZoomPreview();
 
     // Wait a bit to ensure contexts are initialized
     setTimeout(() => {
@@ -92,8 +116,67 @@
     }, 100);
   }
 
-  onMount(async () => {
-    loadConfig()
+  const applyConfigPatch = (patch: NeuzConfigPatch) => {
+    if (patch.sessions !== undefined) {
+      neuzosConfig.sessions = patch.sessions;
+    }
+    if (patch.layouts !== undefined) {
+      neuzosConfig.layouts = patch.layouts;
+    }
+    if (patch.defaultLayouts !== undefined) {
+      neuzosConfig.defaultLayouts = patch.defaultLayouts;
+    }
+
+    if (lastConfigSnapshot) {
+      try {
+        const savedConfig = JSON.parse(lastConfigSnapshot) as NeuzConfig;
+        if (patch.sessions !== undefined) savedConfig.sessions = patch.sessions;
+        if (patch.layouts !== undefined) savedConfig.layouts = patch.layouts;
+        if (patch.defaultLayouts !== undefined) savedConfig.defaultLayouts = patch.defaultLayouts;
+        lastConfigSnapshot = JSON.stringify(savedConfig);
+      } catch (error) {
+        console.error('Failed to apply config patch to settings snapshot:', error);
+      }
+    }
+  }
+
+  const applyActiveKeybindProfilePatch = (profileId: string | null) => {
+    neuzosConfig.activeKeyBindProfileId = profileId;
+
+    if (lastConfigSnapshot) {
+      try {
+        const savedConfig = JSON.parse(lastConfigSnapshot) as NeuzConfig;
+        savedConfig.activeKeyBindProfileId = profileId;
+        lastConfigSnapshot = JSON.stringify(savedConfig);
+      } catch (error) {
+        console.error('Failed to apply active keybind profile patch to settings snapshot:', error);
+      }
+    }
+  }
+
+  onMount(() => {
+    void loadConfig()
+    const setTab = (_: unknown, tab?: string) => {
+      if (tab) {
+        activeTab = tab;
+      }
+    };
+    const handleConfigPatch = (_: unknown, patch: NeuzConfigPatch) => {
+      applyConfigPatch(patch);
+    };
+    const handleActiveKeybindProfileChanged = (_: unknown, profileId: string | null) => {
+      applyActiveKeybindProfilePatch(profileId);
+    };
+
+    electronApi.on("settings_window.set_tab", setTab);
+    electronApi.on("event.config_patch", handleConfigPatch);
+    electronApi.on("event.active_keybind_profile_changed", handleActiveKeybindProfileChanged);
+
+    return () => {
+      electronApi.removeListener("settings_window.set_tab", setTab);
+      electronApi.removeListener("event.config_patch", handleConfigPatch);
+      electronApi.removeListener("event.active_keybind_profile_changed", handleActiveKeybindProfileChanged);
+    };
   });
 
   const allowedKeybindModifiers = [
@@ -196,6 +279,17 @@
       return { ...profile, keybinds };
     });
 
+    if (typeof neuzosConfig.userAgent === 'string') {
+      try {
+        const defaultUserAgent = await electronApi.invoke("app.get_default_user_agent");
+        if (neuzosConfig.userAgent.trim() === defaultUserAgent.trim()) {
+          delete neuzosConfig.userAgent;
+        }
+      } catch (error) {
+        console.error("Failed to normalize user agent:", error);
+      }
+    }
+
   }
 
   let autoSaveTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -207,23 +301,60 @@
     return lastConfigSnapshot !== "" && JSON.stringify(neuzosConfig) !== lastConfigSnapshot;
   };
 
+  const normalizeSingleSessionLayouts = () => {
+    neuzosConfig.layouts = (neuzosConfig.layouts ?? []).map((layout) => {
+      const sessionIds = (layout.rows ?? []).flatMap((row) => row.sessionIds ?? []);
+      if (sessionIds.length > 1) {
+        return layout;
+      }
+
+      const [sessionId] = sessionIds;
+      const normalizedLayout = {
+        ...layout,
+        rows: [{sessionIds: sessionId ? [sessionId] : []}]
+      };
+
+      delete normalizedLayout.autoFocus;
+      delete normalizedLayout.locked;
+      delete normalizedLayout.columnFirst;
+
+      return normalizedLayout;
+    });
+  };
+
+  const cleanDefaultConfigValues = () => {
+    neuzosConfig.sessions = (neuzosConfig.sessions ?? []).map((session) => {
+      const cleanedSession = {...session};
+      if (cleanedSession.floatable === false) {
+        delete cleanedSession.floatable;
+      }
+      if (cleanedSession.autoDeleteCache === false) {
+        delete cleanedSession.autoDeleteCache;
+      }
+      return cleanedSession;
+    });
+  };
+
   const saveSettings = async (showToast: boolean = true) => {
     if (isSaving) return;
 
     try {
       isSaving = true;
       await sanitizeConfig();
+      normalizeSingleSessionLayouts();
+      cleanDefaultConfigValues();
       await electronApi.invoke("config.save", JSON.stringify(neuzosConfig));
+      window.dispatchEvent(new CustomEvent("neuzos:settings-saved"));
 
       // Update snapshot after successful save
       lastConfigSnapshot = JSON.stringify(neuzosConfig);
 
       if (showToast) {
-        toast.success("Settings saved successfully!", {position: "top-right", duration: 1000});
+        toast.success("Settings Saved Successfully!", {position: "top-right", duration: 1000});
       }
     } catch (error) {
       console.error("Failed to save settings:", error);
-      toast.error("Failed to save settings. Please try again.", {position: "top-right"});
+      toast.error("Failed to Save Settings. Please Try Again.", {position: "top-right"});
     } finally {
       isSaving = false;
     }
@@ -268,6 +399,7 @@
   };
 
   const closeWithoutSaving = () => {
+    restoreSavedZoomPreview();
     unsavedCloseDialogOpen = false;
     neuzosBridge.settingsWindow.close();
   };
@@ -302,8 +434,8 @@
             <Tabs.Trigger value="layouts">Layouts</Tabs.Trigger>
             <Tabs.Trigger value="keybinds">Keybinds</Tabs.Trigger>
             <Tabs.Trigger value="session-actions">Session Actions</Tabs.Trigger>
-            <Tabs.Trigger value="backup">Backup</Tabs.Trigger>
             <Tabs.Trigger value="launch">Launch Settings</Tabs.Trigger>
+            <Tabs.Trigger value="backup">Backup</Tabs.Trigger>
 
           </div>
           <div class="flex-1"></div>
@@ -362,7 +494,7 @@
       <Dialog.Header>
         <Dialog.Title>Unsaved Changes</Dialog.Title>
         <Dialog.Description>
-          You have unsaved settings changes. Save them before closing?
+          You have unsaved Settings Changes. Save them before closing?
         </Dialog.Description>
       </Dialog.Header>
       <Dialog.Footer class="gap-2">

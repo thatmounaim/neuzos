@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { BookMarked, BookOpen, Coins, ListTodo, ScrollText, StickyNote } from '@lucide/svelte';
+  import { BookMarked, Calculator, ChartNoAxesCombined, Coins, ListTodo, NotebookText, PawPrint, Scroll, ScrollText, Search } from '@lucide/svelte';
   import { Button } from '$lib/components/ui/button';
   import { getWidgetsContext } from '$lib/contexts/widgetsContext.svelte';
   import { getQuestPanelContext } from '$lib/contexts/questPanelContext.svelte';
@@ -10,13 +10,14 @@
     WIDGET_LAUNCHER_PINS_CHANGED,
     type WidgetLauncherId
   } from '$lib/widgetLauncherPins';
+  import type { ViewerWindowType } from '$lib/types';
 
   const widgetsContext = getWidgetsContext();
   const questPanel = getQuestPanelContext();
   const neuzosBridge = getNeuzosBridgeContext();
 
   let pinnedLaunchers = $state<WidgetLauncherId[]>([]);
-  let openViewerTypes = $state<('navi_guide' | 'flyffipedia')[]>([]);
+  let openViewerTypes = $state<ViewerWindowType[]>([]);
 
   function refreshPinnedLaunchers() {
     pinnedLaunchers = readPinnedWidgetLaunchers();
@@ -40,6 +41,17 @@
     widgetsContext.createWidget(type);
   }
 
+  function toggleViewer(type: ViewerWindowType) {
+    if (openViewerTypes.includes(type)) {
+      neuzosBridge.viewerWindow.closeType(type);
+      openViewerTypes = openViewerTypes.filter((openType) => openType !== type);
+      return;
+    }
+
+    neuzosBridge.viewerWindow.open(type);
+    openViewerTypes = [...openViewerTypes, type];
+  }
+
   function isLauncherActive(id: WidgetLauncherId): boolean {
     switch (id) {
       case 'fcoin_calculator':
@@ -50,6 +62,10 @@
         return isSingleWidgetOpen('widget.builtin.todo');
       case 'navi_guide':
       case 'flyffipedia':
+      case 'flyffulator':
+      case 'flyff_calculators':
+      case 'siege_stats':
+      case 'cs_modelviewer':
         return openViewerTypes.includes(id);
       case 'quest_log':
         return questPanel.isOpen;
@@ -68,22 +84,12 @@
         toggleSingleWidget('widget.builtin.todo');
         break;
       case 'navi_guide':
-        if (openViewerTypes.includes('navi_guide')) {
-          neuzosBridge.viewerWindow.closeType('navi_guide');
-          openViewerTypes = openViewerTypes.filter((type) => type !== 'navi_guide');
-        } else {
-          neuzosBridge.viewerWindow.open('navi_guide');
-          openViewerTypes = [...openViewerTypes, 'navi_guide'];
-        }
-        break;
       case 'flyffipedia':
-        if (openViewerTypes.includes('flyffipedia')) {
-          neuzosBridge.viewerWindow.closeType('flyffipedia');
-          openViewerTypes = openViewerTypes.filter((type) => type !== 'flyffipedia');
-        } else {
-          neuzosBridge.viewerWindow.open('flyffipedia');
-          openViewerTypes = [...openViewerTypes, 'flyffipedia'];
-        }
+      case 'flyffulator':
+      case 'flyff_calculators':
+      case 'siege_stats':
+      case 'cs_modelviewer':
+        toggleViewer(id);
         break;
       case 'quest_log':
         questPanel.toggle();
@@ -103,6 +109,14 @@
         return 'Navi Guide';
       case 'flyffipedia':
         return 'Flyffipedia';
+      case 'flyffulator':
+        return 'Flyffulator';
+      case 'flyff_calculators':
+        return 'Flyff Calculators';
+      case 'siege_stats':
+        return 'Siege Stats';
+      case 'cs_modelviewer':
+        return 'CS-Modelviewer';
       case 'quest_log':
         return 'Quest Log';
     }
@@ -134,13 +148,21 @@
     {#if launcherId === 'fcoin_calculator'}
       <Coins class="size-3.5" />
     {:else if launcherId === 'notepad'}
-      <StickyNote class="size-3.5" />
+      <NotebookText class="size-3.5" />
     {:else if launcherId === 'todo'}
       <ListTodo class="size-3.5" />
     {:else if launcherId === 'navi_guide'}
-      <BookOpen class="size-3.5" />
+      <PawPrint class="size-3.5" />
     {:else if launcherId === 'flyffipedia'}
       <BookMarked class="size-3.5" />
+    {:else if launcherId === 'flyffulator'}
+      <Scroll class="size-3.5" />
+    {:else if launcherId === 'flyff_calculators'}
+      <Calculator class="size-3.5" />
+    {:else if launcherId === 'siege_stats'}
+      <ChartNoAxesCombined class="size-3.5" />
+    {:else if launcherId === 'cs_modelviewer'}
+      <Search class="size-3.5" />
     {:else if launcherId === 'quest_log'}
       <ScrollText class="size-3.5" />
     {/if}

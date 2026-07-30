@@ -295,6 +295,8 @@ export const actionIcons: string[] = [
     "skill/couple_stroll",
     "skill/couple_swiftrecovery",
     "skill/action_slot",
+    "items/eq_switch",
+    "items/nitro_boost",
     "motions/attack",
     "motions/cheer",
     "motions/follow",
@@ -302,8 +304,8 @@ export const actionIcons: string[] = [
     "motions/swap_skillpage",
     "motions/swap_statpage",
     "items/food_sushi",
-    "items/vital_fp",
     "items/pill_gold",
+    "items/vital_fp",
     "items/refresher_mp",
     "items/wings"
   ];
