@@ -1,7 +1,8 @@
 import { getContext, setContext } from 'svelte';
+import type { NeuzIcon } from '$lib/types';
+import {readQuestlogState, writeQuestlogState} from '$lib/localStorageStores';
 
 const QUEST_PANEL_CONTEXT_KEY = Symbol('questPanel');
-const STORAGE_KEY = 'questPanel';
 
 export const RECOMMENDATION_CATEGORIES = [
   'Mandatory',
@@ -30,6 +31,7 @@ export type FlyffClassName = 'Mercenary' | 'Assist' | 'Magician' | 'Acrobat';
 interface CharacterState {
   id: string;
   name: string;
+  icon: NeuzIcon | null;
   flyffClass: FlyffClassName | null;
   level: number | null;
   completedQuests: string[];
@@ -40,15 +42,21 @@ interface CharacterState {
 interface PersistedState {
   characters: CharacterState[];
   activeCharacterId: string | null;
+  sidebarSide: 'left' | 'right';
   recommendationFilters: Record<string, boolean>;
   levelAppropriateOnly: boolean;
   fwcFilterEnabled: boolean;
 }
 
-function createDefaultCharacter(name: string, flyffClass: FlyffClassName | null = null): CharacterState {
+function normalizeSidebarSide(side: unknown): 'left' | 'right' {
+  return side === 'left' ? 'left' : 'right';
+}
+
+function createDefaultCharacter(name: string, flyffClass: FlyffClassName | null = null, icon: NeuzIcon | null = null): CharacterState {
   return {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
     name,
+    icon,
     flyffClass,
     level: null,
     completedQuests: [],
@@ -57,20 +65,28 @@ function createDefaultCharacter(name: string, flyffClass: FlyffClassName | null 
   };
 }
 
+function normalizeQuestlineName(name: string): string {
+  if (name === '1st job change') return '1st Job Change';
+  if (name === "Rhisis' Catacombs") return 'Rhisis Catacombs';
+  return name;
+}
+
 function loadPersistedState(): PersistedState {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
+    const parsed = readQuestlogState();
+    if (parsed) {
       const characters: CharacterState[] = Array.isArray(parsed.characters)
         ? parsed.characters.map((c: any) => ({
             id: c.id ?? Date.now().toString(36),
             name: c.name ?? 'Character',
+            icon: c.icon ?? null,
             flyffClass: c.flyffClass ?? null,
             level: c.level ?? null,
             completedQuests: Array.isArray(c.completedQuests) ? c.completedQuests : [],
             hiddenQuests: Array.isArray(c.hiddenQuests) ? c.hiddenQuests : [],
-            expandedQuestlines: Array.isArray(c.expandedQuestlines) ? c.expandedQuestlines : [],
+            expandedQuestlines: Array.isArray(c.expandedQuestlines)
+              ? c.expandedQuestlines.map((name: string) => normalizeQuestlineName(name))
+              : [],
           }))
         : [];
 
@@ -85,6 +101,7 @@ function loadPersistedState(): PersistedState {
       return {
         characters,
         activeCharacterId: parsed.activeCharacterId ?? characters[0]?.id ?? null,
+        sidebarSide: normalizeSidebarSide(parsed.sidebarSide),
         recommendationFilters: { ...defaultRecommendationFilters(), ...(parsed.recommendationFilters ?? {}) },
         levelAppropriateOnly: parsed.levelAppropriateOnly ?? false,
         fwcFilterEnabled: parsed.fwcFilterEnabled ?? false,
@@ -96,6 +113,7 @@ function loadPersistedState(): PersistedState {
   return {
     characters: [],
     activeCharacterId: null,
+    sidebarSide: 'right',
     recommendationFilters: defaultRecommendationFilters(),
     levelAppropriateOnly: false,
     fwcFilterEnabled: false,
@@ -104,6 +122,7 @@ function loadPersistedState(): PersistedState {
 
 export interface QuestPanelContext {
   readonly isOpen: boolean;
+  readonly sidebarSide: 'left' | 'right';
   readonly characters: CharacterState[];
   readonly activeCharacterId: string | null;
   readonly flyffClass: FlyffClassName | null;
@@ -117,8 +136,9 @@ export interface QuestPanelContext {
   toggle: () => void;
   open: () => void;
   close: () => void;
+  setSidebarSide: (side: 'left' | 'right') => void;
   // Character management
-  addCharacter: (name: string, flyffClass: FlyffClassName) => void;
+  addCharacter: (name: string, flyffClass: FlyffClassName, icon: NeuzIcon | null) => void;
   removeCharacter: (id: string) => void;
   renameCharacter: (id: string, name: string) => void;
   setCharacterClass: (id: string, flyffClass: FlyffClassName) => void;
@@ -147,6 +167,7 @@ export function createQuestPanelContext(): QuestPanelContext {
   const persisted = loadPersistedState();
 
   let isOpen = $state(false);
+  let sidebarSide = $state<'left' | 'right'>(persisted.sidebarSide);
   let characters = $state<CharacterState[]>(persisted.characters.map(c => ({ ...c })));
   let activeCharacterId = $state<string | null>(persisted.activeCharacterId);
   let recommendationFilters = $state<Record<string, boolean>>({ ...persisted.recommendationFilters });
@@ -168,6 +189,7 @@ export function createQuestPanelContext(): QuestPanelContext {
         characters: characters.map(c => ({
           id: c.id,
           name: c.name,
+          icon: c.icon ?? null,
           flyffClass: c.flyffClass,
           level: c.level,
           completedQuests: [...c.completedQuests],
@@ -175,11 +197,12 @@ export function createQuestPanelContext(): QuestPanelContext {
           expandedQuestlines: [...c.expandedQuestlines],
         })),
         activeCharacterId,
+        sidebarSide,
         recommendationFilters: { ...recommendationFilters },
         levelAppropriateOnly,
         fwcFilterEnabled,
       };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(plain));
+      writeQuestlogState(plain);
     } catch (e) {
       console.error('[QuestPanel] Failed to persist state:', e);
     }
@@ -199,6 +222,7 @@ export function createQuestPanelContext(): QuestPanelContext {
 
   return {
     get isOpen() { return isOpen; },
+    get sidebarSide() { return sidebarSide; },
     get characters() { return characters; },
     get activeCharacterId() { return activeCharacterId; },
     get flyffClass() { return getActiveChar()?.flyffClass ?? null; },
@@ -215,10 +239,14 @@ export function createQuestPanelContext(): QuestPanelContext {
     },
     open() { isOpen = true; },
     close() { isOpen = false; },
+    setSidebarSide(side: 'left' | 'right') {
+      sidebarSide = side;
+      save();
+    },
 
     // -- Character management --
-    addCharacter(name: string, flyffClass: FlyffClassName) {
-      const char = createDefaultCharacter(name, flyffClass);
+    addCharacter(name: string, flyffClass: FlyffClassName, icon: NeuzIcon | null) {
+      const char = createDefaultCharacter(name, flyffClass, icon);
       characters = [...characters, char];
       activeCharacterId = char.id;
       save();

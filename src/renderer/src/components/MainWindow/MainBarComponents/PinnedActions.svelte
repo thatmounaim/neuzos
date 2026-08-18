@@ -6,27 +6,25 @@
   import type {MainWindowState} from '$lib/types';
   import {getCooldownsContext} from '$lib/contexts/cooldownsContext';
   import {getWidgetsContext} from '$lib/contexts/widgetsContext.svelte.js';
+  import {readActionPinsAutoLoadLatest, readActionPinsLatestPins, writeActionPinsLatestPins} from '$lib/localStorageStores';
+
+  type Props = {
+    onHasPinnedActionsChange?: (hasPinnedActions: boolean) => void;
+  };
+
+  let {onHasPinnedActionsChange}: Props = $props();
 
   const mainWindowState = getContext<MainWindowState>('mainWindowState');
   const cooldownsContext = getCooldownsContext();
   const widgetsContext = getWidgetsContext();
 
   const ACTION_PIN_WIDGET_TYPE = 'widget.builtin.action_pin';
-  const ACTION_PIN_STORAGE_KEY = 'widgets.actionPin.latestPins';
-  const ACTION_PIN_AUTOLOAD_KEY = 'widgets.actionPin.autoLoadLatest';
 
   let didInitPinPersistence = false;
-  let didRestoreLatestPins = false;
   let initialSavedLatestPinSessionIds: string[] = [];
 
   // Force reactivity for cooldown updates
   let cooldownTrigger = $state(0);
-  $effect(() => {
-    const unsubscribe = cooldownsContext.subscribe(() => {
-      cooldownTrigger++;
-    });
-    return () => unsubscribe();
-  });
 
   // Helper to get action state that depends on cooldownTrigger for reactivity
   function getActionStateReactive(sessionId: string, actionId: string) {
@@ -44,6 +42,11 @@
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   }
 
+  function formatActionTooltip(action: any): string {
+    const key = action.ingameKey ? String(action.ingameKey).toUpperCase() : 'Not set';
+    return `${action.label} | Key: ${key} | Casttime: ${action.castTime}s | Cooldown: ${action.cooldown}s`;
+  }
+
   function getSessionsWithActions(): string[] {
     return (
       mainWindowState.config.sessionActions
@@ -53,49 +56,15 @@
   }
 
   function readAutoLoadLatestPins(): boolean {
-    if (typeof window === 'undefined') return false;
-
-    const raw = window.localStorage.getItem(ACTION_PIN_AUTOLOAD_KEY);
-    if (raw === null) return false;
-
-    try {
-      return Boolean(JSON.parse(raw));
-    } catch {
-      return raw === 'true';
-    }
+    return readActionPinsAutoLoadLatest();
   }
 
   function readSavedLatestPinSessionIds(): string[] {
-    if (typeof window === 'undefined') return [];
-
-    const raw = window.localStorage.getItem(ACTION_PIN_STORAGE_KEY);
-    if (!raw) return [];
-
-    try {
-      const parsed = JSON.parse(raw);
-
-      // Backward compatibility with previous object shape.
-      if (Array.isArray(parsed)) {
-        return [...new Set(parsed.filter((id): id is string => typeof id === 'string'))];
-      }
-
-      if (parsed && typeof parsed === 'object' && Array.isArray((parsed as { sessionIds?: unknown }).sessionIds)) {
-        return [
-          ...new Set(
-            (parsed as { sessionIds: unknown[] }).sessionIds.filter((id): id is string => typeof id === 'string')
-          )
-        ];
-      }
-
-      return [];
-    } catch {
-      return [];
-    }
+    return readActionPinsLatestPins();
   }
 
   function writeSavedLatestPinSessionIds(sessionIds: string[]) {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(ACTION_PIN_STORAGE_KEY, JSON.stringify([...new Set(sessionIds)]));
+    writeActionPinsLatestPins(sessionIds);
   }
 
   const actionPinWidgets = $derived(
@@ -105,8 +74,32 @@
   const validSessionIdsWithActions = $derived(getSessionsWithActions());
 
   onMount(() => {
+    const unsubscribe = cooldownsContext.subscribe(() => {
+      cooldownTrigger++;
+    });
+
     initialSavedLatestPinSessionIds = readSavedLatestPinSessionIds();
     didInitPinPersistence = true;
+
+    const validSessionIds = new Set(validSessionIdsWithActions);
+    if (validSessionIds.size > 0 && readAutoLoadLatestPins()) {
+      const existingPinnedSessionIds = new Set(
+        actionPinWidgets
+          .map(widget => widget.data?.sessionId)
+          .filter((sessionId): sessionId is string => typeof sessionId === 'string')
+      );
+
+      const savedSessionIds = initialSavedLatestPinSessionIds.filter(sessionId => validSessionIds.has(sessionId));
+      for (const sessionId of savedSessionIds) {
+        if (!existingPinnedSessionIds.has(sessionId)) {
+          widgetsContext.createWidget(ACTION_PIN_WIDGET_TYPE, {sessionId});
+        }
+      }
+    }
+
+    return () => {
+      unsubscribe();
+    };
   });
 
   $effect(() => {
@@ -122,27 +115,6 @@
     ];
 
     writeSavedLatestPinSessionIds(currentPinnedSessionIds);
-  });
-
-  $effect(() => {
-    if (!didInitPinPersistence || didRestoreLatestPins) return;
-
-    const validSessionIds = new Set(validSessionIdsWithActions);
-    if (validSessionIds.size === 0) return;
-    if (!readAutoLoadLatestPins()) {
-      didRestoreLatestPins = true;
-      return;
-    }
-
-    const savedSessionIds = initialSavedLatestPinSessionIds.filter(sessionId => validSessionIds.has(sessionId));
-    for (const sessionId of savedSessionIds) {
-      const alreadyPinned = actionPinWidgets.some(widget => widget.data?.sessionId === sessionId);
-      if (!alreadyPinned) {
-        widgetsContext.createWidget(ACTION_PIN_WIDGET_TYPE, {sessionId});
-      }
-    }
-
-    didRestoreLatestPins = true;
   });
 
   // Get all pinned actions from sessions that have action pad widgets (even if hidden)
@@ -173,6 +145,10 @@
     });
 
     return result;
+  });
+
+  $effect(() => {
+    onHasPinnedActionsChange?.(pinnedActionsToShow.length > 0);
   });
 
   function triggerPinnedAction(sessionId: string, actionId: string) {
@@ -265,6 +241,15 @@
 </script>
 
 <!-- Pinned Actions -->
+{#if pinnedActionsToShow.length > 0}
+  <div
+    class="flex size-7 shrink-0 items-center justify-center rounded-md bg-accent/30 text-muted-foreground"
+    title="Action Pins"
+  >
+    <Swords class="size-4"/>
+  </div>
+{/if}
+
 {#each pinnedActionsToShow as sessionPinned, sessionIndex (sessionPinned.sessionId)}
   {#if sessionIndex > 0}
     <Separator orientation="vertical" class="h-4"/>
@@ -291,7 +276,7 @@
           size="icon-xs"
           class="relative size-7 p-0 overflow-hidden {isOnCooldown ? 'opacity-60' : ''}"
           onclick={() => !isOnCooldown && triggerPinnedAction(sessionPinned.sessionId, action.id)}
-          title="{action.label} ({sessionPinned.sessionLabel}) - Key: {action.ingameKey || 'Not set'} - Cast: {action.castTime}s | CD: {action.cooldown}s"
+          title={formatActionTooltip(action)}
           disabled={isOnCooldown}
         >
           {#if action.icon?.slug}

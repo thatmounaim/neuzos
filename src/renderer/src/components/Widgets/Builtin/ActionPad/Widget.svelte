@@ -1,18 +1,35 @@
 <script lang="ts">
   import FloatingWindow from '../../../Shared/FloatingWindow.svelte';
-  import {Swords} from '@lucide/svelte';
+  import {Check, EyeOff, GripVertical, Plus, Settings, Swords, Trash2} from '@lucide/svelte';
   import {getContext} from 'svelte';
   import type {MainWindowState, SessionAction} from '$lib/types';
   import {getCooldownsContext} from '$lib/contexts/cooldownsContext';
+  import {
+    readActionPadBackgroundTransparency,
+    readActionPadRows,
+    readActionPadWindowState,
+    writeActionPadBackgroundTransparency,
+    writeActionPadRows,
+    writeActionPadWindowState
+  } from '$lib/localStorageStores';
+
+  type ActionPadRow = {
+    id: string;
+    actionIds: string[];
+    name?: string;
+  };
+
+  type OrganizedActionPadRow = ActionPadRow & {
+    actions: SessionAction[];
+  };
 
   interface Props {
     visible?: boolean;
     onClose?: () => void;
-    onHide?: () => void;
     data?: { sessionId?: string };
   }
 
-  let {visible = true, onClose, onHide, data}: Props = $props();
+  let {visible = true, onClose, data}: Props = $props();
 
   const mainWindowState = getContext<MainWindowState>('mainWindowState');
   const cooldownsContext = getCooldownsContext();
@@ -27,7 +44,7 @@
   });
 
   // Get the session ID from data
-  const sessionId = data?.sessionId;
+  const sessionId = (() => data?.sessionId)();
 
   // Helper to get action state that depends on cooldownTrigger for reactivity
   function getActionStateReactive(actionId: string) {
@@ -52,28 +69,51 @@
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   }
 
+  function formatActionTooltip(action: SessionAction): string {
+    const key = action.ingameKey ? action.ingameKey.toUpperCase() : 'Not set';
+    return `${action.label} | Key: ${key} | Casttime: ${action.castTime}s | Cooldown: ${action.cooldown}s`;
+  }
+
   // Get session info
   const session = $derived(mainWindowState.config.sessions.find(s => s.id === sessionId));
   const sessionLabel = $derived(session?.label || 'Unknown Session');
+  const sessionIcon = $derived(session?.icon?.slug || 'misc/browser');
+  const sessionRunning = $derived(Boolean(sessionId && mainWindowState.sessionsLayoutsRef[sessionId]?.layouts && Object.keys(mainWindowState.sessionsLayoutsRef[sessionId].layouts).length > 0));
 
   // Get session actions
   const sessionActionsData = $derived(
     mainWindowState.config.sessionActions?.find(sa => sa.sessionId === sessionId)
   );
   const actions = $derived(sessionActionsData?.actions || []);
+  const validActionIds = $derived(new Set(actions.map(action => action.id)));
 
   // Edit mode state
   let isEditMode = $state(false);
 
-  // Row structure: { rowId: string, actionIds: string[] }
+  // Row structure: { rowId: string, actionIds: string[], name?: string }
   const WIDGET_IDENTIFIER = 'widget.builtin.action_pad';
-  const STORAGE_KEY = WIDGET_IDENTIFIER + `rows-${sessionId}`;
   const PERSIST_ID = WIDGET_IDENTIFIER + 'session-' + sessionId;
-  const TRANSPARENCY_STORAGE_KEY = `${PERSIST_ID}-background-transparency`;
   const DEFAULT_BACKGROUND_TRANSPARENCY = 100;
+  const HIDDEN_ROW_ID = 'hidden';
+  const HIDDEN_ROW_NAME = 'Hidden Actions';
 
-  let rows = $state<{ id: string; actionIds: string[] }[]>(loadRowsFromStorage());
+  let rows = $state<ActionPadRow[]>(loadRowsFromStorage());
   let backgroundTransparency = $state(loadBackgroundTransparency());
+  let draggedActionId = $state<string | null>(null);
+  let draggedSourceRowId = $state<string | null>(null);
+  let activeDropTarget = $state<{ rowId: string; index: number } | null>(null);
+
+  $effect(() => {
+    const cleanedRows = rows.map(row => ({
+      ...row,
+      actionIds: row.actionIds.filter(actionId => validActionIds.has(actionId))
+    }));
+
+    if (JSON.stringify(cleanedRows) !== JSON.stringify(rows)) {
+      rows = cleanedRows;
+      saveRowsToStorage();
+    }
+  });
 
   function sanitizeTransparency(value: unknown): number {
     const parsed = Number(value);
@@ -82,23 +122,11 @@
   }
 
   function loadBackgroundTransparency(): number {
-    try {
-      const stored = localStorage.getItem(TRANSPARENCY_STORAGE_KEY);
-      if (stored !== null) {
-        return sanitizeTransparency(stored);
-      }
-    } catch (e) {
-      console.error('Failed to load Action Pad transparency:', e);
-    }
-    return DEFAULT_BACKGROUND_TRANSPARENCY;
+    return sessionId ? sanitizeTransparency(readActionPadBackgroundTransparency(sessionId)) : DEFAULT_BACKGROUND_TRANSPARENCY;
   }
 
   function saveBackgroundTransparency(value: number) {
-    try {
-      localStorage.setItem(TRANSPARENCY_STORAGE_KEY, String(sanitizeTransparency(value)));
-    } catch (e) {
-      console.error('Failed to save Action Pad transparency:', e);
-    }
+    if (sessionId) writeActionPadBackgroundTransparency(sessionId, sanitizeTransparency(value));
   }
 
   function updateBackgroundTransparency(value: string) {
@@ -106,14 +134,27 @@
     saveBackgroundTransparency(backgroundTransparency);
   }
 
-  function loadRowsFromStorage(): { id: string; actionIds: string[] }[] {
+  function normalizeRow(row: any): ActionPadRow | null {
+    if (!row || !row.id || !Array.isArray(row.actionIds)) {
+      return null;
+    }
+
+    return {
+      id: String(row.id),
+      actionIds: row.actionIds.filter((id: unknown): id is string => typeof id === 'string'),
+      name: typeof row.name === 'string' ? row.name : undefined
+    };
+  }
+
+  function loadRowsFromStorage(): ActionPadRow[] {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        // Validate that stored rows still have valid actions
-        return parsed.filter((row: any) =>
-          row.actionIds && Array.isArray(row.actionIds)
+      const normalized = sessionId
+        ? readActionPadRows(sessionId).map(normalizeRow).filter((row): row is ActionPadRow => row !== null)
+        : [];
+
+      if (normalized.length > 0) {
+        return normalized.map(row =>
+          row.id === HIDDEN_ROW_ID ? {...row, name: HIDDEN_ROW_NAME} : row
         );
       }
     } catch (e) {
@@ -123,18 +164,43 @@
     return [{id: 'default', actionIds: []}];
   }
 
+  function getRowsForStorage(): ActionPadRow[] {
+    const configActionIds = actions.map(action => action.id);
+
+    return rows.map(row => {
+      if (row.id === 'default') {
+        const validOrderedIds = row.actionIds.filter(actionId => validActionIds.has(actionId));
+        const matchesConfigOrder = validOrderedIds.length === configActionIds.length &&
+          validOrderedIds.every((actionId, index) => actionId === configActionIds[index]);
+
+        return {
+          id: row.id,
+          actionIds: matchesConfigOrder ? [] : validOrderedIds,
+          name: row.name
+        };
+      }
+
+      return row.id === HIDDEN_ROW_ID
+        ? {id: row.id, actionIds: row.actionIds}
+        : row;
+    });
+  }
+
   function saveRowsToStorage() {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
+      if (sessionId) {
+        writeActionPadRows(sessionId, getRowsForStorage());
+      }
     } catch (e) {
       console.error('Failed to save rows:', e);
     }
   }
 
   // Get actions organized by rows
-  const organizedActions = $derived.by(() => {
+  const organizedActions = $derived.by<OrganizedActionPadRow[]>(() => {
     const organized = rows.map(row => ({
       ...row,
+      name: row.id === HIDDEN_ROW_ID ? HIDDEN_ROW_NAME : row.name,
       actions: row.actionIds
         .map(id => actions.find(a => a.id === id))
         .filter(Boolean) as SessionAction[]
@@ -157,37 +223,229 @@
       }
     }
 
-    // In edit mode, show all rows including empty ones
-    // In normal mode, only show rows with actions
-    return isEditMode ? organized : organized.filter(row => row.actions.length > 0);
+    const visibleRows = organized.filter(row => row.id !== HIDDEN_ROW_ID);
+    const hiddenRow = organized.find(row => row.id === HIDDEN_ROW_ID);
+
+    // In edit mode, show all normal rows and the hidden row when it contains actions.
+    // In normal mode, hide the hidden row completely.
+    if (isEditMode) {
+      return hiddenRow && hiddenRow.actions.length > 0
+        ? [...visibleRows, hiddenRow]
+        : visibleRows;
+    }
+
+    return visibleRows.filter(row => row.actions.length > 0);
   });
 
   function addRow() {
-    rows = [...rows, {id: `row-${Date.now()}`, actionIds: []}];
+    const hiddenRow = rows.find(row => row.id === HIDDEN_ROW_ID);
+    const visibleRows = rows.filter(row => row.id !== HIDDEN_ROW_ID);
+    const newRow = {id: `row-${Date.now()}`, actionIds: []};
+
+    rows = hiddenRow ? [...visibleRows, newRow, hiddenRow] : [...visibleRows, newRow];
     saveRowsToStorage();
   }
 
   function deleteRow(rowId: string) {
-    if (rowId === 'default') return; // Can't delete default row
+    if (rowId === 'default' || rowId === HIDDEN_ROW_ID) return; // Can't delete default or hidden row
     rows = rows.filter(r => r.id !== rowId);
     saveRowsToStorage();
   }
 
-  function moveActionToRow(actionId: string, targetRowId: string) {
-    // Remove from all rows
-    rows = rows.map(row => ({
+  function updateRowName(rowId: string, name: string) {
+    if (rowId === HIDDEN_ROW_ID) return;
+    rows = rows.map(row => row.id === rowId ? {...row, name} : row);
+    saveRowsToStorage();
+  }
+
+  function getRowDisplayName(row: ActionPadRow, index: number): string {
+    if (row.id === HIDDEN_ROW_ID) return HIDDEN_ROW_NAME;
+
+    const name = row.name?.trim();
+    return name || `Row ${index + 1}`;
+  }
+
+  function shouldShowRowTitle(row: ActionPadRow): boolean {
+    return Boolean(row.name?.trim());
+  }
+
+  function isHiddenRow(rowId: string): boolean {
+    return rowId === HIDDEN_ROW_ID;
+  }
+
+  function insertActionIntoDefaultOrder(defaultActionIds: string[], actionId: string): string[] {
+    if (defaultActionIds.includes(actionId)) return defaultActionIds;
+
+    const actionConfigIndex = actions.findIndex(action => action.id === actionId);
+    if (actionConfigIndex < 0) return [...defaultActionIds, actionId];
+
+    const insertIndex = defaultActionIds.findIndex(existingActionId => {
+      const existingConfigIndex = actions.findIndex(action => action.id === existingActionId);
+      return existingConfigIndex > actionConfigIndex;
+    });
+
+    if (insertIndex < 0) return [...defaultActionIds, actionId];
+
+    return [
+      ...defaultActionIds.slice(0, insertIndex),
+      actionId,
+      ...defaultActionIds.slice(insertIndex)
+    ];
+  }
+
+  function moveActionToSpecialRow(actionId: string, targetRow: ActionPadRow) {
+    const nextRows = rows.map(row => ({
       ...row,
       actionIds: row.actionIds.filter(id => id !== actionId)
     }));
 
-    // Add to target row
-    const targetRow = rows.find(r => r.id === targetRowId);
-    if (targetRow) {
-      targetRow.actionIds = [...targetRow.actionIds, actionId];
+    if (targetRow.id === 'default') {
+      const displayedDefaultActionIds = organizedActions.find(row => row.id === 'default')?.actions.map(action => action.id) ?? [];
+      const defaultRow = nextRows.find(row => row.id === 'default');
+      const restoredDefaultActionIds = insertActionIntoDefaultOrder(displayedDefaultActionIds, actionId);
+
+      if (defaultRow) {
+        defaultRow.actionIds = restoredDefaultActionIds;
+      } else {
+        nextRows.unshift({id: 'default', actionIds: restoredDefaultActionIds});
+      }
+
+      rows = nextRows;
+      saveRowsToStorage();
+      return;
     }
 
-    rows = [...rows]; // Trigger reactivity
+    const existingTargetRow = nextRows.find(row => row.id === targetRow.id);
+    if (existingTargetRow) {
+      existingTargetRow.actionIds = [...existingTargetRow.actionIds, actionId];
+    } else {
+      nextRows.push({...targetRow, actionIds: [actionId]});
+    }
+
+    rows = nextRows;
     saveRowsToStorage();
+  }
+
+  function hideAction(actionId: string) {
+    moveActionToSpecialRow(actionId, {
+      id: HIDDEN_ROW_ID,
+      actionIds: []
+    });
+  }
+
+  function restoreAction(actionId: string) {
+    const defaultRow = rows.find(row => row.id === 'default');
+    moveActionToSpecialRow(actionId, defaultRow ?? {id: 'default', actionIds: []});
+  }
+
+  function moveDraggedAction(targetRowId: string, targetIndex: number) {
+    if (!draggedActionId) return;
+
+    const displayedRows = new Map(organizedActions.map(row => [row.id, row.actions.map(action => action.id)]));
+    const nextRows = rows.map(row => {
+      const actionIds = row.id === 'default'
+        ? (displayedRows.get(row.id) ?? row.actionIds)
+        : row.actionIds;
+
+      return {
+        ...row,
+        actionIds: actionIds.filter(actionId => actionId !== draggedActionId)
+      };
+    });
+
+    const targetRow = nextRows.find(row => row.id === targetRowId);
+    if (!targetRow) return;
+
+    const sourceRow = rows.find(row => row.id === draggedSourceRowId);
+    const sourceIndex = sourceRow?.actionIds.indexOf(draggedActionId) ?? -1;
+    const adjustedTargetIndex =
+      draggedSourceRowId === targetRowId && sourceIndex >= 0 && sourceIndex < targetIndex
+        ? targetIndex - 1
+        : targetIndex;
+    const insertIndex = Math.max(0, Math.min(adjustedTargetIndex, targetRow.actionIds.length));
+
+    targetRow.actionIds = [
+      ...targetRow.actionIds.slice(0, insertIndex),
+      draggedActionId,
+      ...targetRow.actionIds.slice(insertIndex)
+    ];
+
+    rows = nextRows;
+    saveRowsToStorage();
+  }
+
+  function handleActionDragStart(event: DragEvent, rowId: string, actionId: string) {
+    if (!isEditMode) return;
+
+    draggedActionId = actionId;
+    draggedSourceRowId = rowId;
+    event.dataTransfer?.setData('text/plain', actionId);
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+    }
+  }
+
+  function handleDragOver(event: DragEvent) {
+    if (!isEditMode || !draggedActionId) return;
+
+    event.preventDefault();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'move';
+    }
+  }
+
+  function handleDropZoneDragOver(event: DragEvent, rowId: string, index: number) {
+    handleDragOver(event);
+    if (!isEditMode || !draggedActionId) return;
+
+    activeDropTarget = {rowId, index};
+  }
+
+  function handleActionDragOver(event: DragEvent, rowId: string, index: number) {
+    handleDragOver(event);
+    if (!isEditMode || !draggedActionId) return;
+
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    const isAfter = event.clientX > rect.left + rect.width / 2;
+    activeDropTarget = {rowId, index: isAfter ? index + 1 : index};
+  }
+
+  function handleDropZoneDragLeave(rowId: string, index: number) {
+    if (activeDropTarget?.rowId === rowId && activeDropTarget.index === index) {
+      activeDropTarget = null;
+    }
+  }
+
+  function isDropTarget(rowId: string, index: number): boolean {
+    return activeDropTarget?.rowId === rowId && activeDropTarget.index === index;
+  }
+
+  function handleDropOnZone(event: DragEvent, rowId: string, index: number) {
+    if (!isEditMode || !draggedActionId) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    moveDraggedAction(rowId, index);
+    activeDropTarget = null;
+  }
+
+  function handleActionDragEnd() {
+    draggedActionId = null;
+    draggedSourceRowId = null;
+    activeDropTarget = null;
+  }
+
+  function handleActionContextMenu(event: MouseEvent, rowId: string, actionId: string) {
+    if (!isEditMode) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    if (isHiddenRow(rowId)) {
+      restoreAction(actionId);
+      return;
+    }
+
+    hideAction(actionId);
   }
 
   // Function to trigger an action
@@ -273,16 +531,23 @@
 </script>
 
 {#snippet customTitleSnippet()}
-  <div class="flex items-center gap-2">
-    <span>Action Pad - {sessionLabel}</span>
-    <div class="ml-auto flex items-center gap-2">
-
+  <div class="flex items-center gap-3">
+    <div class="flex min-w-0 items-center gap-2">
+      <img class="h-4 w-4 shrink-0" src="icons/{sessionIcon}.png" alt="" />
+      <span class="truncate">{sessionLabel}</span>
+    </div>
+    <div class="ml-auto mr-1 flex items-center gap-2">
       <button
-        class="text-xs px-2 py-0.5 rounded border border-border hover:bg-accent transition-colors"
+        class="inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded border border-border transition-colors hover:border-input hover:bg-background dark:hover:bg-input/30"
         onclick={() => { isEditMode = !isEditMode; }}
         onmousedown={(e) => e.stopPropagation()}
+        title={isEditMode ? 'Done' : 'Edit'}
       >
-        {isEditMode ? 'Done' : 'Edit'}
+        {#if isEditMode}
+          <Check class="h-3.5 w-3.5" />
+        {:else}
+          <Settings class="h-3.5 w-3.5" />
+        {/if}
       </button>
     </div>
   </div>
@@ -291,33 +556,37 @@
 <div style="display: {visible ? 'block' : 'none'};">
   <FloatingWindow
     persistId={PERSIST_ID}
+    loadPersistedState={() => sessionId ? readActionPadWindowState(sessionId) : null}
+    savePersistedState={(state) => { if (sessionId) writeActionPadWindowState(sessionId, state); }}
     title="Action Pad - {sessionLabel}"
     defaultWidth={280}
     defaultHeight={360}
-    minWidth={280}
-    minHeight={200}
+    minWidth={250}
+    minHeight={110}
     {onClose}
-    {onHide}
     resizable={true}
     titleSnippet={customTitleSnippet}
     backgroundTransparency={backgroundTransparency}
   >
-    <div class="h-full w-full p-3 overflow-auto">
+    <div class="w-full">
       {#if actions.length === 0}
         <div class="flex flex-col items-center justify-center h-full text-center gap-2">
           <Swords class="h-12 w-12 text-muted-foreground opacity-50"/>
-          <p class="text-sm text-muted-foreground">No actions configured</p>
+          <p class="text-sm text-muted-foreground">No Actions configured</p>
           <p class="text-xs text-muted-foreground">
-            Configure actions in Settings → Session Actions
+            Configure Actions in Settings -> Session Actions
           </p>
         </div>
       {:else}
         {#if isEditMode}
-          <div class="flex flex-col gap-2 mb-2">
-          <span class="text-xs text-muted-foreground">
-            Opacity
-          </span>
-            <div class="flex items-center justify-between mb-2">
+          <div class="mb-3 rounded-md border border-border bg-background/40 p-3">
+            <div class="mb-2 flex items-center justify-between text-xs">
+              <span class="font-medium">Opacity</span>
+              <span class="text-muted-foreground" role="presentation" onmousedown={(e) => e.stopPropagation()}>
+                {backgroundTransparency}%
+              </span>
+            </div>
+            <div class="flex items-center">
               <input
                 id="action-pad-transparency"
                 type="range"
@@ -329,50 +598,92 @@
                 onmousedown={(e) => e.stopPropagation()}
                 oninput={(e) => updateBackgroundTransparency(e.currentTarget.value)}
               />
-              <span class="w-9 text-right text-[10px] text-muted-foreground" onmousedown={(e) => e.stopPropagation()}>
-          {backgroundTransparency}%
-        </span>
             </div>
           </div>
+          <p class="mb-3 text-[11px] text-muted-foreground">
+            Drag & Drop Actions to Reorder them. Right-Click to Hide Actions.
+          </p>
 
         {/if}
         <div class="flex flex-col gap-3">
-          {#each organizedActions as row (row.id)}
+          {#each organizedActions as row, rowIndex (row.id)}
             <div class="action-row">
               {#if isEditMode}
-                <div class="flex items-center gap-2 mb-2">
-                  <span class="text-xs text-muted-foreground">
-                    {row.id === 'default' ? 'Default Row' : 'Row'}
-                  </span>
-                  {#if row.id !== 'default'}
-                    <button
-                      class="text-xs px-1 py-0.5 rounded border border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors"
-                      onclick={() => deleteRow(row.id)}
-                    >
-                      Delete Row
-                    </button>
-                  {/if}
+                {#if isHiddenRow(row.id)}
+                  <div class="mb-2 text-xs font-medium text-muted-foreground">
+                    {HIDDEN_ROW_NAME}
+                  </div>
+                {:else}
+                  <div class="flex items-center gap-2 mb-2">
+                    <input
+                      class="h-6 min-w-0 flex-1 rounded border border-border bg-background/40 px-2 text-xs font-medium text-muted-foreground outline-none transition-colors hover:bg-background/60 focus:border-primary dark:border-input"
+                      value={row.name ?? ''}
+                      placeholder={getRowDisplayName(row, rowIndex)}
+                      onmousedown={(e) => e.stopPropagation()}
+                      oninput={(e) => updateRowName(row.id, e.currentTarget.value)}
+                    />
+                    {#if row.id !== 'default'}
+                      <button
+                        class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-destructive/60 bg-destructive/10 text-destructive transition-colors hover:border-destructive hover:bg-destructive/20"
+                        onclick={() => deleteRow(row.id)}
+                        title="Delete Row"
+                        aria-label="Delete Row"
+                      >
+                        <Trash2 class="h-3.5 w-3.5" />
+                      </button>
+                    {/if}
+                  </div>
+                {/if}
+              {:else if shouldShowRowTitle(row)}
+                <div class="mb-1 text-xs font-medium text-muted-foreground">
+                  {row.name}
                 </div>
               {/if}
 
-              <div class="flex flex-wrap gap-2">
+              <div
+                class="relative flex flex-wrap gap-2 min-h-12"
+              >
                 {#if row.actions.length === 0 && isEditMode}
                   <div
-                    class="empty-row-placeholder text-xs text-muted-foreground italic px-3 py-2 border border-dashed border-border rounded">
-                    Empty row - assign actions using the dropdown below each skill
+                    class="empty-row-placeholder text-xs text-muted-foreground italic px-3 py-2 border border-dashed rounded transition-colors {isDropTarget(row.id, 0) ? 'border-primary bg-primary/10' : 'border-border'}"
+                    ondragover={(event) => handleDropZoneDragOver(event, row.id, 0)}
+                    ondragleave={() => handleDropZoneDragLeave(row.id, 0)}
+                    ondrop={(event) => handleDropOnZone(event, row.id, 0)}
+                    role="button"
+                    tabindex="0"
+                  >
+                    Empty Row - Drag Actions here.
                   </div>
                 {/if}
-                {#each row.actions as action (action.id)}
+                {#each row.actions as action, actionIndex (action.id)}
                   {#if sessionId}
                     {@const state = getActionStateReactive(action.id)}
                     {@const isOnCooldown = state.cooldownProgress > 0 || state.isCasting}
                     {@const cooldownAngle = (1 - state.cooldownProgress) * 360}
 
-                    <div class="action-container">
+                    {#if isEditMode}
+                      <div
+                        class="action-drop-zone {actionIndex === 0 ? 'first-drop-zone' : ''} {isDropTarget(row.id, actionIndex) ? 'active' : ''}"
+                        ondragover={(event) => handleDropZoneDragOver(event, row.id, actionIndex)}
+                        ondragleave={() => handleDropZoneDragLeave(row.id, actionIndex)}
+                        ondrop={(event) => handleDropOnZone(event, row.id, actionIndex)}
+                        aria-label="Drop action here"
+                        role="button"
+                        tabindex="0"
+                      ></div>
+                    {/if}
+
+                    <div
+                      class="action-container {draggedActionId === action.id ? 'opacity-40' : ''}"
+                      role="presentation"
+                      ondragover={(event) => handleActionDragOver(event, row.id, actionIndex)}
+                      ondrop={(event) => handleDropOnZone(event, row.id, activeDropTarget?.rowId === row.id ? activeDropTarget.index : actionIndex)}
+                    >
                       <button
-                        class="action-button relative w-12 h-12 p-0 rounded-md border-2 border-border hover:border-primary transition-all overflow-hidden"
-                        onclick={() => !isEditMode && triggerAction(action)}
-                        title="{action.label}\nKey: {action.ingameKey || 'Not set'}\nCast: {action.castTime}s | CD: {action.cooldown}s"
+                        class="action-button relative w-12 h-12 p-0 rounded-md border-2 border-border hover:border-primary transition-all overflow-hidden {!sessionRunning && !isEditMode ? 'session-not-running' : ''}"
+                        onclick={() => !isEditMode && sessionRunning && !isOnCooldown && triggerAction(action)}
+                        oncontextmenu={(event) => handleActionContextMenu(event, row.id, action.id)}
+                        title={formatActionTooltip(action)}
                         disabled={isEditMode ? false : isOnCooldown}
                         class:edit-mode={isEditMode}
                       >
@@ -384,6 +695,53 @@
                           />
                         {:else}
                           <Swords class="h-8 w-8 {state.isCasting ? 'brightness-150' : ''}"/>
+                        {/if}
+
+                        {#if isEditMode}
+                          <div
+                            class="absolute left-0.5 top-0.5 cursor-grab rounded bg-black/60 p-0.5 text-white active:cursor-grabbing"
+                            draggable="true"
+                            ondragstart={(event) => handleActionDragStart(event, row.id, action.id)}
+                            ondragend={handleActionDragEnd}
+                            role="button"
+                            tabindex="0"
+                            aria-label="Drag Action"
+                          >
+                            <GripVertical class="h-3 w-3" />
+                          </div>
+                          <span
+                            class="absolute right-0.5 top-0.5 rounded bg-black/70 p-0.5 text-white hover:bg-primary transition-colors"
+                            role="button"
+                            tabindex="0"
+                            title={isHiddenRow(row.id) ? 'Add Action' : 'Hide Action'}
+                            aria-label={isHiddenRow(row.id) ? 'Add Action' : 'Hide Action'}
+                            onmousedown={(event) => event.stopPropagation()}
+                            onclick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              if (isHiddenRow(row.id)) {
+                                restoreAction(action.id);
+                              } else {
+                                hideAction(action.id);
+                              }
+                            }}
+                            onkeydown={(event) => {
+                              if (event.key !== 'Enter' && event.key !== ' ') return;
+                              event.preventDefault();
+                              event.stopPropagation();
+                              if (isHiddenRow(row.id)) {
+                                restoreAction(action.id);
+                              } else {
+                                hideAction(action.id);
+                              }
+                            }}
+                          >
+                            {#if isHiddenRow(row.id)}
+                              <Plus class="h-3 w-3" />
+                            {:else}
+                              <EyeOff class="h-3 w-3" />
+                            {/if}
+                          </span>
                         {/if}
 
                         <!-- Radial cooldown overlay -->
@@ -422,32 +780,31 @@
                           </div>
                         {/if}
                       </button>
-
-                      {#if isEditMode}
-                        <select
-                          class="text-[10px] px-1 py-0.5 rounded border border-border bg-background mt-1"
-                          onchange={(e) => moveActionToRow(action.id, e.currentTarget.value)}
-                        >
-                          {#each rows as selectRow}
-                            <option value={selectRow.id} selected={selectRow.id === row.id}>
-                              {selectRow.id === 'default' ? 'Default' : `Row ${rows.indexOf(selectRow)}`}
-                            </option>
-                          {/each}
-                        </select>
-                      {/if}
                     </div>
                   {/if}
                 {/each}
+                {#if isEditMode && row.actions.length > 0}
+                  <div
+                    class="action-drop-zone {isDropTarget(row.id, row.actions.length) ? 'active' : ''}"
+                    ondragover={(event) => handleDropZoneDragOver(event, row.id, row.actions.length)}
+                    ondragleave={() => handleDropZoneDragLeave(row.id, row.actions.length)}
+                    ondrop={(event) => handleDropOnZone(event, row.id, row.actions.length)}
+                    aria-label="Drop action here"
+                    role="button"
+                    tabindex="0"
+                  ></div>
+                {/if}
               </div>
             </div>
           {/each}
 
           {#if isEditMode}
             <button
-              class="text-xs px-3 py-1.5 rounded border border-border hover:bg-accent transition-colors"
+              class="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded border border-border px-3 text-xs transition-colors hover:border-input hover:bg-background dark:hover:bg-input/30"
               onclick={addRow}
             >
-              + Add Row
+              <Plus class="h-3.5 w-3.5" />
+              Add Row
             </button>
           {/if}
         </div>
@@ -485,10 +842,44 @@
     opacity: 0.9;
   }
 
+  .action-drop-zone {
+    width: 0.5rem;
+    min-height: 3rem;
+    border-radius: 9999px;
+    border: 1px dashed transparent;
+    overflow: hidden;
+    transition: background-color 120ms ease, border-color 120ms ease, width 120ms ease;
+  }
+
+  .action-drop-zone.first-drop-zone {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 1;
+    width: 0;
+    min-width: 0.75rem;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .action-drop-zone.first-drop-zone.active {
+    position: static;
+    min-width: 0;
+    pointer-events: auto;
+  }
+
+  .action-drop-zone.active {
+    width: 1rem;
+    border-color: hsl(var(--primary));
+    background-color: hsl(var(--primary) / 0.18);
+    opacity: 1;
+  }
+
   .action-row {
     display: flex;
     flex-direction: column;
   }
+
 </style>
 
 

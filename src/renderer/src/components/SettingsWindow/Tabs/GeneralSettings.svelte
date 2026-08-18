@@ -4,9 +4,8 @@
   import {Input} from "$lib/components/ui/input";
   import {Label} from "$lib/components/ui/label";
   import {Button} from "$lib/components/ui/button";
-  import * as Alert from "$lib/components/ui/alert";
   import {Separator} from "$lib/components/ui/separator";
-  import {AlertCircleIcon} from "@lucide/svelte";
+  import {Fullscreen, Keyboard, Moon, SquareArrowOutUpRight} from "@lucide/svelte";
 
   import {getContext, onMount} from "svelte";
   import {getElectronContext} from "$lib/contexts/electronContext";
@@ -15,23 +14,52 @@
   const electronApi = getElectronContext();
   const neuzosConfig = getContext<NeuzConfig>("neuzosConfig");
 
-  let userAgentEnabled = $state(false);
-  let userAgentValue = $state("");
-  let defaultUserAgent = $state("");
+  type WindowType = 'main' | 'settings' | 'session' | 'launcher';
+  type RuntimeWindowBounds = {x: number; y: number; width: number; height: number};
+
   let appDataPath = $state("");
-  let currentWindowWidth = $state(0);
-  let currentWindowHeight = $state(0);
+  let runtimeWindowBounds: Record<WindowType, RuntimeWindowBounds | null> = $state({
+    main: null,
+    settings: null,
+    session: null,
+    launcher: null,
+  });
 
   // Initialize window config if it doesn't exist
   if (!neuzosConfig.window) {
-    neuzosConfig.window = {};
+    neuzosConfig.window = {
+      main: {
+        width: 1200,
+        height: 800,
+        zoom: 1.0,
+        maximized: true
+      },
+      settings: {
+        width: 1200,
+        height: 800,
+        zoom: 1.0,
+        maximized: false
+      },
+      session: {
+        width: 1024,
+        height: 768,
+        zoom: 1.0,
+        maximized: true
+      },
+      launcher: {
+        width: 600,
+        height: 400,
+        x: null,
+        y: null
+      }
+    };
   }
   if (!neuzosConfig.window.main) {
     neuzosConfig.window.main = {
       width: 1200,
       height: 800,
       zoom: 1.0,
-      maximized: false
+      maximized: true
     };
   }
   if (!neuzosConfig.window.settings) {
@@ -47,14 +75,22 @@
       width: 1024,
       height: 768,
       zoom: 1.0,
-      maximized: false
+      maximized: true
+    };
+  }
+  if (!neuzosConfig.window.launcher) {
+    neuzosConfig.window.launcher = {
+      width: 600,
+      height: 400,
+      x: null,
+      y: null
     };
   }
 
   // Initialize titleBarButtons if it doesn't exist
   if (!neuzosConfig.titleBarButtons) {
     neuzosConfig.titleBarButtons = {
-      darkModeToggle: true,
+      darkModeToggle: false,
       fullscreenToggle: true,
       keybindToggle: true
     };
@@ -63,21 +99,12 @@
   // Initialize fullscreen config if it doesn't exist
   if (!neuzosConfig.fullscreen) {
     neuzosConfig.fullscreen = {
-      hideTitleBarInMainWindow: false,
-      hideTitleBarInSessionLayouts: false
+      hideTitleBarInMainWindow: true,
+      hideTitleBarInSessionLayouts: true
     };
   }
 
-  // Get the default user agent when component mounts
   onMount(async () => {
-    // Get the default user agent from Electron's webContents
-    try {
-      defaultUserAgent = await electronApi.invoke("app.get_default_user_agent");
-    } catch (e) {
-      // Fallback to a standard user agent if the above fails
-      defaultUserAgent = navigator.userAgent;
-    }
-
     // Get app data path
     try {
       appDataPath = await electronApi.invoke("app.get_app_data_path");
@@ -86,51 +113,64 @@
       appDataPath = "";
     }
 
-    // Initialize state based on config
-    if (neuzosConfig.userAgent) {
-      userAgentEnabled = true;
-      userAgentValue = neuzosConfig.userAgent;
-    } else {
-      userAgentEnabled = false;
-      userAgentValue = defaultUserAgent;
-    }
-
-    // Get initial window dimensions
-    updateWindowDimensions();
   });
 
-  // Handle window resize with $effect for proper cleanup
-  $effect(() => {
-    const handleResize = updateWindowDimensions;
-    window.addEventListener('resize', handleResize);
+  onMount(() => {
+    const handleRuntimeBoundsChanged = (
+      _event: unknown,
+      bounds?: Record<WindowType, RuntimeWindowBounds | null>
+    ) => {
+      if (bounds) {
+        runtimeWindowBounds = bounds;
+      } else {
+        void refreshRuntimeWindowBounds();
+      }
+    };
+
+    void refreshRuntimeWindowBounds();
+    electronApi.on('window.runtime_bounds_changed', handleRuntimeBoundsChanged);
 
     return () => {
-      window.removeEventListener('resize', handleResize);
+      electronApi.removeListener('window.runtime_bounds_changed', handleRuntimeBoundsChanged);
     };
   });
 
-  // Update current window dimensions
-  function updateWindowDimensions() {
-    currentWindowWidth = window.innerWidth;
-    currentWindowHeight = window.innerHeight;
+  async function refreshRuntimeWindowBounds() {
+    runtimeWindowBounds = await electronApi.invoke('window.get_runtime_bounds');
   }
 
-  // Apply current dimensions to main window settings
-  function applyToMainWindow() {
-    handleMainWindowWidth(currentWindowWidth);
-    handleMainWindowHeight(currentWindowHeight);
+  function applyCurrentWindowSize(type: WindowType) {
+    const bounds = runtimeWindowBounds[type];
+    if (!bounds) return;
+
+    if (type === 'main') {
+      handleMainWindowWidth(bounds.width);
+      handleMainWindowHeight(bounds.height);
+    } else if (type === 'settings') {
+      handleSettingsWindowWidth(bounds.width);
+      handleSettingsWindowHeight(bounds.height);
+    } else if (type === 'session') {
+      handleSessionWindowWidth(bounds.width);
+      handleSessionWindowHeight(bounds.height);
+    } else {
+      handleLauncherWindowWidth(bounds.width);
+      handleLauncherWindowHeight(bounds.height);
+      handleLauncherWindowX(bounds.x);
+      handleLauncherWindowY(bounds.y);
+    }
   }
 
-  // Apply current dimensions to settings window settings
-  function applyToSettingsWindow() {
-    handleSettingsWindowWidth(currentWindowWidth);
-    handleSettingsWindowHeight(currentWindowHeight);
-  }
+  function canApplyCurrentWindowValues(type: WindowType) {
+    const bounds = runtimeWindowBounds[type];
+    if (!bounds) return false;
 
-  // Apply current dimensions to session window settings
-  function applyToSessionWindow() {
-    handleSessionWindowWidth(currentWindowWidth);
-    handleSessionWindowHeight(currentWindowHeight);
+    const windowConfig = neuzosConfig.window?.[type];
+    if (!windowConfig) return true;
+
+    const sizeChanged = windowConfig.width !== bounds.width || windowConfig.height !== bounds.height;
+    if (type !== 'launcher') return sizeChanged;
+
+    return sizeChanged || windowConfig.x !== bounds.x || windowConfig.y !== bounds.y;
   }
 
   // Handle opening app data folder
@@ -142,47 +182,24 @@
     }
   }
 
-  // Handle switch toggle
-  function handleUserAgentToggle(enabled: boolean) {
-    userAgentEnabled = enabled;
-    if (enabled) {
-      // When enabling, populate with default if empty
-      if (!userAgentValue || userAgentValue === "") {
-        userAgentValue = defaultUserAgent;
-      }
-      neuzosConfig.userAgent = userAgentValue;
-    } else {
-      // When disabling, remove from config
-      delete neuzosConfig.userAgent;
-    }
-  }
-
-  // Handle input changes
-  function handleUserAgentInput(value: string) {
-    userAgentValue = value;
-    if (userAgentEnabled) {
-      neuzosConfig.userAgent = value;
-    }
-  }
-
   // Handle title bar button toggles
   function handleDarkModeToggle(enabled: boolean) {
     if (!neuzosConfig.titleBarButtons) {
-      neuzosConfig.titleBarButtons = {};
+      neuzosConfig.titleBarButtons = {} as NonNullable<NeuzConfig['titleBarButtons']>;
     }
     neuzosConfig.titleBarButtons.darkModeToggle = enabled;
   }
 
   function handleFullscreenToggle(enabled: boolean) {
     if (!neuzosConfig.titleBarButtons) {
-      neuzosConfig.titleBarButtons = {};
+      neuzosConfig.titleBarButtons = {} as NonNullable<NeuzConfig['titleBarButtons']>;
     }
     neuzosConfig.titleBarButtons.fullscreenToggle = enabled;
   }
 
   function handleKeybindToggle(enabled: boolean) {
     if (!neuzosConfig.titleBarButtons) {
-      neuzosConfig.titleBarButtons = {};
+      neuzosConfig.titleBarButtons = {} as NonNullable<NeuzConfig['titleBarButtons']>;
     }
     neuzosConfig.titleBarButtons.keybindToggle = enabled;
   }
@@ -192,12 +209,16 @@
     neuzosConfig.autoSaveSettings = enabled;
   }
 
+  function handleStartupCacheToggle(enabled: boolean) {
+    neuzosConfig.autoDeleteAllCachesOnStartup = enabled;
+  }
+
   // Handle fullscreen settings
   function handleHideTitleBarInMainWindow(enabled: boolean) {
     if (!neuzosConfig.fullscreen) {
       neuzosConfig.fullscreen = {
-        hideTitleBarInMainWindow: false,
-        hideTitleBarInSessionLayouts: false
+        hideTitleBarInMainWindow: true,
+        hideTitleBarInSessionLayouts: true
       };
     }
     neuzosConfig.fullscreen.hideTitleBarInMainWindow = enabled;
@@ -206,8 +227,8 @@
   function handleHideTitleBarInSessionLayouts(enabled: boolean) {
     if (!neuzosConfig.fullscreen) {
       neuzosConfig.fullscreen = {
-        hideTitleBarInMainWindow: false,
-        hideTitleBarInSessionLayouts: false
+        hideTitleBarInMainWindow: true,
+        hideTitleBarInSessionLayouts: true
       };
     }
     neuzosConfig.fullscreen.hideTitleBarInSessionLayouts = enabled;
@@ -215,129 +236,174 @@
 
   // Handle main window settings
   function handleMainWindowWidth(value: number) {
-    if (!neuzosConfig.window) neuzosConfig.window = {};
-    if (!neuzosConfig.window.main) neuzosConfig.window.main = {width: 1200, height: 800, zoom: 1.0, maximized: false};
-    neuzosConfig.window.main.width = value;
+    if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
+    if (!neuzosConfig.window.main) neuzosConfig.window.main = {width: 1200, height: 800, zoom: 1.0, maximized: true};
+    neuzosConfig.window.main.width = Math.round(value);
   }
 
   function handleMainWindowHeight(value: number) {
-    if (!neuzosConfig.window) neuzosConfig.window = {};
-    if (!neuzosConfig.window.main) neuzosConfig.window.main = {width: 1200, height: 800, zoom: 1.0, maximized: false};
-    neuzosConfig.window.main.height = value;
+    if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
+    if (!neuzosConfig.window.main) neuzosConfig.window.main = {width: 1200, height: 800, zoom: 1.0, maximized: true};
+    neuzosConfig.window.main.height = Math.round(value);
   }
 
   function handleMainWindowZoom(value: number) {
-    if (!neuzosConfig.window) neuzosConfig.window = {};
-    if (!neuzosConfig.window.main) neuzosConfig.window.main = {width: 1200, height: 800, zoom: 1.0, maximized: false};
+    if (!Number.isFinite(value) || value < 0.25 || value > 3) return;
+    if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
+    if (!neuzosConfig.window.main) neuzosConfig.window.main = {width: 1200, height: 800, zoom: 1.0, maximized: true};
     neuzosConfig.window.main.zoom = value;
+    electronApi.send('window.ui_zoom_preview', 'main', value);
   }
 
   function handleMainWindowMaximized(enabled: boolean) {
-    if (!neuzosConfig.window) neuzosConfig.window = {};
-    if (!neuzosConfig.window.main) neuzosConfig.window.main = {width: 1200, height: 800, zoom: 1.0, maximized: false};
+    if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
+    if (!neuzosConfig.window.main) neuzosConfig.window.main = {width: 1200, height: 800, zoom: 1.0, maximized: true};
     neuzosConfig.window.main.maximized = enabled;
   }
 
   // Handle settings window settings
   function handleSettingsWindowWidth(value: number) {
-    if (!neuzosConfig.window) neuzosConfig.window = {};
+    if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
     if (!neuzosConfig.window.settings) neuzosConfig.window.settings = {width: 1200, height: 800, zoom: 1.0, maximized: false};
-    neuzosConfig.window.settings.width = value;
+    neuzosConfig.window.settings.width = Math.round(value);
   }
 
   function handleSettingsWindowHeight(value: number) {
-    if (!neuzosConfig.window) neuzosConfig.window = {};
+    if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
     if (!neuzosConfig.window.settings) neuzosConfig.window.settings = {width: 1200, height: 800, zoom: 1.0, maximized: false};
-    neuzosConfig.window.settings.height = value;
+    neuzosConfig.window.settings.height = Math.round(value);
   }
 
   function handleSettingsWindowZoom(value: number) {
-    if (!neuzosConfig.window) neuzosConfig.window = {};
+    if (!Number.isFinite(value) || value < 0.25 || value > 3) return;
+    if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
     if (!neuzosConfig.window.settings) neuzosConfig.window.settings = {width: 1200, height: 800, zoom: 1.0, maximized: false};
     neuzosConfig.window.settings.zoom = value;
+    electronApi.send('window.ui_zoom_preview', 'settings', value);
   }
 
   function handleSettingsWindowMaximized(enabled: boolean) {
-    if (!neuzosConfig.window) neuzosConfig.window = {};
+    if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
     if (!neuzosConfig.window.settings) neuzosConfig.window.settings = {width: 1200, height: 800, zoom: 1.0, maximized: false};
     neuzosConfig.window.settings.maximized = enabled;
   }
 
   // Handle session window settings
   function handleSessionWindowWidth(value: number) {
-    if (!neuzosConfig.window) neuzosConfig.window = {};
+    if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
     if (!neuzosConfig.window.session) neuzosConfig.window.session = {
       width: 1024,
       height: 768,
       zoom: 1.0,
-      maximized: false
+      maximized: true
     };
-    neuzosConfig.window.session.width = value;
+    neuzosConfig.window.session.width = Math.round(value);
   }
 
   function handleSessionWindowHeight(value: number) {
-    if (!neuzosConfig.window) neuzosConfig.window = {};
+    if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
     if (!neuzosConfig.window.session) neuzosConfig.window.session = {
       width: 1024,
       height: 768,
       zoom: 1.0,
-      maximized: false
+      maximized: true
     };
-    neuzosConfig.window.session.height = value;
+    neuzosConfig.window.session.height = Math.round(value);
   }
 
   function handleSessionWindowZoom(value: number) {
-    if (!neuzosConfig.window) neuzosConfig.window = {};
+    if (!Number.isFinite(value) || value < 0.25 || value > 3) return;
+    if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
     if (!neuzosConfig.window.session) neuzosConfig.window.session = {
       width: 1024,
       height: 768,
       zoom: 1.0,
-      maximized: false
+      maximized: true
     };
     neuzosConfig.window.session.zoom = value;
+    electronApi.send('window.ui_zoom_preview', 'session', value);
   }
 
   function handleSessionWindowMaximized(enabled: boolean) {
-    if (!neuzosConfig.window) neuzosConfig.window = {};
+    if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
     if (!neuzosConfig.window.session) neuzosConfig.window.session = {
       width: 1024,
       height: 768,
       zoom: 1.0,
-      maximized: false
+      maximized: true
     };
     neuzosConfig.window.session.maximized = enabled;
   }
+
+  function ensureLauncherWindowConfig() {
+    if (!neuzosConfig.window) neuzosConfig.window = {} as NonNullable<NeuzConfig['window']>;
+    if (!neuzosConfig.window.launcher) {
+      neuzosConfig.window.launcher = {width: 600, height: 400, x: null, y: null};
+    }
+    return neuzosConfig.window.launcher;
+  }
+
+  function handleLauncherWindowWidth(value: number) {
+    if (!Number.isFinite(value)) return;
+    ensureLauncherWindowConfig().width = Math.max(600, Math.round(value));
+  }
+
+  function handleLauncherWindowHeight(value: number) {
+    if (!Number.isFinite(value)) return;
+    ensureLauncherWindowConfig().height = Math.max(400, Math.round(value));
+  }
+
+  function handleLauncherWindowX(value: number | null) {
+    if (value !== null && !Number.isFinite(value)) return;
+    ensureLauncherWindowConfig().x = value === null ? null : Math.round(value);
+  }
+
+  function handleLauncherWindowY(value: number | null) {
+    if (value !== null && !Number.isFinite(value)) return;
+    ensureLauncherWindowConfig().y = value === null ? null : Math.round(value);
+  }
+
 </script>
 
 <Card.Root class="h-full overflow-y-auto">
   <Card.Header>
-    <Card.Title class="text-lg font-semibold">General Window(s) and Webview Settings</Card.Title>
+    <Card.Title class="text-lg font-semibold">General Settings</Card.Title>
     <Card.Description>
-      Configure general settings for application windows and webviews.
+      Configure General Settings for Application, Windows and Webviews.
     </Card.Description>
   </Card.Header>
   <Card.Content class="flex flex-col gap-6">
 
     <!-- Auto Save Settings Section -->
     <div class="space-y-3">
-      <div class="space-y-1">
-        <h3 class="text-base font-semibold">Auto Save</h3>
-        <p class="text-sm text-muted-foreground">
-          Automatically save settings when changes are made.
-        </p>
-      </div>
-
       <div class="flex items-center justify-between py-2">
         <div class="space-y-0.5">
-          <Label for="auto-save-settings" class="text-sm font-medium">Enable Auto Save</Label>
+          <Label for="auto-save-settings" class="text-sm font-medium">Auto Save</Label>
           <p class="text-xs text-muted-foreground">
-            Automatically save settings after 500ms of inactivity
+            Automatically Save Settings when Changes are made.
           </p>
         </div>
         <Switch
           id="auto-save-settings"
           checked={neuzosConfig.autoSaveSettings ?? false}
           onCheckedChange={handleAutoSaveToggle}
+        />
+      </div>
+    </div>
+
+    <!-- Startup Cache Section -->
+    <div class="space-y-3">
+      <div class="flex items-center justify-between py-2">
+        <div class="space-y-0.5">
+          <Label for="startup-cache-clear" class="text-sm font-medium">Clear All Caches on Startup</Label>
+          <p class="text-xs text-muted-foreground">
+            All Session Caches are cleared silently during every Startup.
+          </p>
+        </div>
+        <Switch
+          id="startup-cache-clear"
+          checked={neuzosConfig.autoDeleteAllCachesOnStartup ?? false}
+          onCheckedChange={handleStartupCacheToggle}
         />
       </div>
     </div>
@@ -349,53 +415,16 @@
       <div class="space-y-1">
         <h3 class="text-base font-semibold">Window Settings</h3>
         <p class="text-sm text-muted-foreground">
-          Configure default dimensions and zoom for windows.
+          Configure Default Window Sizes, Zoom Levels and Positions.
         </p>
       </div>
 
-      <!-- Current Window Dimensions Display -->
-      <div class="bg-muted/50 rounded-lg p-3 space-y-2">
-        <div class="flex items-center justify-between">
-          <div class="space-y-0.5">
-            <Label class="text-xs font-medium">Current Settings Window Size</Label>
-            <p class="text-xs text-muted-foreground">
-              {currentWindowWidth} × {currentWindowHeight} px
-            </p>
-          </div>
-          <div class="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              class="text-xs px-3 h-7"
-              onclick={applyToMainWindow}
-            >
-              Apply to Main
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              class="text-xs px-3 h-7"
-              onclick={applyToSettingsWindow}
-            >
-              Apply to Settings
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              class="text-xs px-3 h-7"
-              onclick={applyToSessionWindow}
-            >
-              Apply to Session
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-3 gap-4 w-full">
+      <div class="grid grid-cols-4 gap-4 w-full">
         <!-- Main Window Column -->
-        <div class="space-y-3">
-          <h4 class="text-sm font-medium">Main Window</h4>
-          <div class="space-y-2">
+        <div class="flex min-w-0 flex-col">
+          <div class="flex-1 rounded-t-md border border-border/70 p-4 space-y-4">
+            <h4 class="text-sm font-semibold">Main Window</h4>
+            <div class="space-y-2">
             <div class="grid grid-cols-2 gap-2">
               <div class="space-y-1">
                 <Label for="main-window-width" class="text-xs">Width</Label>
@@ -404,12 +433,13 @@
                   type="number"
                   min="400"
                   max="3840"
+                  step="1"
                   value={neuzosConfig.window?.main?.width ?? 1200}
                   oninput={(e) => {
                     const target = e.target as HTMLInputElement;
                     handleMainWindowWidth(parseInt(target.value, 10));
                   }}
-                  class="h-8 text-sm"
+                  class="h-8 w-full text-sm"
                 />
               </div>
               <div class="space-y-1">
@@ -419,46 +449,68 @@
                   type="number"
                   min="300"
                   max="2160"
+                  step="1"
                   value={neuzosConfig.window?.main?.height ?? 800}
                   oninput={(e) => {
                     const target = e.target as HTMLInputElement;
                     handleMainWindowHeight(parseInt(target.value, 10));
                   }}
-                  class="h-8 text-sm"
+                  class="h-8 w-full text-sm"
                 />
               </div>
             </div>
-            <div class="space-y-1">
-              <Label for="main-window-zoom" class="text-xs">Zoom (%)</Label>
-              <Input
-                id="main-window-zoom"
-                type="number"
-                min="25"
-                max="300"
-                step="5"
-                value={Math.round((neuzosConfig.window?.main?.zoom ?? 1.0) * 100)}
-                oninput={(e) => {
-                  const target = e.target as HTMLInputElement;
-                  handleMainWindowZoom(parseInt(target.value, 10) / 100);
-                }}
-                class="h-8 text-sm"
-              />
+            <div class="grid grid-cols-2 gap-3">
+              <div class="space-y-1">
+                <Label for="main-window-zoom" class="text-xs">Zoom (%)</Label>
+                <Input
+                  id="main-window-zoom"
+                  type="number"
+                  min="25"
+                  max="300"
+                  step="5"
+                  value={Math.round((neuzosConfig.window?.main?.zoom ?? 1.0) * 100)}
+                  oninput={(e) => {
+                    const target = e.target as HTMLInputElement;
+                    handleMainWindowZoom(parseInt(target.value, 10) / 100);
+                  }}
+                  class="h-8 w-full text-sm"
+                />
+              </div>
+              <div class="space-y-1">
+                <Label for="main-window-maximized" class="text-xs">Start Maximized</Label>
+                <div class="flex h-8 items-center">
+                  <Switch
+                    id="main-window-maximized"
+                    checked={neuzosConfig.window?.main?.maximized ?? false}
+                    onCheckedChange={handleMainWindowMaximized}
+                  />
+                </div>
+              </div>
             </div>
-            <div class="flex items-center justify-between pt-1">
-              <Label for="main-window-maximized" class="text-xs">Start Maximized</Label>
-              <Switch
-                id="main-window-maximized"
-                checked={neuzosConfig.window?.main?.maximized ?? false}
-                onCheckedChange={handleMainWindowMaximized}
-              />
             </div>
+          </div>
+          <div class="-mt-px grid min-h-11 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-b-md border border-border/70 bg-muted/20 p-2">
+            <span class="min-w-0 text-[10px] text-muted-foreground">
+              Current Window Size: {runtimeWindowBounds.main ? `${runtimeWindowBounds.main.width} × ${runtimeWindowBounds.main.height}` : '-'}
+            </span>
+            {#if canApplyCurrentWindowValues('main')}
+              <Button
+                size="sm"
+                variant="outline"
+                class="h-7 whitespace-nowrap px-2 text-[10px]"
+                onclick={() => applyCurrentWindowSize('main')}
+              >
+                Apply Current Values
+              </Button>
+            {/if}
           </div>
         </div>
 
         <!-- Settings Window Column -->
-        <div class="space-y-3">
-          <h4 class="text-sm font-medium">Settings Window</h4>
-          <div class="space-y-2">
+        <div class="flex min-w-0 flex-col">
+          <div class="flex-1 rounded-t-md border border-border/70 p-4 space-y-4">
+            <h4 class="text-sm font-semibold">Settings Window</h4>
+            <div class="space-y-2">
             <div class="grid grid-cols-2 gap-2">
               <div class="space-y-1">
                 <Label for="settings-window-width" class="text-xs">Width</Label>
@@ -467,12 +519,13 @@
                   type="number"
                   min="400"
                   max="3840"
+                  step="1"
                   value={neuzosConfig.window?.settings?.width ?? 1200}
                   oninput={(e) => {
                     const target = e.target as HTMLInputElement;
                     handleSettingsWindowWidth(parseInt(target.value, 10));
                   }}
-                  class="h-8 text-sm"
+                  class="h-8 w-full text-sm"
                 />
               </div>
               <div class="space-y-1">
@@ -482,46 +535,68 @@
                   type="number"
                   min="300"
                   max="2160"
+                  step="1"
                   value={neuzosConfig.window?.settings?.height ?? 800}
                   oninput={(e) => {
                     const target = e.target as HTMLInputElement;
                     handleSettingsWindowHeight(parseInt(target.value, 10));
                   }}
-                  class="h-8 text-sm"
+                  class="h-8 w-full text-sm"
                 />
               </div>
             </div>
-            <div class="space-y-1">
-              <Label for="settings-window-zoom" class="text-xs">Zoom (%)</Label>
-              <Input
-                id="settings-window-zoom"
-                type="number"
-                min="25"
-                max="300"
-                step="5"
-                value={Math.round((neuzosConfig.window?.settings?.zoom ?? 1.0) * 100)}
-                oninput={(e) => {
-                  const target = e.target as HTMLInputElement;
-                  handleSettingsWindowZoom(parseInt(target.value, 10) / 100);
-                }}
-                class="h-8 text-sm"
-              />
+            <div class="grid grid-cols-2 gap-3">
+              <div class="space-y-1">
+                <Label for="settings-window-zoom" class="text-xs">Zoom (%)</Label>
+                <Input
+                  id="settings-window-zoom"
+                  type="number"
+                  min="25"
+                  max="300"
+                  step="5"
+                  value={Math.round((neuzosConfig.window?.settings?.zoom ?? 1.0) * 100)}
+                  oninput={(e) => {
+                    const target = e.target as HTMLInputElement;
+                    handleSettingsWindowZoom(parseInt(target.value, 10) / 100);
+                  }}
+                  class="h-8 w-full text-sm"
+                />
+              </div>
+              <div class="space-y-1">
+                <Label for="settings-window-maximized" class="text-xs">Start Maximized</Label>
+                <div class="flex h-8 items-center">
+                  <Switch
+                    id="settings-window-maximized"
+                    checked={neuzosConfig.window?.settings?.maximized ?? false}
+                    onCheckedChange={handleSettingsWindowMaximized}
+                  />
+                </div>
+              </div>
             </div>
-            <div class="flex items-center justify-between pt-1">
-              <Label for="settings-window-maximized" class="text-xs">Start Maximized</Label>
-              <Switch
-                id="settings-window-maximized"
-                checked={neuzosConfig.window?.settings?.maximized ?? false}
-                onCheckedChange={handleSettingsWindowMaximized}
-              />
             </div>
+          </div>
+          <div class="-mt-px grid min-h-11 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-b-md border border-border/70 bg-muted/20 p-2">
+            <span class="min-w-0 text-[10px] text-muted-foreground">
+              Current Window Size: {runtimeWindowBounds.settings ? `${runtimeWindowBounds.settings.width} × ${runtimeWindowBounds.settings.height}` : '-'}
+            </span>
+            {#if canApplyCurrentWindowValues('settings')}
+              <Button
+                size="sm"
+                variant="outline"
+                class="h-7 whitespace-nowrap px-2 text-[10px]"
+                onclick={() => applyCurrentWindowSize('settings')}
+              >
+                Apply Current Values
+              </Button>
+            {/if}
           </div>
         </div>
 
         <!-- Session Window Column -->
-        <div class="space-y-3">
-          <h4 class="text-sm font-medium">Session Window</h4>
-          <div class="space-y-2">
+        <div class="flex min-w-0 flex-col">
+          <div class="flex-1 rounded-t-md border border-border/70 p-4 space-y-4">
+            <h4 class="text-sm font-semibold">Session Window</h4>
+            <div class="space-y-2">
             <div class="grid grid-cols-2 gap-2">
               <div class="space-y-1">
                 <Label for="session-window-width" class="text-xs">Width</Label>
@@ -530,12 +605,13 @@
                   type="number"
                   min="400"
                   max="3840"
+                  step="1"
                   value={neuzosConfig.window?.session?.width ?? 1024}
                   oninput={(e) => {
                     const target = e.target as HTMLInputElement;
                     handleSessionWindowWidth(parseInt(target.value, 10));
                   }}
-                  class="h-8 text-sm"
+                  class="h-8 w-full text-sm"
                 />
               </div>
               <div class="space-y-1">
@@ -545,39 +621,150 @@
                   type="number"
                   min="300"
                   max="2160"
+                  step="1"
                   value={neuzosConfig.window?.session?.height ?? 768}
                   oninput={(e) => {
                     const target = e.target as HTMLInputElement;
                     handleSessionWindowHeight(parseInt(target.value, 10));
                   }}
-                  class="h-8 text-sm"
+                  class="h-8 w-full text-sm"
                 />
               </div>
             </div>
-            <div class="space-y-1">
-              <Label for="session-window-zoom" class="text-xs">Zoom (%)</Label>
-              <Input
-                id="session-window-zoom"
-                type="number"
-                min="25"
-                max="300"
-                step="5"
-                value={Math.round((neuzosConfig.window?.session?.zoom ?? 1.0) * 100)}
-                oninput={(e) => {
-                  const target = e.target as HTMLInputElement;
-                  handleSessionWindowZoom(parseInt(target.value, 10) / 100);
-                }}
-                class="h-8 text-sm"
-              />
+            <div class="grid grid-cols-2 gap-3">
+              <div class="space-y-1">
+                <Label for="session-window-zoom" class="text-xs">Zoom (%)</Label>
+                <Input
+                  id="session-window-zoom"
+                  type="number"
+                  min="25"
+                  max="300"
+                  step="5"
+                  value={Math.round((neuzosConfig.window?.session?.zoom ?? 1.0) * 100)}
+                  oninput={(e) => {
+                    const target = e.target as HTMLInputElement;
+                    handleSessionWindowZoom(parseInt(target.value, 10) / 100);
+                  }}
+                  class="h-8 w-full text-sm"
+                />
+              </div>
+              <div class="space-y-1">
+                <Label for="session-window-maximized" class="text-xs">Start Maximized</Label>
+                <div class="flex h-8 items-center">
+                  <Switch
+                    id="session-window-maximized"
+                    checked={neuzosConfig.window?.session?.maximized ?? false}
+                    onCheckedChange={handleSessionWindowMaximized}
+                  />
+                </div>
+              </div>
             </div>
-            <div class="flex items-center justify-between pt-1">
-              <Label for="session-window-maximized" class="text-xs">Start Maximized</Label>
-              <Switch
-                id="session-window-maximized"
-                checked={neuzosConfig.window?.session?.maximized ?? false}
-                onCheckedChange={handleSessionWindowMaximized}
-              />
             </div>
+          </div>
+          <div class="-mt-px grid min-h-11 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-b-md border border-border/70 bg-muted/20 p-2">
+            <span class="min-w-0 text-[10px] text-muted-foreground">
+              Current Window Size: {runtimeWindowBounds.session ? `${runtimeWindowBounds.session.width} × ${runtimeWindowBounds.session.height}` : '-'}
+            </span>
+            {#if canApplyCurrentWindowValues('session')}
+              <Button
+                size="sm"
+                variant="outline"
+                class="h-7 whitespace-nowrap px-2 text-[10px]"
+                onclick={() => applyCurrentWindowSize('session')}
+              >
+                Apply Current Values
+              </Button>
+            {/if}
+          </div>
+        </div>
+        <!-- Launcher Window Column -->
+        <div class="flex min-w-0 flex-col">
+          <div class="flex-1 rounded-t-md border border-border/70 p-4 space-y-4">
+            <h4 class="text-sm font-semibold">Launcher Window</h4>
+            <div class="space-y-2">
+            <div class="grid grid-cols-2 gap-2">
+              <div class="space-y-1">
+                <Label for="launcher-window-width" class="text-xs">Width</Label>
+                <Input
+                  id="launcher-window-width"
+                  type="number"
+                  min="600"
+                  max="3840"
+                  step="1"
+                  value={neuzosConfig.window?.launcher?.width ?? 600}
+                  oninput={(e) => {
+                    const target = e.target as HTMLInputElement;
+                    handleLauncherWindowWidth(parseInt(target.value, 10));
+                  }}
+                  class="h-8 w-full text-sm"
+                />
+              </div>
+              <div class="space-y-1">
+                <Label for="launcher-window-height" class="text-xs">Height</Label>
+                <Input
+                  id="launcher-window-height"
+                  type="number"
+                  min="400"
+                  max="2160"
+                  step="1"
+                  value={neuzosConfig.window?.launcher?.height ?? 400}
+                  oninput={(e) => {
+                    const target = e.target as HTMLInputElement;
+                    handleLauncherWindowHeight(parseInt(target.value, 10));
+                  }}
+                  class="h-8 w-full text-sm"
+                />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div class="space-y-1">
+                <Label for="launcher-window-x" class="text-xs">Position X</Label>
+                <Input
+                  id="launcher-window-x"
+                  type="number"
+                  step="1"
+                  placeholder="Auto"
+                  value={neuzosConfig.window?.launcher?.x ?? ''}
+                  oninput={(e) => {
+                    const target = e.target as HTMLInputElement;
+                    handleLauncherWindowX(target.value === '' ? null : target.valueAsNumber);
+                  }}
+                  class="h-8 w-full text-sm"
+                />
+              </div>
+              <div class="space-y-1">
+                <Label for="launcher-window-y" class="text-xs">Position Y</Label>
+                <Input
+                  id="launcher-window-y"
+                  type="number"
+                  step="1"
+                  placeholder="Auto"
+                  value={neuzosConfig.window?.launcher?.y ?? ''}
+                  oninput={(e) => {
+                    const target = e.target as HTMLInputElement;
+                    handleLauncherWindowY(target.value === '' ? null : target.valueAsNumber);
+                  }}
+                  class="h-8 w-full text-sm"
+                />
+              </div>
+            </div>
+            </div>
+          </div>
+          <div class="-mt-px grid min-h-11 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-b-md border border-border/70 bg-muted/20 p-2">
+            <span class="min-w-0 text-[10px] text-muted-foreground">
+              Current Window Size: {runtimeWindowBounds.launcher ? `${runtimeWindowBounds.launcher.width} × ${runtimeWindowBounds.launcher.height} · X: ${runtimeWindowBounds.launcher.x}, Y: ${runtimeWindowBounds.launcher.y}` : '-'}
+            </span>
+            {#if canApplyCurrentWindowValues('launcher')}
+              <Button
+                size="sm"
+                variant="outline"
+                class="h-7 whitespace-nowrap px-2 text-[10px]"
+                onclick={() => applyCurrentWindowSize('launcher')}
+              >
+                Apply Current Values
+              </Button>
+            {/if}
           </div>
         </div>
       </div>
@@ -585,94 +772,46 @@
 
     <Separator/>
 
-    <!-- User Agent Settings Section -->
+    <!-- Main Bar Buttons Section -->
     <div class="space-y-3">
       <div class="space-y-1">
-        <h3 class="text-base font-semibold">User Agent Settings</h3>
+        <h3 class="text-base font-semibold">Main Bar Buttons</h3>
         <p class="text-sm text-muted-foreground">
-          Configure custom user agent string for webviews and sessions.
-        </p>
-      </div>
-
-      <Alert.Root variant="destructive">
-        <AlertCircleIcon class="h-4 w-4"/>
-        <Alert.Title>Important before changing the user agent</Alert.Title>
-        <Alert.Description>
-          In some cases, currently logged in sessions might become invalid with a new user agent.
-        </Alert.Description>
-      </Alert.Root>
-
-      <div class="flex items-center justify-between py-2">
-        <div class="space-y-0.5">
-          <Label for="custom-user-agent" class="text-sm font-medium">Custom User Agent</Label>
-          <p class="text-xs text-muted-foreground">
-            Enable custom user agent for all webviews and sessions
-          </p>
-        </div>
-        <Switch
-          id="custom-user-agent"
-          checked={userAgentEnabled}
-          onCheckedChange={handleUserAgentToggle}
-        />
-      </div>
-
-      {#if userAgentEnabled}
-        <div class="space-y-2">
-          <Label for="user-agent-input" class="text-xs">User Agent String</Label>
-          <Input
-            id="user-agent-input"
-            type="text"
-            placeholder="Enter custom user agent..."
-            bind:value={userAgentValue}
-            oninput={(e) => {
-              const target = e.target as HTMLInputElement;
-              handleUserAgentInput(target.value);
-            }}
-            class="h-8 text-sm w-full"
-          />
-          <p class="text-xs text-muted-foreground">
-            Default: <code class="bg-muted px-1 py-0.5 rounded text-xs">{defaultUserAgent}</code>
-          </p>
-        </div>
-      {:else}
-        <p class="text-xs text-muted-foreground">
-          When disabled, the default Electron user agent will be used.
-        </p>
-      {/if}
-    </div>
-
-    <Separator/>
-
-    <!-- Title Bar Buttons Section -->
-    <div class="space-y-3">
-      <div class="space-y-1">
-        <h3 class="text-base font-semibold">Title Bar Buttons</h3>
-        <p class="text-sm text-muted-foreground">
-          Configure which buttons are visible in the title bar.
+          Choose which Buttons are visible in the Main Bar.
         </p>
       </div>
 
       <div class="space-y-2">
         <div class="flex items-center justify-between py-2">
-          <div class="space-y-0.5">
-            <Label for="darkmode-toggle" class="text-sm font-medium">Dark Mode Toggle</Label>
-            <p class="text-xs text-muted-foreground">
-              Show/hide the dark mode toggle button in the title bar
-            </p>
+          <div class="flex items-start gap-3">
+            <div class="h-9 w-9 shrink-0 rounded-md border bg-muted/60 flex items-center justify-center">
+              <Moon class="h-4 w-4"/>
+            </div>
+            <div class="space-y-0.5">
+              <Label for="darkmode-toggle" class="text-sm font-medium">Light/ Dark Mode Toggle</Label>
+              <p class="text-xs text-muted-foreground">
+                Switch between Light/Dark Mode.
+              </p>
+            </div>
           </div>
           <Switch
             id="darkmode-toggle"
-            checked={neuzosConfig.titleBarButtons?.darkModeToggle ?? true}
+            checked={neuzosConfig.titleBarButtons?.darkModeToggle ?? false}
             onCheckedChange={handleDarkModeToggle}
           />
         </div>
 
         <div class="flex items-center justify-between py-2">
-          <div class="space-y-0.5">
-            <Label for="fullscreen-toggle" class="text-sm font-medium">Fullscreen Toggle</Label>
-            <p class="text-xs text-muted-foreground">
-              Show/hide the fullscreen toggle button in the title bar
-            </p>
+          <div class="flex items-start gap-3">
+            <div class="h-9 w-9 shrink-0 rounded-md border bg-muted/60 flex items-center justify-center">
+              <Fullscreen class="h-4 w-4"/>
+            </div>
+            <div class="space-y-0.5">
+              <Label for="fullscreen-toggle" class="text-sm font-medium">Fullscreen Toggle</Label>
+              <p class="text-xs text-muted-foreground">
+                Switch to Fullscreen Mode
+              </p>
+            </div>
           </div>
           <Switch
             id="fullscreen-toggle"
@@ -682,11 +821,16 @@
         </div>
 
         <div class="flex items-center justify-between py-2">
-          <div class="space-y-0.5">
-            <Label for="keybind-toggle" class="text-sm font-medium">Keybind Toggle</Label>
-            <p class="text-xs text-muted-foreground">
-              Show/hide the keybind toggle button in the title bar
-            </p>
+          <div class="flex items-start gap-3">
+            <div class="h-9 w-9 shrink-0 rounded-md border bg-muted/60 flex items-center justify-center">
+              <Keyboard class="h-4 w-4"/>
+            </div>
+            <div class="space-y-0.5">
+              <Label for="keybind-toggle" class="text-sm font-medium">Keybind Toggle</Label>
+              <p class="text-xs text-muted-foreground">
+                Enable/ Disable Keybinds & Switch Keybind Profiles
+              </p>
+            </div>
           </div>
           <Switch
             id="keybind-toggle"
@@ -704,35 +848,35 @@
       <div class="space-y-1">
         <h3 class="text-base font-semibold">Fullscreen Behavior</h3>
         <p class="text-sm text-muted-foreground">
-          Configure how fullscreen mode behaves in different window types.
+          Configure Fullscreen Mode Behavior in different Window Types.
         </p>
       </div>
 
       <div class="space-y-2">
         <div class="flex items-center justify-between py-2">
           <div class="space-y-0.5">
-            <Label for="hide-titlebar-main" class="text-sm font-medium">Hide Title Bar in Main Window Fullscreen</Label>
+            <Label for="hide-titlebar-main" class="text-sm font-medium">Hide Main Bar in the Main Window Fullscreen</Label>
             <p class="text-xs text-muted-foreground">
-              When enabled, the title bar will be hidden in fullscreen mode with a floating exit button
+              Hides the Main Bar in Fullscreen Mode.
             </p>
           </div>
           <Switch
             id="hide-titlebar-main"
-            checked={neuzosConfig.fullscreen?.hideTitleBarInMainWindow ?? false}
+            checked={neuzosConfig.fullscreen?.hideTitleBarInMainWindow ?? true}
             onCheckedChange={handleHideTitleBarInMainWindow}
           />
         </div>
 
         <div class="flex items-center justify-between py-2">
           <div class="space-y-0.5">
-            <Label for="hide-titlebar-session" class="text-sm font-medium">Hide Title Bar in Session Layouts Fullscreen</Label>
+            <Label for="hide-titlebar-session" class="text-sm font-medium">Hide Main Bar in the Session Window Fullscreen</Label>
             <p class="text-xs text-muted-foreground">
-              When enabled, the title bar will be hidden in fullscreen session layouts with a floating exit button
+              Hides the Main Bar in Fullscreen Mode.
             </p>
           </div>
           <Switch
             id="hide-titlebar-session"
-            checked={neuzosConfig.fullscreen?.hideTitleBarInSessionLayouts ?? false}
+            checked={neuzosConfig.fullscreen?.hideTitleBarInSessionLayouts ?? true}
             onCheckedChange={handleHideTitleBarInSessionLayouts}
           />
         </div>
@@ -746,7 +890,7 @@
       <div class="space-y-1">
         <h3 class="text-base font-semibold">App Data Folder</h3>
         <p class="text-sm text-muted-foreground">
-          Location where configuration and data files are stored.
+          Location where Configuration and Data Files are stored.
         </p>
       </div>
 
@@ -760,16 +904,14 @@
             <Button
               size="sm"
               variant="outline"
-              class="text-xs px-3 shrink-0"
+              class="text-xs px-3 shrink-0 gap-2"
               onclick={handleOpenAppDataFolder}
               disabled={!appDataPath}
             >
+              <SquareArrowOutUpRight class="h-4 w-4"/>
               Open Folder
             </Button>
           </div>
-          <p class="text-xs text-muted-foreground">
-            config.json is inside neuzos_config folder withing the app data directory.
-          </p>
         </div>
       </div>
     </div>

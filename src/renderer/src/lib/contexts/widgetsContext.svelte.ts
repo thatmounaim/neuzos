@@ -1,11 +1,14 @@
 import {getContext, setContext} from 'svelte';
 
+import {removeFloatingSessionStorage} from '$lib/localStorageStores';
+
 const WIDGETS_CONTEXT_KEY = Symbol('widgets');
 
 // Fully qualified widget type names with namespaces
 export type WidgetType =
   | 'widget.builtin.fcoin_calculator'
   | 'widget.builtin.notepad'
+  | 'widget.builtin.todo'
   | 'widget.builtin.mini_browser'
   | 'widget.builtin.action_pad'
   | 'widget.builtin.action_pin'
@@ -31,14 +34,22 @@ export interface WidgetsContext {
   toggleWidget: (id: string) => void;
   getWidget: (id: string) => WidgetInstance | undefined;
   getWidgetsByType: (type: WidgetType) => WidgetInstance[];
+  resetFloatingSessionPosition: (sessionId: string) => void;
+  triggerWidgetReset: (widgetId: string) => void;
+  widgetResetSignal: { value: string | null };
 }
 
 export function createWidgetsContext(): WidgetsContext {
   let widgets = $state<WidgetInstance[]>([]);
+  let widgetResetSignal = $state<{ value: string | null }>({ value: null });
 
   return {
     get widgets() {
       return widgets;
+    },
+
+    get widgetResetSignal() {
+      return widgetResetSignal;
     },
 
     createWidget(type: WidgetType, data?: any): string {
@@ -82,6 +93,19 @@ export function createWidgetsContext(): WidgetsContext {
 
     getWidgetsByType(type: WidgetType): WidgetInstance[] {
       return widgets.filter(w => w.type === type);
+    },
+
+    // ...existing code...
+    resetFloatingSessionPosition(sessionId: string) {
+      removeFloatingSessionStorage(sessionId);
+    },
+
+    triggerWidgetReset(widgetId: string) {
+      widgetResetSignal.value = widgetId;
+      // Clear the signal after a tick so it can be triggered again
+      setTimeout(() => {
+        widgetResetSignal.value = null;
+      }, 50);
     }
   };
 }

@@ -1,27 +1,32 @@
 <script lang="ts">
   import FloatingWindow from '../../../Shared/FloatingWindow.svelte';
   import NeuzClient from '../../../Shared/NeuzClient.svelte';
-  import { Globe } from '@lucide/svelte';
+  import { Globe, RadioTower } from '@lucide/svelte';
   import { getContext } from 'svelte';
+  import { getWidgetsContext } from '$lib/contexts/widgetsContext.svelte';
   import type { MainWindowState } from '$lib/types';
+  import {readFloatingSessionWindowState, writeFloatingSessionWindowState} from '$lib/localStorageStores';
 
   interface Props {
+    widgetId?: string;
     visible?: boolean;
     onClose?: () => void;
     onHide?: () => void;
     data?: { sessionId?: string };
   }
 
-  let { visible = true, onClose, onHide, data }: Props = $props();
+  let { widgetId, visible = true, onClose, onHide, data }: Props = $props();
   let windowRef: FloatingWindow;
 
   const mainWindowState = getContext<MainWindowState>('mainWindowState');
+  const widgetsContext = getWidgetsContext();
 
   const sessionId = $derived(data?.sessionId);
   const session = $derived(mainWindowState.sessions.find(s => s.id === sessionId));
   const sessionLabel = $derived(session?.label || 'Unknown Session');
   const sessionIcon = $derived(session?.icon?.slug || 'misc/browser');
   const layoutId = $derived(`floating-session-${sessionId || 'unknown'}`);
+  const isReceiver = $derived(sessionId !== undefined && mainWindowState.config.syncReceiverSessionId === sessionId);
 
   function handleClientUpdate(_sessionId: string) {
     // Floating widget does not need to update outer state on client events.
@@ -30,12 +35,21 @@
   export function reset() {
     windowRef?.reset();
   }
+
+  // Watch for reset signals
+  $effect(() => {
+    if (widgetsContext.widgetResetSignal.value === widgetId) {
+      reset();
+    }
+  });
 </script>
 
 <div style="display: {visible ? 'block' : 'none'};">
   <FloatingWindow
     bind:this={windowRef}
     persistId={sessionId ? `widget.builtin.floating_session.session-${sessionId}` : undefined}
+    loadPersistedState={() => sessionId ? readFloatingSessionWindowState(sessionId) : null}
+    savePersistedState={(state) => { if (sessionId) writeFloatingSessionWindowState(sessionId, state); }}
     defaultX={150}
     defaultY={100}
     defaultWidth={500}
@@ -44,15 +58,19 @@
     minHeight={480}
     onClose={onClose}
     onHide={onHide}
+    flushBottom={true}
   >
     {#snippet titleSnippet()}
       <div class="flex items-center gap-2 min-w-0">
         <img class="w-4 h-4 shrink-0" src="icons/{sessionIcon}.png" alt="" />
         <span class="truncate">{sessionLabel}</span>
+        {#if isReceiver}
+          <RadioTower class="h-3.5 w-3.5 shrink-0 text-primary" />
+        {/if}
       </div>
     {/snippet}
 
-    <div class="h-full -m-3 bg-background">
+    <div class="h-full bg-background overflow-hidden">
       {#if session}
         <NeuzClient
           layoutId={layoutId}

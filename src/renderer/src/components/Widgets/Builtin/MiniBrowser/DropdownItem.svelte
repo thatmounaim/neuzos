@@ -38,10 +38,10 @@
     <Globe class="h-4 w-4 mr-2" />
     <span>Mini Browser</span>
   </DropdownMenu.SubTrigger>
-  <DropdownMenu.SubContent>
-    <DropdownMenu.Item onclick={createWidget}>
+  <DropdownMenu.SubContent side="right">
+    <DropdownMenu.Item onSelect={(event) => event.preventDefault()} onclick={createWidget}>
       <Plus class="h-4 w-4 mr-2" />
-      <span>New browser</span>
+      <span>New Browser</span>
     </DropdownMenu.Item>
 
     <!-- Show active browser instances -->
@@ -52,8 +52,7 @@
         <div class="flex items-center justify-between px-2 py-1.5 text-sm gap-2">
           <div class="flex items-center gap-2">
             <Globe class="h-4 w-4" />
-            <span class="text-xs">Browser <span class="text-[10px] opacity-50">({widget.data?.instanceNumber || '?'}
-              )</span></span>
+              <span class="text-xs">Browser <span class="text-[10px] opacity-50">({widget.data?.instanceNumber || '?'})</span></span>
           </div>
           <div class="flex items-center gap-1">
             <Button

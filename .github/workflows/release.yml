@@ -2,51 +2,45 @@ name: Build/release
 
 on: workflow_dispatch
 
+permissions:
+  contents: write
+
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 jobs:
   release:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-24.04, windows-latest]
-        # Bun doesn't need an explicit node-version matrix, but we'll keep it for clarity
-        # or if the build steps rely on a specific Node environment being present.
-        # Bun ships its own runtime, but it is Node.js-compatible.
-        # We'll use a placeholder or remove it if not strictly necessary for the build commands.
-        # For simplicity and to match the original structure, we'll keep a version number.
-        node-version: [24]
 
     steps:
       - name: Check out Git repository
-        uses: actions/checkout@v3
-
-      # --- Changes Start Here ---
+        uses: actions/checkout@v6
 
       - name: Setup Bun ⚙️
-        uses: oven-sh/setup-bun@v1 # Use the official Bun setup action
+        uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest # You can specify a version like '1.1.9' if needed
-
-      # The 'Use Node.js' and 'Install PNPM' steps are now redundant
-      # as Bun handles the runtime and package management.
+          bun-version: latest
 
       - name: Install dependencies with Bun
-        run: bun install # Use 'bun install' instead of 'pnpm install'
+        run: bun install
+
+      - name: Typecheck
+        run: bun run typecheck
 
       - name: Build
-        run: bun run postinstall # Use 'bun run <script>' instead of 'pnpm <script>'
-
-      # --- Changes End Here ---
+        run: bun run postinstall
 
       - if: matrix.os == 'ubuntu-24.04'
         name: Build Linux
-        run: bun run release:linux # Use 'bun run'
+        run: bun run release:linux
 
       - if: matrix.os == 'ubuntu-24.04'
         name: Build Mac (On Linux)
-        run: bun run release:mac # Use 'bun run'
+        run: bun run release:mac
 
       - if: matrix.os == 'windows-latest'
         name: Build Windows
-        run: bun run release:win # Use 'bun run'
+        run: bun run release:win

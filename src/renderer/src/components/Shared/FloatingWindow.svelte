@@ -1,10 +1,18 @@
 <script lang="ts">
   import { onMount, getContext } from 'svelte';
   import type { Snippet } from 'svelte';
-  import { X, Minus, Maximize2, EyeOff } from '@lucide/svelte';
+  import { X, Minimize2, Maximize2, EyeOff } from '@lucide/svelte';
   import { FLOATING_WINDOW_CONTEXT_KEY, type FloatingWindowContext } from '$lib/contexts/floatingWindowContext';
 
   const windowContext = getContext<FloatingWindowContext>(FLOATING_WINDOW_CONTEXT_KEY);
+
+  type FloatingWindowPersistedState = {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    isMinimized: boolean;
+  };
 
   interface Props {
     persistId?: string;
@@ -27,7 +35,11 @@
     class?: string;
     children?: Snippet;
     titleSnippet?: Snippet;
-    backgroundTransparency?: number
+    controlSnippet?: Snippet;
+    backgroundTransparency?: number;
+    flushBottom?: boolean;
+    loadPersistedState?: () => Partial<FloatingWindowPersistedState> | null;
+    savePersistedState?: (state: FloatingWindowPersistedState) => void;
   }
 
   let {
@@ -51,13 +63,23 @@
     class: className = '',
     children,
     titleSnippet,
+    controlSnippet,
     backgroundTransparency = 100,
+    flushBottom = false,
+    loadPersistedState,
+    savePersistedState,
   }: Props = $props();
 
-  let x = $state(defaultX);
-  let y = $state(defaultY);
-  let width = $state(defaultWidth);
-  let height = $state(defaultHeight);
+  const initialX = (() => defaultX)();
+  const initialY = (() => defaultY)();
+  const initialWidth = (() => defaultWidth)();
+  const initialHeight = (() => defaultHeight)();
+  const initialPersistId = (() => persistId)();
+
+  let x = $state(initialX);
+  let y = $state(initialY);
+  let width = $state(initialWidth);
+  let height = $state(initialHeight);
   let isMinimized = $state(false);
   let isDragging = $state(false);
   let isResizing = $state(false);
@@ -70,8 +92,8 @@
   let resizeStartWidth = 0;
   let resizeStartHeight = 0;
 
-  const windowId = persistId || `window-${Math.random().toString(36).substr(2, 9)}`;
-  const STORAGE_KEY = persistId ? `floating-window-${persistId}` : null;
+  const windowId = initialPersistId || `window-${Math.random().toString(36).substr(2, 9)}`;
+  const STORAGE_KEY = initialPersistId ? `floating-window-${initialPersistId}` : null;
 
   // Compute if this window is active
   const isActive = $derived(windowContext.activeWindowId === windowId);
@@ -82,16 +104,25 @@
 
   // Load persisted state
   onMount(() => {
-    if (!STORAGE_KEY) return;
+    const persistedState = loadPersistedState?.();
+    if (persistedState) {
+      x = persistedState.x ?? initialX;
+      y = persistedState.y ?? initialY;
+      width = resizable ? (persistedState.width ?? initialWidth) : initialWidth;
+      height = resizable ? (persistedState.height ?? initialHeight) : initialHeight;
+      isMinimized = persistedState.isMinimized ?? false;
+      return;
+    }
 
+    if (!STORAGE_KEY) return;
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       try {
         const state = JSON.parse(stored);
-        x = state.x ?? defaultX;
-        y = state.y ?? defaultY;
-        width = resizable ? (state.width ?? defaultWidth) : defaultWidth;
-        height =  resizable ? (state.height ?? defaultHeight) : defaultHeight;
+        x = state.x ?? initialX;
+        y = state.y ?? initialY;
+        width = resizable ? (state.width ?? initialWidth) : initialWidth;
+        height =  resizable ? (state.height ?? initialHeight) : initialHeight;
         isMinimized = state.isMinimized ?? false;
       } catch (e) {
         console.error('Failed to parse stored window state:', e);
@@ -103,16 +134,23 @@
   });
 
   // Persist state
-  function persistState() {
-    if (!STORAGE_KEY) return;
-
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+  function persistState(): void {
+    const state = {
       x,
       y,
       width,
       height,
       isMinimized
-    }));
+    };
+
+    if (savePersistedState) {
+      savePersistedState(state);
+      return;
+    }
+
+    if (!STORAGE_KEY) return;
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }
 
   // Dragging logic
@@ -231,10 +269,10 @@
 
   // Reset window to default position and size
   export function reset() {
-    x = defaultX;
-    y = defaultY;
-    width = defaultWidth;
-    height = defaultHeight;
+    x = initialX;
+    y = initialY;
+    width = initialWidth;
+    height = initialHeight;
     isMinimized = false;
     persistState();
   }
@@ -251,9 +289,13 @@
 </script>
 
 <div
-  class="absolute border border-border rounded-lg shadow-md flex flex-col overflow-hidden {zIndex} {className}"
-  style="left: {x}px; top: {y}px; width: {width}px; height: {isMinimized ? 'auto' : height + 'px'};"
+  class="absolute border border-border {flushBottom ? 'rounded-t-lg' : 'rounded-lg'} shadow-md flex flex-col overflow-hidden {zIndex} {className}"
+  style="left: {x}px; top: {y}px; width: {width}px; height: {isMinimized ? 'auto' : height + 'px'}; --floating-window-scrollbar-alpha: {backgroundOpacity / 100};"
   onclick={() => windowContext.setActiveWindow(windowId)}
+  onkeydown={(event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    windowContext.setActiveWindow(windowId);
+  }}
   role="dialog"
   aria-label={title}
   tabindex="-1"
@@ -273,9 +315,24 @@
       {/if}
     </div>
     <div class="flex gap-1 items-center window-controls">
+      {#if controlSnippet}
+        {@render controlSnippet()}
+      {/if}
+      {#if hidable && onHide}
+        <button
+          class="inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded border border-transparent bg-transparent p-1 text-foreground transition-colors hover:border-input hover:bg-background dark:hover:bg-input/30"
+          onclick={(e) => {
+            e.stopPropagation();
+            onHide?.();
+          }}
+          title="Hide"
+        >
+          <EyeOff size={14} />
+        </button>
+      {/if}
       {#if minimizable}
         <button
-          class="bg-transparent border-none p-1 cursor-pointer rounded flex items-center justify-center text-foreground transition-colors hover:bg-accent"
+          class="inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded border border-transparent bg-transparent p-1 text-foreground transition-colors hover:border-input hover:bg-background dark:hover:bg-input/30"
           onclick={(e) => {
             e.stopPropagation();
             toggleMinimize();
@@ -285,20 +342,8 @@
           {#if isMinimized}
             <Maximize2 size={14} />
           {:else}
-            <Minus size={14} />
+            <Minimize2 size={14} />
           {/if}
-        </button>
-      {/if}
-      {#if hidable}
-        <button
-          class="bg-transparent border-none p-1 cursor-pointer rounded flex items-center justify-center text-foreground transition-colors hover:bg-accent"
-          onclick={(e) => {
-            e.stopPropagation();
-            onHide?.();
-          }}
-          title="Hide"
-        >
-          <EyeOff size={14} />
         </button>
       {/if}
       {#if closable}
@@ -317,7 +362,7 @@
   </div>
 
   <div
-    class="flex-1 overflow-auto p-3"
+    class="flex-1 overflow-auto {flushBottom ? 'p-0' : 'p-3'}"
     style="display: {isMinimized ? 'none' : 'block'}; background-color: color-mix(in oklab, var(--background) {backgroundOpacity}%, transparent);"
   >
     {@render children?.()}

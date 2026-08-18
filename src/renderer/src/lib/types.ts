@@ -9,6 +9,8 @@ export type NeuzIcon = {
   filter?: IconFilter;
 }
 
+export type SessionHealthStatus = 'healthy' | 'crashed' | 'load-failed' | 'unresponsive';
+
 export type NeuzSession = {
   id: string;
   label: string
@@ -16,10 +18,20 @@ export type NeuzSession = {
   floatable?: boolean;
   srcOverwrite?: string;
   partitionOverwrite?: string;
+  autoDeleteCache?: boolean;
+  zoom?: number;
+  muted?: boolean;
 }
 
 export type NeuzSessionState = {
   running: boolean;
+}
+
+export type NeuzSessionGroup = {
+  id: string;
+  label?: string;
+  sessionIds?: string[];
+  type?: 'ungrouped';
 }
 
 export type NeuzLayout = {
@@ -34,10 +46,18 @@ export type NeuzLayout = {
   autoFocus?: boolean
 }
 
+export type ViewerWindowType = 'navi_guide' | 'flyffipedia' | 'flyffulator' | 'flyff_calculators' | 'siege_stats' | 'cs_modelviewer';
+
+export type ViewerWindowConfig = {
+  x: number | null;
+  y: number | null;
+  width: number;
+  height: number;
+  alwaysOnTop: boolean;
+}
+
 export type MainWindowState = {
-  config: (NeuzConfig & {
-    changed: boolean
-  })
+  config: NeuzConfig
   sessions: NeuzSession[]
   layouts: NeuzLayout[]
   tabs: {
@@ -50,11 +70,85 @@ export type MainWindowState = {
   doCalculationUpdatesRng: number
   sessionsLayoutsRef: {
     [key: string]: {
+      healthStatus?: SessionHealthStatus;
+      healthDetail?: string;
       layouts: {
         [key: string]: Partial<NeuzClient>
       }
     }
   }
+}
+
+export type ConfigExportPayload = {
+  schemaVersion: 1;
+  exportedAt: string;
+  sessionActions: SessionActions[];
+  keyBinds: NeuzKeybind[];
+  keyBindProfiles: NeuzKeyBindProfile[];
+  activeKeyBindProfileId: string | null;
+}
+
+export type ExportCategory =
+  | 'keybinds'
+  | 'session-actions'
+  | 'sessions'
+  | 'layouts'
+  | 'general-settings'
+  | 'launch-settings'
+  | 'ui-layout'
+
+export type ConfigExportPayloadV2 = {
+  schemaVersion: 2;
+  exportedAt: string;
+  categories: ExportCategory[];
+  _sanitized?: true;
+
+  keyBinds?: NeuzKeybind[];
+  keyBindProfiles?: NeuzKeyBindProfile[];
+  activeKeyBindProfileId?: string | null;
+  sessions?: NeuzSession[];
+  layouts?: NeuzLayout[];
+  defaultLayouts?: string[];
+  sessionActions?: SessionActions[];
+  sessionGroups?: NeuzSessionGroup[];
+  window?: NeuzConfig['window'];
+  fullscreen?: NeuzConfig['fullscreen'];
+  autoSaveSettings?: boolean;
+  autoDeleteAllCachesOnStartup?: boolean;
+  defaultLaunchMode?: NeuzConfig['defaultLaunchMode'];
+  chromium?: NeuzConfig['chromium'];
+  userAgent?: string;
+  titleBarButtons?: NeuzConfig['titleBarButtons'];
+}
+
+export type ConfigImportPayload = ConfigExportPayload | ConfigExportPayloadV2;
+
+export type ConfigImportResult =
+  | { valid: true; payload: ConfigImportPayload; warnings: string[] }
+  | { valid: false; error: string }
+
+export type ConfigApplyImportArgsV2 = {
+  payload: ConfigImportPayload;
+  mode: 'replace' | 'merge';
+  categories: ExportCategory[];
+}
+
+export type ConfigApplyImportArgs = ConfigApplyImportArgsV2;
+
+export type CategoryPreviewResult = {
+  category: ExportCategory;
+  foundInFile: boolean;
+  type: 'list' | 'object';
+  newCount?: number;
+  conflictCount?: number;
+  totalCount?: number;
+  skippedSessionIds?: string[];
+  willReplace?: boolean;
+}
+
+export type SanitizationResult = {
+  payload: ConfigExportPayloadV2;
+  sanitized: boolean;
 }
 
 export type SessionAction = {
@@ -72,6 +166,15 @@ export type SessionActions = {
   sessionId: string;
   actions: SessionAction[];
 }
+
+export type UIActionDescriptor = {
+  id: string;
+  label: string;
+  category: string;
+  defaultKey?: string;
+};
+
+export type UIActionHandler = () => void;
 
 export type NeuzKeybind = {
   key: string;
@@ -104,9 +207,16 @@ export type NeuzConfig = {
       height: number;
       zoom: number;
       maximized: boolean;
-    }
+    },
+    launcher: {
+      width: number;
+      height: number;
+      x: number | null;
+      y: number | null;
+    },
   },
   autoSaveSettings: boolean;
+  autoDeleteAllCachesOnStartup?: boolean;
   userAgent?: string;
   defaultLaunchMode: 'normal' | 'session_launcher'
   chromium: {
@@ -118,7 +228,9 @@ export type NeuzConfig = {
   keyBindProfiles: NeuzKeyBindProfile[]
   activeKeyBindProfileId?: string | null
   keyBinds: NeuzKeybind[]
+  syncReceiverSessionId?: string | null
   sessionActions: SessionActions[];
+  sessionGroups?: NeuzSessionGroup[];
   titleBarButtons: {
     darkModeToggle: boolean;
     fullscreenToggle: boolean;
@@ -129,3 +241,5 @@ export type NeuzConfig = {
     hideTitleBarInSessionLayouts: boolean;
   };
 }
+
+export type NeuzConfigPatch = Pick<Partial<NeuzConfig>, 'sessions' | 'layouts' | 'defaultLayouts'>;

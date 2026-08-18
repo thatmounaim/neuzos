@@ -1,6 +1,7 @@
 node_modules
 dist
 out
+.env*
 .DS_Store
 .eslintcache
 .idea
@@ -12,3 +13,11 @@ src/renderer/src/lib/widgets/testing
 .idea
 .claude
 CLAUDE.md
+node_modules/
+
+# Spec & planning artifacts — kept locally, excluded from PRs
+specs/
+.specify/
+.github/agents/
+.github/prompts/
+

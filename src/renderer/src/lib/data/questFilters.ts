@@ -1,7 +1,7 @@
 import type { Quest } from "./quests";
 
 const FWC_QUESTLINES = new Set([
-  "1st job change",
+  "1st Job Change",
   "2nd Job Change",
   "3rd Job Change",
   "The Clockworks War",
@@ -25,6 +25,10 @@ const FWC_SPECIFIC_OFFICE_QUESTS = new Set([
 ]);
 
 const FWC_OFFICE_LEVEL_THRESHOLD = 115;
+
+export function formatRecommendationLabel(recommendation: string): string {
+  return recommendation.toLowerCase() === "on the go" ? "On the Go" : recommendation;
+}
 
 export function getRecommendationTextColor(cat: string): string {
   switch (cat) {

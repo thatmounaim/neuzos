@@ -18,9 +18,19 @@
     Code,
     NotebookPen,
     Eye,
-    Settings
+    Settings,
+    PanelLeftClose,
+    PanelLeftOpen,
+    PanelTopClose,
+    PanelTopOpen
   } from '@lucide/svelte';
   import * as Tabs from '$lib/components/ui/tabs';
+  import {
+    readNotepadState,
+    readNotepadWindowState,
+    writeNotepadState,
+    writeNotepadWindowState
+  } from '$lib/localStorageStores';
 
   interface NotepadFile {
     id: string;
@@ -99,15 +109,12 @@
   let windowRef: FloatingWindow;
 
   const WIDGET_IDENTIFIER = 'widget.builtin.notepad';
-  const STORAGE_KEY = WIDGET_IDENTIFIER;
   const TODO_START_MARKER = '$startTodo';
   const TODO_END_MARKER = '$endTodo';
 
   function loadPersistedState(): PersistedNotepadState | null {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (!stored) return null;
-      return JSON.parse(stored) as PersistedNotepadState;
+      return readNotepadState<PersistedNotepadState>();
     } catch (e) {
       console.error('Failed to load notepad state:', e);
       return null;
@@ -131,10 +138,7 @@
   // Save files to localStorage
   function saveFiles() {
     try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ files, tabLayoutMode } satisfies PersistedNotepadState)
-      );
+      writeNotepadState({ files, tabLayoutMode } satisfies PersistedNotepadState);
     } catch (e) {
       console.error('Failed to save notepad files:', e);
     }
@@ -163,7 +167,7 @@
       items: items ?? [
         {
           id: createId('todo-item'),
-          text: 'New todo item',
+          text: 'New Todo Item',
           checked: false
         }
       ]
@@ -273,7 +277,7 @@
         continue;
       }
 
-      normalized.push({ ...block, title: block.title || 'Todo', items: [...block.items] });
+      normalized.push({ ...block, title: block.title, items: [...block.items] });
 
       // Always keep an editable area below todo blocks for seamless continuation.
       const nextBlock = blocks[index + 1];
@@ -329,11 +333,12 @@
   let lastEditModeByFile = $state<Record<string, 'wysiwyg' | 'raw'>>({});
   let editingFileId = $state<string | null>(null);
   let editingFileName = $state<string>('');
-  let tabsListRef: HTMLDivElement;
+  let tabsListRef: HTMLDivElement | null = $state(null);
   let rawEditorRef: HTMLDivElement | null = null;
   let textEditorRefs = $state<Record<string, HTMLDivElement | null>>({});
   let previewTodoCollapsedByFile = $state<Record<string, Record<string, boolean>>>({});
   let settingsOpen = $state<boolean>(false);
+  let filesPanelOpen = $state<boolean>(true);
 
   function normalizeEditableText(content: string | null | undefined): string {
     return (content ?? '').replace(/\u00a0/g, ' ');
@@ -754,7 +759,7 @@
   const hasOnlyTextBlock = $derived(
     activeBlocks.length === 1 && activeBlocks[0]?.type === 'text'
   );
-  const activeEditorMode = $derived(editorModeByFile[activeFileId] ?? 'preview');
+  const activeEditorMode = $derived(editorModeByFile[activeFileId] ?? 'wysiwyg');
   const isEditMode = $derived(activeEditorMode !== 'preview');
 
   $effect(() => {
@@ -783,7 +788,7 @@
     };
     editorModeByFile = {
       ...editorModeByFile,
-      [fileId]: editorModeByFile[fileId] ?? 'preview'
+      [fileId]: editorModeByFile[fileId] ?? 'wysiwyg'
     };
     lastEditModeByFile = {
       ...lastEditModeByFile,
@@ -826,7 +831,7 @@
     };
     files = [...files, newFile];
     blocksByFile = { ...blocksByFile, [newId]: [createTextBlock('')] };
-    editorModeByFile = { ...editorModeByFile, [newId]: 'preview' };
+    editorModeByFile = { ...editorModeByFile, [newId]: 'wysiwyg' };
     lastEditModeByFile = { ...lastEditModeByFile, [newId]: 'wysiwyg' };
     activeFileId = newId;
     saveFiles();
@@ -1536,6 +1541,8 @@
   <FloatingWindow
     bind:this={windowRef}
     persistId={WIDGET_IDENTIFIER}
+    loadPersistedState={readNotepadWindowState}
+    savePersistedState={writeNotepadWindowState}
     defaultX={300}
     defaultY={200}
     defaultWidth={600}
@@ -1546,17 +1553,43 @@
     onHide={onHide}
   >
     {#snippet titleSnippet()}
-      <div class="flex w-full items-center justify-between gap-2">
-        <div class="flex min-w-0 items-center gap-2">
-          <StickyNote size={16} />
-          <span class="truncate">Notepad - {activeFile?.name || 'Untitled'}</span>
+      <div class="flex min-w-0 items-center gap-2">
+        <StickyNote size={16} />
+        <span class="truncate">Notepad - {activeFile?.name || 'Untitled'}</span>
+      </div>
+    {/snippet}
+
+    {#snippet controlSnippet()}
+      <div class="flex shrink-0 items-center gap-2" role="presentation" onmousedown={(e) => e.stopPropagation()}>
+        <div class="flex items-center gap-1 rounded-md border border-border bg-background/80 p-0.5">
+          <Button
+            size="sm"
+            variant={isEditMode ? 'default' : 'ghost'}
+            class="h-6 px-2 text-xs"
+            onclick={() => setTopLevelMode('edit')}
+          >
+            <NotebookPen class="h-3.5 w-3.5 mr-1" />
+            Edit
+          </Button>
+          <Button
+            size="sm"
+            variant={activeEditorMode === 'preview' ? 'default' : 'ghost'}
+            class="h-6 px-2 text-xs"
+            onclick={() => setTopLevelMode('preview')}
+          >
+            <Eye class="h-3.5 w-3.5 mr-1" />
+            Preview
+          </Button>
         </div>
 
-        <div class="relative" onmousedown={(e) => e.stopPropagation()}>
-          <Button
-            size="icon"
-            variant={settingsOpen ? 'secondary' : 'ghost'}
-            class="h-7 w-7"
+        <div class="relative">
+          <button
+            type="button"
+            class="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded border border-transparent p-1 text-foreground transition-colors hover:border-input hover:bg-background dark:hover:bg-input/30 {settingsOpen ? 'bg-secondary text-secondary-foreground' : 'bg-transparent'}"
+            onmousedown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
             onclick={(e) => {
               e.stopPropagation();
               settingsOpen = !settingsOpen;
@@ -1564,14 +1597,15 @@
             title="Settings"
           >
             <Settings class="h-4 w-4" />
-          </Button>
+          </button>
 
           {#if settingsOpen}
             <div
               class="absolute right-0 top-8 z-30 w-44 rounded-md border border-border bg-popover p-2 shadow-md"
+              role="presentation"
               onmousedown={(e) => e.stopPropagation()}
             >
-              <div class="mb-2 text-xs font-medium text-muted-foreground">Tab layout</div>
+              <div class="mb-2 text-xs font-medium text-muted-foreground">Tab Layout</div>
               <div class="space-y-1">
                 <Button
                   size="sm"
@@ -1598,7 +1632,7 @@
 
     <div class="flex flex-col h-full -m-3">
       <Tabs.Root value={activeFileId} onValueChange={handleTabChange} class="flex flex-col h-full min-h-0">
-        {#if tabLayoutMode === 'horizontal'}
+        {#if tabLayoutMode === 'horizontal' && filesPanelOpen}
         <!-- Tabs List with Add Button -->
         <div class="flex items-center border-b border-border bg-muted/30 shrink-0">
           <Button
@@ -1702,7 +1736,7 @@
         {/if}
 
         <div class={tabLayoutMode === 'vertical' ? 'flex flex-1 min-h-0' : 'flex flex-col flex-1 min-h-0'}>
-          {#if tabLayoutMode === 'vertical'}
+          {#if tabLayoutMode === 'vertical' && filesPanelOpen}
             <div class="w-56 border-r border-border bg-muted/20 flex flex-col min-h-0">
               <div class="flex items-center justify-between px-2 py-2 border-b border-border shrink-0">
                 <span class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Files</span>
@@ -1790,30 +1824,33 @@
           <div class="flex flex-1 min-h-0 min-w-0 flex-col">
 
         <div class="shrink-0 border-b border-border bg-muted/20 px-3 py-2 flex items-center justify-between gap-3">
-          <div class="flex items-center gap-1 rounded-md border border-border bg-background p-1">
+          <div class="flex items-center gap-2">
             <Button
-              size="sm"
-              variant={activeEditorMode === 'preview' ? 'default' : 'ghost'}
-              class="h-7 px-2"
-              onclick={() => setTopLevelMode('preview')}
+              size="icon"
+              variant={filesPanelOpen ? 'secondary' : 'ghost'}
+              class="h-9 w-9"
+              onclick={() => filesPanelOpen = !filesPanelOpen}
+              title={filesPanelOpen ? 'Hide Open Files' : 'Show Open Files'}
             >
-              <Eye class="h-3.5 w-3.5 mr-1" />
-              Preview
-            </Button>
-            <Button
-              size="sm"
-              variant={isEditMode ? 'default' : 'ghost'}
-              class="h-7 px-2"
-              onclick={() => setTopLevelMode('edit')}
-            >
-              <NotebookPen class="h-3.5 w-3.5 mr-1" />
-              Edit
+              {#if tabLayoutMode === 'vertical'}
+                {#if filesPanelOpen}
+                  <PanelLeftClose class="h-4 w-4" />
+                {:else}
+                  <PanelLeftOpen class="h-4 w-4" />
+                {/if}
+              {:else}
+                {#if filesPanelOpen}
+                  <PanelTopClose class="h-4 w-4" />
+                {:else}
+                  <PanelTopOpen class="h-4 w-4" />
+                {/if}
+              {/if}
             </Button>
           </div>
 
-          <div class="relative flex items-center gap-2">
+          <div class="relative flex min-w-0 flex-1 items-center gap-2">
             {#if activeEditorMode === 'wysiwyg'}
-              <div class="flex items-center gap-1 rounded-md border border-border bg-background p-1">
+              <div class="flex min-w-0 items-center gap-1 rounded-md border border-border bg-background p-1">
                 <Button size="icon" variant="ghost" class="h-7 w-7" onmousedown={(e) => e.preventDefault()} onclick={() => runToolbarAction(() => wrapSelection('**'))} title="Bold">
                   <Bold class="h-3.5 w-3.5" />
                 </Button>
@@ -1838,23 +1875,21 @@
               </div>
             {/if}
           </div>
+
+          {#if isEditMode}
+            <Button
+              size="sm"
+              variant="outline"
+              class="h-9 px-2 shrink-0"
+              onclick={() => setEditorMode(activeEditorMode === 'raw' ? 'wysiwyg' : 'raw')}
+              title="Toggle Edit Mode"
+            >
+              {activeEditorMode === 'raw' ? 'Raw' : 'Editor'}
+            </Button>
+          {/if}
         </div>
 
         <div class="relative flex-1 overflow-auto p-3 space-y-3 bg-background/40">
-          {#if isEditMode}
-            <div class="absolute right-3 top-3 z-10">
-              <Button
-                size="sm"
-                variant="outline"
-                class="h-7 px-2"
-                onclick={() => setEditorMode(activeEditorMode === 'raw' ? 'wysiwyg' : 'raw')}
-                title="Toggle edit mode"
-              >
-                {activeEditorMode === 'raw' ? 'Raw' : 'Editor'}
-              </Button>
-            </div>
-          {/if}
-
           {#if activeEditorMode === 'raw'}
             <div
               contenteditable="true"
@@ -1994,7 +2029,7 @@
                       <Input
                         value={block.title}
                         oninput={(e) => updateTodoTitle(block.id, e.currentTarget.value)}
-                        placeholder="# title here"
+                        placeholder="Todo Title..."
                         class="h-7 text-sm font-medium border-0 px-0 shadow-none focus-visible:ring-0"
                       />
                       <Button
@@ -2024,7 +2059,7 @@
                           <Input
                             value={item.text}
                             oninput={(e) => updateTodoItemText(block.id, item.id, e.currentTarget.value)}
-                            placeholder="Todo item text"
+                            placeholder="Todo Item Text"
                             class="h-7 border-0 shadow-none focus-visible:ring-0"
                           />
                           <Button
@@ -2032,7 +2067,7 @@
                             variant="ghost"
                             class="h-6 w-6 shrink-0 hover:bg-destructive hover:text-destructive-foreground"
                             onclick={() => removeTodoItem(block.id, item.id)}
-                            title="Delete item"
+                            title="Delete Item"
                           >
                             <X class="h-3.5 w-3.5" />
                           </Button>
@@ -2042,7 +2077,7 @@
 
                     <Button size="sm" variant="outline" class="h-7" onclick={() => addTodoItem(block.id)}>
                       <Plus class="h-3.5 w-3.5 mr-1" />
-                      Add item
+                      Add Item
                     </Button>
 
                   </div>
